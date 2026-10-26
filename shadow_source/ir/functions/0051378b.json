@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "address": "0x0051378B",
+  "proposed_name": "ColorTransform",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Two-pass texture/audio data transformation on a shared buffer. Pass 1, gated by the address value of global unk_602000 (0x602000) being a set bitmask in the flags dword at this+0x60, regenerates engine sound wave tables via EngineSoundWaveTableGenerator and then, when the format byte at this+0x116 equals 3, remaps each pixel's three RGB bytes at the buffer (this+0x104) through a lookup table (this+0x138). Pass 2, gated by flags bit 3 (0x8) at this+0x60 and the same format value 3, computes per-channel shift amounts as 8 minus the amplitude bytes at this+0x150/0x151/0x152, clamps oversize shifts to 0, and right-shifts each pixel's R/G/B channels by those amounts. Both passes iterate the pixel count WORD at this+0x108.",
+  "local_names": {
+    "a1": "texture/audio data object; flags at +0x60, buffer pointer at +0x104, count at +0x108, format at +0x116, lookup table at +0x138, channel shifts at +0x150..+0x152",
+    "v2": "format indicator byte read from this+0x116; must equal 3 for the pixel loops",
+    "v3": "pixel count for the pass-1 lookup remap loop (WORD at this+0x108)",
+    "v4": "byte cursor into the buffer starting at *(this+0x104)+2, advancing 3 bytes per pixel",
+    "v5": "red channel shift (8 minus byte at this+0x150), clamped to 0 when above 8",
+    "v12": "green channel shift (8 minus byte at this+0x151), clamped to 0 when above 8",
+    "v11": "blue channel shift (8 minus byte at this+0x152), clamped to 0 when above 8",
+    "v8": "pixel count for the pass-2 shift loop (WORD at this+0x108)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Read the format indicator byte at this+0x116; a value of 3 is required by both pixel loops.",
+      "evidence_refs": ["field:this:0x00000116", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pass 1 gate: the address value of unk_602000 (0x602000) is used as a bitmask; when it has any bits set against the flags dword at this+0x60 the pass runs.",
+      "evidence_refs": ["global:0x00602000", "field:this:0x00000060", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Regenerate the engine sound wave tables via EngineSoundWaveTableGenerator, which also supplies the lookup table pointer consumed by the remap pass.",
+      "evidence_refs": ["callee:0x00513482", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pass 1 remap runs only when the format byte at this+0x116 equals 3.",
+      "evidence_refs": ["field:this:0x00000116", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate the pixel count WORD at this+0x108; for each pixel remap three consecutive bytes at the buffer pointed to by this+0x104 through the lookup table at this+0x138.",
+      "evidence_refs": ["field:this:0x00000108", "field:this:0x00000104", "field:this:0x00000138", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Rewrite the third channel (B) byte of the first pixel at *(this+0x104)+2 with the lookup-table result.",
+      "evidence_refs": ["field:*(this+0x104):0x00000002", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pass 2 gate: the flags byte at this+0x60 has bit 3 (0x8) set and the format byte at this+0x116 equals 3.",
+      "evidence_refs": ["field:this:0x00000060", "field:this:0x00000116", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute per-channel right-shift amounts as 8 minus the amplitude bytes at this+0x150 (red), this+0x151 (green) and this+0x152 (blue).",
+      "evidence_refs": ["field:this:0x00000150", "field:this:0x00000151", "field:this:0x00000152", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp each computed shift amount to 0 when the 8-minus-amplitude value exceeds 8.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate the pixel count WORD at this+0x108; right-shift each pixel's R/G/B channels at the buffer pointed to by this+0x104 by the respective clamped shift amounts.",
+      "evidence_refs": ["field:this:0x00000108", "field:this:0x00000104", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Legacy ABI label Texture_Image_Color_Transform corroborates the texture color-transformation role.",
+      "evidence_refs": ["abi:lead", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by AudioBufferSizeCalc (0x0051868C) to transform audio/texture buffer data.",
+      "evidence_refs": ["caller:0x0051868C", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void ColorTransform(int a1) {",
+    "  int format = *(unsigned __int8*)(a1 + 0x116);",
+    "  if (0x602000 & *(int*)(a1 + 0x60)) {",
+    "    EngineSoundWaveTableGenerator(a1);",
+    "    if (format == 3) {",
+    "      int n = *(unsigned __int16*)(a1 + 0x108);",
+    "      if (n) {",
+    "        unsigned __int8* p = *(unsigned __int8**)(a1 + 0x104) + 2;",
+    "        do {",
+    "          p[-2] = lookup[ p[-2] ];",
+    "          p[-1] = lookup[ p[-1] ];",
+    "          p[0]  = lookup[ p[0] ];",
+    "          p += 3;",
+    "        } while (--n);",
+    "      }",
+    "    }",
+    "  }",
+    "  if ((*(unsigned __int8*)(a1 + 0x60) & 8) && format == 3) {",
+    "    int shR = 8 - *(unsigned __int8*)(a1 + 0x150); if (shR > 8) shR = 0;",
+    "    int shG = 8 - *(unsigned __int8*)(a1 + 0x151); if (shG > 8) shG = 0;",
+    "    int shB = 8 - *(unsigned __int8*)(a1 + 0x152); if (shB > 8) shB = 0;",
+    "    int n = *(unsigned __int16*)(a1 + 0x108);",
+    "    for (int i = 0; i < n; i++) {",
+    "      *(unsigned __int8*)(i + *(int*)(a1 + 0x104) + 0) >>= shR;",
+    "      *(unsigned __int8*)(i + *(int*)(a1 + 0x104) + 1) >>= shG;",
+    "      *(unsigned __int8*)(i + *(int*)(a1 + 0x104) + 2) >>= shB;",
+    "    }",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The lookup table at this+0x138 is produced by EngineSoundWaveTableGenerator, but the exact table layout and index domain are not visible in this function.",
+    "The meaning of the address of unk_602000 used as a bitmask (pass-1 gate) is a deterministically observed pattern; its semantic flag name is unknown.",
+    "Whether the buffer at this+0x104 holds texture pixels, audio samples, or shared data depends on the caller AudioBufferSizeCalc context, not resolvable here."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

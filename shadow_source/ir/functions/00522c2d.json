@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "address": "0x00522C2D",
+  "proposed_name": "F_4x4RotationMatrixBuild",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Builds a 4x4 rotation matrix in output a1 from the two packed-float rows of input a2 (a2[0], a2[1]) using 3DNow! intrinsics (pfadd, pfmul, pswapd, pfpnacc, pfacc, pfsubr, punpck) and the packed identity constants 0x3F8000003F800000 (1.0/1.0) and 1065353216 (1.0f). Writes all eight __m64 output slots, including a1[6] = 0 and the homogeneous row a1[7] = {0, 1.0f}. No conditional branches; returns the output pointer. The cluster prelabel marks it a structural twin of F_3x3MatrixInverse3DNow (00522b5b, DERIVED), though it uses pfpnacc/pswapd lane reductions the twin does not.",
+  "local_names": {
+    "a1": "output 4x4 rotation matrix (8 __m64 slots, two floats per row)",
+    "a2": "input packed rotation data (two __m64 rows)"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Read the two input packed rows a2[0] and a2[1], double each element with pfadd (v5 = a2[0]+a2[0], v4 = a2[1]+a2[1]), and merge lanes with punpckldq (v7) for the product stage.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the pfmul products v6, v8, v9, v10, v11 and reduce pairs with pfpnacc (v12, v13, v14) to build the rotation cross-terms.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Form the 1.0-based diagonal terms with pfsubr/pfacc against the packed constant 0x3F8000003F800000 (1.0/1.0): the a1[5] scalar element = 1.0 - pfacc(v6,v6), and v15 = (1.0 - v6) - punpckldq(v10,v10).",
+      "evidence_refs": ["global:0x005AF900", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the homogeneous row 3 col 0-1: a1[6] = 0 (this+0x30).",
+      "evidence_refs": ["field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the output rotation slots: a1[0] (this+0x0) = punpckhdq(v15,v13), a1[1] (this+0x8) = punpckldq(v14,0), a1[2] (this+0x10) = punpckldq(v13,v15).",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the remaining rotation slots: a1[3] (this+0x18) = punpckhdq(v12,0), a1[4] (this+0x20) = punpckldq(pswapd(v14),v12), a1[5] (this+0x28) = punpckhdq(pfsubr(pfacc(v6,v6), 0x3F8000003F800000), 0).",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x00000020", "field:this:0x00000028", "global:0x005AF900", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the homogeneous last row a1[7] (this+0x38) = punpckldq(0, 1065353216), i.e. {0, 1.0f}.",
+      "evidence_refs": ["field:this:0x00000038", "global:0x005AF900", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Emit _m_femms() to exit MMX state and return the output matrix pointer a1.",
+      "evidence_refs": ["function:0x00522C2D", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "__m64 *F_4x4RotationMatrixBuild(__m64 *a1, __m64 *a2) {",
+    "  // read two packed input rows, double with pfadd, merge lanes",
+    "  // v6..v11: pfmul products; v12..v14: pfpnacc reductions",
+    "  // diagonal terms from 1.0 - accumulations",
+    "  a1[6] = 0;",
+    "  a1[0] = punpckhdq(v15, v13);",
+    "  a1[1] = punpckldq(v14, 0);",
+    "  a1[2] = punpckldq(v13, v15);",
+    "  a1[3] = punpckhdq(v12, 0);",
+    "  a1[4] = punpckldq(pswapd(v14), v12);",
+    "  a1[5] = {1.0 - pfacc(v6,v6), 0};",
+    "  a1[7] = {0, 1.0f};            // homogeneous last row",
+    "  _m_femms();",
+    "  return a1;",
+    "}"
+  ],
+  "unresolved": [
+    "The read-only global qword_5AF900 is flagged as read, but the raw decompiled source renders the constants inline (0x3F8000003F800000 and 1065353216); the exact global-to-constant mapping is not established.",
+    "How the two packed input rows of a2 encode the rotation (axis-angle vs. rotation submatrix) is not established from the packet alone.",
+    "The cluster prelabel (DERIVED) calls this a structural twin of 00522b5b, but the pfpnacc/pswapd lane reductions differ from that function, so the twin claim is unverified.",
+    "The owner object is unknown; the function has no static callers or callees."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

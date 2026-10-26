@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "address": "0x0041EB30",
+  "proposed_name": "FindBestScoringEntry",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Aggregates scoring values from the standings node at dword_7D2DB0: for each scoring category it accumulates the base entry's score into accumulator slot 0 and each indexed entry's score into its slot, then finds the entry with the highest accumulated total, optionally filtered by name via sub_588410 (with byte_5EA438 as the fallback name). Returns the best entry pointer, or 0 on a tie when the strict flag a2 is not set, or when the standings node is absent or the category count is less than 2.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Dereference the standings node from dword_7D2DB0 via LinkedListDereference; when absent, the function returns null.",
+      "evidence_refs": ["callee:0x004C2850", "global:0x007D2DB0"]
+    },
+    {
+      "kind": "call",
+      "description": "Read the number of scoring categories from the node via FlagsGetter.",
+      "evidence_refs": ["callee:0x004C11D0"]
+    },
+    {
+      "kind": "call",
+      "description": "Count the active standings entries via ActiveEntityCounter.",
+      "evidence_refs": ["callee:0x004C1370"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the 26-slot score accumulator array.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the category count is less than 2, return 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For each category, add the base entry's score (via FixedOffsetReturn and IndexedFieldGetter) into slot 0 and each indexed entry's score (via ShortComputation_13a0 and IndexedFieldGetter) into slot k+1.",
+      "evidence_refs": ["callee:0x004C1390", "callee:0x004C13A0", "callee:0x0041ED20"]
+    },
+    {
+      "kind": "call",
+      "description": "When a name filter a1 is given, compare the base entry's name against it via sub_588410, using byte_5EA438 when the entry's name pointer is null.",
+      "evidence_refs": ["callee:0x00588410", "global:0x005EA438"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Track the best accumulated total v16 and the best entry pointer v27.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan the remaining entries; when an entry's accumulated total exceeds v16, re-apply the same name filter and update v27 and v16.",
+      "evidence_refs": ["callee:0x004C13A0", "callee:0x00588410", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Tie handling with the base/first entry: when the best entry differs from the base entry and ties its total, return the best pointer if the strict flag a2 is set, else 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan every entry for a further tie with v16; on a tie return the best pointer if a2 is set, else 0, otherwise return the best pointer.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the best entry pointer, or 0 when the standings node is absent.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int find_best(int name, char strict) {",
+    "    void *node = LinkedListDereference(&dword_7D2DB0);",
+    "    if (!node) return 0;",
+    "    int categories = FlagsGetter(node);",
+    "    int count = ActiveEntityCounter(node);",
+    "    int totals[26]; memset(totals, 0, sizeof(totals));",
+    "    if (categories < 2) return 0;",
+    "    for (i = 0; i < categories - 1; ++i) {",
+    "        totals[0] += IndexedFieldGetter(FixedOffsetReturn(node), i);",
+    "        for (k = 0; k < count; ++k)",
+    "            totals[k + 1] += IndexedFieldGetter(ShortComputation_13a0(k), i);",
+    "    }",
+    "    int bestTotal = (name ? match_name(base, name) : 1) ? totals[0] : 0;",
+    "    void *best = bestTotal ? FixedOffsetReturn(node) : 0;",
+    "    for (j = 0; j < count; ++j)",
+    "        if (totals[j + 1] > bestTotal && (name ? match_name(ShortComputation_13a0(j), name) : 1))",
+    "            { best = ShortComputation_13a0(j); bestTotal = totals[j + 1]; }",
+    "    if (best != FixedOffsetReturn(node) && bestTotal == totals[0]) return strict ? best : 0;",
+    "    for (k = 0; k < count; ++k)",
+    "        if (best != ShortComputation_13a0(k) && bestTotal == totals[k + 1]) return strict ? best : 0;",
+    "    return best;",
+    "}"
+  ],
+  "unresolved": [
+    "How FlagsGetter's category count and IndexedFieldGetter's indices map to the standings columns.",
+    "The fallback string byte_5EA438 used when an entry's name pointer is null.",
+    "The external meaning of the strict flag a2; the tie behavior is rendered directly from the code but not confirmed by an independent source."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

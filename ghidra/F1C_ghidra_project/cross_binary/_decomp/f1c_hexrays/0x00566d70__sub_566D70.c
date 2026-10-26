@@ -1,0 +1,8 @@
+// f1c  0x00566d70  size=51
+bool __thiscall sub_566D70(int *this)
+{
+  if ( this[4] )
+    return sub_535390(*this, 0, 2) == 0;
+  else
+    return sub_587F64(*this, 0, 2) == 0;
+}

@@ -1,0 +1,87 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00558310
+// Canonical corpus name: sub_558310
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_558310_00558310.c
+
+void UnknownObject::MeshIndexBufferBuilder()
+{
+    // Builds the vertex/index buffer resources for a 3D mesh object (pointed to by this+80), dispatching on the mode word at this+32 (bit 0 vs bit 1 select two LOD/quality layouts). Both paths allocate a 36-byte vertex-buffer descriptor (stored at *(this+80)+28), fill it with size 32, width = this+44 * this+36, height = this+44 * this+40, stride 64 and format 1234, create it via sub_540DF0(dword_8B78A0, desc), then allocate a 28-byte index-buffer descriptor (stored at *(this+80)+36) filled with count 2 and the mesh height, created via sub_540FC0(dword_8B78A0, desc). ConditionalFieldSetter_0d40 then finishes setup. Bit-0 path writes render-state texture-coordinate pairs (at *(*(this+80)+12)+28/+32, values 0 / 1.0) and one triangle-strip index pattern per row (12 index words) with a row stride of this+36; bit-1 path writes six vertex texture-coordinate pairs per row and a denser index pattern whose flavor is chosen by flag bit 0x10 of *(this+80) (mesh object flags). Finally the generated index data is copied from the source buffer *(this+80)+20 to the destination *(this+80)+40 (size 2 * this+44 * this+40 when the signed byte at this+32 is non-negative, or 2 * mesh height otherwise), followed by ConditionalBitmaskCleanup(*(this+80), 12) and return 0. Any creation failure routes to sub_53C590(-1, aErrorCreatingV) and returns -1.
+    // GUARD: Read the mode word at this+32; bit 0 selects the first index-pattern layout, bit 1 the second, and if neither is set the function returns 0 without building anything. [field:this:0x00000020, field:this:0x00000050, function:0x00558310, source:raw]
+    // ASSIGNMENT: Mesh object sizing: set the vertex-buffer size field at *(this+80)+56 to 32, the width field at *(this+80)+8 to this+44 * this+36, and the height field at *(this+80)+16 to this+44 * this+40. [field:*(this+0x50):0x00000038, field:*(this+0x50):0x00000008, field:*(this+0x50):0x00000010, field:this:0x0000002C, field:this:0x00000024, field:this:0x00000028, source:raw]
+    // CALL: Allocate a 36-byte vertex-buffer descriptor with OperatorNewNhMallocWrapper(36), zero all nine dwords, and store it at *(this+80)+28. [callee:0x00587C03, field:*(this+0x50):0x0000001C, source:raw]
+    // ASSIGNMENT: Fill the vertex-buffer descriptor: [0] = buffer size from *(this+80)+56, [0xC] = width from *(this+80)+8, [0x8] = 64 (stride), [0x4] = 1234 (vertex format constant). [field:*(*(this+0x50)+0x1C):0x00000000, field:*(*(this+0x50)+0x1C):0x0000000C, field:*(*(this+0x50)+0x1C):0x00000008, field:*(*(this+0x50)+0x1C):0x00000004, source:raw]
+    // CALL: Create the vertex buffer by calling sub_540DF0(dword_8B78A0, *(this+80)+28); a non-zero return skips to the failure path. [callee:0x00540DF0, global:0x008B78A0, source:raw]
+    // ASSIGNMENT: Clear the mesh flag field at *(this+80)+44 to 0, then allocate a 28-byte index-buffer descriptor with OperatorNewNhMallocWrapper(28), zero it, and store it at *(this+80)+36. [field:*(this+0x50):0x0000002C, callee:0x00587C03, field:*(this+0x50):0x00000024, source:raw]
+    // ASSIGNMENT: Fill the index-buffer descriptor: [0] = 2 (index buffer count) and [0x4] = the height field from *(this+80)+16 (index count). [field:*(*(this+0x50)+0x24):0x00000000, field:*(*(this+0x50)+0x24):0x00000004, field:*(this+0x50):0x00000010, source:raw]
+    // CALL: Create the index buffers by calling sub_540FC0(dword_8B78A0, *(this+80)+36); a non-zero return skips to the failure path. [callee:0x00540FC0, global:0x008B78A0, source:raw]
+    // ASSIGNMENT: Clear the mesh flag field at *(this+80)+48 to 0 after the index-buffer creation succeeds. [field:*(this+0x50):0x00000030, source:raw]
+    // CALL: Finalize descriptor linkage with ConditionalFieldSetter_0d40(*(this+80), 44), applying the index count to the mesh object. [callee:0x00540D40, source:raw]
+    // GUARD: Signed-byte check on the mode word: when *(char*)(this+32) is non-negative the normal layout and copy sizes apply (guard:1); the negative branch uses the descriptor-derived size instead (guard:0). [guard:1, guard:0, field:this:0x00000020, source:raw]
+    // LOOP: Bit-0 path (this+32 bit 0) with non-negative sign: write render-state texture-coordinate pairs (0 / 1.0 / 1.0 / 1.0 / 1.0 / 0) into the blocks at *(*(this+80)+12)+28/+32, then for each row i in 0..this+44 fill the vertex data at *(this+80)+32 + (i * this+36) << 6 with UV pairs and write the 12-word triangle-strip index pattern (base = i * this+36) into *(this+80)+20 + 2 * i * this+40; when the byte at this+33 has bit 1 clear, six additional index words are written. [field:*(this+0x50):0x0000000C, field:*(*(this+0x50)+0xC):0x0000001C, field:*(*(this+0x50)+0xC):0x00000020, field:this:0x0000002C, field:this:0x00000024, field:this:0x00000021, field:*(this+0x50):0x00000020, field:*(this+0x50):0x00000014, source:raw]
+    // LOOP: Bit-1 path (this+32 bit 1): when the sign is non-negative, copy this+36 and this+40 into *(this+80)+8 and *(this+80)+16; then for each row j in 0..this+44 run a six-iteration vertex fill writing UV pairs at *(this+80)+32 + (j * this+36) << 6 and emit a dense triangle-strip index pattern into *(this+80)+20 + 2 * j * this+40, choosing between two pattern flavors from whether flag bit 0x10 of *(this+80) is set. [field:this:0x0000002C, field:this:0x00000024, field:this:0x00000028, field:*(this+0x50):0x00000008, field:*(this+0x50):0x00000010, field:*(this+0x50):0x00000000, field:*(this+0x50):0x00000020, field:*(this+0x50):0x00000014, source:raw]
+    // CALL: Copy the generated index data from the source buffer *(this+80)+20 to the destination buffer *(this+80)+40 via qmemcpy; the byte count is 2 * this+44 * this+40 on the non-negative path (guard:1) or 2 * the mesh height field from *(this+80)+16 on the negative path (guard:0). Then run ConditionalBitmaskCleanup(*(this+80), 12) and return 0. [field:*(this+0x50):0x00000014, field:*(this+0x50):0x00000028, field:this:0x0000002C, field:*(this+0x50):0x00000010, guard:0, guard:1, callee:0x00540DA0, source:raw]
+    // CALL: Failure path: report the error via sub_53C590(-1, aErrorCreatingV) and return -1 when either buffer creation fails. [callee:0x0053C590, global:0x005DBD40, source:raw]
+    // RETURN: Returns 0 on the successful build path, -1 on creation failure, and 0 when neither mode bit of this+32 is set. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   mode = *(this + 32);
+    //   if (mode & 1) {
+    //     *(*(this + 80) + 56) = 32;
+    //     *(*(this + 80) + 8) = *(this + 44) * *(this + 36);
+    //     *(*(this + 80) + 16) = *(this + 44) * *(this + 40);
+    //     v3 = zero36(OperatorNewNhMallocWrapper(36)); *(*(this + 80) + 28) = v3;
+    //     *v3 = *(*(this + 80) + 56); v3[3] = *(*(this + 80) + 8); v3[2] = 64; v3[1] = 1234;
+    //     if (sub_540DF0(dword_8B78A0, v3)) goto fail;
+    //     *(*(this + 80) + 44) = 0;
+    //     v4 = zero28(OperatorNewNhMallocWrapper(28)); *(*(this + 80) + 36) = v4;
+    //     *v4 = 2; v4[1] = *(*(this + 80) + 16);
+    //     if (sub_540FC0(dword_8B78A0, v4)) goto fail;
+    //     *(*(this + 80) + 48) = 0;
+    //     ConditionalFieldSetter_0d40(*(this + 80), 44);
+    //     if (*(char*)(this + 32) >= 0) {
+    //       rs = *(*(this + 80) + 12); rs[7] = 0; rs[8] = 0;
+    //       rs[7 + 9] = 0; rs[8 + 9] = 1065353216;
+    //       rs[7 + 18] = 1065353216; rs[8 + 18] = 1065353216;
+    //       rs[7 + 27] = 1065353216; rs[8 + 27] = 0;
+    //       for (i = 0; i < *(this + 44); ++i) {
+    //         w = (_WORD*)(*(*(this + 80) + 20) + 2 * i * *(this + 40));
+    //         base = i * *(_WORD*)(this + 36);
+    //         v = (_DWORD*)(*(*(this + 80) + 32) + ((i * *(this + 36)) << 6));
+    //         v[8] = 0; v[9] = 0; v[25] = 1065353216; v[24] = 0;
+    //         v += 16; v[24] = 1065353216; v[25] = 1065353216;
+    //         v += 16; v[24] = 1065353216; v[25] = 0;
+    //         w[1] = base + 1; w[0] = base; w[2] = base + 2;
+    //         w[3] = base + 2; w[4] = base + 3; w[5] = base;
+    //         if ((*(BYTE*)(this + 33) & 2) == 0) {
+    //           w[7] = base + 2; w[6] = base + 3; w[8] = base + 1;
+    //           w[9] = base + 1; w[10] = base; w[11] = base + 3;
+    //         }
+    //       }
+    //     }
+    //   } else if (mode & 2) {
+    //     ... identical descriptor setup ...
+    //     for (j = 0; j < *(this + 44); ++j) {
+    //       base = j * *(_WORD*)(this + 36);
+    //       // six-iteration UV fill at *(*(this+80)+32) + (j * *(this+36)) << 6
+    //       // dense index pattern into *(*(this+80)+20) + 2 * j * *(this+40)
+    //       // flavor chosen by ((**(this+80) & 0x10) == 0)
+    //     }
+    //   }
+    //   dst = *(*(this + 80) + 40); src = *(*(this + 80) + 20);
+    //   if (dst) {
+    //     if (*(char*)(this + 32) < 0)
+    //       qmemcpy(dst, src, 2 * *(*(this + 80) + 16));
+    //     else
+    //       qmemcpy(dst, src, 2 * *(this + 44) * *(this + 40));
+    //   }
+    //   ConditionalBitmaskCleanup(*(this + 80), 12);
+    //   return 0;
+    //   fail:
+    //   sub_53C590(-1, aErrorCreatingV);
+    //   return -1;
+    // UNRESOLVED: The exact struct type of the mesh object at *(this+80) and the meaning of each descriptor field (format constant 1234, stride 64, count 2) are not grounded beyond their literals.
+    // UNRESOLVED: The selection between the guard:0 negative-sign copy (2 * mesh height) and the guard:1 normal copy (2 * count * height) is reproduced from the raw branch structure but its semantic intent is DERIVED.
+    // UNRESOLVED: The two bit-1 index pattern flavors selected by flag bit 0x10 of the mesh object are opaque without the object's flag documentation.
+    // UNRESOLVED: The destination of the final index copy is the mesh object's index buffer data field at *(this+80)+40 (packet field base *(this+0x50), offset 0x28); the packet carries no separate this+0x40 member and none is asserted here.
+}

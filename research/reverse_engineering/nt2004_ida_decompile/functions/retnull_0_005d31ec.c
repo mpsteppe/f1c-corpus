@@ -1,0 +1,4 @@
+void retnull_0()
+{
+  ;
+}

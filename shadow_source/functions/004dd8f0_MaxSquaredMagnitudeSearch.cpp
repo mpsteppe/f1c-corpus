@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004DD8F0
+// Canonical corpus name: MaxSquaredMagnitudeSearch
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/MaxSquaredMagnitudeSearch_004dd8f0.c
+
+void UnknownObject::MaxSquaredMagnitudeSearch()
+{
+    // Iterates the scene-graph children of the current object, derives a per-child detail level from a fade-distance float and geometry flags, and for children passing a threshold detail, scans their packed data array computing the squared magnitude (x*x + y*y + z*z) of each 3D vector. Returns the maximum squared magnitude found, or the most-negative double sentinel when no child qualifies.
+    // CALL: v11 = sub_4DD4E0(this) retrieves the minimum detail/LOD threshold for the current object. [callee:0x004DD4E0]
+    // ASSIGNMENT: v13 = -1.797693134862316e308 seeds the running maximum with the most-negative double. [source:raw]
+    // CALL: v12 = SceneGraphChildCount(this) returns the number of scene-graph child nodes. [callee:0x0054C210]
+    // LOOP: do-while over child index v2, advancing until v2 reaches the child count v12. [source:raw]
+    // CALL: v3 = LinkedListIndexedAccessor_c230(v2) fetches the child node at index v2. [callee:0x0054C230]
+    // GUARD: The child's float at +244 == 0.0 selects the flag-derived detail-level path; a non-zero value forces detail = 0. [source:raw]
+    // CALCULATION: Derive the detail level from the dword flags at +20: when bit 0x2000000 is set, detail = 2 - (bit 0x40 != 0), otherwise detail = 4 - (bit 0x40 != 0). [source:raw]
+    // GUARD: Only children whose detail level v5 is at least the threshold v11 are scanned. [source:raw]
+    // CALL: v6 = PackedArrayTotalSize(v3) returns the element count of the child's packed array. [callee:0x0054E100]
+    // LOOP: for loop over packed element index i from 0 while i < v6. [source:raw]
+    // CALL: v8 = PackedArrayIndexLookup(i) returns a pointer to the i-th packed element. [callee:0x0054E120]
+    // CALCULATION: v9 = v8[0]*v8[0] + v8[1]*v8[1] + v8[2]*v8[2] computes the squared magnitude of a 3D vector at the element. [source:raw]
+    // ASSIGNMENT: When v9 exceeds the current best v13, keep it as the new running maximum. [source:raw]
+    // RETURN: Return the largest squared magnitude found, or the sentinel -1.797693134862316e308 when no child qualified. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   double sub_4DD8F0(void *this) {
+    //     int threshold = sub_4DD4E0(this);
+    //     double best = -1.797693134862316e308;
+    //     int count = SceneGraphChildCount(this);
+    //     for (int idx = 0; idx < count; ++idx) {
+    //       int node = LinkedListIndexedAccessor_c230(idx);
+    //       int detail;
+    //       if (*(float*)(node + 244) == 0.0) {
+    //         int flags = *(int*)(node + 20);
+    //         detail = (flags & 0x2000000) ? 2 - ((flags & 0x40) != 0) : 4 - ((flags & 0x40) != 0);
+    //       } else {
+    //         detail = 0;
+    //       }
+    //       if (detail >= threshold) {
+    //         int total = PackedArrayTotalSize(node);
+    //         for (int i = 0; i < total; ++i) {
+    //           float *p = (float*)PackedArrayIndexLookup(i);
+    //           double m = p[0]*p[0] + p[1]*p[1] + p[2]*p[2];
+    //           if (m > best) best = m;
+    //         }
+    //       }
+    //     }
+    //     return best;
+    //   }
+    // UNRESOLVED: flt_59E440 is listed as a read global in the packet but does not appear in the raw source; existing analysis labels it a zero-threshold constant (DERIVED), unverified here.
+    // UNRESOLVED: Meaning of the +244 float and the detail flags at +20 (bits 0x2000000, 0x40) is DERIVED from the decompilation; the packet carries no field table.
+    // UNRESOLVED: The LEGACY abi lead Max_Squared_Magnitude_Search corroborates the squared-magnitude intent but is not runtime evidence.
+}

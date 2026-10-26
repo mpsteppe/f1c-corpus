@@ -1,0 +1,38 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004B72A0
+// Canonical corpus name: LinkedListTraversalWithFilter
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LinkedListTraversalWithFilter_004b72a0.c
+
+void UnknownObject::LinkedListTraversalWithFilter()
+{
+    // __thiscall that indexes into this at offset 64 + 16*a2 to reach a list-slot holding a linked-list head pointer, stores that head value into the adjacent +8 slot field, then walks the list until UtilityFunction_50c0 (0x004B50C0) accepts a node value against the float criterion a3. Returns the accepted node's value pointer, or null when the list is empty or exhausted without a match.
+    // CALCULATION: Compute the list-slot address v3 = &this[16 * a2 + 64], selecting a per-entry slot by index a2 (entry stride 16 bytes, slot array starting at this+64). [source:raw]
+    // ASSIGNMENT: Copy the list head pointer stored at *(v3) into the adjacent slot field *(v3+8). [source:raw]
+    // GUARD: Guard on the list head pointer at v3 being non-null; when null, return 0 immediately. [source:raw]
+    // GUARD: Guard on the first node (v6 = *v4, dereferencing the head pointer) being non-null before entering the walk loop. [source:raw]
+    // LOOP: Walk the linked list while UtilityFunction_50c0(v6, a3) returns false, advancing via the next-node pointer read from the +8 field of each node; stop when the predicate accepts the current node. [callee:0x004B50C0, source:raw]
+    // CALL: Call the filter predicate UtilityFunction_50c0 (0x004B50C0) on each node value v6 against the float criterion a3 to decide whether the node matches. [callee:0x004B50C0, source:raw]
+    // GUARD: Inside the walk, guard on the next node pointer (read at v7+8) being non-null; when null, return 0 (list exhausted without a match). [source:raw]
+    // ASSIGNMENT: Advance the current node: read the next pointer at (v7+8) and, when non-null, relink it from the value at (v8+4); the uninitialized v7 makes the exact node layout uncertain. [source:raw]
+    // RETURN: Return the value pointer of the first node accepted by the filter predicate, or null when the list is empty or the walk reaches a null next pointer. [source:raw]
+    // CALL: Invoked by LoadVehicleEntries (0x004B70B0), sub_4B9000 (0x004B9000) and sub_4B9AC0 (0x004B9AC0). [caller:0x004B70B0, caller:0x004B9000, caller:0x004B9AC0]
+
+    // Conservative worker pseudocode:
+    //   float* sub_4B72A0(char* this, int index, float criterion) {
+    //     char* slot = &this[16 * index + 64];
+    //     void* head = *(void**)slot;
+    //     *(void**)(slot + 8) = head;
+    //     if (head == 0) return 0;
+    //     float* node = *(float**)head;
+    //     while (node && !UtilityFunction_50c0(node, criterion)) {
+    //       /* advance to next node via +8 link field; return 0 if none * /
+    //       node = next_node;
+    //     }
+    //     return node;
+    //   }
+    // UNRESOLVED: v7 is used in the loop body but never assigned in the decompiled pseudocode; the next-node advancement and relink (reads at v7+8, writes at v7+8 = *(v8+4)) are a decompiler artifact, so the real node layout and relink behavior are uncertain.
+    // UNRESOLVED: Whether UtilityFunction_50c0 matches nodes by equality against a3, by threshold, or by some other criterion is unknown.
+    // UNRESOLVED: Semantic role of the write at *(v3+8) = *(v3) (copying the head into the adjacent slot field) is unknown.
+    // UNRESOLVED: Exact node structure (value at +0, link at +8) is inferred from the reads but not confirmed.
+}

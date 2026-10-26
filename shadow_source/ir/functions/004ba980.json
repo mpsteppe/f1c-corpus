@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "address": "0x004BA980",
+  "proposed_name": "AllocateElementArrayWithHeader",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Allocates a count-prefixed array of fixed-size (884-byte) elements and stores the element-array pointer into this. The element count v3 is 2 when a2 is 0 and 0 otherwise. Allocates 884*v3 + 4 bytes via OperatorNewNhMallocWrapper (0x00587C03); on success the leading 4-byte header receives v3, each element is initialized via PassthroughWrapper_f670 (0x004FF670) and *this becomes the array pointer (header + 1). On allocation failure *this is set to 0. Returns this in both branches.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Select the element count: v3 = (a2 != 0) ? 0 : 2, so a2 == 0 requests 2 elements and any non-zero a2 requests 0 elements.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the backing block: OperatorNewNhMallocWrapper(884 * v3 + 4), 4 bytes of count header plus 884 bytes per element.",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the allocation result: a non-null block takes the populate path; a null block takes the failure path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the element count v3 into the leading 4-byte header of the block (*v4).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "do-while over v3 elements using a countdown counter seeded from v3; the pre-check v3 - 1 >= 0 skips the body entirely when v3 == 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Initialize each element in turn via the __thiscall constructor PassthroughWrapper_f670(element).",
+      "evidence_refs": ["callee:0x004FF670", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Advance the element pointer by the per-element stride: v6 += 221 (221 dwords = 884 bytes per element).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Success path: *this = v5 = block + 1, pointing just past the count header at the first element.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Failure path: *this = 0 when the allocation returned null.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return this (the object pointer) in both the success and failure branches.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void* sub_4BA980(char a2) {",
+    "  int count = (a2 != 0) ? 0 : 2;",
+    "  int* block = OperatorNewNhMallocWrapper(884 * count + 4);",
+    "  if (block) {",
+    "    block[0] = count; /* 4-byte count header */",
+    "    int* elem = block + 1;",
+    "    if (count - 1 >= 0) {",
+    "      do { PassthroughWrapper_f670(elem); elem += 221; --count; } while (count);",
+    "    }",
+    "    *this = block + 1;",
+    "    return this;",
+    "  }",
+    "  *this = 0;",
+    "  return this;",
+    "}"
+  ],
+  "unresolved": [
+    "Element type and the meaning of the 884-byte (221 dword) size, and the behavior of the initializer PassthroughWrapper_f670, are not evidenced here.",
+    "Semantics of the a2 selector (2 elements vs 0 elements) and how the caller NetworkMessageDispatch (0x004B54E0) consumes the allocated array are unknown.",
+    "Only *this (offset 0) is written; the rest of the object this points to is unknown. The prelabel flags a structural twin relationship to ObjectAllocator (0045bb90) at DERIVED trust, which is not adopted beyond that label."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

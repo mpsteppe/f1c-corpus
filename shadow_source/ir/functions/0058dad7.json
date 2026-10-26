@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "address": "0x0058DAD7",
+  "proposed_name": "FloatDisplayControlWordAndDispatch2",
+  "owner": {
+    "type": "MSVCRTInternal",
+    "trust": "DERIVED",
+    "evidence_refs": ["function:0x0058DAD7"]
+  },
+  "summary": "Structural twin of Trandisp1 [DERIVED via cluster_copy]; same MSVC CRT float-display control-word selection (this+0xE == 5 selects control word 63, else 4927, written to a2-162) and same unk_5E6C6C xlat-table dispatch, but performs TWO xlat lookups on the format byte at a2-159 and combines them into a double dispatch index (4 * v13) | _AL before calling through the virtual table at a1+16 with argument v10 & 0x404. Also records caller state (a1, FPU status a3) and the x87-stack value a5 into the caller buffer at a2-148/a2-160/a2-144. CRT infrastructure, not game logic.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Test the format-mode byte at this+0xE (a1+14) for equality with 5; the branch selects which FPU control word is installed.",
+      "evidence_refs": ["guard:0", "field:this:0x0000000E", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the FPU control word to the caller buffer at (a2-162): when mode is 5, high byte is HIBYTE(*(a2-164)) & 0xFC | 2 with low byte 63; otherwise the word is 4927.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set EBX to &unk_5E6C6C (xlat table base) and record caller state into the buffer: a1 into (a2-148), FPU status word a3 into (a2-160), byte 0 into (a2-144), and the x87-stack value a5 into _ST6.",
+      "evidence_refs": ["global:0x005E6C6C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "First dispatch byte: ROL1((char)(2 * *(a2-159)) >> 1, 1) masked to low nibble, fed to xlat against unk_5E6C6C; result saved as v13.",
+      "evidence_refs": ["global:0x005E6C6C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Second dispatch byte: ROL1((char)(2 * v9) >> 1, 1) masked to low nibble (v9 is a copy of the byte at a2-159), fed to xlat against unk_5E6C6C; combined index is (4 * v13) | _AL.",
+      "evidence_refs": ["global:0x005E6C6C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Indirect __thiscall through the virtual table at (a1+16), slot selected by the combined double dispatch index (4 * v13) | _AL, with argument v10 & 0x404; return its result.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the value produced by the vtable dispatch call.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called by Cintrindisp2 (0x00590640) and sub_5906BB (0x005906BB) as part of the CRT float-display path.",
+      "evidence_refs": ["caller:0x00590640", "caller:0x005906BB"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int FloatDisplayControlWordAndDispatch2(int a1, int a2, __int16 fpcw, double st1, double st0) {",
+    "  __int16 cw;",
+    "  if (*(char*)(a1 + 14) == 5) {",
+    "    cw = (HIBYTE(*(short*)(a2 - 164)) & 0xFC | 2) << 8 | 63;",
+    "  } else {",
+    "    cw = 4927;",
+    "  }",
+    "  *(short*)(a2 - 162) = cw;",
+    "  EBX = &unk_5E6C6C;",
+    "  *(int*)(a2 - 148) = a1;",
+    "  *(short*)(a2 - 160) = fpcw;",
+    "  *(char*)(a2 - 144) = 0;",
+    "  char fb = *(char*)(a2 - 159);",
+    "  unsigned char i1 = ROL1((char)(2 * *(char*)(a2 - 159)) >> 1, 1) & 0xF;",
+    "  xlat i1 via unk_5E6C6C -> v13;",
+    "  unsigned char i2 = ROL1((char)(2 * fb) >> 1, 1) & 0xF;",
+    "  xlat i2 via unk_5E6C6C -> _AL;",
+    "  return (*(void (__thiscall **)(int))((4 * v13 | _AL) + a1 + 16))(i2 & 0x404);",
+    "}"
+  ],
+  "unresolved": [
+    "Cluster-copy prelabel marks this as a structural twin of Trandisp1 at DERIVED trust; the purpose of the second dispatch byte (double dispatch via (4*v13)|_AL) is not established.",
+    "unk_5E6C6C translation table semantics and the virtual dispatch at (a1+16) are unknown; CRT float-formatting machinery.",
+    "The fpstat value v7 saved back to (a2-160) and the exact use of the x87-stack double a5 (moved to _ST6) are not captured by the raw source snippet.",
+    "v4 (edx) is uninitialized in the decompiler view and is passed as the a1 object pointer to the vtable dispatch."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "address": "0x004D7B00",
+  "proposed_name": "TrackReferenceFinder",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004D7B00"]
+  },
+  "summary": "Initializes and fills three track-reference slots. For each slot j in 0..2 it clears the two index dwords (this+4*j and this+4*j+12) to -1, sets a lower value bound (this+24 for slot 0 from flt_5EA404, this+28 hardcoded to 0 for slot 1, this+32 from flt_5EA3F8[2] for slot 2), and sets an upper value bound at this+4*j+36 from flt_5EA3FC[j]. It then scans the track data array dword_8ACFF0 (count dword_8ACFEC, 8-byte entries with a float at +4) and, for entries whose value lies inside the slot's lower/upper bounds, records the bracketing entry indices: the smallest such index into this+4*j and the largest into this+4*j+12. Called once by Game_Restart.",
+  "local_names": {
+    "this": "track reference structure holding per-slot index and bound fields",
+    "i": "slot loop counter used for the index reset pass",
+    "j": "slot loop counter used for the bound setup and search pass",
+    "v3": "entry index stepping through the track data array",
+    "v5": "track data array base pointer (dword_8ACFF0)",
+    "v7": "value of the current track entry at v5 + 8*v3 + 4, compared against the slot bounds",
+    "v6": "currently recorded minimum index for the slot",
+    "result": "track entry count (dword_8ACFEC) carried out of the function"
+  },
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "First pass over slots i=0..2: writes -1 to this+4*i and this+4*i+12, clearing the slot index fields",
+      "evidence_refs": ["field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Slot 1 (j==1): writes 0 to this+28, the lower value bound dword at this+0x1C",
+      "evidence_refs": ["field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Slot 0 (j==0): writes flt_5EA404 into the float lower bound at this+24",
+      "evidence_refs": ["field:this:0x00000018", "global:0x005EA404", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Slot 2 (j==2): writes flt_5EA3F8[2] into the float lower bound at this+32",
+      "evidence_refs": ["global:0x005EA3F8", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Every slot j: writes flt_5EA3FC[j] into the float upper bound at this+4*j+36",
+      "evidence_refs": ["global:0x005EA3FC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "The search loop body runs only while dword_8ACFEC > 0 (the track data array is non-empty)",
+      "evidence_refs": ["global:0x008ACFEC", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walks every entry v3 of the track data array dword_8ACFF0 and reads the entry value at v5 + 8*v3 + 4",
+      "evidence_refs": ["global:0x008ACFF0", "global:0x008ACFEC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Considers entry v3 only when its value lies inside the slot bounds: lower bound <= v7 <= upper bound",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Records the smallest matching entry index into this+4*j when the slot index is -1 or the new entry value is smaller than the recorded one",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Records the largest matching entry index into this+4*j+12 when the slot index is -1 or the recorded minimum's value is smaller than the new entry value",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the final track entry count (dword_8ACFEC)",
+      "evidence_refs": ["global:0x008ACFEC", "function:0x004D7B00", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked from Game_Restart to (re)establish the track reference slots on restart",
+      "evidence_refs": ["caller:0x0042D7A0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "for (i = 0; i < 3; i++) { this[4*i] = -1; this[4*i+12] = -1; }",
+    "for (j = 0; j < 3; j++) {",
+    "  if (j == 1) this[28] = 0;",
+    "  else if (j) this[4*j+24] = flt_5EA3F8[j];",
+    "  else this[24] = flt_5EA404;",
+    "  this[4*j+36] = flt_5EA3FC[j];",
+    "  for (v3 = 0; v3 < dword_8ACFEC; v3++) {",
+    "    v7 = dword_8ACFF0[8*v3+4];",
+    "    if (this[4*j+24] <= v7 && v7 <= this[4*j+36]) {",
+    "      if (this[4*j] == -1 || dword_8ACFF0[8*this[4*j]+4] > v7) this[4*j] = v3;",
+    "      if (this[4*j+12] == -1 || dword_8ACFF0[8*this[4*j]+4] < v7) this[4*j+12] = v3;",
+    "    }",
+    "  }",
+    "}",
+    "return dword_8ACFEC;"
+  ],
+  "unresolved": [
+    "The track data entry layout (8-byte stride with the compared value at +4) and the meaning of the float at dword_8ACFF0[v3*8+4] are inferred from the raw source; what the value represents is not established by this packet",
+    "The exact role of the bracketing index pair this+4*j and this+4*j+12 (minimum and maximum matching track entry) follows the existing analysis naming and is not independently proven",
+    "Field offsets this+0x18 and this+0x1C are the only lower bounds with packet field entries; the remaining slot offsets (this+24, this+28, this+32, index dwords) are reachable only through the raw source text"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

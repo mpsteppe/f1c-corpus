@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "address": "0x005531F0",
+  "proposed_name": "FontStringMeasure",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Measures a text string using this font descriptor. Computes a scale factor: default 1.0, or the float at this+0x5C when a5 is non-zero. When a4 (height out) is non-null it is assigned CRTFtol(scale). When a3 (width out) is non-null, accumulates a per-glyph width over a2 by indexing a width table at this + 8*char - 148, gated to chars in [0x20, this+0x44); the raw flow then overwrites *a3 with CRTFtol(scale). Returns the last scale-truncated value.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize scale to 1.0 and result to a5.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on a5 non-zero: when set, load the scale factor float from this+0x5C.",
+      "evidence_refs": ["field:this:0x0000005C"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the height output pointer a4 being non-null.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call CRTFtol(scale) to truncate the float scale to an integer and store it through a4.",
+      "evidence_refs": ["callee:0x00587BDC"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the width output pointer a3 being non-null.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate every character of a2, from index 0 up to strlen(a2).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard per character: only chars >= 0x20 and below the glyph-count bound at this+0x44 contribute a width.",
+      "evidence_refs": ["field:this:0x00000044", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Add the glyph width from the table at this + 8*char - 148 (8-byte stride per glyph) to the running width at *a3.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call CRTFtol(scale) and store the result through a3, overwriting the accumulated width per the raw flow.",
+      "evidence_refs": ["callee:0x00587BDC"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the last CRTFtol(scale) result.",
+      "evidence_refs": ["callee:0x00587BDC", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_5531F0(int this, const char *s, int *width_out, int *height_out, int use_scale) {",
+    "  float scale = use_scale ? *(float *)(this + 0x5C) : 1.0f;",
+    "  int result = use_scale;",
+    "  if (height_out) { result = CRTFtol(scale); *height_out = result; }",
+    "  if (width_out) {",
+    "    *width_out = 0;",
+    "    for (unsigned i = 0; i < strlen(s); ++i) {",
+    "      unsigned char c = s[i];",
+    "      if (c >= 0x20 && c < *(int *)(this + 0x44))",
+    "        *width_out += *(unsigned char *)(this + 8*c - 148);",
+    "    }",
+    "    result = CRTFtol(scale);",
+    "    *width_out = result;",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The raw flow overwrites the accumulated width at *a3 with CRTFtol(scale) after the summing loop, discarding the per-glyph total; the intended width transform is ambiguous.",
+    "Table anchor at this - 148 with an 8-byte glyph stride is inferred from the expression this + 8*char - 148 and is not a named packet field.",
+    "global:0x0059E43C (flt_59E43C) is not referenced in the raw source; its role here is unknown.",
+    "Object type of this (font descriptor with scale at +0x5C and glyph bound at +0x44) is a DERIVED interpretation from the usage pattern."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059E43C"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

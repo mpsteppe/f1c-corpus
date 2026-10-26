@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "address": "0x00441650",
+  "proposed_name": "VehiclePhysicsIntegrationStep",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00441650", "abi:lead", "source:raw"]
+  },
+  "summary": "Per-frame vehicle physics integration driver on the vehicle object: saves/restores the FPU control word, runs the main physics update, then executes a sub-stepped (RK2 midpoint) integration loop over the accumulated timestep with wheel-data copies, force accumulation per wheel block, collision-damage/DNF detection across four collision bodies, and inertia-tensor world-space transforms for four wheel-link sub-objects. Gated at entry by a physics-override double and an enable byte.",
+  "local_names": {
+    "v2": "vehicle object pointer (this)",
+    "v19/v29": "used / remaining sub-step time within the integration loop",
+    "v10": "wheel-link sub-object block cursor (strided by 1124 bytes from this+0x310)",
+    "v11": "collision sub-object pointer read at this+0x3EC",
+    "v12": "world-space matrix object pointer read at this+0x15F0"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Entry gate: when the physics-override double at 0x005D6D70 equals 1.0, or the enable byte at 0x007CE254 is zero, the entire per-frame physics step is skipped (early return).",
+      "evidence_refs": ["global:0x005D6D70", "global:0x007CE254", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Save the FPU control word via FPUControlWordMaskExtract(512); the saved value is restored at function exit.",
+      "evidence_refs": ["callee:0x00567740", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Run VehicleMainPhysicsUpdate(this) before the sub-stepped integration loop.",
+      "evidence_refs": ["callee:0x004441F0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Sub-step integration loop: starts with i = the timestep field this+0x68 (as double), and repeats while the accumulated time v29 remains greater than the used time v19, feeding i = v29 - v19 into each iteration. The accumulator this+0x60 is read and advanced within the body.",
+      "evidence_refs": ["field:this:0x00000068", "field:this:0x00000060", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Midpoint integration of one sub-step: PhysicsIntegrationStep(this); WheelDataCopy(this, i*0.5); advance the accumulator this+0x60 by the half-step; PhysicsIntegrationStep(this) again; then PhysicsStepFrame(this, v19) finalizes the frame.",
+      "evidence_refs": ["callee:0x00441D60", "callee:0x004414D0", "callee:0x00441600", "field:this:0x00000060", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Sub-step remainder handling: when the accumulator v5 is below 1.0 and dword_7CE958 is set with v19 differing from the dt field this+0x68, rescale v5 by dt/v19; when still below 1.0, compute a capped remainder (v5 <= 0.5 ? v19 = v5*0.999*v19 : v19 = half-step), flooring v19 at 0.000003814697265625.",
+      "evidence_refs": ["global:0x007CE958", "field:this:0x00000068", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Remainder sub-step pass: StateAccumulateDelta(this); WheelDataCopy(this, v19*0.5); reset the accumulator this+0x60 to v19*0.5 plus the pre-loop value; PhysicsIntegrationStep(this); PhysicsStepFrame(this, v19).",
+      "evidence_refs": ["callee:0x00441360", "callee:0x004414D0", "callee:0x00441D60", "callee:0x00441600", "field:this:0x00000060", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Post-loop commit: store this+0x1658 = this+0x844 + this+0x3E0; then reset the accumulator this+0x60 to the frame-delta argument a2.",
+      "evidence_refs": ["field:this:0x00001658", "field:this:0x00000844", "field:this:0x000003E0", "field:this:0x00000060", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Run EngineStressSimulation(this) after the integration loop.",
+      "evidence_refs": ["callee:0x0043EF20", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-wheel force accumulation: iterate four wheel blocks strided by 1124 bytes anchored at this+0x338; for each, read the double value, dispatch it via InterruptDispatch, write it back, then call VehicleDynamicsForceAccumulatorIntegration(block-172, dt-from-this+0x68).",
+      "evidence_refs": ["field:this:0x00000338", "callee:0x0058957A", "callee:0x00438130", "field:this:0x00000068", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Collision damage / DNF detection across the four strided collision-body anchors, each call taking the dt field this+0x68 and a count/argument read from the enumerated pointer fields this+0x3EC, this+0x850, this+0x141C, and (on the conditional branch) this+0xCB4 / this+0x1118.",
+      "evidence_refs": ["callee:0x00438690", "field:this:0x000003EC", "field:this:0x00000850", "field:this:0x0000141C", "field:this:0x00000CB4", "field:this:0x00001118", "field:this:0x00000068", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inertia-transform loop over four wheel-link blocks strided by 1124 bytes anchored at this+0x310: for each block read the collision sub-object pointer at this+0x3EC; when present and its active flag this+0x450 is clear, load the sub-object velocity components (fields *(this+0x3EC)+0x1C/+0x34/+0x4C) and the wheel-link vectors at this+0x310/0x318, combine them with the world-space matrix rows of the this+0x15F0 object (fields 0x4..0x5C), and guard the transform on the computed dot (skip when below 0.5 or the second dot exceeds 0.7).",
+      "evidence_refs": [
+        "field:this:0x00000310", "field:this:0x000003EC", "field:this:0x00000450",
+        "field:*(this+0x3EC):0x0000001C", "field:*(this+0x3EC):0x00000034", "field:*(this+0x3EC):0x0000004C",
+        "field:this:0x00000318", "field:this:0x000015F0",
+        "field:*(this+0x15F0):0x00000004", "field:*(this+0x15F0):0x0000000C", "field:*(this+0x15F0):0x00000014",
+        "field:*(this+0x15F0):0x0000001C", "field:*(this+0x15F0):0x00000024", "field:*(this+0x15F0):0x0000002C",
+        "field:*(this+0x15F0):0x00000034", "field:*(this+0x15F0):0x0000003C", "field:*(this+0x15F0):0x00000044",
+        "field:*(this+0x15F0):0x0000004C", "field:*(this+0x15F0):0x00000054", "field:*(this+0x15F0):0x0000005C",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Apply the transform: call sub_56BDE0(block+16, 0); copy the computed 0x18-byte position block into the sub-object; call F_3x3InertiaTensorTransform(subobj); copy the 0x18-byte matrix block; call InertiaTensorWorldSpaceTransform(subobj); then PhysicsSubObjectFree(this).",
+      "evidence_refs": [
+        "callee:0x0056BDE0", "callee:0x005692A0", "callee:0x00569410", "callee:0x00441450",
+        "field:this:0x000003EC", "field:this:0x000015F0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "Restore the FPU control word: when the saved value differs from 512 call EmptyStub_7780(saved); otherwise return the earlier result value.",
+      "evidence_refs": ["callee:0x00567780", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (dbl_5D6D70 == 1.0 || byte_7CE254 == 0) return;",
+    "saved = FPUControlWordMaskExtract(512);",
+    "VehicleMainPhysicsUpdate(this);",
+    "i = dt(this+0x68);",
+    "do {",
+    "  acc = this[0x60];",
+    "  PhysicsIntegrationStep(this);",
+    "  WheelDataCopy(this, i*0.5);",
+    "  this[0x60] += i*0.5;",
+    "  PhysicsIntegrationStep(this);",
+    "  PhysicsStepFrame(this, v19);",
+    "  if (acc < 1.0) {",
+    "    if (dword_7CE958 && v19 != dt) acc *= dt/v19;",
+    "    if (acc < 1.0) {",
+    "      v19 = (acc <= 0.5) ? acc*0.999*v19 : i*0.5;",
+    "      if (v19 < 0.000003814697265625) v19 = 0.000003814697265625;",
+    "      StateAccumulateDelta(this); WheelDataCopy(this, v19*0.5);",
+    "      this[0x60] = v19*0.5 + prior_acc;",
+    "      PhysicsIntegrationStep(this); PhysicsStepFrame(this, v19);",
+    "    }",
+    "  }",
+    "} while (v29 > v19);",
+    "this[0x1658] = this[0x844] + this[0x3E0];",
+    "this[0x60] = a2;",
+    "EngineStressSimulation(this);",
+    "for (4 wheel blocks strided 1124 from this+0x338): InterruptDispatch(value); VehicleDynamicsForceAccumulatorIntegration(block-172, dt);",
+    "PhysicsCollisionDamageDNFDetection over four collision bodies with dt and the this+0x3EC/0x850/0x141C/0xCB4/0x1118 counts;",
+    "for (4 wheel-link blocks strided 1124 from this+0x310):",
+    "  if (subobj(this+0x3EC) && !active(this+0x450)) {",
+    "    read velocity *(this+0x3EC)+0x1C/0x34/0x4C and matrix this+0x15F0 rows 0x4..0x5C;",
+    "    if (dot ok) { sub_56BDE0(block+16, 0); copy position; F_3x3InertiaTensorTransform(subobj); copy matrix; InertiaTensorWorldSpaceTransform(subobj); PhysicsSubObjectFree(this); }",
+    "  }",
+    "if (saved != 512) EmptyStub_7780(saved);",
+    "return;"
+  ],
+  "unresolved": [
+    "Six read-only double globals at 0x0059E420..0x0059ED38 are listed as read by this function but are folded into FPU literals by Hex-Rays; they never appear by name in the .c and their exact use sites are unproven.",
+    "The collision-body anchors (four bodies) and the wheel/wheel-link block addresses beyond the enumerated anchor fields are derived by 1124-byte stride and are not individually enumerated among the packet fields.",
+    "The sub-object fields written by the qmemcpy calls (offsets +4, +28, +124 inside the this+0x3EC object) and the matrix object field at this[1404]+124 are not enumerated among the packet fields; their roles are DERIVED.",
+    "The literal 0.7 and 0.5 thresholds in the inertia-transform guard have DERIVED semantics only.",
+    "Caller VehiclePhysicsModeDispatcher (0x004E4930) is listed as a caller but is not exercised inside the function body."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E420",
+    "global:0x0059E830",
+    "global:0x0059E880",
+    "global:0x0059ED28",
+    "global:0x0059ED30",
+    "global:0x0059ED38",
+    "caller:0x004E4930"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

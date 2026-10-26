@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "address": "0x0044C4C0",
+  "proposed_name": "SpatialGridQuery",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0044C4C0"]
+  },
+  "summary": "2D spatial-grid collision query. Reads the cached surface pointer at a2+48; when it is invalid (NULL, validity byte at +88 set, or QuadraticSurfaceCollisionTest failing) the cached pointer is cleared and the world position (a2+0, a2+16) is mapped through the grid origin/scale doubles into cell indices. In-bounds cells (both indices < 0x20) that hold a BVH pointer get BVHTreeTraversal called. Returns the final cached-surface pointer at a2+48. Part of the collision detection system, called from suspension, contact generation and camera paths.",
+  "local_names": {
+    "this": "spatial grid object; this[1]/this[3] origin X/Z, this[2]/this[4] inverse cell size X/Z",
+    "a2": "query struct carrying world position (a2+0, a2+16), cached surface pointer (a2+48) and validity byte (a2+88)",
+    "v9": "cell X index",
+    "v8": "cell Z index",
+    "v6": "BVH tree pointer stored at the grid cell"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Load the cached surface pointer v4 from a2+48",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Grid re-query path runs only when the cache misses: v4 is NULL, or the byte at v4+88 is non-zero, or QuadraticSurfaceCollisionTest on the cached surface fails",
+      "evidence_refs": ["callee:0x0044A070", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "QuadraticSurfaceCollisionTest((double *)v4, a2) re-validates the cached surface against the query position",
+      "evidence_refs": ["callee:0x0044A070"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the cached surface pointer at a2+48 to 0 before recomputing the grid lookup",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Map world position to cell indices: v9 = (int)((a2_x - this[1]) * this[2]) and v8 = (int)((a2_z - this[3]) * this[4]) using the grid origin and inverse cell-size doubles",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000010", "field:this:0x00000018", "field:this:0x00000020"]
+    },
+    {
+      "kind": "guard",
+      "description": "Proceed only when both cell indices are below 0x20, i.e. the position maps inside the 32x32 grid bounds",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Look up the BVH pointer v6 at the cell slot addressed from the grid base (this[16*v9+5] indexed by v8)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "BVHTreeTraversal is invoked only when the grid cell holds a non-NULL BVH tree pointer",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BVHTreeTraversal(v6, (double *)a2) traverses the cell's BVH tree to find the closest colliding surface",
+      "evidence_refs": ["callee:0x0044AA30"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the cached-surface pointer stored at a2+48 (unchanged on a cache hit, updated by the traversal otherwise); used by suspension, contact-generation and camera collision callers",
+      "evidence_refs": ["function:0x0044C4C0", "caller:0x00401340", "caller:0x00436870", "caller:0x004A3B50", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v4 = *(a2 + 48);",
+    "if (!v4 || *(v4 + 88) || !QuadraticSurfaceCollisionTest(v4, a2)) {",
+    "  *(a2 + 48) = 0;",
+    "  v9 = (int)((*a2 - this[1]) * this[2]);",
+    "  v8 = (int)((*(a2 + 16) - this[3]) * this[4]);",
+    "  if (v9 < 0x20 && v8 < 0x20) {",
+    "    v6 = *((double **)*((_DWORD *)&this[16 * v9 + 5] + v8));",
+    "    if (v6) BVHTreeTraversal(v6, a2);",
+    "  }",
+    "}",
+    "return *(a2 + 48);"
+  ],
+  "unresolved": [
+    "The query-struct layout (a2+0 position X, a2+16 position Z, a2+48 cached surface, a2+88 validity byte) is not enumerated as packet fields because a2 is an argument, not a 'this'/'obj' base",
+    "Semantics of the validity byte at v4+88 (dirty/invalid marker) is undocumented",
+    "The grid cell array base reached via this[5..] (offset 0x50) is not a packet field; only the origin/scale doubles at 0x8..0x20 are",
+    "The exact cache invalidation contract between QuadraticSurfaceCollisionTest and the +88 byte is not fully determined"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,29 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0050E2AB
+// Canonical corpus name: QuadraticBezier
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/QuadraticBezier_0050e2ab.c
+
+void UnknownObject::QuadraticBezier()
+{
+    // Quadratic-bezier evaluation helper (stdcall): builds two intermediate 4-int control vectors v8 and v9 from pairs (a2, a5) and (a3, a4) at parameter a6, combines them with the blend factor v7, and writes the interpolated result through the output pointer a1, returning a1.
+    // CALL: Invoke ThunkToFUN0050e174 (0x0050E198) with (v8, a2, a5, a6) to compute the first intermediate control vector v8. [callee:0x0050E198, source:raw]
+    // CALL: Invoke ThunkToFUN0050e174 (0x0050E198) with (v9, a3, a4, a6) to compute the second intermediate control vector v9. [callee:0x0050E198, source:raw]
+    // CALCULATION: Compute the blend factor v7 = (1.0 - a6) * a6 + (1.0 - a6) * a6 from the parameter a6. [source:raw]
+    // CALL: Invoke ThunkToFUN0050e174 (0x0050E198) with (a1, v8, v9, v7) to combine the two intermediate vectors and write the final result through the output pointer a1. [callee:0x0050E198, source:raw]
+    // RETURN: Return the output pointer a1 as the result of the evaluation. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int __stdcall QuadraticBezier(int a1, int a2, int a3, int a4, int a5, float a6) {
+    //     float v7;
+    //     int v8[4];
+    //     int v9[4];
+    //     ThunkToFUN0050e174((int)v8, a2, a5, a6);
+    //     ThunkToFUN0050e174((int)v9, a3, a4, a6);
+    //     v7 = (1.0 - a6) * a6 + (1.0 - a6) * a6;
+    //     ThunkToFUN0050e174(a1, (int)v8, (int)v9, v7);
+    //     return a1;
+    //   }
+    // UNRESOLVED: The blend factor v7 reads as (1.0 - a6) * a6 + (1.0 - a6) * a6 in the raw source, an unusual doubling of the (1-t)*t weight; it is preserved verbatim rather than being rewritten to the canonical 2*(1-t)*t quadratic-bezier form.
+    // UNRESOLVED: The 4-int element layout of v8 and v9 and the meaning of the per-coordinate inputs a2..a5 are caller-dependent; the concrete target behind the ThunkToFUN0050e174 dispatch is not evidenced.
+}

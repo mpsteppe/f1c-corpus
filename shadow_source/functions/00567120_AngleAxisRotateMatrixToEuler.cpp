@@ -1,0 +1,46 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00567120
+// Canonical corpus name: sub_567120
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_567120_00567120.c
+
+void UnknownObject::AngleAxisRotateMatrixToEuler()
+{
+    // Applies an angle-axis rotation (a2) to an in-place 3x3 matrix (this) using the Rodrigues rotation formula when the axis squared-magnitude is a valid non-zero finite value (FPU flags checked), then extracts Euler angles from the resulting matrix into an output buffer (a3). Always performs the Euler extraction; the rotation step is skipped when the FPU status flags indicate the magnitude is zero or not a number.
+    // CALCULATION: Compute the squared magnitude of the rotation vector a2: a2[0]*a2[0] + a2[1]*a2[1] + a2[2]*a2[2]. [source:raw]
+    // GUARD: Test the FPU status word flags (v6 & 0x4100) after the magnitude computation; if flags are set (zero or not-a-number magnitude), skip the whole Rodrigues rotation loop. [source:raw, function:0x00567120]
+    // CALCULATION: Compute sqrt of the squared magnitude, normalize the axis components as -1/sqrt * a2[i], and evaluate sin and cos of the rotation angle sqrt(magnitude); derive the Rodrigues rotation coefficients (1.0 - cos, cross-product and outer-product terms). [source:raw]
+    // LOOP: Apply the rotation to each of the 3 rows of the in-place matrix (this[0..8], 3 floats per row) using the precomputed Rodrigues terms, reading each row's 3 elements and writing the rotated row back. [field:this:0x00000000, field:this:0x00000004, field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, field:this:0x00000018, field:this:0x00000020, source:raw]
+    // CALL: Call FloatConvertWrapper after the matrix transform (float/double value conversion used by the Euler extraction path). [callee:0x00588570, source:raw]
+    // ASSIGNMENT: Write the negated this[5] value into the first output slot of a3. [field:this:0x00000014, source:raw]
+    // GUARD: If fabs(this[5]) equals 1.0 (gimbal-locked case), compute atan2(-this[6], this[0]) into the second output slot and force the third output slot to 0. [field:this:0x00000018, field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Otherwise extract the remaining Euler angles: atan2(this[2], this[8]) into the second output slot and atan2(this[3], this[4]) into the third output slot. [field:this:0x00000008, field:this:0x00000020, field:this:0x0000000C, field:this:0x00000010, source:raw]
+
+    // Conservative worker pseudocode:
+    //   void AngleAxisRotateMatrixToEuler(float* this, float* a2, float* a3) {
+    //       mag2 = a2[0]*a2[0] + a2[1]*a2[1] + a2[2]*a2[2];
+    //       if (!(fpu_flags & 0x4100)) {
+    //           m = sqrt(mag2);
+    //           nx = -1.0/m * a2[0]; ny = -1.0/m * a2[1]; nz = -1.0/m * a2[2];
+    //           s = sin(m); c = cos(m); k = 1.0 - c;
+    //           // Rodrigues rotation applied per row of this[0..8]
+    //           for (row = 0; row < 9; row += 3) {
+    //               this[row]   = ...;
+    //               this[row+1] = ...;
+    //               this[row+2] = ...;
+    //           }
+    //       }
+    //       FloatConvertWrapper(v4);
+    //       a3[0] = -this[5];
+    //       if (fabs(this[5]) == 1.0) {
+    //           a3[1] = atan2(-this[6], this[0]);
+    //           a3[2] = 0;
+    //       } else {
+    //           a3[1] = atan2(this[2], this[8]);
+    //           a3[2] = atan2(this[3], this[4]);
+    //       }
+    //   }
+    // UNRESOLVED: The globals dbl_59E420, flt_59E43C, flt_59E440 and flt_59E670 are read by the function body per the fact table but do not appear in the visible decompiled text; they may back the FPU-status or threshold comparisons (0x4100 mask, 1.0, 0.0), unconfirmed.
+    // UNRESOLVED: The exact Euler extraction slot layout of the output buffer a3 (which angle maps to a3[0], a3[1], a3[2]) is inferred from matrix element reads, not evidenced by names.
+    // UNRESOLVED: The eighth matrix element this[7] is read during the rotation loop but is absent from the packet field table; the field evidence ref cannot be produced for it.
+}

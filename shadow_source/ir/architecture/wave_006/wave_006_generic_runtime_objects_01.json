@@ -1,0 +1,2773 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_006_generic_runtime_objects_01",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Heterogeneous set of generic runtime objects and lifecycle primitives: a 2D-indexed 28-byte struct-array reader, block-memory copy and conditional-free helpers, Miles Sound System sample playback/positioning/processor objects (shared this+0x54/0x58/0x60/0x64/0x68 field cluster), vtable-swap destructors and synchronization teardown, three differently-based linked-list containers (string-unique list, view/projection list, mutex-slot list), a mutex lock object, camera-manager teardown, and per-frame scene-object/contact-mode dispatch. The strongest cross-function grouping is the Miles audio cluster (five functions sharing the sample-info pointer at this+0x58 and the listener pointer at this+0x54, connected by direct call edges); the three list-insert functions are kept as separate classes because their head/tail/first/count fields sit at different offsets (this+0x8/0xC/0x10/0x14 vs this+0x18/0x1C/0x20/0x24 vs this+0x28/0x2C/0x30/0x34).",
+    "trust": "GUESS",
+    "evidence_refs": [
+      "function:0x00403FC0",
+      "function:0x00405900",
+      "function:0x00405B90",
+      "function:0x00405F80",
+      "function:0x00406060",
+      "function:0x004060C0",
+      "function:0x00406250",
+      "function:0x00406700",
+      "function:0x00407450",
+      "function:0x00407810",
+      "function:0x004078A0",
+      "function:0x0040A890",
+      "function:0x0040CCE0",
+      "function:0x00410980",
+      "source:raw",
+      "abi:lead"
+    ]
+  },
+  "summary": "Reconstruction of generic runtime objects from 27 validated function IR records. The packet supplies one DERIVED owner (MutexSynchronizationObject for 0x00406700) and labels everything else UNKNOWN. Five audio functions (0x00405900, 0x00405B90, 0x00405F80, 0x00406060, 0x004060C0) share the same this-base fields (sample-info slot at +0x58, listener pointer at +0x54, loop/state flag at +0x14, behavior bitmask at +0x18, processor/filter state at +0x60/+0x64/+0x68) and are directly connected by call edges, so they are grouped as one DERIVED-proposed MilesSoundSourceObject. 0x00407D40 writes int/float triples into overlapping offsets (this+0x58..0x78) with a different interpretation and a different caller (0x004071F0), so it is kept as a separate AudioSampleDirectionObject and the offset overlap is recorded as an explicit contradiction. The three list-insert functions use the same 12-byte-node pattern but different list-field offsets and are kept as separate classes per rule 8. Free helpers (0x00405020, 0x004057E4, 0x00408210, 0x004084A0, 0x00408500) are assigned owner FreeFunction. State machinery is proposed for the per-frame scene-object loader and the collision-mode dispatcher; the Miles sample playback lazy-init is modeled as a first-call initialization pattern.",
+  "function_roles": [
+    {
+      "address": "0x00403FC0",
+      "role": "Reads one 28-byte entry from a 2D-indexed struct array (base this+0x158, second-dimension stride this+0x164, linear index = a2 + a3*stride), copies entry bytes 0..11 to a4 and 12..23 to a5, returns the second dword of the second group; consumed by the render-path callers 0x004C6F10 and 0x004D1140.",
+      "owner": "IndexedStructArrayAccessor",
+      "evidence_refs": [
+        "function:0x00403FC0",
+        "field:this:0x00000158",
+        "field:this:0x00000164",
+        "caller:0x004C6F10",
+        "caller:0x004D1140",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00405020",
+      "role": "Thin wrapper: calls ComplexDestructorWith4LinkedLists with global unk_5EA440 (0x005EA440) as its argument and returns the result; the callee address and the purpose of the global are not established by the packet, so the init/load-path reading is unconfirmed.",
+      "owner": "FreeFunction",
+      "evidence_refs": [
+        "function:0x00405020",
+        "abi:lead",
+        "global:0x005EA440",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00405670",
+      "role": "stdcall memory-copy helper: copies a3 bytes from a2 into a1 via an inline block copy and returns the one-past-the-end pointer a1+a3; invoked by MemoryAllocation_56a0 (0x004056A0) on the allocation/copy path.",
+      "owner": "MemoryBlockCopyHelper",
+      "evidence_refs": [
+        "function:0x00405670",
+        "abi:lead",
+        "caller:0x004056A0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004057E4",
+      "role": "__usercall helper with a custom register ABI: adds BYTE5(result) (bits 32..39 of the returned 64-bit value) into the byte at *a2, clears the byte at a3+112, returns result unchanged; the decompiler warns the stack may be mis-rendered.",
+      "owner": "FreeFunction",
+      "evidence_refs": [
+        "function:0x004057E4",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004058D0",
+      "role": "thiscall destructor: overwrites the vtable at this+0x0 with off_59E4B4, frees the child allocation at this+0x4 via FreeWrapper_7bcf when non-null, frees the object itself when deallocation flag bit 0 (a2 & 1) is set, returns this.",
+      "owner": "VTableSwapDestructorObject",
+      "evidence_refs": [
+        "function:0x004058D0",
+        "abi:lead",
+        "global:0x0059E4B4",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "callee:0x00587BCF",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00405900",
+      "role": "Lazy Miles sample-playback setup: aborts (return 1) when the collision/spatial response computation (0x00405E60) triggers; on first call (handle slot this+0x58 null) allocates a playback handle via 0x004070E0, stores a back-reference, and when the sample and file reference this+0x5C are valid sets the sample file, loop count (flag this+0x14: 1 = infinite -> 0, else 1), and passes this to sample-processor setup (0x004060C0); then writes position params and the active flag into the handle; a 3D request (a7 non-zero) applies the 3D update (0x00405B90) and clears the active flag; returns 0 on success, 1 on abort.",
+      "owner": "MilesSoundSourceObject",
+      "evidence_refs": [
+        "function:0x00405900",
+        "abi:lead",
+        "callee:0x00405E60",
+        "callee:0x004070E0",
+        "callee:0x004060C0",
+        "callee:0x00405B90",
+        "field:this:0x00000058",
+        "field:this:0x0000005C",
+        "field:this:0x00000014",
+        "field:this:0x00000060",
+        "field:this:0x00000064",
+        "field:this:0x00000068",
+        "global:0x0059E3E0",
+        "global:0x0059E3E8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00405B90",
+      "role": "Per-frame 3D positional-audio recompute for one source vs a listener: distance attenuation (SmoothstepInterpolation 0x00406020 when bitmask bit 3 clear), stereo pan via ScaledDotProductWithClamp (0x00405F80) and DotProductWithScaleOffset (0x00406060), channel volumes and playback rate pushed through the Miles imports, then follow-up sample-state computation (0x00406100) and start/position/resume via 0x00587BDC; always returns 0; called by 0x00405900.",
+      "owner": "MilesSoundSourceObject",
+      "evidence_refs": [
+        "function:0x00405B90",
+        "abi:lead",
+        "callee:0x00406020",
+        "callee:0x00405F80",
+        "callee:0x00406060",
+        "callee:0x00406100",
+        "callee:0x00587BDC",
+        "field:this:0x00000018",
+        "field:this:0x00000054",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x00000014",
+        "field:this:0x00000040",
+        "field:this:0x00000044",
+        "field:obj:0x0000001C",
+        "global:0x0059E3B8",
+        "global:0x0059E3BC",
+        "global:0x0059E3C0",
+        "global:0x0059E3C4",
+        "global:0x0059E3D4",
+        "global:0x008AAE70",
+        "global:0x008AAE74",
+        "caller:0x00405900",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00405F80",
+      "role": "Orientation-scaled attenuation factor: dot(a2, orientation sub-struct via this+0x54 at +0x7C/+0x80/+0x84) + 330.0 over dot(a2, listener-direction at this+0x34/+0x38/+0x3C) + 330.0, times current gain at this+0x48, clamped to [0.125, 8.0] and written back to this+0x48; called from 0x00405B90.",
+      "owner": "MilesSoundSourceObject",
+      "evidence_refs": [
+        "function:0x00405F80",
+        "abi:lead",
+        "field:this:0x00000054",
+        "field:this:0x00000034",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000048",
+        "global:0x0059E4DC",
+        "global:0x0059E4E0",
+        "global:0x0059E4E4",
+        "caller:0x00405B90",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00406060",
+      "role": "Pan/balance factor: dot of the stored vector (sub-struct via this+0x54, components at this+0xC4/+0xC8/+0xCC) against input a2, scaled and biased as (dot*0.60000002 + 1.0) * 0.5 into the [0.2, 0.8] range; used by 0x00405B90.",
+      "owner": "MilesSoundSourceObject",
+      "evidence_refs": [
+        "function:0x00406060",
+        "field:this:0x00000054",
+        "field:this:0x000000C4",
+        "field:this:0x000000C8",
+        "field:this:0x000000CC",
+        "caller:0x00405B90",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004060C0",
+      "role": "Miles sample processor/filter setup: loads sample-info from this+0x58, takes the Miles handle at its +0x10, calls AIL_set_sample_processor with this+0x64 as the processor value, and when the filter index this+0x60 is not -1 resolves it via sub_404FC0 and applies AIL_set_filter_sample_preference with this+0x68 as the filter data buffer; early-returns the null result when the sample-info or handle is null.",
+      "owner": "MilesSoundSourceObject",
+      "evidence_refs": [
+        "function:0x004060C0",
+        "abi:lead",
+        "field:this:0x00000058",
+        "field:this:0x00000060",
+        "field:this:0x00000064",
+        "field:this:0x00000068",
+        "field:*(this+0x68):0x00000010",
+        "global:0x0059E3A8",
+        "callee:0x00404FC0",
+        "global:0x0059E3AC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00406250",
+      "role": "Destructor-style cleanup for a synchronization-style object: installs vtable off_59E4EC, runs ViewCameraReset (0x004064C0), removes the object from its linked list via 0x00407C90, closes the handle at this+0x50 when the byte at this+0x58 is set (CloseHandle import 0x0059E1A8), frees three dword slots at 20-byte stride via FreeWrapper_7bcf when non-null, reverts the vtable to off_59E50C, returns the last free result.",
+      "owner": "SyncTeardownObject",
+      "evidence_refs": [
+        "function:0x00406250",
+        "field:this:0x00000000",
+        "global:0x0059E4EC",
+        "callee:0x004064C0",
+        "callee:0x00407C90",
+        "field:this:0x00000058",
+        "field:this:0x00000050",
+        "global:0x0059E1A8",
+        "callee:0x00587BCF",
+        "global:0x0059E50C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004062B0",
+      "role": "Slot-based string-list mutator on this: insert mode scans up to 3 fixed 20-byte-stride slots at this+0x28 for an empty slot (slot id -1 plus zero byte flag), copies a string pointer, two int fields and a byte flag from the 5-dword-stride input a2, reports the result through the vtable method at obj+0x8, and finalizes via sub_406790 on failure; clear mode resets all 3 slots and repopulates them from a2's first a3 entries, then runs sub_406790.",
+      "owner": "SlotStringListObject",
+      "evidence_refs": [
+        "function:0x004062B0",
+        "abi:lead",
+        "field:obj:0x00000008",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "global:0x005EA438",
+        "callee:0x00566650",
+        "callee:0x00406750",
+        "callee:0x00406790",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00406700",
+      "role": "Mutex-protected write with bounded wait: returns 0 when the mutex handle at this+0x50 is null or the WaitForSingleObject result is non-zero and not 128 (WAIT_ABANDONED); otherwise writes a2 into the protected value at this+0x4C, releases via ReleaseMutex when the handle is still non-null, returns 1; the timeout is read from this+0x54.",
+      "owner": "MutexSynchronizationObject",
+      "evidence_refs": [
+        "function:0x00406700",
+        "abi:lead",
+        "caller:0x00406130",
+        "field:this:0x00000050",
+        "field:this:0x00000054",
+        "field:this:0x0000004C",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00406A90",
+      "role": "Reads two int values from the object (this+0x18 and this+0x1C) through optional NULL-checked output pointers a2/a3 and returns the a3 pointer; consistent with returning a per-entry ID/index pair to caller LinkedListNodeSearchByIDOperation.",
+      "owner": "IndexPairOwnerObject",
+      "evidence_refs": [
+        "function:0x00406A90",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00407450",
+      "role": "Unique-string linked-list insertion: guards null input, traverses from head this+0x28 via cursor this+0x30 comparing each node string (fallback global byte_5EA438) through sub_588410, returns without inserting on match; otherwise allocates an 8-byte string node and a 12-byte list node (OperatorNewNhMallocWrapper), copies the string via StringCopyWithBufferRealloc, appends the node to the tail this+0x2C (or makes it head) and increments the count this+0x34.",
+      "owner": "UniqueStringList",
+      "evidence_refs": [
+        "function:0x00407450",
+        "abi:lead",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "global:0x005EA438",
+        "callee:0x00588410",
+        "callee:0x00587C03",
+        "callee:0x00566650",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00407810",
+      "role": "Allocates a 108-byte view/projection structure, initializes it via ViewProjectionStructInit (0x004057F0), allocates a 12-byte node holding it and appends the node at the tail of the list rooted at this (head this+0x8, tail this+0xC, first-reference this+0x10, count this+0x14); gated on the enable flag this+0x88 and non-null a2; returns the initialized structure even when node allocation fails.",
+      "owner": "ProjectionViewList",
+      "evidence_refs": [
+        "function:0x00407810",
+        "abi:lead",
+        "callee:0x004057F0",
+        "callee:0x00587C03",
+        "field:this:0x00000088",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004078A0",
+      "role": "Structurally identical sibling of 0x00407810 but for a 96-byte mutex/synchronization object initialized via MutexSynchronizationObjectInit (0x00406130); list fields sit at different offsets (head this+0x18, tail this+0x1C, first-reference this+0x20, count this+0x24); same enable gate this+0x88; kept as a separate class from ProjectionViewList.",
+      "owner": "MutexSlotList",
+      "evidence_refs": [
+        "function:0x004078A0",
+        "abi:lead",
+        "callee:0x00587C03",
+        "callee:0x00406130",
+        "field:this:0x00000088",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00407D40",
+      "role": "Direction/angle store helper on an audio sample object: copies a 3-int triple into this+0x58/+0x5C/+0x60 and a 3-float angle triple into this+0x64/+0x68/+0x6C, computes trig terms and stores them at this+0x70/+0x74/+0x78; returns the low dword of the float at this+0x78; called by AudioSamplePositionVolumeSetter (0x004071F0).",
+      "owner": "AudioSampleDirectionObject",
+      "evidence_refs": [
+        "function:0x00407D40",
+        "abi:lead",
+        "caller:0x004071F0",
+        "field:this:0x00000058",
+        "field:this:0x0000005C",
+        "field:this:0x00000060",
+        "field:this:0x00000064",
+        "field:this:0x00000068",
+        "field:this:0x0000006C",
+        "field:this:0x00000070",
+        "field:this:0x00000074",
+        "field:this:0x00000078",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00408210",
+      "role": "Initialization/teardown delegation wrapper: clears slot 17 in the global block algn_5EA4EC, invokes StructInitWithConditionalNotify (0x004083E0), returns the address of the adjacent global float flt_5EA4E8 (0x005EA4E8); callee identity and slot meaning are caller-supplied.",
+      "owner": "FreeFunction",
+      "evidence_refs": [
+        "function:0x00408210",
+        "callee:0x004083E0",
+        "global:0x005EA4E8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004084A0",
+      "role": "No-argument cdecl reader returning the double value at global dbl_8AFE90 (0x008AFE90); no computation or side effects; consumed by camera-related paths 0x004085F0, 0x00409A00, 0x0040ADB0 and 0x0040B710, suggesting a shared camera configuration constant.",
+      "owner": "FreeFunction",
+      "evidence_refs": [
+        "function:0x004084A0",
+        "abi:lead",
+        "global:0x008AFE90",
+        "caller:0x004085F0",
+        "caller:0x00409A00",
+        "caller:0x0040ADB0",
+        "caller:0x0040B710",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00408500",
+      "role": "Conditional-free helper: notifies the vtable entry of cleanup via VtableEntryNotifyCleanup (0x00408520), then releases the object memory via FreeWrapper_7bcf only when flag bit 0 (a2 & 1) is set; returns this.",
+      "owner": "FreeFunction",
+      "evidence_refs": [
+        "function:0x00408500",
+        "abi:lead",
+        "callee:0x00408520",
+        "callee:0x00587BCF",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004085F0",
+      "role": "Sub-object effect parameter dispatcher: selects a sub-object pointer by the mode field this+0x34 (cases 0..8 read this+0x10..this+0x30; case 4 computes this+0x20 + 200 * this+0x3C; others return early), then dispatches per-argument parameter bytes (a2/a3/a4 selecting between -1 context global byte_5EA55C and 1 context byte_5BE870) through virtual calls at vtable slots +12 and +16 on the selected sub-object, feeding a float from ShortComputation_84a0 and CollisionCoefficientApplication (0x00456F70); the jump table is global 0x00408714.",
+      "owner": "SubObjectEffectDispatcher",
+      "evidence_refs": [
+        "function:0x004085F0",
+        "field:this:0x00000034",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x0000003C",
+        "callee:0x004084A0",
+        "callee:0x00456F70",
+        "global:0x005EA55C",
+        "global:0x005BE870",
+        "global:0x00408714",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040A890",
+      "role": "Multi-slot membership check: returns 1 when input a2 matches any of the eight fixed entry slots (this+0x10..+0x1C and this+0x24..+0x30) or lies on the stride-200 grid of the variable-length array at this+0x20 within the count this+0x38; returns 0 otherwise, including a non-positive count.",
+      "owner": "MultiSlotMembershipObject",
+      "evidence_refs": [
+        "function:0x0040A890",
+        "abi:lead",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x00000038",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040CCE0",
+      "role": "Camera manager post/teardown: optionally logs entry when StringSplitLoop(2, source-string, 3785) is true, zeroes the main camera pointer at this+0x8, calls StructInitWithConditionalNotify on global flt_5EA4E8, releases three loader objects at this+0x18/+0x1C/+0x20 via their vtable[0] method with argument 1 and nulls each pointer, clears the byte flag at this+0x2E, returns the last call result.",
+      "owner": "CameraManager",
+      "evidence_refs": [
+        "function:0x0040CCE0",
+        "abi:lead",
+        "callee:0x004D7A50",
+        "global:0x005BE958",
+        "callee:0x004D7AA0",
+        "global:0x008AD25C",
+        "global:0x005BE99C",
+        "field:this:0x00000008",
+        "callee:0x004083E0",
+        "global:0x005EA4E8",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x0000002E",
+        "field:*(this+0x18):0x00000000",
+        "field:*(*(this+0x18)+0x0):0x00000000",
+        "field:*(this+0x1C):0x00000000",
+        "field:*(*(this+0x1C)+0x0):0x00000000",
+        "field:*(this+0x20):0x00000000",
+        "field:*(*(this+0x20)+0x0):0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040F0D0",
+      "role": "Guarded chain on the object's ID field: when *this == -1, inserts the node via LinkedListNodeInsert_0ad0 (0x00410AD0), runs a nested loop pass (0x004BE180), and returns the result of cleanup sub_4BDE20(this); the fall-through path when *this != -1 returns an uninitialized local.",
+      "owner": "GuardedIDListNode",
+      "evidence_refs": [
+        "function:0x0040F0D0",
+        "abi:lead",
+        "field:this:0x00000000",
+        "guard:0",
+        "callee:0x00410AD0",
+        "callee:0x004BE180",
+        "callee:0x004BDE20",
+        "caller:0x0040EF70",
+        "caller:0x0040F4B0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040F4B0",
+      "role": "Collision-processing mode dispatcher: reads the mode selector at this+0x1C and switches on it through jump table global 0x0040F52C; modes 0-5 run the guarded computation ShortComputation_f0d0 (0x0040F0D0) and a collision contact-impulse computation (0x004599C0) from a2/a3; mode 6 accumulates vehicle contact force from a2 with constant 1 (0x004EBC60); any other value returns the mode unchanged.",
+      "owner": "ModeDispatchContactObject",
+      "evidence_refs": [
+        "function:0x0040F4B0",
+        "field:this:0x0000001C",
+        "global:0x0040F52C",
+        "callee:0x0040F0D0",
+        "callee:0x004599C0",
+        "callee:0x004EBC60",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00410980",
+      "role": "Per-frame scene-object tick: clears the UI widget matrix dword_8AB710 via MatrixClear (0x004BDFE0), then iterates this[0] scene objects from the array at this+0x8 running SceneObjectLoaderStateMachine (0x0040F1C0) on each with the frame argument; when it returns false the element is pulled, ConditionalCleanupChain (0x0040F100) runs on it, and the index is decremented so the slot is revisited; returns the element count.",
+      "owner": "SceneObjectArrayOwner",
+      "evidence_refs": [
+        "function:0x00410980",
+        "abi:lead",
+        "callee:0x004BDFE0",
+        "global:0x008AB710",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "callee:0x0040F1C0",
+        "callee:0x0040F100",
+        "caller:0x0042C690",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "MilesSoundSourceObject",
+      "responsibility": "Miles Sound System sample-playback source object: owns the lazily-allocated playback handle/sample-info slot at this+0x58, the loaded-file reference at this+0x5C, the loop/state flag at this+0x14, the behavior bitmask at this+0x18, positional source fields this+0x28/+0x2C/+0x30, listener-direction components this+0x34/+0x38/+0x3C, baseline attenuation this+0x40, rate components this+0x44/+0x48, the listener pointer this+0x54, processor/filter state this+0x60/+0x64/+0x68, and the pan vector components this+0xC4/+0xC8/+0xCC. Grouping is DERIVED-proposed from shared this-base fields plus the direct call edges 0x00405900 -> 0x00405B90/0x004060C0 and 0x00405B90 -> 0x00405F80/0x00406060.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00405900",
+        "0x00405B90",
+        "0x00405F80",
+        "0x00406060",
+        "0x004060C0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000001C",
+          "name": "state_query_vslot",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "loop_state_flag",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "behavior_bitmask",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "source_pos_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "source_pos_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "source_pos_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "listener_dir_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000034"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "listener_dir_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000038"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "listener_dir_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000003C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "baseline_attenuation",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000040"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "rate_component",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000044"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "gain",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000048"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "listener_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000054"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "sample_info_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000058"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "sample_file_ref",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000060",
+          "name": "filter_index",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000060"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "processor_value",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000064"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000068",
+          "name": "filter_data_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000068"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C4",
+          "name": "stored_vec_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C8",
+          "name": "stored_vec_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000CC",
+          "name": "stored_vec_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000CC"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00405900",
+        "function:0x00405B90",
+        "function:0x00405F80",
+        "function:0x00406060",
+        "function:0x004060C0",
+        "caller:0x00405900",
+        "caller:0x00405B90",
+        "callee:0x00405B90",
+        "callee:0x00405F80",
+        "callee:0x00406060",
+        "callee:0x004060C0",
+        "global:0x0059E3B8",
+        "global:0x0059E3BC",
+        "global:0x0059E3E0",
+        "global:0x0059E3E8",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MilesSampleInformationObject",
+      "responsibility": "Object holding the Miles sample handle at +0x10; referenced through two different container paths (this+0x58 in the positioning update, this+0x68 in the processor setup). The two paths share the same +0x10 handle offset but are not proven to be the same allocation.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x58)",
+          "offset": "0x00000010",
+          "name": "sample_handle",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x58):0x00000010"
+          ]
+        },
+        {
+          "base": "*(this+0x68)",
+          "offset": "0x00000010",
+          "name": "sample_handle",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x68):0x00000010"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00405B90",
+        "function:0x004060C0",
+        "field:*(this+0x58):0x00000010",
+        "field:*(this+0x68):0x00000010"
+      ]
+    },
+    {
+      "name": "AudioListenerObject",
+      "responsibility": "Listener object reached through the sound-source field this+0x54: supplies the source-relative position window at +0x58/+0x5C/+0x60, the orientation sub-struct at +0x7C/+0x80/+0x84, and the Doppler reference float at +0x8C.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x54)",
+          "offset": "0x00000058",
+          "name": "listener_pos_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x54):0x00000058"
+          ]
+        },
+        {
+          "base": "*(this+0x54)",
+          "offset": "0x0000005C",
+          "name": "listener_pos_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x54):0x0000005C"
+          ]
+        },
+        {
+          "base": "*(this+0x54)",
+          "offset": "0x00000060",
+          "name": "listener_pos_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x54):0x00000060"
+          ]
+        },
+        {
+          "base": "*(this+0x54)",
+          "offset": "0x0000007C",
+          "name": "orientation_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x54):0x0000007C"
+          ]
+        },
+        {
+          "base": "*(this+0x54)",
+          "offset": "0x00000080",
+          "name": "orientation_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x54):0x00000080"
+          ]
+        },
+        {
+          "base": "*(this+0x54)",
+          "offset": "0x00000084",
+          "name": "orientation_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x54):0x00000084"
+          ]
+        },
+        {
+          "base": "*(this+0x54)",
+          "offset": "0x0000008C",
+          "name": "doppler_reference",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x54):0x0000008C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00405B90",
+        "function:0x00405F80",
+        "field:*(this+0x54):0x00000058",
+        "field:*(this+0x54):0x0000007C"
+      ]
+    },
+    {
+      "name": "AudioSampleDirectionObject",
+      "responsibility": "Audio sample object whose direction/angle store (0x00407D40) writes a 3-int triple into this+0x58/+0x5C/+0x60, a 3-float angle triple into this+0x64/+0x68/+0x6C, and trig terms into this+0x70/+0x74/+0x78. Kept separate from MilesSoundSourceObject because the packet gives it UNKNOWN owner and a different caller (0x004071F0), and the overlapping offsets are interpreted differently by the two clusters.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00407D40"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "dir_int_x",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000058"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "dir_int_y",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000060",
+          "name": "dir_int_z",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000060"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "angle_float_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000064"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000068",
+          "name": "angle_float_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000068"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000006C",
+          "name": "angle_float_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000006C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000070",
+          "name": "trig_term_cos_derived",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000070"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000074",
+          "name": "trig_term_zero",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000074"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000078",
+          "name": "trig_term_sin_derived",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000078"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00407D40",
+        "caller:0x004071F0"
+      ]
+    },
+    {
+      "name": "UniqueStringList",
+      "responsibility": "Unique-string linked-list container with head this+0x28, tail this+0x2C, traversal cursor this+0x30 and node count this+0x34; inserts strings only when absent, comparing against global byte_5EA438 when a node has no string. The 8-byte string node and 12-byte list node allocations are heap records whose layout is visible only through decompiler casts.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00407450"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "list_head",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "list_tail",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "traversal_cursor",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "node_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000034"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00407450",
+        "callee:0x00588410",
+        "callee:0x00566650",
+        "callee:0x00587C03",
+        "global:0x005EA438"
+      ]
+    },
+    {
+      "name": "ProjectionViewList",
+      "responsibility": "View/projection-object linked-list container: holds head this+0x8, tail this+0xC, first-reference this+0x10 and count this+0x14; insertion (0x00407810) is gated on the enable flag this+0x88 and a non-null input, allocates a 108-byte payload initialized by ViewProjectionStructInit and a 12-byte node, and returns the payload even when node allocation fails.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00407810"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "list_head",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "list_tail",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "first_reference",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "node_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "enable_flag",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000088"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00407810",
+        "callee:0x004057F0",
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "name": "MutexSlotList",
+      "responsibility": "Mutex/synchronization-object linked-list container: holds head this+0x18, tail this+0x1C, first-reference this+0x20 and count this+0x24 at different offsets than the structurally identical ProjectionViewList, so it is kept as a separate class (rule 8); insertion (0x004078A0) is gated on the enable flag this+0x88 and initializes a 96-byte payload via MutexSynchronizationObjectInit.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004078A0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "list_head",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "list_tail",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "first_reference",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "node_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "enable_flag",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000088"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004078A0",
+        "callee:0x00406130",
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "name": "MutexSynchronizationObject",
+      "responsibility": "Mutex synchronization object (packet DERIVED owner for 0x00406700): stores the OS mutex handle at this+0x50, the wait timeout at this+0x54 and the protected value at this+0x4C. MutexLockWithTimeout performs a bounded write of the protected value, treating a WaitForSingleObject result of 128 as WAIT_ABANDONED takeover.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00406700"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "protected_value",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000004C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "mutex_handle",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000050"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "lock_timeout",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000054"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00406700",
+        "caller:0x00406130",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4"
+      ]
+    },
+    {
+      "name": "SyncTeardownObject",
+      "responsibility": "Synchronization-style object whose destructor cleanup (0x00406250) swaps the vtable between off_59E4EC and off_59E50C, closes the handle at this+0x50 when the flag byte at this+0x58 is set, frees three dword slots at 20-byte stride, and removes the object from a linked list via LinkedListNodeRemovalWithVTableRelease. Class identity and the concrete slot meanings are not established by the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00406250"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "global:0x0059E4EC",
+            "global:0x0059E50C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "freed_slot_a",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "freed_slot_b",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "freed_slot_c",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000038"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "handle",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000050"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "handle_open_flag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000058"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00406250",
+        "callee:0x004064C0",
+        "callee:0x00407C90",
+        "callee:0x00587BCF",
+        "global:0x0059E1A8"
+      ]
+    },
+    {
+      "name": "VTableSwapDestructorObject",
+      "responsibility": "Object destroyed by a vtable-swap destructor (0x004058D0): the vtable at this+0x0 is set to off_59E4B4, the child allocation at this+0x4 is freed when non-null, and the object itself is freed when the caller deallocation flag bit 0 is set. The concrete class owning vtable 0x0059E4B4 is not identified.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004058D0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "global:0x0059E4B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "child_alloc_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004058D0",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "IndexedStructArrayAccessor",
+      "responsibility": "Object owning a 2D-indexed array of 28-byte struct entries at this+0x158 with a second-dimension stride at this+0x164; 0x00403FC0 reads one entry and splits it into two 12-byte output groups. The entry layout semantics (position vs orientation) come only from skeleton prose.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00403FC0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000158",
+          "name": "entry_array_base",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000158"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000164",
+          "name": "second_dim_stride",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000164"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00403FC0",
+        "caller:0x004C6F10",
+        "caller:0x004D1140"
+      ]
+    },
+    {
+      "name": "SceneObjectArrayOwner",
+      "responsibility": "Container of per-frame scene objects: element count at this+0x00, array base at this+0x08. UpdateSceneObjects (0x00410980) ticks each element through SceneObjectLoaderStateMachine and removes/cleanup-chains failed elements.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00410980"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "element_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "element_array_base",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00410980",
+        "callee:0x0040F1C0",
+        "callee:0x0040F100",
+        "callee:0x004BDFE0",
+        "global:0x008AB710",
+        "caller:0x0042C690"
+      ]
+    },
+    {
+      "name": "IndexPairOwnerObject",
+      "responsibility": "Object exposing an index/ID pair at this+0x18 and this+0x1C; 0x00406A90 reads the pair through optional output pointers. The pair semantics are inferred from the caller context only.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00406A90"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "index_a",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "index_b",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00406A90"
+      ]
+    },
+    {
+      "name": "MultiSlotMembershipObject",
+      "responsibility": "Object with eight fixed entry slots (this+0x10..0x1C and this+0x24..0x30) plus a variable-length array (base this+0x20, 200-byte-stride entries, count this+0x38); MultiFieldMembershipCheck tests whether an input matches any fixed slot or array grid position.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040A890"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "fixed_entry_0",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "fixed_entry_1",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "fixed_entry_2",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "fixed_entry_3",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "variable_array_base",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "fixed_entry_4",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "fixed_entry_5",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "fixed_entry_6",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "fixed_entry_7",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "entry_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000038"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040A890"
+      ]
+    },
+    {
+      "name": "SlotStringListObject",
+      "responsibility": "Slot-based string-list object: three 20-byte-stride slots whose identifiers sit at this+0x1C and byte flags at this+0x20, with a vtable method at obj+0x8 reporting mutation results; SortedStringListInsert (0x004062B0) mutates or rebuilds the slots and finalizes via sub_406790.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004062B0"
+      ],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x00000008",
+          "name": "mutation_result_vslot",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "slot_identifier",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "slot_byte_flag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004062B0",
+        "callee:0x00566650",
+        "callee:0x00406750",
+        "callee:0x00406790",
+        "global:0x005EA438"
+      ]
+    },
+    {
+      "name": "SubObjectEffectDispatcher",
+      "responsibility": "Object dispatching effect parameters to one of nine sub-object pointers (this+0x10..0x30, with case 4 computed as this+0x20 + 200 * this+0x3C) selected by the mode field this+0x34; virtual calls at vtable slots +12 and +16 receive the selected parameter byte and a float from ShortComputation_84a0. The vtable base registers of the virtual calls are uninitialized in the decompilation.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004085F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "sub_object_0",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "sub_object_1",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "sub_object_2",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "sub_object_3",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "sub_object_4_base",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "sub_object_5",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "sub_object_6",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "sub_object_7",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "sub_object_8",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "mode",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000034"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "case4_scale_index",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000003C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004085F0",
+        "callee:0x004084A0",
+        "callee:0x00456F70",
+        "global:0x005EA55C",
+        "global:0x005BE870",
+        "global:0x00408714"
+      ]
+    },
+    {
+      "name": "ModeDispatchContactObject",
+      "responsibility": "Collision-processing object with a mode selector at this+0x1C; ModeDispatchWithSwitch (0x0040F4B0) dispatches modes 0-5 to the collision-impulse path and mode 6 to the vehicle-contact-accumulation path through the jump table at 0x0040F52C.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040F4B0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "mode_selector",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040F4B0",
+        "global:0x0040F52C",
+        "callee:0x0040F0D0",
+        "callee:0x004599C0",
+        "callee:0x004EBC60"
+      ]
+    },
+    {
+      "name": "GuardedIDListNode",
+      "responsibility": "Node object whose ID field at this+0x00 gates a processing chain: when *this == -1 it is inserted into a linked list (0x00410AD0), runs a nested loop pass (0x004BE180) and is finalized by sub_4BDE20. The fall-through path returns an uninitialized local.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040F0D0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "id",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040F0D0",
+        "callee:0x00410AD0",
+        "callee:0x004BE180",
+        "callee:0x004BDE20",
+        "caller:0x0040EF70",
+        "caller:0x0040F4B0"
+      ]
+    },
+    {
+      "name": "CameraManager",
+      "responsibility": "Camera manager with a main camera pointer at this+0x8, three released vtable loader objects at this+0x18/+0x1C/+0x20 and an active byte flag at this+0x2E; CamMan_Post (0x0040CCE0) releases each loader through its vtable slot-0 method with argument 1, nulls the pointers and resets the flag. Loader class identities are unconfirmed.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040CCE0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "main_camera_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "loader_object_a",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "*(this+0x18)",
+          "offset": "0x00000000",
+          "name": "loader_a_vtable_release_slot",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x18):0x00000000"
+          ]
+        },
+        {
+          "base": "*(*(this+0x18)+0x0)",
+          "offset": "0x00000000",
+          "name": "loader_a_release_method",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x18)+0x0):0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "loader_object_b",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "*(this+0x1C)",
+          "offset": "0x00000000",
+          "name": "loader_b_vtable_release_slot",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1C):0x00000000"
+          ]
+        },
+        {
+          "base": "*(*(this+0x1C)+0x0)",
+          "offset": "0x00000000",
+          "name": "loader_b_release_method",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x1C)+0x0):0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "loader_object_c",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "*(this+0x20)",
+          "offset": "0x00000000",
+          "name": "loader_c_vtable_release_slot",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x20):0x00000000"
+          ]
+        },
+        {
+          "base": "*(*(this+0x20)+0x0)",
+          "offset": "0x00000000",
+          "name": "loader_c_release_method",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x20)+0x0):0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002E",
+          "name": "active_byte_flag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002E"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040CCE0",
+        "callee:0x004083E0",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "global:0x005EA4E8",
+        "global:0x005BE958",
+        "global:0x005BE99C",
+        "global:0x008AD25C"
+      ]
+    },
+    {
+      "name": "MemoryBlockCopyHelper",
+      "responsibility": "Stateless stdcall block-copy helper returning the one-past-the-end destination pointer; used by the allocation/copy path at 0x004056A0. No owned fields.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00405670"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x00405670",
+        "caller:0x004056A0"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "SceneObjectLoaderStateMachine",
+      "owner": "SceneObjectArrayOwner",
+      "states": [
+        "loading (per-frame advance of the element's load state)",
+        "loaded/stable (SceneObjectLoaderStateMachine returns non-zero; element retained)",
+        "unloaded/failed (returns zero; element pulled from array and cleaned up)"
+      ],
+      "transitions": "UpdateSceneObjects (0x00410980) advances each element's loader state each frame with the frame argument through SceneObjectLoaderStateMachine (0x0040F1C0); a zero result triggers removal of the element, ConditionalCleanupChain (0x0040F100), and a loop-index decrement so the slot is reprocessed.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00410980",
+        "callee:0x0040F1C0",
+        "callee:0x0040F100",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MilesSamplePlaybackLazyInit",
+      "owner": "MilesSoundSourceObject",
+      "states": [
+        "uninitialized (handle slot this+0x58 null)",
+        "initialized (handle allocated, sample file and processor configured, active flag set)",
+        "three_dimensional (3D request path: position updated, active flag cleared)",
+        "aborted (spatial-response computation triggered or handle allocation failed; returns 1)"
+      ],
+      "transitions": "The first call initializes the handle slot; the spatial-response computation (0x00405E60) triggers the abort path; a non-zero 3D request argument switches to the 3D update path (0x00405B90) and clears the active flag. The mechanism that resets the handle slot is outside this packet.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00405900",
+        "callee:0x00405E60",
+        "callee:0x004070E0",
+        "callee:0x00405B90",
+        "field:this:0x00000058",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionModeDispatcher",
+      "owner": "ModeDispatchContactObject",
+      "states": [
+        "mode0..mode5 collision_impulse (ShortComputation_f0d0 + contact-impulse computation)",
+        "mode6 vehicle_contact (accumulate contact force with constant 1)",
+        "default (returns the mode value unchanged)"
+      ],
+      "transitions": "The selector at this+0x1C is read and dispatched each call through the jump table at 0x0040F52C; there is no evidence in the packet of how the selector value itself changes.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040F4B0",
+        "field:this:0x0000001C",
+        "global:0x0040F52C",
+        "callee:0x0040F0D0",
+        "callee:0x004599C0",
+        "callee:0x004EBC60",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "MilesAudioSampleApi",
+      "purpose": "Indirect import slots for the Miles Sound System sample API, resolved through globals: AIL_set_sample_file (0x0059E3E0), AIL_set_sample_loop_count (0x0059E3E8), AIL_set_sample_volume_levels (0x0059E3B8), AIL_set_sample_playback_rate (0x0059E3BC), AIL_set_sample_processor (0x0059E3A8), AIL_set_filter_sample_preference (0x0059E3AC), AIL_set_sample_position (0x0059E3C0), AIL_resume_sample (0x0059E3D4) and AIL_start_sample (0x0059E3C4). A replacement must preserve these import slots and the calling semantics of the sample playback/setup/3D-positioning path.",
+      "functions": [
+        "0x00405900",
+        "0x00405B90",
+        "0x004060C0"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x0059E3A8",
+        "global:0x0059E3AC",
+        "global:0x0059E3B8",
+        "global:0x0059E3BC",
+        "global:0x0059E3C0",
+        "global:0x0059E3C4",
+        "global:0x0059E3D4",
+        "global:0x0059E3E0",
+        "global:0x0059E3E8",
+        "function:0x00405900",
+        "function:0x00405B90",
+        "function:0x004060C0"
+      ]
+    },
+    {
+      "name": "AllocateFreeStringServices",
+      "purpose": "Shared allocation, free, string-copy and string-compare service layer used across list inserts, destructors and string containers: operator-new wrapper (0x00587C03), free wrapper (0x00587BCF), string copy with buffer realloc (0x00566650) and string comparison (0x00588410).",
+      "functions": [
+        "0x00407450",
+        "0x00407810",
+        "0x004078A0",
+        "0x004058D0",
+        "0x00406250",
+        "0x004062B0"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03",
+        "callee:0x00587BCF",
+        "callee:0x00566650",
+        "callee:0x00588410"
+      ]
+    },
+    {
+      "name": "Win32SynchronizationApi",
+      "purpose": "Win32 synchronization import slots: WaitForSingleObject (0x0059E1A0), ReleaseMutex (0x0059E1A4) and CloseHandle (0x0059E1A8), consumed by the mutex lock path and the synchronization-object teardown.",
+      "functions": [
+        "0x00406700",
+        "0x00406250"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "global:0x0059E1A8"
+      ]
+    },
+    {
+      "name": "VTableReleaseProtocol",
+      "purpose": "Virtual release/cleanup dispatch pattern: a vtable slot-0 method is called with argument 1 on owned loader objects before their container pointers are nulled (CameraManager teardown), and ConditionalFreeByFlag performs a vtable-entry cleanup notification (0x00408520) before a conditional free. The concrete vtable targets are not resolved from this packet.",
+      "functions": [
+        "0x0040CCE0",
+        "0x00408500"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040CCE0",
+        "function:0x00408500",
+        "callee:0x00408520",
+        "field:*(this+0x18):0x00000000",
+        "field:*(*(this+0x18)+0x0):0x00000000",
+        "field:*(this+0x1C):0x00000000",
+        "field:*(*(this+0x1C)+0x0):0x00000000",
+        "field:*(this+0x20):0x00000000",
+        "field:*(*(this+0x20)+0x0):0x00000000"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x004C6F10",
+      "to": "0x00403FC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C6F10"
+      ]
+    },
+    {
+      "from": "0x004D1140",
+      "to": "0x00403FC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004D1140"
+      ]
+    },
+    {
+      "from": "0x004056A0",
+      "to": "0x00405670",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004056A0"
+      ]
+    },
+    {
+      "from": "0x00405900",
+      "to": "0x00405B90",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00405B90"
+      ]
+    },
+    {
+      "from": "0x00405900",
+      "to": "0x00405E60",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00405E60"
+      ]
+    },
+    {
+      "from": "0x00405900",
+      "to": "0x004060C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004060C0"
+      ]
+    },
+    {
+      "from": "0x00405900",
+      "to": "0x004070E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004070E0"
+      ]
+    },
+    {
+      "from": "0x00405B90",
+      "to": "0x00405F80",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00405F80"
+      ]
+    },
+    {
+      "from": "0x00405B90",
+      "to": "0x00406020",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00406020"
+      ]
+    },
+    {
+      "from": "0x00405B90",
+      "to": "0x00406060",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00406060"
+      ]
+    },
+    {
+      "from": "0x00405B90",
+      "to": "0x00406100",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00406100"
+      ]
+    },
+    {
+      "from": "0x00405B90",
+      "to": "0x00587BDC",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BDC"
+      ]
+    },
+    {
+      "from": "0x004060C0",
+      "to": "0x00404FC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00404FC0"
+      ]
+    },
+    {
+      "from": "0x00406250",
+      "to": "0x004064C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004064C0"
+      ]
+    },
+    {
+      "from": "0x00406250",
+      "to": "0x00407C90",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00407C90"
+      ]
+    },
+    {
+      "from": "0x00406250",
+      "to": "0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "0x004062B0",
+      "to": "0x00406750",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00406750"
+      ]
+    },
+    {
+      "from": "0x004062B0",
+      "to": "0x00406790",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00406790"
+      ]
+    },
+    {
+      "from": "0x004062B0",
+      "to": "0x00566650",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566650"
+      ]
+    },
+    {
+      "from": "0x00406130",
+      "to": "0x00406700",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00406130"
+      ]
+    },
+    {
+      "from": "0x00407450",
+      "to": "0x00588410",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00588410"
+      ]
+    },
+    {
+      "from": "0x00407450",
+      "to": "0x00566650",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566650"
+      ]
+    },
+    {
+      "from": "0x00407450",
+      "to": "0x00587C03",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "0x00407810",
+      "to": "0x004057F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004057F0"
+      ]
+    },
+    {
+      "from": "0x00407810",
+      "to": "0x00587C03",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "0x004078A0",
+      "to": "0x00406130",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00406130"
+      ]
+    },
+    {
+      "from": "0x004078A0",
+      "to": "0x00587C03",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "0x004071F0",
+      "to": "0x00407D40",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004071F0"
+      ]
+    },
+    {
+      "from": "0x00408210",
+      "to": "0x004083E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004083E0"
+      ]
+    },
+    {
+      "from": "0x004085F0",
+      "to": "0x004084A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004084A0"
+      ]
+    },
+    {
+      "from": "0x004085F0",
+      "to": "0x00456F70",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00456F70"
+      ]
+    },
+    {
+      "from": "0x00408500",
+      "to": "0x00408520",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00408520"
+      ]
+    },
+    {
+      "from": "0x00408500",
+      "to": "0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "0x0040CCE0",
+      "to": "0x004D7A50",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004D7A50"
+      ]
+    },
+    {
+      "from": "0x0040CCE0",
+      "to": "0x004D7AA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004D7AA0"
+      ]
+    },
+    {
+      "from": "0x0040CCE0",
+      "to": "0x004083E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004083E0"
+      ]
+    },
+    {
+      "from": "0x0040F4B0",
+      "to": "0x0040F0D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040F0D0"
+      ]
+    },
+    {
+      "from": "0x0040F4B0",
+      "to": "0x004599C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004599C0"
+      ]
+    },
+    {
+      "from": "0x0040F4B0",
+      "to": "0x004EBC60",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004EBC60"
+      ]
+    },
+    {
+      "from": "0x0040F0D0",
+      "to": "0x00410AD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00410AD0"
+      ]
+    },
+    {
+      "from": "0x0040F0D0",
+      "to": "0x004BE180",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BE180"
+      ]
+    },
+    {
+      "from": "0x0040F0D0",
+      "to": "0x004BDE20",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BDE20"
+      ]
+    },
+    {
+      "from": "0x0040EF70",
+      "to": "0x0040F0D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0040EF70"
+      ]
+    },
+    {
+      "from": "0x00410980",
+      "to": "0x004BDFE0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BDFE0"
+      ]
+    },
+    {
+      "from": "0x00410980",
+      "to": "0x0040F1C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040F1C0"
+      ]
+    },
+    {
+      "from": "0x00410980",
+      "to": "0x0040F100",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040F100"
+      ]
+    },
+    {
+      "from": "0x0042C690",
+      "to": "0x00410980",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0042C690"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "MilesSamplePlaybackContract",
+      "category": "audio",
+      "description": "Sample playback setup must lazily allocate the playback handle into this+0x58 on first call (back-reference to this), use the loaded-file reference at this+0x5C, select the loop count from the flag at this+0x14 (1 = infinite -> AIL loop count 0, else 1), configure processor/filter state through this+0x60/+0x64/+0x68, and return 0 on success or 1 when the spatial-response computation (0x00405E60) triggers or handle allocation fails.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00405900",
+        "field:this:0x00000058",
+        "field:this:0x0000005C",
+        "field:this:0x00000014",
+        "field:this:0x00000060",
+        "field:this:0x00000064",
+        "field:this:0x00000068",
+        "global:0x0059E3E0",
+        "global:0x0059E3E8",
+        "global:0x0059E3A8",
+        "global:0x0059E3AC",
+        "callee:0x004060C0",
+        "callee:0x00405E60"
+      ]
+    },
+    {
+      "name": "Miles3DPositioningContract",
+      "category": "audio",
+      "description": "The per-frame 3D positional update must read the source position at this+0x28/+0x2C/+0x30, the listener pointer at this+0x54 (listener position at +0x58/+0x5C/+0x60, orientation at +0x7C/+0x80/+0x84, Doppler reference at +0x8C), gate on the state flag this+0x14 and behavior bitmask this+0x18, clamp the gain at this+0x48 to [0.125, 8.0] after the dot-product scaling, compute the pan factor as (dot*0.60000002 + 1.0) * 0.5, set the playback rate from the Doppler reference times this+0x44 and this+0x48, and return 0 on every path.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00405B90",
+        "function:0x00405F80",
+        "function:0x00406060",
+        "field:this:0x00000018",
+        "field:this:0x00000028",
+        "field:this:0x00000044",
+        "field:this:0x00000048",
+        "field:*(this+0x54):0x0000008C",
+        "global:0x0059E3B8",
+        "global:0x0059E3BC"
+      ]
+    },
+    {
+      "name": "MutexLockContract",
+      "category": "threading",
+      "description": "Mutex-protected write must return 0 when the mutex handle at this+0x50 is null or when the WaitForSingleObject result is non-zero and not 128 (WAIT_ABANDONED); on success it must write the caller value into the protected slot at this+0x4C, release the mutex via ReleaseMutex when the handle is still non-null, and return 1. The wait timeout is read from this+0x54.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00406700",
+        "field:this:0x00000050",
+        "field:this:0x00000054",
+        "field:this:0x0000004C",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4"
+      ]
+    },
+    {
+      "name": "SyncObjectTeardownContract",
+      "category": "lifetime",
+      "description": "Synchronization-object teardown must swap the vtable to off_59E4EC, run the reset routine (0x004064C0), remove the object from its linked list via 0x00407C90, close the handle at this+0x50 via CloseHandle only when the byte at this+0x58 is set (then clearing the handle), free the three dword slots at 20-byte stride when non-null, and revert the vtable to off_59E50C before returning.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00406250",
+        "global:0x0059E4EC",
+        "global:0x0059E50C",
+        "global:0x0059E1A8",
+        "field:this:0x00000050",
+        "field:this:0x00000058",
+        "callee:0x00407C90",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "ListInsertEnableGateContract",
+      "category": "container",
+      "description": "List insertion (0x00407810 and 0x004078A0) must gate on the enable flag at this+0x88 and a non-null input, allocate the payload and a 12-byte node, make the node both head and first-reference when the list is empty, otherwise append after the tail, advance the tail, increment the count, and return the initialized payload even when the node allocation fails. The two siblings keep their head/tail/first/count fields at different offsets and must not be assumed to share a base type.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00407810",
+        "function:0x004078A0",
+        "field:this:0x00000088",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "name": "UniqueStringListContract",
+      "category": "container",
+      "description": "The unique-string list must traverse from the head this+0x28 comparing each node string (falling back to global byte_5EA438 when a node has no string) and skip insertion on a match; otherwise it allocates an 8-byte string node and a 12-byte list node, appends at the tail this+0x2C and increments the count this+0x34.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00407450",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "global:0x005EA438",
+        "callee:0x00588410",
+        "callee:0x00566650",
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "name": "IndexedStructArrayReadContract",
+      "category": "memory_layout",
+      "description": "The 2D-indexed array reader must compute the linear entry index as a2 + a3 * (this+0x164) over 28-byte entries at base this+0x158, copy entry bytes 0..11 to the first output and 12..23 to the second, and return the second dword of the second group.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00403FC0",
+        "field:this:0x00000158",
+        "field:this:0x00000164",
+        "caller:0x004C6F10",
+        "caller:0x004D1140"
+      ]
+    },
+    {
+      "name": "CameraManagerTeardownContract",
+      "category": "lifetime",
+      "description": "Camera-manager teardown must optionally emit a debug log line, zero the main camera pointer at this+0x8, run the global struct-init (0x004083E0 on flt_5EA4E8), release each of the three loader objects at this+0x18/+0x1C/+0x20 through its vtable slot-0 method with argument 1 and null the pointer, and clear the byte flag at this+0x2E.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040CCE0",
+        "field:this:0x00000008",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x0000002E",
+        "callee:0x004083E0",
+        "global:0x005EA4E8",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0"
+      ]
+    },
+    {
+      "name": "SceneObjectTickContract",
+      "category": "behavior",
+      "description": "The per-frame scene-object update must clear the UI widget matrix dword_8AB710, iterate the element count this+0x00 over the array at this+0x08, advance each element through SceneObjectLoaderStateMachine with the frame argument, and on a false result remove the element, run ConditionalCleanupChain on it and revisit the same slot (index decrement).",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00410980",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "global:0x008AB710",
+        "callee:0x004BDFE0",
+        "callee:0x0040F1C0",
+        "callee:0x0040F100"
+      ]
+    }
+  ],
+  "unresolved": [
+    "0x00403FC0 (IndexedStructDataRead): the semantics of the two 12-byte output groups (position vs orientation) and the meaning of the 28-byte entry layout come only from skeleton prose, not from the raw source; the owner class providing this+0x158/this+0x164 is unidentified.",
+    "0x00405020 (InitLoadPathWrapper): unk_5EA440 is unnamed (type, content, lifecycle unknown); ComplexDestructorWith4LinkedLists is named only in the raw source text and has no packet callee address; the init/load-path name is not corroborated by the destructor-style body.",
+    "0x004057E4 (AudioBufferByteAdd): the __usercall register placement is nonstandard and its caller is unknown; the BYTE5(result) addend and the byte cleared at a3+112 have no named evidence; the decompiler warns the stack may be mis-rendered.",
+    "0x004058D0 (DestructorWithVTableAndFree): the concrete class owning vtable 0x0059E4B4 is not identified; the meaning of a2 flag bits beyond bit 0 (object deallocation) is unknown.",
+    "0x00405900 (MilesAudioSamplePlaybackSetup): the owning class is unidentified; the per-handle fields at +0x4/+0x8/+0xC and +0x10 are read/written but not semantically confirmed; the roles of this+0x60/+0x64/+0x68 inside the processor setup are defined outside this packet.",
+    "0x00405B90 (Update3DSoundPositioning): the obj+0x1C vtable state query is caller-defined; the this+0x18 bitmask bit meanings (0/2/3/4) are inferred from branch structure; the listener (this+0x54) vs sample-information (this+0x58) relationship is not expressed in the raw text; globals 0x0059E43C/0x0059E440 are packet-flagged but absent from the raw source.",
+    "0x00405F80 (ScaledDotProductWithClamp): the exact mapping of globals 0x0059E4DC/0x0059E4E0/0x0059E4E4 to the 330.0/0.125/8.0 literals is unconfirmed; the a2 direction-vector reading is DERIVED from the sole caller; the orientation sub-struct semantics of +0x7C/+0x80/+0x84 are not in the raw text.",
+    "0x00406060 (DotProductWithScaleOffset): float globals 0x0059E43C/0x0059E450/0x0059E4E8 may back the 0.6/1.0/0.5 scale literals but the mapping is unproven; the [0.2, 0.8] pan range is a DERIVED interpretation.",
+    "0x004060C0 (MilesSoundSampleProcessorSetup): the meaning of the processor type literal 1 and of this+0x64 is not grounded in the packet; sub_404FC0's resolution mechanism is outside packet evidence; the owning class is unknown.",
+    "0x00406250 (SynchronizationObjectDestructorCleanup): the identities of vtable globals off_59E4EC/off_59E50C and the three freed dword slots are not established; the flag at this+0x58 and handle at this+0x50 beyond 'initialized'/'close' are inferences; ViewCameraReset (0x004064C0) is a legacy name whose role in the destructor path is unclear.",
+    "0x004062B0 (SortedStringListInsert): the vtable method at obj+0x8 and sub_406790 (finalization/re-sort) are not observable from this function alone; the adjacent slot identifier at this+0x18 has no packet field evidence ref; packet-listed callee FreeWrapper_7bcf does not appear in the raw body (possibly inlined).",
+    "0x00406700 (MutexLockWithTimeout): the constant 128 is read as Win32 WAIT_ABANDONED from API semantics, not named by the packet; this mutex layout (handle 0x50, timeout 0x54, value 0x4C) differs from the MutexCreateRecreate object, so class identity is DERIVED and unconfirmed; the meaning of the protected value is unknown.",
+    "0x00406A90 (GetIndexPair): the semantics of the two values at +0x18/+0x1C (an index pair) are inferred from the caller context only; how LinkedListNodeSearchByIDOperation interprets the returned pointers is outside this packet.",
+    "0x00407450 (LinkedListStringInsertUnique): the node traversal pointer chain is visible only through decompiler type casts; the content and purpose of global byte_5EA438 as a default comparison string are not resolved from this packet.",
+    "0x00407810 / 0x004078A0: the owner objects and the meaning of the shared enable flag at this+0x88 are unidentified; the 12-byte node layout beyond payload pointer and byte flag is an assumed minimum; why both return the initialized payload when node allocation failed is unexplained. The two siblings are structurally identical but use different list-field offsets and are therefore kept as separate classes (rule 8).",
+    "0x00407D40 (setAudioDirectionFromAngles): global 0x0059E440 is packet-flagged but absent from the raw source (possibly the folded zero constant); the 3-int triple role is established only by caller 0x004071F0; the multiply-by-0.0 terms are compiler artifacts whose original formula is not recoverable. CONTRADICTION: this function writes int/float triples into this+0x58..0x78 while the MilesSoundSourceObject cluster interprets this+0x58/0x60/0x64/0x68 differently; the two are kept as separate classes.",
+    "0x00408210 (InitializeAndReturnFloatGlobal): StructInitWithConditionalNotify (0x004083E0) semantics are caller-supplied; algn_5EA4EC slot 17 and its relation to flt_5EA4E8 are unknown; whether &flt_5EA4E8 is a single float or an array start is unknown.",
+    "0x004084A0 (ShortComputation_84a0): the meaning and initializer of dbl_8AFE90 are unknown; the name carries no semantic weight beyond 'reads a global float'; which camera property it feeds is not evidenced.",
+    "0x00408500 (ConditionalFreeByFlag): flag bit semantics beyond bit 0 (defer-free) are unknown; the owner object type is unknown.",
+    "0x004085F0 (DispatchSubObjectEffectParameters): the switch jump table at 0x00408714 is not modeled; the vtable bases of the +12/+16 virtual calls (registers v7/v10/v11) are uninitialized in the decompilation so the call targets are unresolved; the CollisionCoefficientApplication second argument on the a2 == 1 path is an uninitialized register.",
+    "0x0040A890 (MultiFieldMembershipCheck): whether a2 is a raw address (grid-position membership) or a stored entry id is not resolvable from this packet; the 200-byte array entry layout is a structural fact with no per-entry field documentation.",
+    "0x0040CCE0 (CamMan_Post): the three released objects at this+0x18/+0x1C/+0x20 are typed as loaders by existing analysis only; the argument-1 semantics of the vtable slot-0 release method and the role of flt_5EA4E8 are unconfirmed.",
+    "0x0040F0D0 (ShortComputation_f0d0): the fall-through path returns an uninitialized local (undefined value); globals 0x005EA560/0x008AB710 are packet-flagged but absent from the raw source; the guard direction (branch when *this == -1) is taken from the raw source and contradicts the prior fill's guard-table interpretation.",
+    "0x0040F4B0 (ModeDispatchWithSwitch): the semantic meaning of mode values 0-6 is not established; the roles of arguments a2 (likely contact/impulse descriptor) and a3 are caller-defined.",
+    "0x00410980 (UpdateSceneObjects): the identity of the scene-object type and the meaning of SceneObjectLoaderStateMachine's false return (failure vs unload) are not established by this packet.",
+    "General: equal offsets on different this bases or on different list classes are never merged into a shared type without packet proof of common ownership (rule 8); every class here except the packet-supplied DERIVED owners (MutexSynchronizationObject, plus the DERIVED-proposed clusters) is a GUESS proposal; worker agreement cannot create runtime truth."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E4E8",
+    "global:0x005EA560"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

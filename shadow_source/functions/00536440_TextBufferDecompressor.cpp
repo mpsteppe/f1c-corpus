@@ -1,0 +1,66 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00536440
+// Canonical corpus name: TextBufferDecompressor
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TextBufferDecompressor_00536440.c
+
+void UnknownObject::TextBufferDecompressor()
+{
+    // Refills the decompression input buffer for the inflate loop. Computes how many bytes to request from the stream, slides the sliding window when the read position nears the window end (shifting the buffer data and re-basing both hash-chain arrays), calls DecompressionStreamRead to fetch compressed bytes, tracks the available byte count, and computes the initial hash value from the first two new bytes. Exits when the vtable stream-reader is null or the buffer holds enough bytes (>= 262).
+    // CALCULATION: Load the window size (this+34, field 0x22) as the slide size and the full-buffer request amount. [field:this:0x00000022, source:raw]
+    // CALCULATION: Compute the requested read amount v5 = this+50 (lookahead target) - this+98 (read position) - this+106 (available bytes). [field:this:0x00000032, field:this:0x00000062, field:this:0x0000006A, source:raw]
+    // GUARD: If the computed request v5 is -1, clamp it to -2 and jump directly to the stream-read step, skipping the window slide. [source:raw]
+    // GUARD: If v5 is 0 while both the read position (0x62) and available bytes (0x6A) are 0, request the full window size v2 and skip the slide. [field:this:0x00000022, field:this:0x00000062, field:this:0x0000006A, source:raw]
+    // GUARD: Slide-window check: when the read position (0x62) reaches window size + v2 - 262, the window must slide. [field:this:0x00000022, field:this:0x00000062, source:raw]
+    // CALL: Move (memmove-style qmemcpy) the v2 unconsumed bytes at window base + v2 (0x2E) back to the window base, compacting the buffer to the front. [field:this:0x0000002E, field:this:0x00000022, source:raw]
+    // ASSIGNMENT: Update window bookkeeping after the slide: bytes consumed (0x52) -= v2, read position (0x62) -= v2, and slide offset (0x66) -= v2. [field:this:0x00000052, field:this:0x00000062, field:this:0x00000066, source:raw]
+    // LOOP: Adjust the hash prev-array (0x3A): iterate the 0x42 match-offset adjust counter entries backwards, setting each entry below v2 to 0 or decrementing it by v2, keeping match positions valid after the slide. [field:this:0x0000003A, field:this:0x00000042, field:this:0x00000022, source:raw]
+    // LOOP: Adjust the hash head-array (0x36): iterate v2 entries backwards, setting each entry below v2 to 0 or decrementing it by v2. [field:this:0x00000036, field:this:0x00000022, source:raw]
+    // CALCULATION: Increase the requested read amount v5 by the slide size v2 after sliding. [field:this:0x00000022, source:raw]
+    // GUARD: Read the stream-read function pointer vtable[1] via the vtable pointer at this+0 (field 0x0) plus 4 (obj field 0x4); if it is null, exit the refill loop. [field:this:0x00000000, field:obj:0x00000004, source:raw]
+    // CALL: Call DecompressionStreamRead(v5) to fetch the requested number of compressed bytes into the buffer. [callee:0x00536560, source:raw]
+    // ASSIGNMENT: Add the number of bytes returned by the stream read to the available byte count (0x6A). [field:this:0x0000006A, callee:0x00536560, source:raw]
+    // GUARD: If the available byte count (0x6A) is now >= 3, compute the initial hash from the new bytes. [field:this:0x0000006A, source:raw]
+    // ASSIGNMENT: Compute the initial hash: current hash (0x3E) = mask (0x4A) & (second byte ^ (first byte << shift 0x4E)), where the two bytes are read from read position (0x62) within the window base (0x2E). [field:this:0x0000003E, field:this:0x0000004A, field:this:0x0000004E, field:this:0x00000062, field:this:0x0000002E, source:raw]
+    // GUARD: Exit the loop when the available byte count (0x6A) reaches 262 (0x106); otherwise re-check vtable[1] and continue refilling. [field:this:0x0000006A, source:raw]
+    // RETURN: Return the last vtable[1] function pointer read (null if the vtable reader was absent, otherwise the final stream-read status). [field:obj:0x00000004, source:raw]
+
+    // Conservative worker pseudocode:
+    //   unsigned int window = *(unsigned int*)(this + 34);
+    //   do {
+    //     int want = *(int*)(this + 50) - *(unsigned int*)(this + 98) - *(unsigned int*)(this + 106);
+    //     if (want == -1) { want = -2; goto stream_read; }
+    //     if (want == 0 && *(unsigned int*)(this + 98) == 0 && *(unsigned int*)(this + 106) == 0) { want = window; goto stream_read; }
+    //     if (*(unsigned int*)(this + 98) >= *(unsigned int*)(this + 34) + window - 262) {
+    //       memmove((void*)*(int*)(this + 46), (const void*)(*(int*)(this + 46) + window), window);
+    //       *(unsigned int*)(this + 82) -= window;
+    //       *(unsigned int*)(this + 98) -= window;
+    //       *(unsigned int*)(this + 102) -= window;
+    //       for (int i = *(int*)(this + 66); i > 0; --i) {
+    //         unsigned short e = *(unsigned short*)(*(int*)(this + 58) + 2 * (i - 1));
+    //         *(unsigned short*)(*(int*)(this + 58) + 2 * (i - 1)) = e < window ? 0 : e - window;
+    //       }
+    //       for (unsigned int i = window; i > 0; --i) {
+    //         unsigned short e = *(unsigned short*)(*(int*)(this + 54) + 2 * (i - 1));
+    //         *(unsigned short*)(*(int*)(this + 54) + 2 * (i - 1)) = e < window ? 0 : e - window;
+    //       }
+    //       want += window;
+    //     }
+    //   stream_read:
+    //     int fn = *(int*)(*(int*)this + 4);
+    //     if (!fn) break;
+    //     *(unsigned int*)(this + 106) += DecompressionStreamRead(want);
+    //     if (*(unsigned int*)(this + 106) >= 3) {
+    //       int p = *(int*)(this + 46) + *(int*)(this + 98);
+    //       *(unsigned int*)(this + 62) = *(unsigned int*)(this + 74) & (*(unsigned char*)(p + 1) ^ (*(unsigned char*)p << *(int*)(this + 78)));
+    //     }
+    //     if (*(unsigned int*)(this + 106) >= 262) break;
+    //     fn = *(int*)(*(int*)this + 4);
+    //   } while (fn);
+    //   return fn;
+    //   }
+    // UNRESOLVED: Exact inflate stage and field semantics (hash-chain arrays, window bookkeeping) are DERIVED from the decompiled layout; no type symbol or runtime evidence confirms them.
+    // UNRESOLVED: The vtable-based stream reader is read at this+0 then dereferenced at +4; the concrete object type behind `this` is unknown.
+    // UNRESOLVED: The qmemcpy slide is treated as memmove; the direction of overlap is inferred as a forward copy and is unverified.
+    // UNRESOLVED: Return value is the last vtable[1] slot, not an explicit success code; its semantic meaning for callers is unresolved.
+}

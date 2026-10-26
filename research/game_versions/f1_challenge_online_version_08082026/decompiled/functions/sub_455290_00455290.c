@@ -1,0 +1,47 @@
+int sub_455290()
+{
+  sub_566650(aSteerRight);
+  sub_566650(aSteerLeft);
+  sub_566650(aAccelerate);
+  sub_566650(aBrake);
+  sub_566650(aShiftUp);
+  sub_566650(aShiftDown);
+  sub_566650(aNeutral);
+  sub_566650(aReverseGear);
+  sub_566650(aFirstGear);
+  sub_566650(aSecondGear);
+  sub_566650(aThirdGear);
+  sub_566650(aFourthGear);
+  sub_566650(aFifthGear);
+  sub_566650(aSixthGear);
+  sub_566650(aSeventhGear);
+  sub_566650(aClutch);
+  sub_566650(aTcOverride);
+  sub_566650(aLaunchControl);
+  sub_566650(aLcdMode);
+  sub_566650(aLcdUp);
+  sub_566650(aLcdDown);
+  sub_566650(aLcdIncrease);
+  sub_566650(aLcdDecrease);
+  sub_566650(aRequestPit);
+  sub_566650(aRpmLimiter);
+  sub_566650(aBrakeBiasF);
+  sub_566650(aBrakeBiasR);
+  sub_566650(aLookLeft);
+  sub_566650(aLookRight);
+  sub_566650(aLookBehind);
+  sub_566650(aInstantReplay);
+  sub_566650(aPause);
+  sub_566650(aRestartRace);
+  sub_566650(aZeroHeadTracke);
+  sub_566650(aVehicleLabels);
+  sub_566650(aIgnition);
+  sub_566650(aStarter);
+  sub_566650(aHorn);
+  sub_566650(aHeadlights);
+  sub_566650(aHandbrake);
+  sub_566650(aLookUp);
+  sub_566650(aLookDown);
+  sub_566650(aLookRollLeft);
+  return sub_566650(aLookRollRight);
+}

@@ -1,0 +1,35 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0054B190
+// Canonical corpus name: sub_54B190
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_54B190_0054b190.c
+
+void UnknownObject::CopyMeshHeaderToOutputBuffer()
+{
+    // Copies a mesh header plus its bounding/geometry data from a source mesh structure (a1) into a caller-supplied destination char buffer (a2). First strcpy's the "cube.mts" filename string into the buffer, then copies two header dwords (source this+0x14 and this+0x18) to destination +0x14/+0x18, bulk-copies 96 bytes (24 dwords) from source dwords 7..30 to destination bytes 28..123, copies the bounding-volume/geometry block from source this+0x7C..this+0x84 to destination +0xDC..+0xE4, and copies the OBB/plane-data block from source this+0x94..this+0xD4 to destination +0xF4..+0x134. Returns 0. Invoked during mesh serialization from sub_54AC70.
+    // CALL: strcpy(a2, aCubeMts410) copies the "cube.mts" filename string into the destination buffer; the returned pointer v2 (end of the string) is used as the write base for the numeric fields. [global:0x005DBFC0, source:raw]
+    // ASSIGNMENT: *((_DWORD*)v2 + 5) = a1[5]; copy the first mesh header dword from source this+0x14 to destination +0x14. [field:this:0x00000014, source:raw]
+    // ASSIGNMENT: *((_DWORD*)v2 + 6) = a1[6]; copy the second mesh header dword from source this+0x18 to destination +0x18. [field:this:0x00000018, source:raw]
+    // CALCULATION: qmemcpy(v2 + 28, a1 + 7, 0x60) bulk-copies 96 bytes (24 dwords) from source dwords 7..30 to destination bytes 28..123; the covered source range is not decomposed into named fields. [source:raw]
+    // ASSIGNMENT: Copy the bounding-volume/geometry dwords from source this+0x7C, this+0x80, this+0x84 (a1[31..33]) to destination +0xDC, +0xE0, +0xE4. [field:this:0x0000007C, field:this:0x00000080, field:this:0x00000084, source:raw]
+    // ASSIGNMENT: Copy the OBB/plane-data block from source this+0x94 .. this+0xD4 (a1[37..53]) to destination dwords 61..77 (bytes +0xF4 .. +0x134). [field:this:0x00000094, field:this:0x00000098, field:this:0x0000009C, field:this:0x000000A0, field:this:0x000000A4, field:this:0x000000A8, field:this:0x000000AC, field:this:0x000000B0, field:this:0x000000B4, field:this:0x000000B8, field:this:0x000000BC, field:this:0x000000C0, field:this:0x000000C4, field:this:0x000000C8, field:this:0x000000CC, field:this:0x000000D0, field:this:0x000000D4, source:raw]
+    // RETURN: Return 0. [source:raw, function:0x0054B190]
+
+    // Conservative worker pseudocode:
+    //   int CopyMeshHeaderToOutputBuffer(_DWORD *src, char *dst) {
+    //     char *p = strcpy(dst, aCubeMts410);
+    //     ((_DWORD*)p)[5] = src[5];
+    //     ((_DWORD*)p)[6] = src[6];
+    //     memcpy(p + 28, src + 7, 0x60);
+    //     ((_DWORD*)p)[55] = src[31]; ((_DWORD*)p)[56] = src[32]; ((_DWORD*)p)[57] = src[33];
+    //     ((_DWORD*)p)[61] = src[37]; ((_DWORD*)p)[62] = src[38]; ((_DWORD*)p)[63] = src[39];
+    //     ((_DWORD*)p)[64] = src[40]; ((_DWORD*)p)[65] = src[41]; ((_DWORD*)p)[66] = src[42];
+    //     ((_DWORD*)p)[67] = src[43]; ((_DWORD*)p)[68] = src[44]; ((_DWORD*)p)[69] = src[45];
+    //     ((_DWORD*)p)[70] = src[46]; ((_DWORD*)p)[71] = src[47]; ((_DWORD*)p)[72] = src[48];
+    //     ((_DWORD*)p)[73] = src[49]; ((_DWORD*)p)[74] = src[50]; ((_DWORD*)p)[75] = src[51];
+    //     ((_DWORD*)p)[76] = src[52]; ((_DWORD*)p)[77] = src[53];
+    //     return 0;
+    //   }
+    // UNRESOLVED: The source dwords 7..30 covered by the qmemcpy are not named fields in the packet, so their per-dword meaning is unknown.
+    // UNRESOLVED: Destination dwords 58..60 are never written from the source, leaving a gap in the copied header between the dword-57 and dword-61 writes.
+}

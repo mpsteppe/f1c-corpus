@@ -1,0 +1,1827 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_generic_runtime_objects_22",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Generic runtime object plumbing evidenced by this packet: a process-global registry doubly-linked list (head 0x008B8E20, node links at +0x86C/+0x870), the video-manager object and its vtable-backed display/device/audio sub-objects and surface/format helpers, a camera/viewport projection object, and small field getter/setter helpers.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x0053D340",
+      "function:0x0053D3A0",
+      "function:0x0053D400",
+      "function:0x0053D970",
+      "function:0x0053F720",
+      "function:0x0053FED0",
+      "function:0x00541120",
+      "function:0x00542050",
+      "function:0x00542460",
+      "source:raw"
+    ]
+  },
+  "summary": "Twenty-three functions covering four defensible object groupings. (1) SceneRegistryList: append/remove on the process-global doubly-linked registry whose head is global 0x008B8E20 and whose nodes link at byte offsets 0x86C (prev) and 0x870 (next). (2) VideoManager: a large this-object holding a display sub-object at +0x10FC, a secondary device/audio sub-object at +0x1100, surface/descriptor buffers at +0x1148/+0x114C, audio-channel config at +0x1170 and graphics state at +0x13DC/+0x13E0; its methods drive display-mode enumeration, surface-format negotiation with a three-attempt retry, flag-driven surface allocation, dirty-resource flushing, paired surface blits, index-buffer creation, audio-buffer format setup, texture-surface allocation and video-manager global/state setters. This-object sharing is proven by direct calls (0x53F720 calls 0x53F3F0; 0x53FED0 calls 0x53F720; 0x541470 calls 0x540F00); the rest of the membership is inferred from field-offset overlap and VidMan caller names. (3) CameraObject: camera/viewport projection state built by 0x542050 (FOV, frustum tangents, clip halves, projection/view matrices, far-corner term, flip flag) plus the small setters/getters 0x5423C0/0x542420/0x542460 that operate on it; 0x5423C0 provably forwards this to 0x542050 and 0x542420 forwards a1 to 0x542460. (4) SurfaceDescriptor / TextureDescriptorBlock: a flag-bit-selected surface descriptor (flags at +0x18, slot pointers +0x8..+0x14) and the 36-byte texture descriptor blocks initialized to 34/322/24/a2. All owner identities remain UNKNOWN at packet level; every class is a DERIVED grouping and the vtable slot semantics are inferred from dispatch patterns.",
+  "function_roles": [
+    {
+      "address": "0x0053D340",
+      "role": "Append a node to the global registry doubly-linked list (head global 0x008B8E20, node links prev at +0x86C, next at +0x870): empty list makes the node the head with cleared links; non-empty walks the next chain to the tail and links it. Returns the new tail (or new head when the list was empty).",
+      "owner": "SceneRegistryList",
+      "evidence_refs": [
+        "function:0x0053D340",
+        "abi:lead",
+        "global:0x008B8E20",
+        "field:this:0x0000086C",
+        "field:this:0x00000870",
+        "caller:0x0053CFE0",
+        "caller:0x0055B200",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D3A0",
+      "role": "Unlink a node from the global registry doubly-linked list: patch the previous node's next and the next node's prev, advance the head global 0x008B8E20 when this node is the head, clear the node's own links at +0x86C/+0x870, and return the node pointer.",
+      "owner": "SceneRegistryList",
+      "evidence_refs": [
+        "function:0x0053D3A0",
+        "global:0x008B8E20",
+        "field:this:0x0000086C",
+        "field:this:0x00000870",
+        "field:*(this+0x86C):0x00000870",
+        "field:*(this+0x870):0x0000086C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D400",
+      "role": "Single-global setter: write argument into module global 0x008B8E4C and return it unchanged; used by the video-manager init (0x004FA320) and post (0x004FAC00) paths.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x0053D400",
+        "abi:lead",
+        "global:0x008B8E4C",
+        "caller:0x004FA320",
+        "caller:0x004FAC00",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D4C0",
+      "role": "Resource teardown helper: call GlobalResourceCleanup (0x0053C4D0) on the object at field this+0x0 and return -1 on non-zero result; otherwise free the object via FreeWrapper (0x00587BCF) and return 0. Caller VidMan_Exit (0x004FAD00) suggests video-manager shutdown.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x0053D4C0",
+        "callee:0x0053C4D0",
+        "callee:0x00587BCF",
+        "field:this:0x00000000",
+        "caller:0x004FAD00",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D850",
+      "role": "Release a sub-object of the owning object: call cleanup helper 0x00540760 unconditionally, then, when the sub-object at this+0x10FC is non-null, dispatch its vtable slot 2 (offset 8), store the return value into the object's vtable pointer at this+0x0, null this+0x10FC, and always return 0.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x0053D850",
+        "callee:0x00540760",
+        "field:this:0x00000000",
+        "field:this:0x000010FC",
+        "field:*(this+0x10FC):0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D970",
+      "role": "Enumerate display modes of the sub-object at this+0x10FC: zero-fill the per-mode entry array (count at this+0x8, 0x43C bytes per entry), query the mode count via vtable slot 4, probe pixel formats via vtable slot 9, fetch mode info and framebuffer data via vtable slots 13 and 5, pack accepted mode records and hand them to 0x0053D8B0. Returns the mode count.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x0053D970",
+        "abi:lead",
+        "guard:0",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x000010FC",
+        "field:*(this+0x10FC):0x00000010",
+        "field:*(this+0x10FC):0x00000014",
+        "field:*(this+0x10FC):0x00000024",
+        "field:*(this+0x10FC):0x00000034",
+        "callee:0x0053D8B0",
+        "caller:0x0053E070",
+        "caller:0x0055BE80",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053F3F0",
+      "role": "Negotiate a surface format between an optional source surface and a destination capability block: normalize format ids via 0x0055C650/0x0055BDE0/0x0055C450, then run a three-attempt retry over surface-creation vtable slots 0x28/0x30 on this+0x10FC and 0x68 on this+0x1100 with format variants 71/77/80. On accept flag out+24 and return 0; after exhaustion report invalid parameter via 0x0053C590 and return -1.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x0053F3F0",
+        "callee:0x0053C590",
+        "callee:0x0055BDE0",
+        "callee:0x0055C450",
+        "callee:0x0055C650",
+        "field:this:0x00000000",
+        "field:this:0x000010FC",
+        "field:this:0x00001100",
+        "field:*(this+0x10FC):0x00000028",
+        "field:*(this+0x10FC):0x00000030",
+        "field:*(this+0x1100):0x00000068",
+        "global:0x005DBCD0",
+        "caller:0x0053E070",
+        "caller:0x0053F720",
+        "caller:0x00555E50",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053F720",
+      "role": "Flag-driven DirectX-style surface allocation: derive a surface format from a2[12] and this+0x110C via 0x0055C650, then, per flag bits in a2[6], issue create-surface vtable calls on the primary sub-object this+0x10FC (vtable+40) and the secondary this+0x1100 (vtable+108/+100/+80), selecting width/depth from this+0x13E8/this+0x13EC and remapping formats from capability flags at this+0x13A8. Optionally creates an audio emitter (0x00587C03 + 0x005426A0 stored at a2[1]) and post-processes via 0x0053F3F0 / 0x005404D0. Any vtable failure formats aCouldNotAlloca via 0x0058815F and reports via 0x0053C590, returning -1; otherwise returns 0.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x0053F720",
+        "callee:0x0053C590",
+        "callee:0x0053F3F0",
+        "callee:0x005404D0",
+        "callee:0x005426A0",
+        "callee:0x0055BFC0",
+        "callee:0x0055C450",
+        "callee:0x0055C650",
+        "callee:0x00587C03",
+        "callee:0x0058815F",
+        "field:this:0x00000000",
+        "field:this:0x000010FC",
+        "field:this:0x00001100",
+        "field:this:0x0000110C",
+        "field:this:0x000013A8",
+        "field:this:0x000013E8",
+        "field:this:0x000013EC",
+        "field:*(this+0x10FC):0x00000000",
+        "field:*(this+0x10FC):0x00000028",
+        "field:*(*(this+0x10FC)+0x0):0x00000028",
+        "field:*(this+0x1100):0x00000000",
+        "field:*(*(this+0x1100)+0x0):0x00000050",
+        "field:*(*(this+0x1100)+0x0):0x00000064",
+        "field:*(*(this+0x1100)+0x0):0x0000006C",
+        "global:0x005DBD0C",
+        "global:0x005DBD18",
+        "caller:0x0053FD40",
+        "caller:0x0053FED0",
+        "caller:0x00542950",
+        "caller:0x005429B0",
+        "caller:0x00554C30",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053FB80",
+      "role": "Flush/validate up to four optional vtable-backed resource slots on the descriptor a2, each selected by a flag bit in the flags dword at a2+24: bit 0x1 -> a2+8, bit 0x2 -> a2+12, bit 0x4 -> a2+16, bit 0x8 -> a2+20 (the a2+4 slot is only drained by 0x0053F6E0 when bit 0x40000 is set). Each non-null slot is flushed through its vtable slot 8; a non-zero return reports invalid parameter via 0x0053C590 and returns -1, otherwise the flag bit is cleared. Returns 0 when all active slots flush cleanly.",
+      "owner": "SurfaceDescriptor",
+      "evidence_refs": [
+        "function:0x0053FB80",
+        "callee:0x0053C590",
+        "callee:0x0053F6E0",
+        "global:0x005DBCD0",
+        "caller:0x00542E50",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053FC30",
+      "role": "Paired surface blit helper: resolve a source surface from descriptor a2 (vtable slot 60 when flags a2[6] have bits 0x4/0x8, direct pointer at a2[2]/a2[3] when flags 0x1/0x2), resolve the destination from descriptor a3 identically, call SurfaceBlitOperation 0x0050099C, store its result in *this and return -1 on non-zero; when flags include 0xC release the resolved surfaces through their vtable slot 8. Returns 0 on success.",
+      "owner": "SurfaceDescriptor",
+      "evidence_refs": [
+        "function:0x0053FC30",
+        "abi:lead",
+        "callee:0x0050099C",
+        "field:this:0x00000000",
+        "caller:0x005429B0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053FED0",
+      "role": "Rendering compositing setup: pick an alpha from a4[6] flags (a4[13] | 0xFF000000 when bit 0x800 set, global 0x00800000-labeled path, else default -65281), lock the source via 0x005006D5 into this+0x0, when a6 is null fill surface fields and call 0x0055C450 / 0x0053F720, select the destination by the a5 mode (vtable slot 60 for modes 4/8, direct v6[2]/v6[3] for bits 1/2), run the compositing blit 0x005008E4, and release the surface for modes 4/8. Returns 0 on success, -1 on any failure.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x0053FED0",
+        "callee:0x005006D5",
+        "callee:0x005008E4",
+        "callee:0x0053F720",
+        "callee:0x0055C450",
+        "field:this:0x00000000",
+        "global:0x00800000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00540050",
+      "role": "Resource load helper: call 0x005006D5(a2, a3, &v9), store the status into this+0x0 and return -1 on failure; on success optionally copy result words v9[0]/v9[1] into outputs a4/a5 and, when a6 is non-null, call 0x0055C450(v9[4], 0, a6). Returns 0 on success.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x00540050",
+        "abi:lead",
+        "callee:0x005006D5",
+        "callee:0x0055C450",
+        "field:this:0x00000000",
+        "caller:0x00543130",
+        "caller:0x0055FE70",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005408F0",
+      "role": "Graphics-config state setter on a _DWORD array (this): mode 0 clears this[1271] (0x13DC) and this[1272] (0x13E0) to 0, mode 1 sets both to 1, mode 2 sets this+0x13E0 to 2 and this+0x13DC to 1; other modes leave the fields untouched. Returns the mode argument. Only caller is VidMan_Enter.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x005408F0",
+        "field:this:0x000013DC",
+        "field:this:0x000013E0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00540F00",
+      "role": "Allocate a buffer through the allocator object at a2[8] (vtable slot 44, offsets from the request struct): base flag 2048, raised to 2064 by request bit 0, and 0x2000/0x1000 selected by the allocation-type hint field this+0x13E0 when request bit 0x20 is set. Stores the allocation pointer into *this; returns 0 on success, otherwise increments the request failure counter a2[5] and returns the buffer ID. Null request or allocator return 0 early.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x00540F00",
+        "field:this:0x00000000",
+        "field:this:0x000013E0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00540FC0",
+      "role": "Create an index buffer through a virtual call at vtable offset 96 on the sub-object at this+0x1100: derive usage flags from a2[0] bits (0x2/0x10 -> 8, 0x20 -> 0x200), pass buffer size 2 * a2[1] with format id 101, store the result in *this. Returns 0 on success, or -1 after reporting via 0x0053C590 on null a2 or a failed creation.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x00540FC0",
+        "callee:0x0053C590",
+        "field:this:0x00000000",
+        "field:this:0x00001100",
+        "field:*(this+0x1100):0x00000060",
+        "global:0x005DBCD0",
+        "global:0x005DBD60",
+        "caller:0x0053EB70",
+        "caller:0x00540940",
+        "caller:0x00558310",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00541090",
+      "role": "Surface lock helper: when a2 is non-null, read its lock sub-object at a2+24 and invoke that sub-object's vtable method at offset 44 with doubled dimensions (2*a4, 2*a5), a status out-slot, and lock flags 2064 when bit 0 of a2's first byte is set, else 2048. Store the call result in this+0; on non-zero return 0, otherwise increment the lock/ref counter at a2+12 and return the out-slot value.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x00541090",
+        "abi:lead",
+        "field:this:0x00000000",
+        "caller:0x0053EB70",
+        "caller:0x00540D40",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00541120",
+      "role": "Configure the audio buffer format on the audio sub-object: guard on a config object a3 with non-zero dword at a3+32, optionally tear down a pending buffer via vtable slot 148 and enter state 7 via vtable slot 200 on the sub-object at this+0x1100, decode format flags a7/a8 into the channel-config field this+0x1170, dispatch through 0x00554F80/0x00554790/0x005546A0/0x00553FA0/0x00554700, set the format via vtable slot 280 (sample rate buffered or divided by 3), and restore the saved state field this+0x13B8 through vtable slot 200.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x00541120",
+        "abi:lead",
+        "callee:0x00553DB0",
+        "callee:0x00553FA0",
+        "callee:0x005546A0",
+        "callee:0x00554700",
+        "callee:0x00554790",
+        "callee:0x00554F80",
+        "field:this:0x00000000",
+        "field:this:0x00001100",
+        "field:this:0x00001170",
+        "field:this:0x000013B8",
+        "field:this:0x000013CC",
+        "field:*(this+0x1100):0x00000094",
+        "field:*(this+0x1100):0x000000C8",
+        "field:*(this+0x1100):0x00000118",
+        "caller:0x00553070",
+        "caller:0x00553700",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00541340",
+      "role": "Texture surface descriptor allocation and creation: allocate 76 bytes via 0x00587C03, mark the header 2, zero two 9-DWORD (36-byte) descriptor blocks, store the first block pointer at this+0x114C, fill both blocks with the constants 34 (header), 322 (+4), 24 (+8) and the a2 argument (+12; second block at +36/+40/+44/+48), and call 0x00540DF0 once per block, returning -1 if either fails and 0 on success.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x00541340",
+        "abi:lead",
+        "callee:0x00540DF0",
+        "callee:0x00587C03",
+        "field:this:0x0000114C",
+        "field:*(this+0x114C):0x00000004",
+        "field:*(this+0x114C):0x00000008",
+        "field:*(this+0x114C):0x0000000C",
+        "field:*(this+0x114C):0x00000024",
+        "field:*(this+0x114C):0x00000028",
+        "field:*(this+0x114C):0x0000002C",
+        "field:*(this+0x114C):0x00000030",
+        "caller:0x00544740",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00541470",
+      "role": "Conditionally lock a 96-byte region of an audio buffer for writing: read the buffer base at this+0x114C; when non-null compute buffer_base + 36 * this[0x1148] and call 0x00540F00(this, target, 96, 0, 0). Returns the lock result, or 0 immediately when the buffer pointer is null.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x00541470",
+        "callee:0x00540F00",
+        "field:this:0x00001148",
+        "field:this:0x0000114C",
+        "caller:0x005613E0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00542050",
+      "role": "Rebuild camera/viewport projection state: store horizontal FOV at this+0x6C and vertical FOV at this+0x70 (from a3 when a4 is non-zero, else aspect-corrected from globals 0x008B8DD8/0x008B8DD4), store frustum tangents at this+0x1C/0x20, clip-plane halves at this+0x0C/0x10 from viewport dimensions at this+0x54/0x58, fill projection-matrix tail this+0xDC..0xF8 and view-rotation matrix this+0x9C..0xD8 from sin/cos of half FOVs, write the far-corner distance at this+0x78, negate this+0x0C when the flags byte at this+0x80 has bit 0x10, and return that flags byte.",
+      "owner": "CameraObject",
+      "evidence_refs": [
+        "function:0x00542050",
+        "global:0x0059E450",
+        "global:0x005B8978",
+        "global:0x005B897C",
+        "global:0x008B8DD4",
+        "global:0x008B8DD8",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000054",
+        "field:this:0x00000058",
+        "field:this:0x0000006C",
+        "field:this:0x00000070",
+        "field:this:0x00000078",
+        "field:this:0x00000080",
+        "field:this:0x0000009C",
+        "field:this:0x000000A0",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000AC",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "field:this:0x000000B8",
+        "field:this:0x000000BC",
+        "field:this:0x000000C0",
+        "field:this:0x000000C4",
+        "field:this:0x000000C8",
+        "field:this:0x000000CC",
+        "field:this:0x000000D0",
+        "field:this:0x000000D4",
+        "field:this:0x000000D8",
+        "field:this:0x000000DC",
+        "field:this:0x000000E0",
+        "field:this:0x000000E4",
+        "field:this:0x000000E8",
+        "field:this:0x000000EC",
+        "field:this:0x000000F0",
+        "field:this:0x000000F4",
+        "field:this:0x000000F8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005423C0",
+      "role": "Small thiscall setter: store the first argument into this+0x4 and the second into this+0x8, then call 0x00542050(this, float at this+0x6C, float at this+0x70, 1) and return its result. Called by nine camera/car-selection sites.",
+      "owner": "CameraObject",
+      "evidence_refs": [
+        "function:0x005423C0",
+        "abi:lead",
+        "callee:0x00542050",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000006C",
+        "field:this:0x00000070",
+        "caller:0x00409A00",
+        "caller:0x0040ADB0",
+        "caller:0x0040B710",
+        "caller:0x00434460",
+        "caller:0x00548AD0",
+        "caller:0x005550E0",
+        "caller:0x0055A060",
+        "caller:0x00560C10",
+        "caller:0x00560FE0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00542420",
+      "role": "Thin delegation: call 0x00542490(a4, a5, a6) and discard its result, then return the result of 0x00542460(a1, a2, a3); all six arguments pass through unchanged. Called by MainCameraDirectorUpdate (0x0040CA30) and 0x00466350.",
+      "owner": "CameraObject",
+      "evidence_refs": [
+        "function:0x00542420",
+        "callee:0x00542460",
+        "callee:0x00542490",
+        "caller:0x0040CA30",
+        "caller:0x00466350",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00542460",
+      "role": "Thiscall triple-field getter: write this+0x24 to *a2, this+0x28 to *a3 and this+0x2C to *a4, each output pointer individually null-guarded; returns a4. Called by camera/geometry sites (0x0040CA30, 0x004DC960, 0x004FBD70) and by 0x00542420.",
+      "owner": "CameraObject",
+      "evidence_refs": [
+        "function:0x00542460",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "caller:0x0040CA30",
+        "caller:0x004DC960",
+        "caller:0x004FBD70",
+        "caller:0x00542420",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "SceneRegistryList",
+      "responsibility": "Process-global registry doubly-linked list. Head pointer is global 0x008B8E20; nodes carry prev/next links at byte offsets 0x86C/0x870. The two functions are list operations that take a node as their this argument; the node payload layout beyond the two links is undefined.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0053D340",
+        "0x0053D3A0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000086C",
+          "name": "prev_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000086C",
+            "field:*(this+0x86C):0x00000870",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000870",
+          "name": "next_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000870",
+            "field:*(this+0x870):0x0000086C",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0053D340",
+        "function:0x0053D3A0",
+        "global:0x008B8E20",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VideoManager",
+      "responsibility": "Central video/surface/audio manager object. Holds the display sub-object at +0x10FC, a secondary device/audio sub-object at +0x1100, surface/descriptor buffer pointers at +0x1148/+0x114C, audio channel-config at +0x1170, capability flags at +0x13A8, saved-state/pending-init fields at +0x13B8/+0x13CC, graphics state at +0x13DC/+0x13E0 and width/depth formats at +0x13E8/+0x13EC. Membership is proven for the 0x53F3F0/0x53F720/0x53FED0 and 0x540F00/0x541470 this-sharing chains; other members are inferred from field-offset overlap and VidMan caller labels. The this+0x0 field is a result/status slot reused by nearly every member.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0053D4C0",
+        "0x0053D850",
+        "0x0053D970",
+        "0x0053F3F0",
+        "0x0053F720",
+        "0x0053FED0",
+        "0x00540050",
+        "0x005408F0",
+        "0x00540F00",
+        "0x00540FC0",
+        "0x00541090",
+        "0x00541120",
+        "0x00541340",
+        "0x00541470"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "status_result_slot",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "mode_entry_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000010FC",
+          "name": "display_subobject",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000010FC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001100",
+          "name": "secondary_device_subobject",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001100",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000110C",
+          "name": "default_surface_format",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000110C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001148",
+          "name": "buffer_sub_index",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001148",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000114C",
+          "name": "buffer_or_descriptor_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000114C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001170",
+          "name": "audio_channel_config",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001170",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000013A8",
+          "name": "surface_capability_flags",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000013A8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000013B8",
+          "name": "saved_state_field",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000013B8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000013CC",
+          "name": "pending_init_flag",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000013CC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000013DC",
+          "name": "graphics_state_field_a",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000013DC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000013E0",
+          "name": "graphics_state_field_b",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000013E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000013E8",
+          "name": "width_depth_format_a",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000013E8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000013EC",
+          "name": "width_depth_format_b",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000013EC",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0053D850",
+        "function:0x0053D970",
+        "function:0x0053F3F0",
+        "function:0x0053F720",
+        "function:0x0053FED0",
+        "function:0x005408F0",
+        "function:0x00540F00",
+        "function:0x00540FC0",
+        "function:0x00541120",
+        "function:0x00541340",
+        "function:0x00541470",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraObject",
+      "responsibility": "Camera/viewport projection object. Holds horizontal/vertical FOV at +0x6C/+0x70, near-plane values at +0x4/+0x8, viewport dimensions at +0x54/+0x58, frustum tangents at +0x1C/+0x20, clip-plane halves at +0x0C/+0x10, a far-corner term at +0x78, a flags byte at +0x80, and projection/view matrices at +0x9C..+0xF8. 0x5423C0 provably forwards this to 0x542050; 0x542420 forwards a1 to the 0x542460 getter, whose +0x24/+0x28/+0x2C triple is labeled position-orientation X/Y/Z by prior (DERIVED) analysis.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00542050",
+        "0x005423C0",
+        "0x00542420",
+        "0x00542460"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "near_plane_a",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "near_plane_b",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "left_clip_half_width",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "top_clip_half_height",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "horizontal_frustum_tan",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "vertical_frustum_tan",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "position_orientation_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "position_orientation_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "position_orientation_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "viewport_width",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "viewport_height",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000006C",
+          "name": "horizontal_fov",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000006C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000070",
+          "name": "vertical_fov",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000078",
+          "name": "far_corner_distance",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000078",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "flags_byte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000080",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000009C",
+          "name": "view_rot_00",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000009C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A0",
+          "name": "view_rot_01",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A4",
+          "name": "view_rot_02",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A8",
+          "name": "view_rot_03",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000AC",
+          "name": "view_rot_04",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B0",
+          "name": "view_rot_05",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B4",
+          "name": "view_rot_06",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000B4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B8",
+          "name": "view_rot_07",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000B8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000BC",
+          "name": "view_rot_08",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000BC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C0",
+          "name": "view_rot_09",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C4",
+          "name": "view_rot_10",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000C4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C8",
+          "name": "view_rot_11",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000C8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000CC",
+          "name": "view_rot_12",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000CC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D0",
+          "name": "view_rot_13",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "view_rot_14",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D8",
+          "name": "view_rot_15",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000D8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000DC",
+          "name": "proj_tail_00",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000DC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E0",
+          "name": "proj_tail_01",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E4",
+          "name": "proj_tail_02",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000E4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E8",
+          "name": "proj_tail_03",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000E8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000EC",
+          "name": "proj_tail_04",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F0",
+          "name": "proj_tail_05",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000F0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F4",
+          "name": "proj_tail_06",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000F4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F8",
+          "name": "proj_tail_07",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000F8",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00542050",
+        "function:0x005423C0",
+        "function:0x00542420",
+        "function:0x00542460",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TextureDescriptorBlock",
+      "responsibility": "36-byte texture-surface descriptor block created in pairs by 0x00541340: header constant 34, 322, 24 and the a2 argument at +4/+8/+12, mirrored at +36/+40/+44/+48 for the second block. The constant meanings (format enum, width, height) are not identified.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x114C)",
+          "offset": "0x00000004",
+          "name": "header_constant",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x114C):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x114C)",
+          "offset": "0x00000008",
+          "name": "constant_322",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x114C):0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x114C)",
+          "offset": "0x0000000C",
+          "name": "descriptor_arg",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x114C):0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x114C)",
+          "offset": "0x00000024",
+          "name": "second_block_header_constant",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x114C):0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x114C)",
+          "offset": "0x00000028",
+          "name": "second_block_constant",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x114C):0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x114C)",
+          "offset": "0x0000002C",
+          "name": "second_block_constant_2",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x114C):0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x114C)",
+          "offset": "0x00000030",
+          "name": "second_block_descriptor_arg",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x114C):0x00000030",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00541340",
+        "callee:0x00540DF0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SurfaceDescriptor",
+      "responsibility": "Flag-bit-selected surface descriptor. Evidence in the raw bodies (no formal packet field refs): flags dword at +0x18, slot pointers at +0x8/+0xC/+0x10/+0x14 (dword indices 2-5); flag bits 0x1/0x2 select a direct pointer, 0x4/0x8 resolve the surface through the object's vtable slot 60, and bits 0xC request a vtable-slot-8 release after use. The layout is not formalized as fields because the packet exposes only raw-source evidence for it.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0053FB80",
+        "0x0053FC30"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0053FB80",
+        "function:0x0053FC30",
+        "callee:0x0050099C",
+        "callee:0x0053F6E0",
+        "caller:0x005429B0",
+        "caller:0x00542E50",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "AudioDeviceStateRestore",
+      "owner": "SecondaryDeviceInterface",
+      "states": [
+        "7"
+      ],
+      "transitions": [],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00541120",
+        "field:this:0x000013B8",
+        "field:this:0x000013CC",
+        "field:*(this+0x1100):0x000000C8",
+        "field:*(this+0x1100):0x00000118",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VideoManagerGraphicsState",
+      "owner": "VideoManager",
+      "states": [
+        "0",
+        "1",
+        "2"
+      ],
+      "transitions": [],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x005408F0",
+        "field:this:0x000013DC",
+        "field:this:0x000013E0",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "DisplayDeviceInterface",
+      "purpose": "Vtable-backed display/surface sub-object stored at this+0x10FC of the video manager. Observed vtable slots: release (offset 8), mode-count query (16), framebuffer fetch (20), format-capability probe (36), surface create (40 and 48), mode info (52). The concrete device type and the exact vtable slot meaning are unknown.",
+      "functions": [
+        "0x0053D850",
+        "0x0053D970",
+        "0x0053F3F0",
+        "0x0053F720"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x000010FC",
+        "field:*(this+0x10FC):0x00000000",
+        "field:*(this+0x10FC):0x00000008",
+        "field:*(this+0x10FC):0x00000010",
+        "field:*(this+0x10FC):0x00000014",
+        "field:*(this+0x10FC):0x00000024",
+        "field:*(this+0x10FC):0x00000028",
+        "field:*(this+0x10FC):0x00000030",
+        "field:*(this+0x10FC):0x00000034",
+        "field:*(*(this+0x10FC)+0x0):0x00000028",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SecondaryDeviceInterface",
+      "purpose": "Vtable-backed sub-object stored at this+0x1100 of the video manager. Observed slots span device surface/index-buffer creation (offset 80 via double-deref, 96, 100, 104, 108) and audio state/format management (148, 200, 280). Whether these slots belong to one interface or to distinct device and audio interfaces is unresolved.",
+      "functions": [
+        "0x0053F3F0",
+        "0x0053F720",
+        "0x00540FC0",
+        "0x00541120"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00001100",
+        "field:*(this+0x1100):0x00000000",
+        "field:*(this+0x1100):0x00000060",
+        "field:*(this+0x1100):0x00000068",
+        "field:*(this+0x1100):0x00000094",
+        "field:*(this+0x1100):0x000000C8",
+        "field:*(this+0x1100):0x00000118",
+        "field:*(*(this+0x1100)+0x0):0x00000050",
+        "field:*(*(this+0x1100)+0x0):0x00000064",
+        "field:*(*(this+0x1100)+0x0):0x0000006C",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x0053D4C0",
+      "to": "0x0053C4D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053D4C0",
+        "callee:0x0053C4D0"
+      ]
+    },
+    {
+      "from": "0x0053D4C0",
+      "to": "0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053D4C0",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "0x0053D850",
+      "to": "0x00540760",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053D850",
+        "callee:0x00540760"
+      ]
+    },
+    {
+      "from": "0x0053D970",
+      "to": "0x0053D8B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053D970",
+        "callee:0x0053D8B0"
+      ]
+    },
+    {
+      "from": "0x0053F3F0",
+      "to": "0x0053C590",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F3F0",
+        "callee:0x0053C590"
+      ]
+    },
+    {
+      "from": "0x0053F3F0",
+      "to": "0x0055BDE0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F3F0",
+        "callee:0x0055BDE0"
+      ]
+    },
+    {
+      "from": "0x0053F3F0",
+      "to": "0x0055C650",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F3F0",
+        "callee:0x0055C650"
+      ]
+    },
+    {
+      "from": "0x0053F3F0",
+      "to": "0x0055C450",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F3F0",
+        "callee:0x0055C450"
+      ]
+    },
+    {
+      "from": "0x0053F720",
+      "to": "0x0053F3F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F720",
+        "callee:0x0053F3F0"
+      ]
+    },
+    {
+      "from": "0x0053F720",
+      "to": "0x0055C650",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F720",
+        "callee:0x0055C650"
+      ]
+    },
+    {
+      "from": "0x0053F720",
+      "to": "0x0055BFC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F720",
+        "callee:0x0055BFC0"
+      ]
+    },
+    {
+      "from": "0x0053F720",
+      "to": "0x0055C450",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F720",
+        "callee:0x0055C450"
+      ]
+    },
+    {
+      "from": "0x0053F720",
+      "to": "0x005426A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F720",
+        "callee:0x005426A0"
+      ]
+    },
+    {
+      "from": "0x0053F720",
+      "to": "0x0053C590",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053F720",
+        "callee:0x0053C590"
+      ]
+    },
+    {
+      "from": "0x0053FB80",
+      "to": "0x0053F6E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053FB80",
+        "callee:0x0053F6E0"
+      ]
+    },
+    {
+      "from": "0x0053FC30",
+      "to": "0x0050099C",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053FC30",
+        "callee:0x0050099C"
+      ]
+    },
+    {
+      "from": "0x0053FED0",
+      "to": "0x0053F720",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053FED0",
+        "callee:0x0053F720"
+      ]
+    },
+    {
+      "from": "0x0053FED0",
+      "to": "0x005006D5",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053FED0",
+        "callee:0x005006D5"
+      ]
+    },
+    {
+      "from": "0x0053FED0",
+      "to": "0x005008E4",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053FED0",
+        "callee:0x005008E4"
+      ]
+    },
+    {
+      "from": "0x0053FED0",
+      "to": "0x0055C450",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053FED0",
+        "callee:0x0055C450"
+      ]
+    },
+    {
+      "from": "0x00540050",
+      "to": "0x005006D5",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00540050",
+        "callee:0x005006D5"
+      ]
+    },
+    {
+      "from": "0x00540FC0",
+      "to": "0x0053C590",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00540FC0",
+        "callee:0x0053C590"
+      ]
+    },
+    {
+      "from": "0x00541120",
+      "to": "0x00554F80",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00541120",
+        "callee:0x00554F80"
+      ]
+    },
+    {
+      "from": "0x00541120",
+      "to": "0x00554790",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00541120",
+        "callee:0x00554790"
+      ]
+    },
+    {
+      "from": "0x00541120",
+      "to": "0x005546A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00541120",
+        "callee:0x005546A0"
+      ]
+    },
+    {
+      "from": "0x00541120",
+      "to": "0x00553FA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00541120",
+        "callee:0x00553FA0"
+      ]
+    },
+    {
+      "from": "0x00541120",
+      "to": "0x00554700",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00541120",
+        "callee:0x00554700"
+      ]
+    },
+    {
+      "from": "0x00541340",
+      "to": "0x00540DF0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00541340",
+        "callee:0x00540DF0"
+      ]
+    },
+    {
+      "from": "0x00541470",
+      "to": "0x00540F00",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00541470",
+        "callee:0x00540F00"
+      ]
+    },
+    {
+      "from": "0x005423C0",
+      "to": "0x00542050",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005423C0",
+        "callee:0x00542050"
+      ]
+    },
+    {
+      "from": "0x00542420",
+      "to": "0x00542460",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00542420",
+        "callee:0x00542460"
+      ]
+    },
+    {
+      "from": "0x00542420",
+      "to": "0x00542490",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00542420",
+        "callee:0x00542490"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "RegistryDoublyLinkedListLayout",
+      "category": "data_contract",
+      "description": "A process-global head pointer (0x008B8E20) manages a doubly-linked list whose nodes carry prev/next links at byte offsets 0x86C and 0x870. Append (0x53D340) and unlink (0x53D3A0) must preserve that layout, the head advance rule, and the cleared-link invariant on the removed node.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008B8E20",
+        "field:this:0x0000086C",
+        "field:this:0x00000870",
+        "function:0x0053D340",
+        "function:0x0053D3A0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SurfaceFormatRetryContract",
+      "category": "api_contract",
+      "description": "Surface creation retries format variants 71/77/80 across vtable slots 0x28/0x30 on the display sub-object and 0x68 on the secondary sub-object; on accept the output struct is flagged (out+24 |= 2) and 0 returned, and after exhaustion the invalid-parameter message (0x005DBCD0) is reported via 0x0053C590 and -1 returned.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:*(this+0x10FC):0x00000028",
+        "field:*(this+0x10FC):0x00000030",
+        "field:*(this+0x1100):0x00000068",
+        "callee:0x0053C590",
+        "global:0x005DBCD0",
+        "function:0x0053F3F0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DirtyResourceSlotFlushContract",
+      "category": "api_contract",
+      "description": "Up to four resource slots selected by flag bits at descriptor+0x18 flush through vtable slot 8 of each slot object; a non-zero flush return reports the invalid-parameter message (0x005DBCD0) via 0x0053C590 and aborts with -1, otherwise the flag bit is cleared.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0053C590",
+        "global:0x005DBCD0",
+        "function:0x0053FB80",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AudioFormatStateRestoreContract",
+      "category": "behavioral_contract",
+      "description": "Audio format setup saves the current state via this+0x13B8, enters state 7 through vtable slot 200 on the secondary sub-object, sets the format through vtable slot 280, and restores the saved state through vtable slot 200 again; the pending-init flag at this+0x13CC gates a vtable-slot-148 teardown of the prior buffer.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x000013B8",
+        "field:this:0x000013CC",
+        "field:*(this+0x1100):0x000000C8",
+        "field:*(this+0x1100):0x00000118",
+        "function:0x00541120",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraProjectionStateContract",
+      "category": "data_contract",
+      "description": "The camera object maintains horizontal/vertical FOV at +0x6C/+0x70, viewport dimensions at +0x54/+0x58, near-plane values at +0x4/+0x8, a flags byte at +0x80 (bit 0x10 mirrors the frustum), projection/view matrices at +0x9C..+0xF8 and a far-corner term at +0x78; 0x542050 rebuilds the state and its callers must keep those fields coherent.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x0000006C",
+        "field:this:0x00000070",
+        "field:this:0x00000054",
+        "field:this:0x00000058",
+        "field:this:0x00000080",
+        "field:this:0x00000078",
+        "function:0x00542050",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "The VideoManager grouping is only partially proven: direct this-sharing calls link 0x53F3F0/0x53F720/0x53FED0 and 0x540F00/0x541470, but membership of 0x53D4C0, 0x53D400, 0x540050, 0x5408F0, 0x540FC0, 0x541120 and 0x541340 is inferred from field-offset overlap and the VidMan caller labels, not independently established.",
+    "Whether the two vtable-backed sub-objects at this+0x10FC and this+0x1100 are the same or distinct surface interfaces is unresolved; the packet explicitly flags the question.",
+    "The format ids 20-25, 71, 77, 80 and 101, the capability-bitmask mapping (0x1000000/0x2000000/0x4000000/0x8000000/0x10000000/0x20000000) and the meaning of the out+24 flag bit 2 are not decoded by this corpus.",
+    "The audio-emitter object (60-byte allocation via 0x00587C03, stored at a2[1]) and the audio-buffer 96-byte lock region contract of 0x00540F00 are not established.",
+    "Globals 0x0059E450, 0x005B8978 and 0x005B897C are listed as read globals but do not appear in the raw decompiled body; Hex-Rays likely folded them into the FOV computation literals, so their exact consumption site is unresolved.",
+    "Global 0x00800000 (unk_800000) is tested in 0x53FED0 but its value and purpose are unverified; prior analysis labels it an MMX flag at DERIVED tier only.",
+    "The surface descriptor layout (flags at +0x18, slots at +0x8..+0x14) is observed only in operation prose; the packet provides no formal field evidence refs for it, so it is not formalized as class fields.",
+    "The position-orientation X/Y/Z interpretation of the 0x542460 triple (+0x24/+0x28/+0x2C) is DERIVED from caller context, not established by the raw source.",
+    "Global 0x008B8E4C written by 0x53D400 has no recorded readers; the value semantics (mode, handle, or dimension) are unknown.",
+    "The registry node payload beyond the prev/next links at +0x86C/+0x870 (stride and shape) is undefined by the packet.",
+    "Vtable slot semantics (vtable+8 as release vs flush, vtable+60 as surface resolution, vtable+44 as lock/allocate) are inferred from dispatch patterns only; no named callee is statically known.",
+    "The buffer/descriptor pointer at this+0x114C is treated as an audio buffer base by 0x541470 and as a texture descriptor pointer by 0x541340; whether these are one field or two aliased fields on the same object is not proven."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E450",
+    "global:0x005B8978",
+    "global:0x005B897C",
+    "global:0x005DBD0C",
+    "global:0x00800000",
+    "caller:0x004FAD00",
+    "caller:0x00543130",
+    "caller:0x0055FE70",
+    "caller:0x00540D40",
+    "caller:0x00466350"
+  ],
+  "confidence": {
+    "boundaries": "HIGH",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

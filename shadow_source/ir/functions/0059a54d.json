@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "address": "0x0059A54D",
+  "proposed_name": "CriticalSectionInitAndEnter",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Thread-safe one-time initialization and entry of the global critical section CriticalSection (0x008D45F8), driven by the atomic state variable Target (0x008D4610: 0 = uninitialized, 1 = initializing, 2 = ready). The winning thread uses InterlockedExchange to claim initialization, calls InitializeCriticalSection, registers a teardown callback loc_59A5CB through BooleanToIntConversion (the callback path uses DeleteCriticalSection), sets Target = 2 and enters the section. Losing threads spin with Sleep(1) while Target == 1, then enter once ready. Returns this in all paths.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "if (Target == 2): section already ready, jump directly to the enter path.",
+      "evidence_refs": ["global:0x008D4610", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "if (Target == 0): section never initialized; this is the first-time initialization path.",
+      "evidence_refs": ["global:0x008D4610", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "v2 = InterlockedExchange(&Target, 1): atomically claim the initializing state; a return of 0 means this thread won the race.",
+      "evidence_refs": ["global:0x008D4610", "global:0x0059E0B4", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "if (v2 == 0): this thread won the race and performs the initialization.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "InitializeCriticalSection(&CriticalSection): create the global critical section object.",
+      "evidence_refs": ["global:0x008D45F8", "global:0x0059E16C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BooleanToIntConversion((int)&loc_59A5CB): register loc_59A5CB as the teardown/cleanup callback; the callback path referenced here uses DeleteCriticalSection.",
+      "evidence_refs": ["callee:0x00587B3E", "global:0x0059A5CB", "global:0x0059E160", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Target = 2: mark the section as ready so other threads can stop spinning.",
+      "evidence_refs": ["global:0x008D4610", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "if (v2 == 2): another thread already completed initialization after the exchange; adopt the ready state by setting Target = 2.",
+      "evidence_refs": ["global:0x008D4610", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "while (Target == 1) Sleep(1u): spin-wait while another thread is still initializing.",
+      "evidence_refs": ["global:0x008D4610", "global:0x0059E0DC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "if (Target == 2): after the spin, section is ready; fall through to the enter path.",
+      "evidence_refs": ["global:0x008D4610", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "EnterCriticalSection(&CriticalSection): acquire the section before returning.",
+      "evidence_refs": ["global:0x008D45F8", "global:0x0059E174", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return this on the normal enter path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return this when the section did not reach the ready state (spin exit path).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void *CriticalSectionInitAndEnter(void *this) {",
+    "  if (Target == 2) { EnterCriticalSection(&CriticalSection); return this; }",
+    "  if (Target == 0) {",
+    "    LONG v2 = InterlockedExchange(&Target, 1);",
+    "    if (v2 == 0) {",
+    "      InitializeCriticalSection(&CriticalSection);",
+    "      BooleanToIntConversion((int)&loc_59A5CB);",
+    "      Target = 2;",
+    "      EnterCriticalSection(&CriticalSection);",
+    "      return this;",
+    "    }",
+    "    if (v2 == 2) Target = 2;",
+    "  }",
+    "  while (Target == 1) Sleep(1u);",
+    "  if (Target == 2) { EnterCriticalSection(&CriticalSection); return this; }",
+    "  return this;",
+    "}"
+  ],
+  "unresolved": [
+    "loc_59A5CB is a code address (a thunk/stub) passed to BooleanToIntConversion as a cleanup callback; its body is outside this function and its exact relationship to DeleteCriticalSection is inferred from the packet's global list.",
+    "The imported kernel32 entries (InterlockedExchange, Sleep, DeleteCriticalSection, InitializeCriticalSection, EnterCriticalSection) appear as read globals here because they are reached through the import address table; the interpreter rendering them as direct calls is a decompiler artifact.",
+    "The object identity behind the returned this pointer is not resolvable from this packet; the critical section state is global, not per-object."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

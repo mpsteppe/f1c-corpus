@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "address": "0x0059AC7F",
+  "proposed_name": "ObjectTeardownWithIteratorCleanup",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Teardown routine for an object that holds an array of facet pointers. Installs an SEH frame, iterates the facet array (array at this+0x8, count at this+0xC) from last slot to first, decrements each non-null facet's reference count via RefcountDecrementWithLock and conditionally destroys the facet whose count reached zero, frees the array allocation, releases the string buffer at this+6, and finally restores the vtable to std::locale::facet. Called by ExceptionDestructorWithConditionalFree (0059ac63).",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Install the SEH handler frame on the stack before touching object state.",
+      "evidence_refs": ["callee:0x0058A5D8"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the object base and set its vtable to off_5B9D4C, the facet-container vtable.",
+      "evidence_refs": ["global:0x005B9D4C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Run the CRT-init prologue sub_59A54D.",
+      "evidence_refs": ["callee:0x0059A54D"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate the facet array (this+0x8) from count (this+0xC) down to zero, one slot per step, decrementing the count before each access.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Skip array slots whose facet pointer is null.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "For each non-null facet, decrement its reference count via RefcountDecrementWithLock and, if the returned pointer is non-null, invoke the destructor it points to on that facet.",
+      "evidence_refs": ["callee:0x00598C88"]
+    },
+    {
+      "kind": "call",
+      "description": "Free the heap-allocated facet pointer array with sub_58AA6F.",
+      "evidence_refs": ["callee:0x0058AA6F"]
+    },
+    {
+      "kind": "call",
+      "description": "Run the CRT-cleanup epilogue sub_59A5E9.",
+      "evidence_refs": ["callee:0x0059A5E9"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the string buffer at this+6 via ReferenceCountDecrementWithConditionalFree.",
+      "evidence_refs": ["callee:0x005993AF"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Reset the vtable to the std::locale::facet vftable (??_7facet@locale@std@@6B@).",
+      "evidence_refs": ["global:0x005B9D54"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// Teardown of an object holding an array of facet pointers.",
+    "size_t count = this[3];                       // facet count, this+0xC",
+    "while (count != 0) {",
+    "    count -= 1;",
+    "    void* facet = array[count];               // array at this+0x8",
+    "    if (facet != 0)",
+    "        ReleaseFacet(facet);                   // refcount decrement + conditional destroy",
+    "}",
+    "free(array);",
+    "this->stringBuffer.Release();                  // this+6",
+    "this->vftable = &std::locale_facet_vftable;"
+  ],
+  "unresolved": [
+    "loc_59D537 is the SEH continuation/landing-pad address; its role in unwinding this teardown is not visible in the raw body.",
+    "The count/array offsets this+0xC and this+0x8 are DERIVED from the dword indices (v2[3], v2[2]) in the raw body; not independently confirmed.",
+    "The object's concrete owner/type is unknown; the canonical name suggests locale-facet storage but no class evidence exists."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059D537"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

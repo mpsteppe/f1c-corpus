@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "address": "0x00560547",
+  "proposed_name": "ImagePatternedCopy",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Copies 2-byte-per-element image data from a source buffer to a destination buffer, honoring per-row pattern segments. Computes byte offsets into both buffers from row/column indices and stride fields (source stride a1[8] -> dword_5DD82C, destination stride a4[8] -> dword_5DD830). Publishes copy-control globals: dword_5DD838 = a8, dword_5DD834 = a7, dword_5DD840 = a8*a7. Scans the run-length pattern array (a9) to locate the current segment, then runs the main copy loop while dword_5DD840 > 0, copying v20 elements (2*v20 bytes) per segment via qmemcpy, advancing cursors by 2*v20 or rewinding by the strides at segment boundaries, toggling the direction flag dword_5DD83C per segment. Returns an uninitialized stack slot.",
+  "local_names": {
+    "a1": "source image struct: [0]=data pointer, [8]=row stride",
+    "a4": "destination image struct: [0]=data pointer, [8]=row stride",
+    "a2": "source column index (2-byte units)",
+    "a3": "source row index",
+    "a5": "destination column index (2-byte units)",
+    "a6": "destination row index",
+    "a7": "elements per segment count stored into dword_5DD834",
+    "a8": "repeat/segment count stored into dword_5DD838",
+    "a9": "pointer to run-length pattern array (first entry **a9, subsequent *a9+1...)",
+    "a10": "flag; when zero the initial direction is complemented",
+    "v12/v13": "source and destination byte cursors",
+    "v16/v17": "accumulated pattern length vs target offset (v10>>1)",
+    "v20": "current segment run length in 2-byte elements",
+    "v21": "consumed elements within the current segment"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Compute byte offsets: source offset v10 = a3 * a1[8] + 2 * a2, destination offset v11 = a6 * a4[8] + 2 * a5, using the stride fields of both image structs.",
+      "evidence_refs": ["field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Publish the strides to globals: dword_5DD82C = a1[8] (source row stride), dword_5DD830 = a4[8] (destination row stride).",
+      "evidence_refs": ["field:this:0x00000020", "global:0x005DD82C", "global:0x005DD830", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set buffer cursors from the data pointers: source cursor v12 = *a1 (buffer base field at offset 0x0) + v10, destination cursor v13 = *a4 + v11.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Publish copy-control globals: dword_5DD838 = a8, dword_5DD834 = a7, dword_5DD840 = a8 * a7 (total elements to process).",
+      "evidence_refs": ["global:0x005DD838", "global:0x005DD834", "global:0x005DD840", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Initialize the direction flag dword_5DD83C from the first pattern entry **a9 (a non-zero entry becomes -1); when a10 is zero the value is complemented.",
+      "evidence_refs": ["global:0x005DD83C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Pattern scan: accumulate run-length entries (v18 = *v15, advanced through *v19) into v16 until v16 >= v17 where v17 = v10 >> 1, locating the current segment; complement dword_5DD83C at each iteration.",
+      "evidence_refs": ["global:0x005DD83C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Main copy loop while dword_5DD840 > 0: when the current run v20 is positive and the direction flag dword_5DD83C is set, copy 2*v20 bytes from v12 to v13 (qmemcpy in dword chunks plus a tail remainder), then advance both cursors by 2*v20 or rewind them by the strides dword_5DD82C / dword_5DD830 at segment end; clamp v20 against the remaining dword_5DD834, subtract v20 from dword_5DD840 and break when exhausted; read the next pattern entry and complement dword_5DD83C.",
+      "evidence_refs": ["global:0x005DD840", "global:0x005DD83C", "global:0x005DD834", "global:0x005DD82C", "global:0x005DD830", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v28, a stack slot never assigned in the decompiled body (decompiler artifact); the routine behaves like a void copy.",
+      "evidence_refs": ["function:0x00560547", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int ImagePatternedCopy(_DWORD* src, int srcX, int srcY, _DWORD* dst, int dstX, int dstY,",
+    "                      int count, int repeat, int* pattern, int dirFlag) {",
+    "  unsigned v10 = srcY * src[8] + 2 * srcX;",
+    "  unsigned v11 = dstY * dst[8] + 2 * dstX;",
+    "  dword_5DD82C = src[8];",
+    "  dword_5DD830 = dst[8];",
+    "  char* s = (char*)src[0] + v10;",
+    "  char* d = (char*)dst[0] + v11;",
+    "  dword_5DD838 = repeat;",
+    "  dword_5DD834 = count;",
+    "  dword_5DD840 = repeat * count;",
+    "  dword_5DD83C = *pattern ? -1 : 0;",
+    "  if (!dirFlag) dword_5DD83C = ~dword_5DD83C;",
+    "  // pattern scan + per-segment copy loop with direction toggle per segment",
+    "  return uninitialized_stack_slot;",
+    "}"
+  ],
+  "unresolved": [
+    "The run-length pattern semantics of a9 (segment meaning, and why v20 counts 2-byte units) are not resolvable from this packet.",
+    "dword_5DD83C direction toggle implies reversed-copy segments (likely vertical flipping during blit), but the caller context is absent.",
+    "The returned value v28 is uninitialized; the real return is presumed irrelevant by the caller.",
+    "qmemcpy renders as an inline block copy; the concrete copy primitive is not evidenced here."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

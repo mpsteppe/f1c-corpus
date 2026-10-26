@@ -1,0 +1,61 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004E4F40
+// Canonical corpus name: SuspensionSpringDampingRateReset
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SuspensionSpringDampingRateReset_004e4f40.c
+
+void UnknownObject::SuspensionSpringDampingRateReset()
+{
+    // Per-frame suspension force initialization and damping-rate recomputation. Zeroes the per-wheel spring and damper force accumulators, applies brake-cooling post-treatment when the cooling threshold is crossed, and, only when the requested rate index changed, re-selects a damping rate from a lookup table and recomputes combined rate/inverse pairs for three suspension layouts (types 0, 1 and 2). Called from PhysicsIntegrationStateMachine (0x004E4E60).
+    // ASSIGNMENT: Zero the per-wheel spring force accumulator dwords at +0x354C through +0x3558. [field:this:0x0000354C, field:this:0x00003550, field:this:0x00003554, field:this:0x00003558]
+    // ASSIGNMENT: Zero the per-wheel damper force accumulator dwords at +0x355C and +0x3560. [field:this:0x0000355C, field:this:0x00003560]
+    // GUARD: If the brake-cooling threshold float at +0x3A04 is greater than 0.0, run brake cooling post-treatment. [field:this:0x00003A04]
+    // CALL: Call BrakeCoolingPostTreatment() with no arguments when the cooling threshold at +0x3A04 is positive. [callee:0x004E5080, field:this:0x00003A04]
+    // ASSIGNMENT: Read the requested damping-rate index from +0x39F0. [field:this:0x000039F0]
+    // GUARD: Only when the index at +0x39F0 differs from the cached index at +0x39F4 are the rate tables recomputed; otherwise the cached tables stay valid and the branch chain is skipped. [field:this:0x000039F0, field:this:0x000039F4]
+    // ASSIGNMENT: Update the cached index at +0x39F4 to the current requested value. [field:this:0x000039F4]
+    // ASSIGNMENT: Select the damping-rate value: index 0 stores zero at +0x39C8; otherwise clamp index -1 to 0 and copy the entry from the rate lookup table (element stride 4, base +0x39CC for indices up to 7, base +0x4820 above 7) into +0x39C8. [field:this:0x000039C8, source:raw]
+    // CALCULATION: Compute v4 = rate at +0x39C8 squared times the factor at +0x3988. [field:this:0x000039C8, field:this:0x00003988]
+    // CALCULATION: Read the single-precision constants at 0x0059E43C, 0x0059E440, 0x0059E450 and 0x0059E7F8 used as coefficients in the damping-rate recomputation arithmetic. [global:0x0059E43C, global:0x0059E440, global:0x0059E450, global:0x0059E7F8]
+    // GUARD: Dispatch on the suspension-type selector at +0x39B4: values 0, 1 and 2 select different damping-rate recomputation paths. [field:this:0x000039B4]
+    // CALCULATION: Type 0: combined rate v10 = 0.5 * v4 + base rate at +0x37D4, then store the rate and its inverse at +0x37D8/+0x37DC and again at +0x38D0/+0x38D4. [field:this:0x000037D4, field:this:0x000037D8, field:this:0x000037DC, field:this:0x000038D0, field:this:0x000038D4]
+    // LOOP: Type 1: four iterations stepping the target pointer by 0xF8 (248), each adding 0.25 * v4 to a base rate read 0xFC (252) bytes ahead of the slot and writing the combined rate 0xF8 (248) bytes in and its inverse 0xF4 (244) bytes in; the four slot bases include +0x35E4 and +0x37D4 plus two intermediate slots not listed in the packet. [field:this:0x000035E4, field:this:0x000035E8, field:this:0x000035EC, field:this:0x000036E0, field:this:0x000036E4, field:this:0x000037D4, field:this:0x000037D8, field:this:0x000037DC, field:this:0x000038D0, field:this:0x000038D4, source:raw]
+    // CALCULATION: Type 2: combined rate v6 = 0.5 * v4 + base rate at +0x35E4, then store the rate and its inverse at +0x35E8/+0x35EC and again at +0x36E0/+0x36E4. [field:this:0x000035E4, field:this:0x000035E8, field:this:0x000035EC, field:this:0x000036E0, field:this:0x000036E4]
+    // RETURN: Return whatever value survived the branch chain: the requested index when no recomputation ran, zero for types 0 and 2, or an interior pointer for type 1. Not a semantically meaningful API result. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int SuspensionSpringDampingRateReset(int this) {
+    //     *(int*)(this + 0x354C) = 0; *(int*)(this + 0x3550) = 0;
+    //     *(int*)(this + 0x3554) = 0; *(int*)(this + 0x3558) = 0;
+    //     *(int*)(this + 0x355C) = 0; *(int*)(this + 0x3560) = 0;
+    //     if (*(float*)(this + 0x3A04) > 0.0f) BrakeCoolingPostTreatment();
+    //     int idx = *(int*)(this + 0x39F0);
+    //     if (idx != *(int*)(this + 0x39F4)) {
+    //       *(int*)(this + 0x39F4) = idx;
+    //       if (idx) { int c = (idx == -1) ? 0 : idx; *(float*)(this + 0x39C8) = *(float*)(this + 4*c + (c > 7 ? 18464 : 14796)); }
+    //       else *(float*)(this + 0x39C8) = 0.0f;
+    //       double v = *(float*)(this + 0x39C8) * *(float*)(this + 0x39C8) * *(float*)(this + 0x3988);
+    //       int type = *(int*)(this + 0x39B4);
+    //       if (type == 0) {
+    //         float r = v * 0.5f + *(float*)(this + 0x37D4);
+    //         *(float*)(this + 0x37D8) = r; *(float*)(this + 0x37DC) = 1.0f / r;
+    //         *(float*)(this + 0x38D0) = r; *(float*)(this + 0x38D4) = 1.0f / r;
+    //       } else if (type == 1) {
+    //         int p = this + 0x36E0;
+    //         for (int i = 0; i < 4; ++i) {
+    //           float r = v * 0.25f + *(float*)(p - 0xFC);
+    //           *(float*)(p - 0xF8) = r; *(float*)(p - 0xF4) = 1.0f / r;
+    //           p += 0xF8;
+    //         }
+    //       } else {
+    //         float r = v * 0.5f + *(float*)(this + 0x35E4);
+    //         *(float*)(this + 0x35E8) = r; *(float*)(this + 0x35EC) = 1.0f / r;
+    //         *(float*)(this + 0x36E0) = r; *(float*)(this + 0x36E4) = 1.0f / r;
+    //       }
+    //     }
+    //     return idx;
+    //   }
+    // UNRESOLVED: Semantic field labels (spring/damper accumulators, combined rate/inverse pairs) are inherited from the packet's existing_analysis prose and are DERIVED, not independently confirmed.
+    // UNRESOLVED: The two rate lookup tables (element-stride-4 bases +0x39CC and +0x4820) and the meaning of the suspension-type selector values are not grounded beyond the raw source.
+    // UNRESOLVED: The return value is not a meaningful API result; it is whatever value survives the branch chain.
+}

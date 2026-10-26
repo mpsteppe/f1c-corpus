@@ -1,0 +1,74 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0048B9C0
+// Canonical corpus name: TextInputRender
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TextInputRender_0048b9c0.c
+
+void UnknownObject::TextInputRender()
+{
+    // Renders a text-input widget's edit buffer: sets the active font (defaulting to the shared byte_5EA438 string when the font sub-object's path pointer is null), initializes the text-measurement context, resolves the layout/delegation child object and forwards the widget rectangle through a 10-argument layout call, then copies the edit buffer at this+0x2F0 into a scratch string, masking every character as '*' (0x2A) when the password flag at this+0xE2 is set, appending the cursor glyph word_5CC214 when both visibility flag this+0xE0 and cursor flag this+0xE1 are set, measuring the string, left-scrolling the render start pointer while the measured width exceeds the view width (vtable[+32] minus vtable[+24]), drawing via BitmapDraw_81f0 with the widget's vtable geometry, writing that geometry back to the four out parameters, and invoking the vtable[+44] post-render callback before returning 0.
+    // ASSIGNMENT: Read the font sub-object pointer at this+0xC8; when it is non-zero, read the font path string at sub-object offset 0x40, substituting the shared default byte_5EA438 when that path pointer is null [field:this:0x000000C8, field:*(this+0xC8):0x00000040, global:0x005EA438, source:raw]
+    // CALL: Apply the resolved font string via sub_498560 so subsequent text measurement uses it [callee:0x00498560, source:raw]
+    // CALL: First TextRenderToSurface pass against the reference string unk_5CC218, priming the measurement context and producing an initial width/height pair [global:0x005CC218, callee:0x004983B0, source:raw]
+    // CALL: Resolve the layout/delegation child object by calling ConditionalDelegation_6460 on this with a zero selector; the result may be null [callee:0x00486460, source:raw]
+    // ASSIGNMENT: When the delegation child exists, derive the widget extents: height from the delta between layout quads (v9[3] minus v9[2]) and width from the delta (v9[1] minus *v9) [callee:0x00486460, source:raw]
+    // CALL: Fetch the global accessor value v11 from unk_7CDE00 via GlobalAccessor_5150 [global:0x007CDE00, callee:0x00495150, source:raw]
+    // CALL: F_10ParamForwarder forwards the layout request: the child object pointer held at delegation offset 0x20 (v10[8]) dereferenced at +12, the delegation object's origin fields, this+4 and this+12 as widget position, the global accessor, the computed width/height deltas, and two trailing zeros [callee:0x00494A30, field:obj:0x00000020, field:this:0x00000004, field:this:0x0000000C, source:raw]
+    // ASSIGNMENT: Initialize the scratch buffer: first byte from byte_5EA438, remaining 252 bytes cleared, and the trailing word/byte fields zeroed; the source edit buffer pointer v12 is read from this+0x2F0 [field:this:0x000002F0, global:0x005EA438, source:raw]
+    // GUARD: Password-mask branch gated on the byte flag at this+0xE2: walk the source buffer writing '*' (0x2A) into the scratch buffer for each non-null source character, stopping at the null terminator or after 256 characters [field:this:0x000000E2, field:this:0x000002F0, source:raw]
+    // CALL: Non-mask branch: copy the source edit buffer into the scratch buffer with sub_587DD0, limited to 255 characters [callee:0x00587DD0, field:this:0x000002F0, source:raw]
+    // GUARD: Cursor-glyph branch gated on the visibility flag at this+0xE0 AND the cursor flag at this+0xE1: append the cursor glyph word_5CC214 at the end of the rendered text string (after its null terminator) [field:this:0x000000E0, field:this:0x000000E1, global:0x005CC214, source:raw]
+    // CALL: Second TextRenderToSurface pass on the (masked/copied, possibly cursor-appended) scratch string, measuring its width into v29 and height into v30 [callee:0x004983B0, source:raw]
+    // LOOP: Compute the visible view width as vtable[+32](this) minus vtable[+24](this); while the measured text width v29 exceeds it, advance the render start pointer v17 by one character (left-scroll), re-measure, and bail out once 255 scroll steps are consumed [field:this:0x00000000, callee:0x004983B0, source:raw]
+    // CALL: When the (possibly scrolled) string is non-empty, draw it with BitmapDraw_81f0 at the widget's vtable geometry: left from vtable[+28], top from vtable[+36], width from vtable[+24], height from vtable[+32] [callee:0x004981F0, field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Write the drawn-text geometry into the four out parameters: a2=vtable[+28], a3=vtable[+36], a4=vtable[+24], a5=vtable[+32] [field:this:0x00000000, source:raw]
+    // CALL: Invoke the post-render update callback at vtable[+44] on this with a zero argument [field:this:0x00000000, source:raw]
+    // RETURN: Return 0 [source:raw]
+
+    // Conservative worker pseudocode:
+    //   void TextInputRender(this, out a2..a5) {
+    //     fontObj = *(this + 0xC8);
+    //     if (fontObj) {
+    //       fontStr = *(fontObj + 0x40);
+    //       if (!fontStr) fontStr = byte_5EA438;
+    //       sub_498560(fontStr);
+    //     }
+    //     TextRenderToSurface(&unk_5CC218, &v29, &v31, 1);
+    //     layout = ConditionalDelegation_6460(this, 0);
+    //     if (layout) {
+    //       h = layout[3] - layout[2];
+    //       w = layout[1] - layout[0];
+    //       g = GlobalAccessor_5150(&unk_7CDE00);
+    //       F_10ParamForwarder(*(layout[8] + 12), layout[0], layout[2], g,
+    //                         *(this+12), *(this+4), w, h, 0, 0);
+    //     }
+    //     src = *(this + 0x2F0);
+    //     scratch = byte_5EA438[0] + zeros(252);
+    //     if (*(this + 0xE2)) {
+    //       for (i = 0; i < 256 && src[i]; ++i) scratch[i] = '*';
+    //     } else {
+    //       sub_587DD0(scratch, src, 255);
+    //     }
+    //     if (*(this + 0xE0) && *(this + 0xE1))
+    //       *(WORD*)&scratch[strlen(scratch)] = word_5CC214;
+    //     TextRenderToSurface(scratch, &v29, &v30, 1);
+    //     view = vtable[+32](this) - vtable[+24](this);
+    //     start = scratch;
+    //     for (n = 0; v29 > view && n < 255; ++n) {
+    //       ++start;
+    //       TextRenderToSurface(start, &v29, &v30, 1);
+    //     }
+    //     if (strlen(start)) {
+    //       BitmapDraw_81f0(start, vtable[+28](this), vtable[+36](this),
+    //                       vtable[+24](this), vtable[+32](this), 1);
+    //       a2 = vtable[+28](this); a3 = vtable[+36](this);
+    //       a4 = vtable[+24](this); a5 = vtable[+32](this);
+    //     }
+    //     vtable[+44](this, 0);
+    //     return 0;
+    //   }
+    // UNRESOLVED: Four delegation-object fields (obj+0x18, obj+0x1C, obj+0x24, obj+0x2C) are flagged in the packet but do not appear as explicit accesses in the raw decompiled body; the rectangle deltas in the layout branch use obj+0/+4/+8/+0xC which are not among the packet's field evidence refs
+    // UNRESOLVED: The concrete layout semantics of the delegation child object (what the F_10ParamForwarder receiver and origin fields represent) are not recoverable from this packet
+    // UNRESOLVED: The identity and purpose of the global object unk_7CDE00 behind GlobalAccessor_5150 is not determinable from this function
+    // UNRESOLVED: sub_587DD0's exact copy semantics (plain copy vs. bounded string copy) are inferred only from its 255 length argument
+}

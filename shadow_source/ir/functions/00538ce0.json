@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "address": "0x00538CE0",
+  "proposed_name": "packRunEncodedBlock",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00538CE0"]
+  },
+  "summary": "Run-length / literal encoder that consumes a word stream a2 (initial symbol word at +2, following words from +6) and writes a packed bitstream into the encoder state a1. It scans runs of equal symbols (threshold v6), emits short runs (v4 < v7) as repeated literals through the per-symbol code table at +2674/+2676, emits nonzero runs as symbol (when changed) plus a run count v4-3 via the +2738/+2740 table with two appended residual bits, and emits zero runs either short (v4-3 via +2742/+2744, three residual bits) or long (v4-11 via +2746/+2748, seven residual bits). All writes use a 16-bit accumulator at +5803 (high byte +5804) with a bit-count dword at +5805, flushing the two buffered bytes into the output buffer at cursor +20 over base pointer +8 whenever the accumulated bit count crosses 16. ABI leads the Compression_Bitstream_Packer cluster; the prelabel marks it a DERIVED structural twin of RunLengthAnalyzer (005389b0), and it is invoked by BitBufferWriter (0x00538A90).",
+  "local_names": {
+    "a1": "bitstream encoder state; accumulator word at +5803, high byte at +5804, bit-count dword at +5805, output buffer base pointer at +8, output cursor byte offset at +20, per-symbol code/length word pair at +2674/+2676, run-count code/length at +2738/+2740, short zero-run code/length at +2742/+2744, long zero-run code/length at +2746/+2748",
+    "a2": "input word stream; current symbol word at +2, remaining symbols from +6",
+    "v3": "current run symbol being scanned",
+    "v73": "previously emitted run symbol, used to skip re-emitting the symbol on a continued run",
+    "v74": "first symbol following the scanned run, read ahead from the stream"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load the initial run symbol v3 from the input word stream at a2+2",
+      "evidence_refs": ["field:this:0x00000002", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Seed run thresholds: default max run v6=7 and min-RLE v7=4; when the run symbol v3 is zero, use v6=138 and v7=3",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When a3 < 0 there is no data to pack and a1 is returned unchanged",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan the stream from a2+6, counting consecutive words equal to v3 into v4, breaking when the run reaches the max v6 or a differing symbol is read; v74 holds that first differing symbol",
+      "evidence_refs": ["field:this:0x00000006", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the run is too short (v4 < v7), emit each symbol as a literal: for each of v4 items, pack the code/length pair at +2674/+2676 into the accumulator",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Bit-write primitive shared by every emit: OR (table code << bitpos) into the accumulator word at +5803 tracking bitpos at +5805; when bitpos + code length exceeds 16, flush the two accumulator bytes to the output buffer at cursor +20 over base +8, advance the cursor by two, rebase the accumulator, and carry the overflow bit position",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Nonzero run: when the run symbol differs from the previous one (v3 != v73) emit the symbol itself via +2674/+2676; in both cases emit the run count v4-3 via the +2738/+2740 table, appending two residual bits to the packed value",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Zero run: long runs (v4 > 10) emit the count v4-11 via the +2746/+2748 table with seven appended residual bits; otherwise emit v4-3 via the +2742/+2744 table with three appended residual bits",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "After each run, reset v4 to zero, record v73 = v3 as the last emitted symbol, and recompute thresholds from the next symbol v74: v6=6/v7=3 when v3 equals v74, v6=7/v7=4 otherwise, and v6=138/v7=3 when v74 is zero",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Advance the stream pointer by one word; when the last element (i == 1) was consumed, return a1, otherwise set v3 = v74 and resume scanning the next run",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the encoder state a1, which carries the accumulator and cursor after all packing",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by BitBufferWriter (0x00538A90) as the run/literal bitstream packer that serializes the analyzed symbol data",
+      "evidence_refs": ["caller:0x00538A90"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v3 = *(u16*)(a2 + 2); v4 = 0; prev = -1;",
+    "v6 = v3 ? 7 : 138; v7 = v3 ? 4 : 3;",
+    "if (a3 < 0) return a1;",
+    "v72 = (u16*)(a2 + 6);",
+    "for (i = a3 + 1; ;) {",
+    "  ++v4; next = *v72;",
+    "  if (v4 >= v6) break;",
+    "  if (v3 != *v72) break;",
+    "advance: v72 += 2; if (i == 1) return a1; v3 = next;",
+    "}",
+    "if (v4 < v7) { do emitLiteral(v3) via table +2674/+2676; while (--v4); goto next_run; }",
+    "if (v3) { if (v3 != prev) emitLiteral(v3); emitCount(v4 - 3) via +2738/+2740 (+2 residual bits); }",
+    "else if (v4 > 10) emitZeroLong(v4 - 11) via +2746/+2748 (+7 residual bits);",
+    "else emitZeroShort(v4 - 3) via +2742/+2744 (+3 residual bits);",
+    "next_run: v4 = 0; prev = v3;",
+    "v6 = next ? (v3 == next ? 6 : 7) : 138; v7 = next ? (v3 == next ? 3 : 4) : 3;",
+    "goto advance;"
+  ],
+  "unresolved": [
+    "The contents of the four code/length tables at +2674, +2738, +2742 and +2746 are not defined in this function, so the exact codes emitted cannot be reconstructed",
+    "The residual-bit counts (2, 3, 7) and the run-count values v4-3 / v4-11 are inferred from the bit-position arithmetic and the subtraction constants in raw source; the table-to-run-length mapping is not resolvable from this packet",
+    "The prelabel claim that this function is a structural twin of RunLengthAnalyzer (005389b0) is DERIVED and no coupling evidence appears in this packet",
+    "The owner object is unknown; the encoder-state offsets (+8, +20, +5803, +5804, +5805) and code-table offsets are inferred from pointer arithmetic, not from named field evidence"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

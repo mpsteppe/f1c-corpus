@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "address": "0x00403640",
+  "proposed_name": "NearestNeighborSpatialSearch",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Nearest-neighbor spatial query. When a starting node (a3) is given, walks two linked lists (next pointers at +0x110 and +0x10C from node base) to find the closest node to query point a2 by squared XZ distance, then applies a signed plane-proximity test via sub_4FB6D0. When a3 is null, initializes best candidates to huge sentinel values and scans the strut array (base this+0x134, stride 316, count this+0x130), keeping the closest strut and the closest candidate that passes the plane test. Returns the closest qualifying node pointer, or the plane-verified candidate if the final signed-distance check is non-negative.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Branch on whether a starting node a3 is provided; when null, candidate pointers and scores are initialized to sentinel values (0 pointers, FLT_MAX scores).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk first linked list from node a3 via next pointer at node+0x110, tracking the node with minimum squared XZ distance to the query point.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk second linked list from node a3 via next pointer at node+0x10C, updating the nearest node when a closer squared XZ distance is found.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call sub_4FB6D0(a2) to obtain signed distance from query point to a reference plane; if negative, return the nearest node found so far.",
+      "evidence_refs": ["callee:0x004FB6D0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute candidate plane-proximity score: squared XYZ distance to best node with a 4x-weighted Z component, and (signed_distance + 30)^2 as acceptance radius.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on strut scan count this+0x130 > 0; enables the stride-316 loop over the strut array at this+0x134.",
+      "evidence_refs": ["guard:0", "field:this:0x00000130", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate strut entries (count this+0x130, base this+0x134, stride 316); entries whose type field at entry+0x12C is <= 1 are distance-tested against the query point.",
+      "evidence_refs": ["field:this:0x00000130", "field:this:0x00000134", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Track the strut with the smallest weighted squared distance as the primary candidate v8.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When a plane-validated candidate (signed distance > 0) is closer than the acceptance radius, call sub_4FB6D0(a2) again and keep the strut with the smaller signed distance.",
+      "evidence_refs": ["callee:0x004FB6D0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Final call to sub_4FB6D0(a2); if the signed distance is non-negative return the plane-verified candidate v28, otherwise return the nearest node v8.",
+      "evidence_refs": ["callee:0x004FB6D0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the selected node pointer (nearest node or plane-verified candidate).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "node* sub_403640(this, float* query, node* start) {",
+    "  best = NULL; bestScore = 0; bestSigned = FLT_MAX; radius = FLT_MAX;",
+    "  if (start) {",
+    "    best = walk(start, +0x110, +0x10C, query);      // two linked lists",
+    "    if (planeDist(query) < 0.0) return best;",
+    "    score = weightedSqDist(query, best);            // 4x-weight Z",
+    "    radius = (planeDist(query) + 30.0)^2;",
+    "  }",
+    "  if (this->count(0x130) > 0)",
+    "    for (p = this->base(0x134); p < end; p += 316)",
+    "      if (p->type(0x12C) <= 1) {",
+    "        d = weightedSqDist(query, p);",
+    "        if (d < bestScore) { bestScore = d; best = p; }",
+    "        if (planeDist(query) > 0.0 && d < radius) {",
+    "          s = planeDist(query);",
+    "          if (s < bestSigned) { bestSigned = s; v28 = p; radius = (s + 30.0)^2; }",
+    "        }",
+    "      }",
+    "  return (planeDist(query) >= 0.0) ? v28 : best;",
+    "}"
+  ],
+  "unresolved": [
+    "Meaning of the three read-only globals flt_59E440, flt_59E468, flt_59E46C: not visible in the raw source text; likely plane/threshold constants used by the distance or plane test.",
+    "The 4x-weighted Z component in the squared-distance score (v34 * 4.0 * (v34 * 4.0)) has an unexplained scaling factor.",
+    "Semantics of node link offsets +0x110 and +0x10C (which collision geometry list each belongs to).",
+    "Type selector at entry+0x12C restricts which strut entries are distance-tested; exact enum values beyond <= 1 are unknown."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440",
+    "global:0x0059E468",
+    "global:0x0059E46C"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

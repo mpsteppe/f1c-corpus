@@ -1,0 +1,34 @@
+int __thiscall sub_586240(_DWORD *this)
+{
+  _DWORD *v2; // esi
+  _BYTE *v3; // edi
+  void *v4; // ebp
+  int result; // eax
+
+  v2 = (_DWORD *)*this;
+  if ( *this )
+  {
+    do
+    {
+      v3 = v2;
+      v2 = (_DWORD *)v2[1];
+      if ( v3[8] )
+      {
+        v4 = *(void **)v3;
+        if ( *(_DWORD *)v3 )
+        {
+          EmptyStub_0170();
+          FreeWrapper_7bcf(v4);
+        }
+      }
+      FreeWrapper_7bcf(v3);
+    }
+    while ( v2 );
+  }
+  result = 0;
+  *this = 0;
+  this[1] = 0;
+  this[2] = 0;
+  this[3] = 0;
+  return result;
+}

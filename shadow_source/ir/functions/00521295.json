@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "address": "0x00521295",
+  "proposed_name": "F_3DNowQuadEdgeIntersect",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "3DNow! quad/edge intersection helper. Builds four edge vectors (v4..v7) from packed vertex data at a2[0..5], derives comparison vectors v10/v11, and uses a packed-mask branch to pick one of four regions (inner v6, inner v7, inner v11, or outer v10). Each region normalizes its edge via pfadd(-1,1), pfrsqrt, Newton-Raphson refinement and a 0.5 scale, then writes an interpolated x/y vector to a1->m64_u64 (offset 0x0) and a blended attribute vector to a1[1] (offset 0x8), with a sign-flip XOR (0x8000000000000000) applied in some blends. Closes with _m_femms() and returns the a1 pointer. Structural twin of F_3DNowBarycentricInterpolationWithNormalization; identical data flow except mask packing and region-select constants.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Load scalar inputs from the a2 vertex block into MMX registers: v2 = a2[2] high dword, v3 = a2[5] low dword via _mm_cvtsi32_si64.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build four edge vectors from packed a2[0] with v2 and v3: v4 = pfsubr(a2[0], v3), v5 = pfadd(pfadd(a2[0], v2), v3), v6 = pfsub(pfsub(a2[0], v2), v3), v7 = pfsub(pfsubr(a2[0], v2), v3).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v8 = a2[4]; v9 = pfsub(v4, v2); interleave into comparison operands v10 = punpckldq(v5, v7) and v11 = punpckldq(v9, v9).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pack four pfcmpge results and extract a byte mask v12 via _m_pmovmskb(_m_packssdw(...)); branch on (v12 & 1) != 0 selecting the inner-region path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Inner path: if (v12 & 0xCC) == 0xCC select region 1, which normalizes using edge v6.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Region 1 normalization: v20 = pfadd(v6, 0xBF8000003F800000 (-1.0, 1.0)); v21 = pfrsqrt(v20); v23 = pfrcpit2(pfrsqit1(v21*v21, v22), v21) scaled by 0x3F0000003F000000 (0.5). Constant immediates correspond to read-only qword_5AF968 referenced by the packet.",
+      "evidence_refs": ["global:0x005AF968", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Region 1: write interpolated x/y vector to a1->m64_u64 (this+0x0) from v24 = punpckldq(pfmul(v22, v23), pfmul(a2[2] low - punpckhdq(v7,v7), v23)).",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Region 1: write blended attribute vector to a1[1].m64_u64 (this+0x8) from a2[1]/a2[3]/v8(a2[4]) with sign-flip XOR 0x8000000000000000 (MMXSignFlipConst role, DERIVED from twin F_3DNowBarycentricInterpolationWithNormalization).",
+      "evidence_refs": ["field:this:0x00000008", "global:0x005AF920", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Inner path, not 0xCC: if (v12 & 0x10) != 0 select region 2, normalizing using edge v7; otherwise region 3 normalizing using v11.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Region 2: normalize v7 (same pfadd/pfrsqrt/Newton-Raphson/0.5 pipeline), write a1->m64_u64 (this+0x0) from v29 and a1[1].m64_u64 (this+0x8) from a2[3]/v8/a2[1] blend with sign-flip XOR 0x8000000000000000.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "global:0x005AF920", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Region 3: normalize v11 (same pipeline), write a1->m64_u64 (this+0x0) and a1[1].m64_u64 (this+0x8) from a2[1]/a2[3]/a2[4] blend WITHOUT the sign-flip XOR.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Outer path: (v12 & 1) == 0 selects the fourth region, normalizing using comparison vector v10.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Outer region: v13 = pfadd(v10, 0xBF8000003F800000); pfrsqrt and Newton-Raphson refinement with 0.5 scale; the zero operand in punpckldq(0, v6) matches the read-only qword_5AF8F0 (SSEZeroThreshold role, DERIVED from twin F_3DNowBarycentricInterpolationWithNormalization).",
+      "evidence_refs": ["global:0x005AF8F0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Outer region: write a1->m64_u64 (this+0x0) from a2[3]/v8 blend minus punpckhdq(v8, punpckldq(v14,v14)), and a1[1].m64_u64 (this+0x8) from v19 = punpckldq(pfmul(a2[2] low - v6 high, v17), pfmul(v16, v17)).",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Call _m_femms() at the end of every branch to leave MMX state clean for the caller.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the output pointer a1 (set as result = a1 on each write path).",
+      "evidence_refs": ["function:0x00521295", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "__m64 *F_3DNowQuadEdgeIntersect(__m64 *out /*a1*/, __m64 *vtx /*a2*/) {",
+    "  scalar2 = load(vtx[2].hi); scalar5 = load(vtx[5].lo);",
+    "  e0 = pfsubr(vtx[0], scalar5);",
+    "  e1 = pfadd(pfadd(vtx[0], scalar2), scalar5);",
+    "  e2 = pfsub(pfsub(vtx[0], scalar2), scalar5);",
+    "  e3 = pfsub(pfsubr(vtx[0], scalar2), scalar5);",
+    "  attr = vtx[4]; c2 = pfsub(e0, scalar2);",
+    "  mask = pmovmskb(pack(cmpge(pack(e2), interleave(e1,e3)), cmpge(interleave(e3,e2), interleave(c2,c2))));",
+    "  if (mask & 1) {",
+    "    if ((mask & 0xCC) == 0xCC) { n = normalize(e2); }",
+    "    else if (mask & 0x10)     { n = normalize(e3); }",
+    "    else                      { n = normalize(c2); }",
+    "    out[0] = interpolate(n);",
+    "    out[1] = blend(attr, vtx[1], vtx[3]) ^ signflip;",
+    "  } else {",
+    "    n = normalize(e1);",
+    "    out[0] = blend(vtx[3], attr, vtx[1]);",
+    "    out[1] = interpolate(n);",
+    "  }",
+    "  femms();",
+    "  return out;",
+    "}"
+  ],
+  "unresolved": [
+    "a2 scalar/vector loads (a2[0]..a2[5]) have no packet field refs; the packet declares only this+0x0 and this+0x8, so the a2 vertex-block layout is reconstructed from source:raw alone.",
+    "Hex-Rays folded the read-only globals qword_5AF8F0/5AF920/5AF968 into packed immediates; exact constant binding is DERIVED from structural twin F_3DNowBarycentricInterpolationWithNormalization, not directly observed here.",
+    "Region-select mask constants differ from the twin (this variant uses mask nibbles 0xCC and 0x10) because it uses pmovmskb(packssdw) instead of packsswb + cvtsi64_si32; region semantics are inferred from the twin, not proven identical.",
+    "Owner is unknown; the packet lists no callers or callees and the function is not on a frame path, so the calling context (quad/edge ownership) is unresolved."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

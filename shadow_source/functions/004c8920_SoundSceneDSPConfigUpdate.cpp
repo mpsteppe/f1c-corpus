@@ -1,0 +1,40 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C8920
+// Canonical corpus name: sub_4C8920
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4C8920_004c8920.c
+
+void UnknownObject::SoundSceneDSPConfigUpdate()
+{
+    // One-shot audio-scene path and DSP setup, invoked from the render tick by RenderTickUpdate (004c8b70). Guards on the scene-manager global dword_8AC4CC being non-null and its vtable+8 query method returning 0 (scene not active). Builds an output buffer descriptor v2 (buffer 0, size -1 sentinel), copies the default path byte_5EA438 into it via StringCopyWithBufferRealloc, then formats "%s%s" (literal at 0x005BE860) with a path base - dword_5EC3E0 when non-null, else byte_5EA438 - and the suffix "PitPitsoundsMp" into a scratch buffer, and copies the result back into v2. Submits the path to the scene manager via its vtable+4 method (this = dword_8AC4CC, v2, 1, 0), applies a DSP wetness value equal to the product flt_7CF3A4 * flt_7CF2CC through the vtable+28 method, then frees the output buffer if it was allocated.
+    // GUARD: Proceed only when the scene manager global dword_8AC4CC is non-null and its vtable+8 __thiscall query method returns 0 (scene considered inactive and ready for setup). [global:0x008AC4CC, function:0x004C8920, source:raw]
+    // ASSIGNMENT: Initialize the output buffer descriptor v2: v2[0] = 0 (null buffer) and v2[1] = -1 (size sentinel). [function:0x004C8920, source:raw]
+    // CALL: StringCopyWithBufferRealloc copies the default path global byte_5EA438 into the v2 output buffer, reallocating when the sentinel size is insufficient. [callee:0x00566650, global:0x005EA438, function:0x004C8920, source:raw]
+    // ASSIGNMENT: Seed the format scratch buffer v6 from byte_5EA438[0], zero the remaining 0x1FC bytes, and clear the trailing v7/v8 terminator bytes. [global:0x005EA438, function:0x004C8920, source:raw]
+    // CALCULATION: Select the path base v0: dword_5EC3E0 when non-null, otherwise fall back to byte_5EA438. [global:0x005EC3E0, global:0x005EA438, function:0x004C8920, source:raw]
+    // ASSIGNMENT: Reset the format descriptor fields v3 and v4 to -1 and v5 to 0 before formatting. [function:0x004C8920, source:raw]
+    // CALL: StringFormatWithBufferOverflowCheck formats the "%s%s" literal (stored at 0x005BE860) with the path base v0 and the "PitPitsoundsMp" suffix (0x005D336C) into the scratch buffer v6. [callee:0x0058815F, global:0x005BE860, global:0x005D336C, function:0x004C8920, source:raw]
+    // CALL: StringCopyWithBufferRealloc copies the formatted path from v6 into the output buffer v2. [callee:0x00566650, function:0x004C8920, source:raw]
+    // ASSIGNMENT: Reset the format descriptor fields v3 and v4 to -1 and v5 to 0 a second time before submission. [function:0x004C8920, source:raw]
+    // CALL: Invoke the scene manager vtable+4 __thiscall method with (dword_8AC4CC, v2, 1, 0) to submit the built path buffer to the scene. [global:0x008AC4CC, function:0x004C8920, source:raw]
+    // CALCULATION: Compute the DSP wetness value v1 = flt_7CF3A4 * flt_7CF2CC. [global:0x007CF3A4, global:0x007CF2CC, function:0x004C8920, source:raw]
+    // CALL: Invoke the scene manager vtable+28 __stdcall method with the float bit pattern LODWORD(v1) to apply the DSP wetness setting. [global:0x008AC4CC, function:0x004C8920, source:raw]
+    // GUARD: If the output buffer v2[0] was allocated, release it via FreeWrapper_7bcf. [callee:0x00587BCF, function:0x004C8920, source:raw]
+    // RETURN: Return from the void function; invoked from the render tick by RenderTickUpdate (004c8b70). [function:0x004C8920, caller:0x004C8B70, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (dword_8AC4CC != 0 && vtable(dword_8AC4CC, slot 8)() == 0) {
+    //     v2[0] = 0; v2[1] = -1;
+    //     StringCopyWithBufferRealloc(v2, byte_5EA438);
+    //     memset(v6, 0, 0x1FC + 2);
+    //     base = dword_5EC3E0 ? dword_5EC3E0 : byte_5EA438;
+    //     StringFormatWithBufferOverflowCheck(v6, "%s%s", base, "PitPitsoundsMp");
+    //     StringCopyWithBufferRealloc(v2, v6);
+    //     vtable(dword_8AC4CC, slot 4)(dword_8AC4CC, v2, 1, 0);
+    //     vtable(dword_8AC4CC, slot 28)(flt_7CF3A4 * flt_7CF2CC);
+    //     if (v2[0] != 0) FreeWrapper_7bcf(v2[0]);
+    //   }
+    // UNRESOLVED: The proposed name SoundSceneDSPConfigUpdate derives from the skeleton fill (skeletons_filled/sub_4C8920_004c8920.md), a DERIVED prose layer not carried in this packet's evidence refs; the scene-manager object type is unidentified.
+    // UNRESOLVED: The semantics of the vtable slot numbers (slot 8 = scene-active query, slot 4 = path submission, slot 28 = DSP setter) are inferred from the call argument shapes and are not independently documented.
+    // UNRESOLVED: The distinct roles of dword_5EC3E0 (custom audio directory override) versus byte_5EA438 (default path) are inferred from the fallback guard only.
+}

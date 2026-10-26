@@ -1,0 +1,56 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004B85D0
+// Canonical corpus name: LinkedListPrioritySearchByFloatThreshold
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LinkedListPrioritySearchByFloatThreshold_004b85d0.c
+
+void UnknownObject::LinkedListPrioritySearchByFloatThreshold()
+{
+    // Searches a sorted linked list for the seek position whose float value falls inside a priority window relative to the current threshold. Guards on element count (this+0x6CC): if zero or negative, returns 0 immediately. Seeds the cursor (this+0x6C8) with the tail (this+0x6C4) and walks backward via each node's prev pointer (+8) while the current threshold minus 2.0 (this+0xF38 - 2.0) is <= the node's float value, counting steps. Depending on which branch terminated the walk, re-seeks forward from the head (this+0x6C0) by that many steps via next pointers (+4) when the step count is within [0, count); otherwise the cursor is set to null. Finally writes the threshold field (this+0xF38) from the cursor node's float value and returns 0; when the cursor is null the raw source writes MEMORY[0].
+    // GUARD: If the element count (this + 0x6CC) is <= 0 the list is empty or invalid; return 0 immediately. [field:this:0x000006CC, source:raw]
+    // ASSIGNMENT: Seed the cursor field with the tail pointer: this + 0x6C8 = this + 0x6C4. [field:this:0x000006C8, field:this:0x000006C4, source:raw]
+    // GUARD: Backward walk only runs when the tail pointer and its data pointer (this + 0x6C4 dereferenced at +0) are both non-null. [field:*(this+0x6C4):0x00000000, field:this:0x000006C4, source:raw]
+    // LOOP: Backward seek: while the threshold minus 2.0 (this + 0xF38) is <= the current node's float value, decrement the step counter, move the cursor (this + 0x6C8) to the node's prev pointer (node + 8) and continue; the loop exits when the condition fails or a node/data pointer is null. [field:*(this+0x6C8):0x00000000, field:*(this+0x6C8):0x00000008, field:this:0x000006C8, field:this:0x00000F38, source:raw]
+    // GUARD: Index validation: the leftover step counter (v4, or v2 on the fall-through branch) must be within [0, count) for the forward re-seek to run. [field:this:0x000006CC, source:raw]
+    // LOOP: Forward re-seek: reset the cursor (this + 0x6C8) to the head (this + 0x6C0) and advance it the computed number of steps through next pointers (node + 4); the cursor is left null if the chain ends early. [field:*(this+0x6C8):0x00000004, field:this:0x000006C0, field:this:0x000006C8, source:raw]
+    // ASSIGNMENT: When neither re-seek branch has a valid index, set the cursor (this + 0x6C8) to null. [field:this:0x000006C8, source:raw]
+    // ASSIGNMENT: Write the threshold field (this + 0xF38) from the cursor node's data value; when the cursor is null the raw source stores the dereference of the zero address (MEMORY[0]). [field:*(*(this+0x6C8)+0x0):0x00000000, field:this:0x00000F38, source:raw]
+    // RETURN: Return 0 on every path after the initial count guard. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   count = this[0x6CC / 4];
+    //   if (count <= 0) return 0;
+    //   tail = this[0x6C4 / 4];
+    //   cursor = this + 0x6C8;
+    //   *cursor = tail;
+    //   steps = count - 1;
+    //   if (tail && *(float*)tail) {
+    //       while (this[0xF38 / 4] - 2.0 <= **(float**)cursor) {
+    //           steps--;
+    //           *cursor = (*(*cursor + 8)) ? *(*(*cursor + 8)) : 0;
+    //           if (*(*cursor)) continue;
+    //           break;
+    //       }
+    //       if (0 <= steps && steps < count) {
+    //           *cursor = this[0x6C0 / 4];
+    //           while (steps > 0 && *cursor) { steps--; *cursor = *(*cursor + 4); }
+    //           goto done;
+    //       }
+    //   } else {
+    //       steps = count - 1;
+    //       if (0 <= steps && steps < count) {
+    //           *cursor = this[0x6C0 / 4];
+    //           while (steps > 0 && *cursor) { steps--; *cursor = *(*cursor + 4); }
+    //           goto done;
+    //       }
+    //   }
+    //   *cursor = 0;
+    //   done:
+    //   if (!*(*cursor)) { this[0xF38 / 4] = MEMORY[0]; return 0; }
+    //   this[0xF38 / 4] = **(float**)*cursor;
+    //   return 0;
+    // UNRESOLVED: The global 0x005ACD20 (flt_5ACD20) appears in the packet global list but is absent from the raw source text (which uses the literal 2.0); the fill labels it 'SilenceClippingThreshold' at DERIVED trust, which is not adopted here.
+    // UNRESOLVED: The raw source's final null-cursor path writes MEMORY[0] into the threshold field (this + 0xF38); this is almost certainly a decompiler artifact of a null dereference, and the real runtime behavior is unknown.
+    // UNRESOLVED: Whether the '2.0' window is a priority-search epsilon or a fixed threshold width, and the exact semantic of the threshold field this + 0xF38 (the fill calls it a threshold float key), are not established by the packet.
+    // UNRESOLVED: The node layout (data at +0, next at +4, prev at +8) and the owning class (a menu-action list per the caller MenuActionDispatch at 0x004B9DA0) are interpretations, not independently evidenced.
+}

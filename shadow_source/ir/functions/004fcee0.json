@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "address": "0x004FCEE0",
+  "proposed_name": "HudScoringProgressBarUpdate",
+  "owner": {
+    "type": "HudScoringElement",
+    "trust": "DERIVED",
+    "evidence_refs": ["caller:0x0042D8A0", "function:0x004FCEE0"]
+  },
+  "summary": "Per-frame update of a HUD scoring/progress-bar element: decrements a countdown timer, encodes expired scoring events into a 432-byte ring buffer, advances a linked event list, interpolates the display alpha toward its target, applies a time-of-day dimming factor and day/night light toggle, computes an interpolated RGB color ramp, and updates audio pan, a bounded float setter and a UI element position. Also swaps idle/active state ids (6<->7, 21<->22) in a global element array when the smoothed value moves.",
+  "local_names": {
+    "this": "HUD scoring element state",
+    "v49": "RGB triple produced from this+32",
+    "v42": "running alpha value",
+    "v44/v45/v43/v48/v47/v28": "interpolated color/position components",
+    "v11": "ring-buffer slot for an encoded event"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Countdown timer: this+4 -= dbl_8AFE98 (per-frame decrement).",
+      "evidence_refs": ["field:this:0x00000004", "global:0x008AFE98", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Gate for the event/expiry block: (dword_7C56A0 & 1) != 0 and dword_8AB6E4 != 2.",
+      "evidence_refs": ["global:0x007C56A0", "global:0x008AB6E4", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "On timer expiry (v2 < 0): if the one-shot byte this+64 is set, clear it, StringCopyWithRingBuffer(this+264) and set this+68 = -8388609.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000040", "field:this:0x00000100", "field:this:0x00000044", "callee:0x004FC650", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build ADSR envelope inputs (1.0 - this+4) * this+0 and dbl_8AFEA0 * this+0, then AudioADSREnvelope(v37, v38, dword_5C329C).",
+      "evidence_refs": ["callee:0x004FDEB0", "global:0x008AFEA0", "global:0x005C329C", "field:this:0x00000000", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Reset the countdown timer this+4 to 1.0 (literal 1065353216).",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_4FC870((float*)(this+32), v49): compute the current RGB triple into v49.",
+      "evidence_refs": ["callee:0x004FC870", "field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Emit a new event when the cached value this+68 differs from dbl_8AFEA0 by more than 2.5, or when this+72..80 differs from v49 (memcmp of 12 bytes).",
+      "evidence_refs": ["global:0x008AFEA0", "field:this:0x00000044", "field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ProgressBarEventEncode into a 432-byte ring-buffer slot at dword_8AAE64 (slot count bounded by dword_83EE60 < 1023); copy v49 into the slot payload and cache this+72/76/80 and this+68.",
+      "evidence_refs": ["callee:0x004B33B0", "global:0x008AAE64", "global:0x0083EE60", "field:this:0x00000044", "field:this:0x00000048", "field:this:0x0000004C", "field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Linked event list: if the head node *(this+92) is non-null and its timestamp *(node+0) is less than dbl_8AFEA0, encode a type-2 (node+4==1) or type-3 event via ProgressBarEventEncode, store alpha byte = CRTFtol(node+8 * 255.0), then advance *(this+92) to the node's next pointer *(node+4).",
+      "evidence_refs": ["field:this:0x0000005C", "field:*(this+0x5C):0x00000000", "field:*(this+0x5C):0x00000004", "field:*(*(this+0x5C)+0x0):0x00000000", "field:*(*(this+0x5C)+0x0):0x00000004", "field:*(*(this+0x5C)+0x0):0x00000008", "callee:0x004B33B0", "callee:0x00587BDC", "global:0x008AAE64", "global:0x0083EE60", "global:0x008AFEA0", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Alpha smoothing: when this+4 > 0, this+8 = (1.0 - f) * this+8 + f * this+32 with f = dbl_8AFE98 / (dbl_8AFE98 + this+4); otherwise this+8 = this+32.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000004", "field:this:0x00000020", "global:0x008AFE98", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Base alpha: if this+8 >= 1.0, v42 = 1.0 - this+252 - (this+256 - this+252) * this+36; else v42 = 1.0 - this+252 * this+8.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000024", "field:this:0x000000FC", "field:this:0x00000100", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Time-of-day dimming when flt_7CFEC4 < 1.0: compute v15 = dbl_8AFEA0 * this+0 + flt_8ACFB0, call InterruptDispatch(v15), derive the day factor v45 from the 14400/64800/72000 boundaries, multiply v42 by v45, RenderColorUpdate(this+264, v45), and toggle the nightlight flag this+16 when v15 leaves the 19800..66600 window - enumerating objects via CameraPositionGetter, LinkedListNthElement, LinkedIndexedAccess, sub_588640 and BitFlagSetterWithDXUpdate with the aNightlight string.",
+      "evidence_refs": ["callee:0x0058957A", "callee:0x004FC170", "callee:0x00545670", "callee:0x005457F0", "callee:0x00545820", "callee:0x00588640", "callee:0x0055D2F0", "global:0x007CFEC4", "global:0x008AFEA0", "global:0x008ACFB0", "global:0x005D6F78", "field:this:0x00000000", "field:this:0x00000100", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "One-shot blend: when this+28 != 0.0, if dword_7CF8A8 > 1 then v42 = (1.0 - v42) * this+28 + v42; then clear this+28.",
+      "evidence_refs": ["field:this:0x0000001C", "global:0x007CF8A8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When fabs(this+12 - v42) > 0.017999999: LinkedListTraversal(0), clamp v42 into [0.0, 1.0], store this+12 = v42 and UIPropertyValueSetter(2, ...).",
+      "evidence_refs": ["callee:0x005457C0", "callee:0x0055D410", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Position delta: v44 = clamp((this+44 - this+40) * 4.0) into [0.0, 1.0]; if fabs(this+164 - v44) > 0.003, store this+164 = v44 and StridedArraySearchAndCall(&dword_8ACEA0, 10, v44).",
+      "evidence_refs": ["callee:0x004CEFE0", "global:0x008ACEA0", "field:this:0x0000002C", "field:this:0x00000028", "field:this:0x000000A4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Score blend: v26 = (this+44 + this+40) * 0.5 * 0.44999999 + this+36 * 0.47499999 + this+8 * 0.075000003, clamped into [0.0, 1.0].",
+      "evidence_refs": ["field:this:0x0000002C", "field:this:0x00000028", "field:this:0x00000024", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Color ramp: when v26 >= this+168 lerp the high range ((this+240..244..248) - (this+228..232..236)) and ((this+204..208..212) - (this+192..196..200)) by v29 = (v26 - this+168) * this+176; else lerp the low range ((this+228..232..236) - (this+216..220..224)) and ((this+192..196..200) - (this+180..184..188)) by v27 = v26 * this+172; outputs feed audio/position/UI.",
+      "evidence_refs": ["field:this:0x000000A8", "field:this:0x000000AC", "field:this:0x000000B0", "field:this:0x000000B4", "field:this:0x000000B8", "field:this:0x000000BC", "field:this:0x000000C0", "field:this:0x000000C4", "field:this:0x000000C8", "field:this:0x000000CC", "field:this:0x000000D0", "field:this:0x000000D4", "field:this:0x000000D8", "field:this:0x000000DC", "field:this:0x000000E0", "field:this:0x000000E4", "field:this:0x000000E8", "field:this:0x000000EC", "field:this:0x000000F0", "field:this:0x000000F4", "field:this:0x000000F8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Output stage: AudioPanUpdate(v44, v45), BoundedFloatSetterWithFlag(v43), scale v46/v47/v48 by 255.0 through CRTFtol into the v41/v39/v30 words, and UIElementPositionSetter(v30, v39, v41).",
+      "evidence_refs": ["callee:0x005438B0", "callee:0x00543920", "callee:0x00543870", "callee:0x00587BDC", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Active flag: when this+44 > 0, set this+20 = 1.",
+      "evidence_refs": ["field:this:0x0000002C", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "State swap when fabs(this+40 - this+24) > 0.0099999998: iterate dword_8ACEA8 elements at dword_8ACEAC with stride 108, swapping ids 6<->7 at +48 and 21<->22 at +52 depending on whether this+40 is at or below 0.029999999.",
+      "evidence_refs": ["global:0x008ACEA8", "global:0x008ACEAC", "field:this:0x00000028", "field:this:0x00000018", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "this[1] -= dbl_8AFE98;",
+    "if ((dword_7C56A0 & 1) && dword_8AB6E4 != 2) {",
+    "    if (this[1] < 0) { encode expiry events; AudioADSREnvelope(...); this[1] = 1.0f; }",
+    "    // linked event list encode + advance",
+    "}",
+    "this[2] = lerp toward this[8] with dbl_8AFE98 factor;",
+    "// time-of-day dim + day/night toggle",
+    "// score blend, color ramp lerp",
+    "AudioPanUpdate(v44, v45); BoundedFloatSetterWithFlag(v43); UIElementPositionSetter(v30, v39, v41);"
+  ],
+  "unresolved": [
+    "The 22 unused read-only globals listed in unresolved_evidence_refs (float cluster spanning 0059E43C through 005AD2B8, plus dword_8AFE88) are packet-flagged xrefs with no visible read in the raw body (likely adjacent-data block).",
+    "Concrete type of the event object behind this+0x5C is unknown; node fields +0/+4/+8 are timestamp/selector/value only by inference.",
+    "Day/night time boundaries (14400/19800/64800/66600/72000) and the nightlight-group iteration semantics are inferred from branch constants; purpose is not independently verified.",
+    "The exact meaning of dword_8AFE88 and the audio-pan coordinate mapping for v44/v45 are not resolved."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E450",
+    "global:0x0059E46C",
+    "global:0x0059E8E4",
+    "global:0x0059E8FC",
+    "global:0x0059E97C",
+    "global:0x0059EF78",
+    "global:0x0059FEC8",
+    "global:0x005ACD48",
+    "global:0x005AD294",
+    "global:0x005AD298",
+    "global:0x005AD29C",
+    "global:0x005AD2A0",
+    "global:0x005AD2A4",
+    "global:0x005AD2A8",
+    "global:0x005AD2AC",
+    "global:0x005AD2B0",
+    "global:0x005AD2B4",
+    "global:0x005AD2B8",
+    "global:0x008AFE88"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

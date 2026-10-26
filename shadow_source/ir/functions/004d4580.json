@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "address": "0x004D4580",
+  "proposed_name": "StewardUpdateMainDispatch",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004D4580"]
+  },
+  "summary": "Main race-system dispatch and phase state machine. Accumulates 3D distance checks when the steward object has a source node (this+0xA4), drives the audio DSP with a session-time-dependent parameter when an audio context exists (this+0xA8), and — unless a global enable flag is set — runs the pit timer and dispatches a race-phase machine (session-phase 7). The state machine sets per-phase control flags at this+0xC0 and this+0xC1, checks the FLT_MAX sentinel at this+0xD8 to route the progress-bar path, and delegates scoring via the Delegation global when the scoring gate equals 2.",
+  "local_names": {
+    "this": "steward/race-session object holding distance-check, audio, timing and flag state",
+    "a1": "this object in the decompiler's register-arg spelling (ecx)",
+    "a2": "incoming double on the x87 stack, reused as the audio/distance parameter source",
+    "v7": "pointer read from this+0xA4 (distance-check source)",
+    "v13": "float taken from the session-time double passed to AudioDSPStateUpdate"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Proceed with 3D distance checking only when the pointer at this+0xA4 is non-zero",
+      "evidence_refs": ["field:this:0x000000A4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "F_3DDistanceCheckAccumulate(v7, dbl_8AFE98) accumulates distance checks using the double at 0x008AFE98 as the parameter",
+      "evidence_refs": ["callee:0x004D0B20", "global:0x008AFE98", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Proceed with audio update only when the pointer at this+0xA8 is non-zero",
+      "evidence_refs": ["field:this:0x000000A8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When dword_8AB6E4 equals 2, Delegation(&dword_8AB6EC) routes scoring to the delegated scorer; otherwise the parameter becomes dbl_8AFEA0",
+      "evidence_refs": ["callee:0x004B9CE0", "global:0x008AB6E4", "global:0x008AB6EC", "global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "AudioDSPStateUpdate(this+0xA8, parameter) updates the audio DSP state with the session-time-derived float",
+      "evidence_refs": ["callee:0x00448330", "field:this:0x000000A8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "The pit-timer and race-phase state machine only run when byte_7C56AC is zero",
+      "evidence_refs": ["global:0x007C56AC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "PitTimer(a1) updates the pit-timer subsystem",
+      "evidence_refs": ["callee:0x004D2E50", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Phase dispatch proceeds when bit 0 of dword_7C56A0 is set (multiplayer flag) and the phase counter dword_7C56A4 is non-negative",
+      "evidence_refs": ["global:0x007C56A0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Average of this+0xB0 and this+0xB4 is computed and compared against dbl_8AFEA0 for the low-phase timing check",
+      "evidence_refs": ["field:this:0x000000B0", "field:this:0x000000B4", "global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set this+0xC0 to literal 1 when the averaged time is <= dbl_8AFEA0 (phase <= 6 and phases 5-8 paths)",
+      "evidence_refs": ["field:this:0x000000C0", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Low-phase branch (dword_7C56A4 <= 6): after the timing check, falls into the sub_4D1D80(a1) call that continues the phase pipeline",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set this+0xC1 to literal 1 when the packed flag is read and byte_7CE254 is zero, marking the session-type-7 phase-control state",
+      "evidence_refs": ["field:this:0x000000C1", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Session-phase-7 dispatcher: switch on dword_7C56A8 selects between the early-return/registration cases (0,1), the racing-start case (2), the LABEL_11 shared path (3,4), and the looped phase cases (5-8); default returns immediately",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Case 2 racing-start test reads this+0x98 as a threshold: the condition requires the flag at this+0xC1 set and this+0x98 greater than 1.5, or the mode check failing with a session-time bound",
+      "evidence_refs": ["field:this:0x00000098", "field:this:0x000000C1", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "This+0xD8 compared equal to 0x7F7FFFFF (FLT_MAX) is the case-4 sentinel that routes to the shared LABEL_11 progress-bar path instead of returning",
+      "evidence_refs": ["field:this:0x000000D8", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Session-time offsets build the progress-bar record: dbl_8AFEA0 + 300.0 (cases 0/1), dbl_8AFEA0 as-is (case 2), and dbl_8AFEA0 + v12 + 2*v3 + 5.0 with v12 = 2.5 or 3.0 depending on the session-state check, where v3 is read from the flt_8AAE74 table indexed by dword_8AAE70",
+      "evidence_refs": ["global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "No value returned on the early paths; the function is invoked from GamePostMainLoop (0x0042D8A0) and StateTriggerCheck (0x004B8AE0)",
+      "evidence_refs": ["caller:0x0042D8A0", "caller:0x004B8AE0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (this->distCheck != 0) F_3DDistanceCheckAccumulate(this->distCheck, dbl_8AFE98);",
+    "if (this->audioDsp != 0) {",
+    "  param = (dword_8AB6E4 == 2) ? (Delegation(&dword_8AB6EC), a2) : dbl_8AFEA0;",
+    "  AudioDSPStateUpdate(this->audioDsp, param);",
+    "}",
+    "if (!byte_7C56AC) {",
+    "  PitTimer(a1);",
+    "  if ((dword_7C56A0 & 1) && dword_7C56A4 >= 0) {",
+    "    if (dword_7C56A4 <= 6) {",
+    "      if ((this->tB + this->tA) * 0.5 <= dbl_8AFEA0) this->flagC0 = 1;",
+    "      sub_4D1D80(a1);",
+    "    } else if (dword_7C56A4 == 7) {",
+    "      if (PackedFlagRead(byte_7CA594, 57) && !byte_7CE254) this->flagC1 = 1;",
+    "      switch (dword_7C56A8) {",
+    "        case 0: case 1:",
+    "          if (!this->flagC1) return;",
+    "          CollisionProxyUnregister(byte_7CA594, 57, 1.0);",
+    "          ShortComputation_bde0(&dword_7CD204, a0001, 0);",
+    "          if (!dword_7CED8C) break;",
+    "          ProgressBarDataStore(2, dbl_8AFEA0 + 300.0); return;",
+    "        case 2:",
+    "          if (!(this->flagC1 && this->t98 > 1.5) &&",
+    "              !(!ModeValidationCheck(a1) && this->tB - 300.0 + 1.5 < dbl_8AFEA0)) return;",
+    "          CollisionProxyUnregister(byte_7CA594, 57, 1.0);",
+    "          TickUpdateDispatch(a1);",
+    "          if (dword_7CEE88) { ProgressBarDataStore(3, dbl_8AFEA0); break; }",
+    "          /* fallthrough to LABEL_11 */",
+    "        case 3:",
+    "          if (!sub_4D2170(a1)) return;",
+    "          /* fallthrough to LABEL_11 */",
+    "        case 4:",
+    "          if (this->d8 != 0x7F7FFFFF) return;",
+    "LABEL_11:",
+    "          v12 = SessionStateCheckWrapper(dword_7CD25C) ? (dbl_8AFEA0 < 31.0 ? (return) : 2.5) : 3.0;",
+    "          v2 = dword_8AAE64;",
+    "          if (dword_83EE60 < 1023) { ++dword_83EE60; dword_8AAE64 += 432; }",
+    "          ProgressBarEventEncode((_DWORD*)v2, 4, 20, 8, 255, dbl_8AFEA0, 1);",
+    "          *(float*)(v2 + 8) = dbl_8AFEA0 + v12;",
+    "          v3 = flt_8AAE74[dword_8AAE70++];",
+    "          *(float*)(v2 + 12) = dbl_8AFEA0 + v12 + v3 + v3 + 5.0;",
+    "          break;",
+    "        case 5: case 6: case 7: case 8:",
+    "          if ((this->tB + this->tA) * 0.5 <= dbl_8AFEA0) this->flagC0 = 1;",
+    "          if (!SessionStateCheck(dword_7CD25C) && dword_8AB6E4 != 2 && dword_7CC520) GlobalFlagSetter();",
+    "          sub_4D1D80(a1);",
+    "          break;",
+    "        default: return;",
+    "      }",
+    "    }",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The packet only lists four callees; the phase state machine also invokes PackedFlagRead, CollisionProxyUnregister, ShortComputation_bde0, ProgressBarDataStore, ModeValidationCheck, TickUpdateDispatch, SessionStateCheckWrapper, SessionStateCheck, GlobalFlagSetter, ProgressBarEventEncode, sub_4D1D80 and sub_4D2170, none of which carry packet evidence refs",
+    "Many phase-machine globals (dword_7C56A4, dword_7C56A8, byte_7CA594, byte_7CE254, dword_7CD204, dword_7CED8C, dword_7CEE88, dword_8AAE64, dword_83EE60, dword_8AAE70, flt_8AAE74, dword_7CD25C, dword_7CC520) are read by the raw source but are not in the packet globals list",
+    "The role of the incoming a2 double versus the floats derived from dbl_8AFEA0/dbl_8AFE98 is not fully recoverable from this packet",
+    "this+0x98 (threshold compared against 1.5 in case 2) has no literal bound in the packet's field facts"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

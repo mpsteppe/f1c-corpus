@@ -1,0 +1,77 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00598323
+// Canonical corpus name: sub_598323
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_598323_00598323.c
+
+void UnknownObject::EnvStringTableInsert()
+{
+    // CRT environment-string table insert (cdecl, args lpString1 = "KEY=VALUE" ANSI string, a2 = forward-to-OS flag). Parses the key at the '=' separator (byte 61) via sub_598569, and either replaces, removes (empty value), or appends the entry in the case-insensitive string table anchored at dword_8D3E90 (grown against bucket end dword_8D3E94 via NullTerminatedIntArrayCopyWithAlloc, rebuilt from the wide-string list dword_8D3E98 via WideCharMultiByteStringConversionWithAllocLoop, or allocated from scratch with MallocWrapperForNhMalloc). Lookup uses CaseInsensitiveStringTableLookup; removal frees the old cell via sub_58AA6F and compacts the array; growth uses sub_58B5D4. When a2 is set, forwards the parsed pair to SetEnvironmentVariableA via a heap copy (Strlen + MallocWrapperForNhMalloc + sub_58FCA0 + NUL split at the '=' position). Returns 0 on success and -1 on parse/allocation failures.
+    // GUARD: Reject a null lpString1 (-1); locate the first '=' (byte 61) via sub_598569(lpString1, 61); reject with -1 when no '=' is found or when the string starts with '=' (lpString1 == v2). [callee:0x00598569]
+    // CALCULATION: Record whether the value part is empty (v5 = v3[1] == 0) and preserve the '=' position in v18 for the later key/value split. [source:raw]
+    // GUARD: When the table pointer dword_8D3E90 has reached the bucket-end pointer dword_8D3E94, grow the null-terminated array via NullTerminatedIntArrayCopyWithAlloc(dword_8D3E90). [global:0x008D3E90, global:0x008D3E94, callee:0x00598502]
+    // GUARD: If the table is still null: when a2 is set and the wide-string list dword_8D3E98 exists, rebuild the table via WideCharMultiByteStringConversionWithAllocLoop() (a non-zero return fails with -1); otherwise return 0 for an empty value, or allocate fresh 4-byte cells for dword_8D3E90 and, if missing, dword_8D3E98 via MallocWrapperForNhMalloc(4). [global:0x008D3E90, global:0x008D3E98, callee:0x00597FAC, callee:0x0058A935]
+    // CALL: Look up the key prefix in the case-insensitive table via CaseInsensitiveStringTableLookup(lpString1, v3 - lpString1), producing the index v10 (v11). [callee:0x005984AA]
+    // GUARD: When the key is found (v10 >= 0 and the first table cell is non-null): with a non-empty value replace the cell v9[v10] with lpString1; with an empty value free the old entry v9[v10] via sub_58AA6F and compact the remaining entries left by one cell. [callee:0x0058AA6F]
+    // CALL: After removal, shrink the table via sub_58B5D4(lpMem, 4 * v11); if the shrink returns null, fall through to the environment-variable forwarding step instead of failing. [callee:0x0058B5D4]
+    // CALL: Forwarding step (a2 set): measure lpString1 with Strlen, allocate a key copy via MallocWrapperForNhMalloc(v14 + 2), populate it with sub_58FCA0(), NUL-terminate the key at the preserved '=' position, call SetEnvironmentVariableA(v15, value pointer or 0), then free the copy via sub_58AA6F. [callee:0x0058E1B0, callee:0x0058A935, callee:0x0058FCA0, global:0x0059E0B0, callee:0x0058AA6F]
+    // ASSIGNMENT: For a new key with a non-empty value: derive the insertion index v11 = -v10 when not found, grow via sub_58B5D4(v9, 4 * v11 + 8), store lpString1 at index v11 and a 0 terminator at index v11 + 1, then update dword_8D3E90 to the returned block. [callee:0x0058B5D4, global:0x008D3E90]
+    // RETURN: Return -1 on parse and allocation failures and 0 on every success path (including the empty-value no-op). [source:raw]
+    // CALL: Called by WideCharMultiByteStringConversionWithAllocLoop (0x00597FAC) when rebuilding the environment table from the wide-string list. [caller:0x00597FAC]
+
+    // Conservative worker pseudocode:
+    //   if (!lpString1) return -1;
+    //   v2 = sub_598569(lpString1, 61);
+    //   if (!v2 || lpString1 == v2) return -1;
+    //   v5 = (v2[1] == 0);
+    //   if (dword_8D3E90 == dword_8D3E94) dword_8D3E90 = NullTerminatedIntArrayCopyWithAlloc(dword_8D3E90);
+    //   if (!dword_8D3E90) {
+    //       if (a2 && dword_8D3E98) { if (WideCharMultiByteStringConversionWithAllocLoop()) return -1; }
+    //       else {
+    //           if (v5) return 0;
+    //           dword_8D3E90 = MallocWrapperForNhMalloc(4);
+    //           if (!dword_8D3E90) return -1;
+    //           *(int *)dword_8D3E90 = 0;
+    //           if (!dword_8D3E98) {
+    //               dword_8D3E98 = (int)MallocWrapperForNhMalloc(4);
+    //               if (!dword_8D3E98) return -1;
+    //               *(int *)dword_8D3E98 = 0;
+    //           }
+    //       }
+    //   }
+    //   v10 = CaseInsensitiveStringTableLookup(lpString1, v2 - lpString1);
+    //   v11 = v10;
+    //   if (v10 >= 0 && *(int *)dword_8D3E90) {
+    //       if (!v5) { ((int **)dword_8D3E90)[v10] = (int)lpString1; goto forward; }
+    //       sub_58AA6F((void *)((int **)dword_8D3E90)[v10]);
+    //       for (p = &((int **)dword_8D3E90)[v10]; *p; ++p) { ++v11; *p = p[1]; }
+    //       block = sub_58B5D4(dword_8D3E90, 4 * v11);
+    //       if (block) { dword_8D3E90 = block; }
+    //   } else if (!v5) {
+    //       if (v10 < 0) v11 = -v10;
+    //       block = sub_58B5D4(dword_8D3E90, 4 * v11 + 8);
+    //       if (!block) return -1;
+    //       ((int *)block)[v11] = (int)lpString1;
+    //       ((int *)block)[v11 + 1] = 0;
+    //       dword_8D3E90 = block;
+    //   } else {
+    //       return 0;
+    //   }
+    //   forward:
+    //   if (a2) {
+    //       v15 = MallocWrapperForNhMalloc(Strlen(lpString1) + 2);
+    //       if (v15) {
+    //           sub_58FCA0();
+    //           v16 = v2 + (v15 - lpString1);
+    //           *v16 = 0;
+    //           SetEnvironmentVariableA(v15, v5 ? 0 : v16 + 1);
+    //           sub_58AA6F(v15);
+    //       }
+    //   }
+    //   return 0;
+    // UNRESOLVED: sub_58FCA0() is invoked to populate the heap key copy but its precise helper purpose (likely a string copy) is only DERIVED from the corpus fill, not stated by the packet.
+    // UNRESOLVED: The negative lookup result convention (v10 < 0 encoding the insertion index as -v10) is inferred from the raw source arithmetic, not documented by the packet.
+    // UNRESOLVED: dword_8D3E94 as a bucket-end/limit pointer and dword_8D3E98 as a wide-string list are DERIVED names from the corpus fill; the packet only shows the numeric comparisons and assignments.
+    // UNRESOLVED: The exact meaning of SetEnvironmentVariableA's second argument of 0 (remove versus empty-value semantics) is not confirmed by the packet.
+    // UNRESOLVED: dword_8D3E90 / dword_8D3E98 store pointers via casts that the decompiler renders as integers; the underlying object types are unknown.
+}

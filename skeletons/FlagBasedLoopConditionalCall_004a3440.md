@@ -1,0 +1,35 @@
+## FlagBasedLoopConditionalCall_004a3440 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Frame-path:** ON_FRAME_PATH  
+**Call frequency:** per-frame tick
+
+**Called by:** PitCrewAnimationLoader (004a2a90), PitPartStateCopy (004a5330), PitstopStateTransition (004a5600), AIStateMachineWithModeDispatch (004a5d10)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0x0 | RW | — | [LLM] |
+| this | 0xC | R | — | [LLM] |
+| this | 0x10 | R | — | [LLM] |
+| this | 0x14 | R | — | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x0: recalc every frame — external poke does NOT persist
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 007cf884 | dword_7CF884 | R | DetailLevel [DERIVED] (also: ` â€” detail level (â‰¤1 = load pitcrew meshes) |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 0054c1a0 | Bit12FlagSet | [LLM] |
+| 0054c1b0 | UIWidgetRecursiveStateUpdate | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

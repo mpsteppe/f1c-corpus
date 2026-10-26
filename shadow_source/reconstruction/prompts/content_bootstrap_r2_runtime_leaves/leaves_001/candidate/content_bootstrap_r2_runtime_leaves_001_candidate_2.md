@@ -1,0 +1,11 @@
+# Reconstruction candidate task content_bootstrap_r2_runtime_leaves_001_candidate_2
+
+Read and obey `tools\agents\F1C_RECONSTRUCTION_CANDIDATE_WORKER.md` completely.
+
+Packet: `shadow_source\reconstruction\packets\content_bootstrap_r2_runtime_leaves\content_bootstrap_r2_runtime_leaves_001.json`
+Schema: `shadow_source\reconstruction\schemas\contract.schema.json`
+Logical contract ID (write this exact value): `content_bootstrap_r2_runtime_leaves.packet_001.v1`
+Candidate ID (provenance only, not the contract ID): `candidate_2`
+Write your one JSON result to exactly this path: `shadow_source\reconstruction\candidates\content_bootstrap_r2_runtime_leaves\content_bootstrap_r2_runtime_leaves_001\candidate_2.json`
+
+Validate only that file with: `python tools/reconstruction_pipeline.py validate-candidates --path shadow_source\reconstruction\candidates\content_bootstrap_r2_runtime_leaves\content_bootstrap_r2_runtime_leaves_001\candidate_2.json`.

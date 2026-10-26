@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "address": "0x0051030D",
+  "proposed_name": "StreamCommandParserWithSlotTable",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Stream command parser with slot-table lookup. Reads a variable-length command (2-byte size header, slot count, per-slot id/parameter pairs, and a trailer) from a refillable byte stream, validates the size against the slot count, looks up each slot id in a 21-dword table at this+0xC4, publishes the parsed values and state codes to the dispatcher object, and returns 1 on a fully parsed command. Called from CommandDispatchStateMachine.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load the stream read state: v1 = a1[5] (this+0x14); capture the current read pointer v1[0] and the remaining-byte count v1[1].",
+      "evidence_refs": ["field:this:0x00000014", "field:*(this+0x14):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on this+0x1E1 (a1[100]+81): when zero, write state 61 to obj+0x14 and dispatch through the obj vtable entry 0.",
+      "evidence_refs": ["field:this:0x000001E1", "field:obj:0x00000014", "field:obj:0x00000000", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Refill guard: whenever the remaining count reaches zero before the next byte is read, call the stream refill callback v1[3](a1); if it returns zero the parser aborts and returns 0.",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Parse the 2-byte size header: the first byte contributes the high half and the second byte is added to it, producing the message length in v27.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Parse the slot count from the third header byte into v22.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Validation guard: when v27 != 2 * v22 + 6 or v22 < 1 or v22 > 4, write state 9 to obj+0x14 and dispatch through the obj vtable entry 0.",
+      "evidence_refs": ["field:obj:0x00000014", "field:obj:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Start per-slot processing: write state 102 to obj+0x14, store the slot count to obj+0x18, dispatch via the obj vtable entry 1, and record the count at this+0x120.",
+      "evidence_refs": ["field:obj:0x00000014", "field:obj:0x00000018", "field:obj:0x00000004", "field:this:0x00000120", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Loop v22 times over the slots: for each, read the slot id byte (refilling the stream as needed) and linearly search the 21-dword slot table rooted at this+0xC4 for an entry whose first dword equals the slot id.",
+      "evidence_refs": ["field:this:0x000000C4", "field:*(this+0x14):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Table-size guard: when this+0x20 is zero or negative the search is skipped to an error path writing state 5 and the slot id to obj+0x18, then dispatching through the obj vtable entry 0.",
+      "evidence_refs": ["guard:0", "field:this:0x00000020", "field:obj:0x00000014", "field:obj:0x00000018", "field:obj:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On a table match, store the found entry pointer into this+0x124 (indexed by slot position) and decompose the per-slot parameter byte into two nibbles stored in entry dwords 5 (high) and 6 (low).",
+      "evidence_refs": ["field:this:0x00000124", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Publish the slot values to the dispatcher object: obj+0x18 = slot id, obj+0x1C = nibble high, obj+0x20 = nibble low; set state 103 and dispatch via the obj vtable entry 1.",
+      "evidence_refs": ["field:obj:0x00000018", "field:obj:0x0000001C", "field:obj:0x00000020", "field:obj:0x00000014", "field:obj:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Parse the trailer: read bytes into this+0x168 and this+0x16C, and the high/low nibbles of the third trailer byte into this+0x170 and this+0x174.",
+      "evidence_refs": ["field:this:0x00000168", "field:this:0x0000016C", "field:this:0x00000170", "field:this:0x00000174", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Publish the trailer to the dispatcher object: obj+0x18 through obj+0x24 receive the four trailer-derived values; set state 104 and dispatch via the obj vtable entry 1.",
+      "evidence_refs": ["field:obj:0x00000018", "field:obj:0x0000001C", "field:obj:0x00000020", "field:obj:0x00000014", "field:obj:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Reset the completion flag at this+0x1E4 (a1[100]+84) to 0 and increment the command counter at this+0x7C.",
+      "evidence_refs": ["field:this:0x000001E4", "field:this:0x00000190", "field:this:0x0000007C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Finalize the stream state: set v1[0] = v16 + 1 (new read pointer) and v1[1] = v35 - 1 (new remaining count).",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 on a fully parsed and dispatched command; return 0 when any stream refill fails mid-parse. Invoked from CommandDispatchStateMachine.",
+      "evidence_refs": ["source:raw", "caller:0x0051126A", "function:0x0051030D", "abi:lead"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char sub_51030D(_DWORD *a1) {",
+    "  st = a1[5];",
+    "  if (*(a1[100] + 81) == 0) {",
+    "    *((_DWORD*)*a1 + 5) = 61;      // state 61",
+    "    (*(*a1))(a1);                  // vtable[0] dispatch",
+    "  }",
+    "  p = st[0]; rem = st[1];",
+    "  refill() { if (!((st[3])(a1))) return 0; p = st[0]; rem = st[1]; }  // before each read",
+    "  size = *p++; if (!--rem) refill();",
+    "  size += *p++; if (!--rem) refill();",
+    "  count = *p++; if (!--rem) refill();",
+    "  if (size != 2*count + 6 || count < 1 || count > 4) {",
+    "    *((_DWORD*)*a1 + 5) = 9; (*(*a1))(a1);   // state 9 error",
+    "  }",
+    "  *((_DWORD*)*a1 + 5) = 102;",
+    "  *((_DWORD*)*a1 + 6) = count;",
+    "  ((*(_DWORD*)*a1 + 4))(a1, 1);   // vtable[1] dispatch",
+    "  a1[72] = count;",
+    "  for (i = 0; i < count; i++) {",
+    "    slot = *p++; if (!--rem) refill();",
+    "    param = *p++; if (!--rem) refill();",
+    "    entry = search 21-dword table at a1[49] for first dword == slot;",
+    "    if (a1[8] <= 0 || not found) {",
+    "      *((_DWORD*)*a1 + 5) = 5; *((_DWORD*)*a1 + 6) = slot; (*(*a1))(a1);   // state 5 error",
+    "    } else {",
+    "      a1[73 + i] = entry;",
+    "      entry[5] = (param >> 4) & 0xF; entry[6] = param & 0xF;",
+    "      *((_DWORD*)*a1 + 6) = slot;",
+    "      *((_DWORD*)*a1 + 7) = entry[5];",
+    "      *((_DWORD*)*a1 + 8) = entry[6];",
+    "      *((_DWORD*)*a1 + 5) = 103;",
+    "      ((*(_DWORD*)*a1 + 4))(a1, 1);",
+    "    }",
+    "  }",
+    "  a1[90] = *p++; if (!--rem) refill();",
+    "  a1[91] = *p++; if (!--rem) refill();",
+    "  a1[92] = (*p >> 4) & 0xF; a1[93] = *p & 0xF; p++; if (!--rem) refill();",
+    "  v = *a1;",
+    "  v[6] = a1[90]; v[7] = a1[91]; v[8] = a1[92]; v[9] = a1[93];",
+    "  *((_DWORD*)*a1 + 5) = 104;",
+    "  ((*(_DWORD*)*a1 + 4))(a1, 1);",
+    "  *(_DWORD*)(a1[100] + 84) = 0;",
+    "  ++a1[31];",
+    "  st[1] = rem - 1; st[0] = p + 1;",
+    "  return 1;",
+    "}"
+  ],
+  "unresolved": [
+    "obj+0x8 and obj+0xC (dispatcher vtable entries 2 and 3) are statically referenced but neither written nor read in the visible decompiled body; their role is unknown.",
+    "this+0x18, this+0xD8 and this+0xDC are accessed per static facts but do not appear in the visible decompiled body; their role is unknown.",
+    "The slot table stride of 21 dwords and the first-dword match key are empirical from the body; the entry layout beyond dwords 5 and 6 is unknown.",
+    "The refill callback stored at v1[3] is invoked on exhaustion but its identity and side effects are external to this function."
+  ],
+  "unresolved_evidence_refs": [
+    "field:obj:0x00000008",
+    "field:obj:0x0000000C",
+    "field:this:0x00000018",
+    "field:this:0x000000D8",
+    "field:this:0x000000DC"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

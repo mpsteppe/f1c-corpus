@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "address": "0x005160AD",
+  "proposed_name": "AllocateChunkedElementArray",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x005160AD"]
+  },
+  "summary": "Chunked element allocator: allocates a pointer-index array of a4 elements via MemoryAllocator, then fills it by allocating a4 elements in bulk chunks through MemoryAllocatorWithAlignment (chunk of at most v5 elements each). The max chunk size v5 = min(0x3B9AC9F0 / a3, a4) is stored at this+0x50, and the final chunk is capped to the remaining element count. An element size larger than 0x3B9AC9F0 triggers the error path: constant 69 written at obj+0x14 and a vtable dispatch through *a1. Returns the pointer-index array.",
+  "local_names": {
+    "a1": "allocator object; a1[0] is the vtable pointer used by the error-path dispatch, a1[1] is the base pointer used for the chunk-size store",
+    "a2": "category index forwarded to MemoryAllocator / MemoryAllocatorWithAlignment",
+    "a3": "element size in bytes",
+    "a4": "total element count to allocate",
+    "v4": "cached base pointer from this+0x4 (a1[1])",
+    "v5": "max elements per chunk; stored at v4+76 (this+0x50)",
+    "v7": "index of the next element to fill in the index array",
+    "v8": "current element chunk returned by MemoryAllocatorWithAlignment",
+    "v9": "remaining count within the current chunk fill loop",
+    "v11": "pointer-index array of element pointers (4 * a4 bytes)",
+    "obj": "sub-object reached through *a1, receiving the error constant and vtable dispatch"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Cache the base pointer from this+0x4 (a1[1]) into v4",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the max possible chunk as v5 = 0x3B9AC9F0 / a3 (elements per chunk bounded by the allocator's 1,000,000,000-byte ceiling)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When 0x3B9AC9F0 / a3 <= 0 (element size exceeds the allocation ceiling): write constant 69 at obj+0x14 and dispatch the error handler through the object vtable at obj+0x0 (read as *a1), passing a1",
+      "evidence_refs": ["field:obj:0x00000014", "field:obj:0x00000000", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Cap the chunk size: when v5 >= a4, set v5 = a4 so a single chunk covers the whole request",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the computed chunk size v5 at v4 + 76 (this+0x4 + 76 = this+0x50)",
+      "evidence_refs": ["field:this:0x00000050", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the pointer-index array v11 = MemoryAllocator(a1, a2, 4 * a4)",
+      "evidence_refs": ["callee:0x00515F23", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Fill loop over v7 < a4; when v5 >= a4 - v7 the last chunk is capped to the remaining element count",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate a chunk of v5 elements: v8 = MemoryAllocatorWithAlignment(a1, a2, a3 * v5)",
+      "evidence_refs": ["callee:0x0051601F", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner fill loop: store the current element pointer into the index array (v11 + 4*v7), advance v8 by a3, increment v7, repeat v9 times (v9 = v5)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the pointer-index array v11; consumed by DirectXTextureSurfaceAllocation (0051629f)",
+      "evidence_refs": ["caller:0x0051629F", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "base = this+0x4;",
+    "chunk = 0x3B9AC9F0 / a3;",
+    "if (chunk <= 0) { obj+0x14 = 69; vtable_call(a1); }",
+    "if (chunk >= a4) chunk = a4;",
+    "base+76 (this+0x50) = chunk;",
+    "index = MemoryAllocator(a1, a2, 4 * a4);",
+    "i = 0;",
+    "while (i < a4) {",
+    "  if (chunk >= a4 - i) chunk = a4 - i;",
+    "  p = MemoryAllocatorWithAlignment(a1, a2, a3 * chunk);",
+    "  for (n = chunk; n; n--) { index[i] = p; p += a3; i++; }",
+    "}",
+    "return index;"
+  ],
+  "unresolved": [
+    "The class behind this+0x0 is not resolvable from this packet; the vtable dispatch on error and the obj+0x14 constant-69 convention belong to an unknown heap-manager hierarchy",
+    "Whether the per-chunk element stride a3 and the index array (4 bytes per element) are meant to be consumed by callers as separate allocations is inferred from the sibling fill logic, not proven by a caller contract"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

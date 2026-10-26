@@ -1,0 +1,26 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00453560
+// Canonical corpus name: CameraViewportConfigBatch
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/CameraViewportConfigBatch_00453560.c
+
+void UnknownObject::CameraViewportConfigBatch()
+{
+    // Batches collision-node property configuration: issues about 57 CollisionNodePropertySetter calls assigning a mode (0, 1 or 2) to a sequence of node identifiers, then walks a 44-entry array of 11-dword records starting at this+1736 dispatching each through ConditionalCollisionDispatch. Returns the last dispatch result. Invoked by sub_4A00A0.
+    // CALL: Issue a batch of CollisionNodePropertySetter calls; the first uses the global byte_7CA594 as the node argument, the remaining ~56 use node arguments v2..v57 that are uninitialized in this decompilation view. [callee:0x0044F050, global:0x007CA594, source:raw]
+    // LOOP: do-while loop executed exactly 44 times, starting the element pointer at this+1736 (in dword units) and stepping it by 11 dwords after each iteration. [source:raw]
+    // CALL: Each iteration calls ConditionalCollisionDispatch on the current record pointer and stores the return value in result. [callee:0x004527C0, source:raw]
+    // RETURN: Return the result of the last ConditionalCollisionDispatch call. [source:raw]
+    // CALL: Invoked by sub_4A00A0 as part of a larger configuration sequence. [caller:0x004A00A0]
+
+    // Conservative worker pseudocode:
+    //   CollisionNodePropertySetter(byte_7CA594, 29, 2);
+    //   // ... ~56 more CollisionNodePropertySetter(node, id, mode) calls ...
+    //   ptr = this + 1736;
+    //   n = 44;
+    //   do { result = ConditionalCollisionDispatch(ptr); ptr += 11; --n; } while (n);
+    //   return result;
+    // UNRESOLVED: The node arguments v2..v57 are uninitialized in the decompiled view; they are a compiler artifact of a macro-generated call chain and their real source is not recoverable from this function alone.
+    // UNRESOLVED: The numeric node identifiers (29, 157, 56, ...) and the mode values (0, 1, 2) map to engine collision-node properties that are not documented in this packet.
+    // UNRESOLVED: The 44-entry batch array at this+1736 with an 11-dword stride has no documented record layout.
+}

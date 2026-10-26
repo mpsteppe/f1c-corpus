@@ -1,0 +1,22 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00435E00
+// Canonical corpus name: Matrix3x3VectorMultiply
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/Matrix3x3VectorMultiply_00435e00.c
+
+void UnknownObject::Matrix3x3VectorMultiply()
+{
+    // Multiplies a 3x3 matrix stored as 9 doubles (row-major, offsets this+0x0 through this+0x40) by a 3-element vector a2 and writes the product into a3. Row 0 sums this[0]*a2[0] + this[1]*a2[1] + this[2]*a2[2], row 1 uses this[3]/this[4]/this[5], row 2 uses this[6]/this[7]/this[8]. Returns the input vector pointer a2. Pure coordinate-transform helper with no branches, globals, or callees; used by physics solvers (RigidBodyConstraintJointSolver, WheelContactForceSolver, VehiclePhysicsInitializer).
+    // ASSIGNMENT: Set result = a2 (the return value is the input vector pointer). [source:raw]
+    // CALCULATION: a3[0] = this[0]*a2[0] + this[1]*a2[1] + this[2]*a2[2] (matrix row 0, offsets +0x0/+0x8/+0x10). [field:this:0x00000000, field:this:0x00000008, field:this:0x00000010, source:raw]
+    // CALCULATION: a3[1] = this[3]*a2[0] + this[4]*a2[1] + this[5]*a2[2] (matrix row 1, offsets +0x18/+0x20/+0x28). [field:this:0x00000018, field:this:0x00000020, field:this:0x00000028, source:raw]
+    // CALCULATION: a3[2] = this[6]*a2[0] + this[7]*a2[1] + this[8]*a2[2] (matrix row 2, offsets +0x30/+0x38/+0x40). [field:this:0x00000030, field:this:0x00000038, field:this:0x00000040, source:raw]
+    // RETURN: Return result (the input vector pointer a2). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   result = a2;
+    //   a3[0] = this[0]*a2[0] + this[1]*a2[1] + this[2]*a2[2];
+    //   a3[1] = this[3]*a2[0] + this[4]*a2[1] + this[5]*a2[2];
+    //   a3[2] = this[6]*a2[0] + this[7]*a2[1] + this[8]*a2[2];
+    //   return result;
+}

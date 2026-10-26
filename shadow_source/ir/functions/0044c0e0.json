@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "address": "0x0044C0E0",
+  "proposed_name": "SceneTrackFileLoader",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Loads and rebuilds the track scene/terrain. Builds a weather-dependent path buffer (allocated, '.hat' + track basename + '^' separator, '.scn' handling), queries registry timestamps to detect a newer source, and when newer or when the weather-mode flag is set loads the terrain via HTreeTerrainFileFormatLoader, ensures the directory hierarchy exists via CreateDirectoryAWrapper, and rebuilds collision geometry (CollisionShapeInit, CollisionGeometryOperationSelector, BoundingBoxComputationFromTriangles, sub_44BC50, PhysicsBufferFree, CollisionGridRaycast32x32). Frees the temporary path buffer on exit. Gated by EmptyStubWithFlagCheck debug/profile stubs when dword_8B8F24 is non-zero.",
+  "local_names": {
+    "v3": "track path pointer from dword_7CE5D0 with byte_5EA438 fallback",
+    "v4": "basename pointer (after last backslash)",
+    "v26": "temporary path buffer (256 bytes)",
+    "v28": "collision shape/work structure (5 dwords)",
+    "SrcStr": "256-byte scene path buffer",
+    "v30": "256-byte secondary path buffer",
+    "PathName": "1024-byte directory path buffer",
+    "v9/v11": "registry timestamp values",
+    "v15": "offset from '.scn' position to dword_5C448C source string"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Entry debug/profile gate: if dword_8B8F24 is non-zero, call EmptyStubWithFlagCheck(2, 0).",
+      "evidence_refs": ["global:0x008B8F24", "callee:0x0053AC70", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CollisionTreeNodeCleanup(this) clears the existing collision tree state before rebuilding.",
+      "evidence_refs": ["callee:0x0044C470", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "SinTableInit() initializes sine tables.",
+      "evidence_refs": ["callee:0x0044C430", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Take the track path from dword_7CE5D0 (fallback byte_5EA438) and walk back to the last backslash (decimal 92) to isolate the file basename into v4.",
+      "evidence_refs": ["global:0x007CE5D0", "global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v26 = OperatorNewNhMallocWrapper(256); *v26 = 0 allocates the temporary path buffer.",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "StringCopyWithBufferRealloc(dword_5EC438 or byte_5EA438) copies the weather/season directory path into the v26 buffer.",
+      "evidence_refs": ["callee:0x00566650", "global:0x005EC438", "global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_5665B0(aHat) appends the '.hat' extension and sub_5665B0(v4) appends the track basename.",
+      "evidence_refs": ["callee:0x005665B0", "global:0x005C44A4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Strip the extension: locate the period (decimal 46) in the built path and null-terminate there.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_5665B0(aHat_0) appends the '^' separator field during path building.",
+      "evidence_refs": ["callee:0x005665B0", "global:0x005C449C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If byte_7CFEE8 (weather-mode flag) is set, skip the registry timestamp checks entirely and continue to the load path.",
+      "evidence_refs": ["global:0x007CFEE8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "RegistryKeyQuery on the built path and on dword_7CE5D0 (fallback byte_5EA438); if the source timestamp is not newer (query >= saved value v9), skip the rebuild.",
+      "evidence_refs": ["callee:0x00449A20", "global:0x007CE5D0", "global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "strcpy SrcStr from the track path, sub_589901(SrcStr) normalizes it, then sub_587C20(SrcStr, aScn_0) locates the '.scn' substring.",
+      "evidence_refs": ["callee:0x00589901", "callee:0x00587C20", "global:0x005C4494", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the '.scn' substring is not found (v13 null), skip the rebuild path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the dword_5C448C string byte-by-byte to the destination offset v15 = v13 - &dword_5C448C, extending the scene path with the weather-dependent string identifier.",
+      "evidence_refs": ["global:0x005C448C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If RegistryKeyQuery(SrcStr) >= v11 skip; fill v30 via sub_4CEEF0(v30, 256); if RegistryKeyQuery(v30) >= v11 skip.",
+      "evidence_refs": ["callee:0x00449A20", "callee:0x004CEEF0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "If HTreeTerrainFileFormatLoader(this, v26 path) succeeds, continue with the collision rebuild; otherwise fall to the cleanup path.",
+      "evidence_refs": ["callee:0x0044BE70", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On the successful load path CollisionTreeNodeCleanup(this) is called again before rebuilding geometry.",
+      "evidence_refs": ["callee:0x0044C470", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Shared cleanup path: StringCopyWithBufferRealloc(v26) reinitializes the path buffer.",
+      "evidence_refs": ["callee:0x00566650", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk byte_5EA438 path segments; at each backslash segment call sub_587DD0(PathName, byte_5EA438, v21), null-terminate, and CreateDirectoryAWrapper(PathName); finally CreateDirectoryAWrapper(byte_5EA438) creates the full directory hierarchy.",
+      "evidence_refs": ["callee:0x00587DD0", "callee:0x00589671", "global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CollisionShapeInit(v28) initializes the collision shape/work structure.",
+      "evidence_refs": ["callee:0x004492B0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CollisionGeometryOperationSelector(this, a2, v28) selects the geometry operation to run on the loaded data.",
+      "evidence_refs": ["callee:0x0044BB60", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BoundingBoxComputationFromTriangles(this, v28) computes bounding boxes from the collision triangles.",
+      "evidence_refs": ["callee:0x0044B910", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_44BC50(this, v26 path, v28) builds the collision structures, then PhysicsBufferFree(v28) releases the work buffer.",
+      "evidence_refs": ["callee:0x0044BC50", "callee:0x00449340", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CollisionGridRaycast32x32(this) performs a 32x32 grid raycast setup over the rebuilt collision geometry.",
+      "evidence_refs": ["callee:0x0044BA40", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Exit debug/profile gate: if dword_8B8F24 is non-zero, call EmptyStubWithFlagCheck(1, 0).",
+      "evidence_refs": ["global:0x008B8F24", "callee:0x0053AC70", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the temporary v26 path buffer, freeing it with FreeWrapper_7bcf when non-null.",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (dword_8B8F24) EmptyStubWithFlagCheck(2, 0);",
+    "CollisionTreeNodeCleanup(this);",
+    "SinTableInit();",
+    "v4 = basename_after_last_slash(dword_7CE5D0 ?: byte_5EA438);",
+    "v26 = OperatorNewNhMallocWrapper(256); *v26 = 0;",
+    "StringCopyWithBufferRealloc(dword_5EC438 ?: byte_5EA438);",
+    "sub_5665B0(\".hat\"); sub_5665B0(v4);",
+    "strip_extension(v26);",
+    "sub_5665B0(\"^\");",
+    "if (!byte_7CFEE8) {",
+    "    v11 = RegistryKeyQuery(v26);",
+    "    if (RegistryKeyQuery(dword_7CE5D0 ?: byte_5EA438) >= v11) goto cleanup;",
+    "    strcpy(SrcStr, dword_7CE5D0 ?: byte_5EA438); sub_589901(SrcStr);",
+    "    if (!sub_587C20(SrcStr, \".scn\")) goto cleanup;",
+    "    copy_dword_5C448C_into(SrcStr);",
+    "    if (RegistryKeyQuery(SrcStr) >= v11) goto cleanup;",
+    "    sub_4CEEF0(v30, 256);",
+    "    if (RegistryKeyQuery(v30) >= v11) goto cleanup;",
+    "}",
+    "if (HTreeTerrainFileFormatLoader(this, v26)) {",
+    "    CollisionTreeNodeCleanup(this);",
+    "}",
+    "cleanup:",
+    "StringCopyWithBufferRealloc(v26);",
+    "create_directory_hierarchy(byte_5EA438);",
+    "CollisionShapeInit(v28);",
+    "CollisionGeometryOperationSelector(this, a2, v28);",
+    "BoundingBoxComputationFromTriangles(this, v28);",
+    "sub_44BC50(this, v26, v28);",
+    "PhysicsBufferFree(v28);",
+    "CollisionGridRaycast32x32(this);",
+    "if (dword_8B8F24) EmptyStubWithFlagCheck(1, 0);",
+    "if (v26) return FreeWrapper_7bcf(v26);"
+  ],
+  "unresolved": [
+    "dword_8ACEA0 is listed as a read global but does not appear in the raw function text.",
+    "abi:lead names this function Scene_Track_File_Loader (LEGACY); canonical name SceneTrackFileLoader retained.",
+    "RegistryKeyQuery comparison (timestamp freshness) is transcribed but its exact registry-value contract is not proven.",
+    "Argument a2 is forwarded to CollisionGeometryOperationSelector; its meaning is not independently confirmed.",
+    "The exact layout of the v28 collision work structure passed to the four geometry helpers is unknown."
+  ],
+  "unresolved_evidence_refs": [
+    "function:0x0044C0E0",
+    "caller:0x004CF070",
+    "global:0x008ACEA0",
+    "abi:lead"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

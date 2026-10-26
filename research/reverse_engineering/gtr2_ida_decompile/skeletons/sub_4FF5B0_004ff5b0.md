@@ -1,0 +1,23 @@
+## sub_4FF5B0_004ff5b0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_4278D0 (004278d0), sub_4E6280 (004e6280)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 016cb2b4 | off_16CB2B4 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

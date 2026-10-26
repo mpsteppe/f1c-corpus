@@ -1,0 +1,33 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005093F9
+// Canonical corpus name: VertexCoordinateTransformToScreen
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VertexCoordinateTransformToScreen_005093f9.c
+
+void UnknownObject::VertexCoordinateTransformToScreen()
+{
+    // After an optional DirectXVertexBufferFormatConversion and a per-sub-tile float offset calculation, calls UtilityFunction_7473, then for this[1046] vertices scales three float channels (B at +8, G at +4, R at 0, 16-byte stride) by 65535.0, adds the shared offset, truncates each to int and writes them as three consecutive 16-bit words, then returns dword_8B009C. Structural twin of Color565Transform per the packet prelabel, despite the legacy ABI name suggesting a screen-coordinate transform.
+    // GUARD: Guard on the format-conversion flag: if this[0x1048] (this[1042]) is non-zero, DirectXVertexBufferFormatConversion(this, a4) is called and its result replaces a4 as the source vertex pointer. [field:this:0x00001048, callee:0x00506CE2, source:raw]
+    // CALCULATION: v5 = this[0x2C] (this[11]) + 4 * ((a3 & 3) + 8 * (a2 & 3)); the masked a2/a3 sub-tile indices select a per-sub-tile float offset stored below the this base. [field:this:0x0000002C, source:raw]
+    // CALL: UtilityFunction_7473() is called unconditionally after computing v5; its purpose is unknown. [callee:0x00507473, source:raw]
+    // LOOP: do-while loop over this[0x1058] (this[1046]) vertices: per vertex read three floats at a4 with a 16-byte stride, scale each by 65535.0 (presumed flt_59F120), add the shared offset v13, truncate to int and write the three channels (B, G, R in that order) as consecutive 16-bit words. [field:this:0x00001058, global:0x0059F120, source:raw]
+    // RETURN: Returns dword_8B009C (global 0x008B009C); the meaning of the returned value is not established. [global:0x008B009C, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int VertexCoordinateTransformToScreen(this, a2, a3, a4) {
+    //     if (this[1042]) a4 = DirectXVertexBufferFormatConversion(this, a4);
+    //     v5 = this[11] + 4 * ((a3 & 3) + 8 * (a2 & 3));
+    //     UtilityFunction_7473();
+    //     for (v7 = 0; v7 < this[1046]; v7++) {
+    //       v13 = *(float*)(v5 + 4 * (v7 & 3));
+    //       v6[0] = (int)(*(float*)(a4 + v8 + 8) * 65535.0 + v13);
+    //       v6[1] = (int)(*(float*)(a4 + v8 + 4) * 65535.0 + v13);
+    //       v6[2] = (int)(*(float*)(a4 + v8) * 65535.0 + v13);
+    //       v6 += 3;
+    //     }
+    //     return dword_8B009C;
+    //   }
+    // UNRESOLVED: The write target v6 (_WORD* in edx) is used uninitialized in the decompiled source; the destination of the three 16-bit words is unknown.
+    // UNRESOLVED: flt_59F120 (0x0059F120) is presumed to hold the 65535.0 scale constant, but the binding is inferred, not proven.
+    // UNRESOLVED: The canonical/ABI name Vertex_Coordinate_Transform_to_Screen implies a screen-coordinate transform, but the loop converts float RGB values to 16-bit channel words (packet prelabel calls it the structural twin of Color565Transform, cluster representative 005084f5); the naming mismatch is unresolved.
+}

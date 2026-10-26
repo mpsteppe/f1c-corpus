@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "address": "0x004B4A30",
+  "proposed_name": "CollisionObjectRemoveAndRecycle",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004B4A30"]
+  },
+  "summary": "Removes a collision object node from its type-specific sub-list and recycles it onto a global free list. Maps the top three tag bits (a2[0] >> 29) through a jump table (004B4B34) to a sub-list index 0..3, derives the sub-list base this + 16*(index+7), and walks the sub-list via the next pointers at node+4 until a node whose payload (node+0) equals a2 is found. If found, the node is unlinked (updating sub-list head at base+0, tail at base+4, and the pointer at base+8), the sub-list count at base+12 is decremented, the node's data buffer is freed when the flag byte at node+8 is non-zero, and the node struct itself is freed. ArithmeticComparison_47a0 is called with the object, low byte of a2[0], constant 0, the sub-list index and the low byte of a2[0]. A fresh 12-byte node pointing at a2 is then allocated and prepended to the global free list (dword_8AB700), with dword_8AB704/dword_8AB708 set when the list was empty and dword_8AB70C incremented. Returns 1 on success, 0 when the node is not found.",
+  "local_names": {
+    "this": "collision object container owning the per-type sub-lists",
+    "a2": "object/collision identity token stored as node payload and used for the type-tag lookup",
+    "v4": "sub-list index derived from tag bits [31:29] (0..3, -1 for unhandled tags)",
+    "v5": "byte offset 16*(v4+7) of the selected sub-list header within this",
+    "v6": "current node pointer while walking the sub-list",
+    "v7": "sub-list header base (this + v5)",
+    "v8": "previous node pointer (used to unlink)",
+    "v10": "newly allocated 12-byte free-list node"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Type-tag dispatch: switch on *a2 >> 29 maps tag values 1, 2/3, 4 and 6 to sub-list indices 0, 1, 2, 3 respectively, defaulting to -1, via the jump table at 004B4B34",
+      "evidence_refs": ["global:0x004B4B34", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Derives the sub-list header offset v5 = 16*(v4+7) inside this (112 for index 0, up to 160 for index 3) and loads the sub-list head pointer this[v5]",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the sub-list head this[v5] is zero the search ends immediately and 0 is returned; otherwise the sub-list is walked",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walks the sub-list following next pointers at node+4 while the payload at node+0 differs from a2; reaching a null next pointer returns 0 (not found)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "If the removed node is the pointer stored at sub-list header +8, that header field is updated to the removed node's successor",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Unlinks the node: previous node's next (or the sub-list head at base+0 when there is no previous) is set to the removed node's next; if the removed node was the tail (header +4) the tail is set to the previous node",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Decrements the sub-list count at header +12",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the flag byte at node+8 is non-zero, FreeWrapper_7bcf frees the node's payload buffer at node+0",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FreeWrapper_7bcf frees the removed node struct itself",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ArithmeticComparison_47a0 called with (this, low byte of a2[0], 0, sub-list index, low byte of a2[0]) as the post-removal metadata/notify step",
+      "evidence_refs": ["callee:0x004B47A0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "OperatorNewNhMallocWrapper allocates 12 bytes for a replacement free-list node",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Initializes the replacement node: data=a2 at node+0, next=0 at node+4, flag byte 0 at node+8",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Free-list prepend: when dword_8AB700 (head) is non-null the new node's next is set to it; when the list is empty dword_8AB704 and dword_8AB708 are set to the new node",
+      "evidence_refs": ["global:0x008AB700", "global:0x008AB704", "global:0x008AB708", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "dword_8AB700 is updated to point at the new node as the free-list head",
+      "evidence_refs": ["global:0x008AB700", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Increments the free-list node counter dword_8AB70C",
+      "evidence_refs": ["global:0x008AB70C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns 1 after a successful remove-and-recycle, 0 when the target node is absent",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by sub_4B6190 (004B6190) during collision object lifecycle management",
+      "evidence_refs": ["caller:0x004B6190", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "result = 0;",
+    "switch (*a2 >> 29) { case 1: idx=0; break; case 2: case 3: idx=1; break; case 4: idx=2; break; case 6: idx=3; break; default: idx=-1; }",
+    "sub = this + 16*(idx+7);",
+    "node = *(sub);",
+    "if (node) {",
+    "  while (node->data != a2) { prev = node; node = node->next; if (!node) return 0; }",
+    "  if (node == *(sub+8)) *(sub+8) = node->next;",
+    "  if (prev) prev->next = node->next; else *(sub) = node->next;",
+    "  if (*(sub+4) == node) *(sub+4) = prev;",
+    "  --*(sub+12);",
+    "  if (node->flag) FreeWrapper_7bcf(node->data);",
+    "  FreeWrapper_7bcf(node);",
+    "  ArithmeticComparison_47a0(this, (unsigned char)*a2, 0, idx, (unsigned char)*a2);",
+    "  new_node = OperatorNewNhMallocWrapper(12);",
+    "  if (new_node) { new_node->data = a2; new_node->next = 0; new_node->flag = 0; }",
+    "  if (dword_8AB700) new_node->next = dword_8AB700; else { dword_8AB704 = new_node; dword_8AB708 = new_node; }",
+    "  dword_8AB700 = new_node;",
+    "  ++dword_8AB70C;",
+    "  return 1;",
+    "}",
+    "return 0;"
+  ],
+  "unresolved": [
+    "The semantic role of each sub-list (indices 0..3) and the exact meaning of the tag value bits [31:29] are not established from this packet",
+    "The sub-list header layout (head at base+0, tail at base+4, pointer at base+8, count at base+12) and node layout (data+0, next+4, flag+8) are reconstructed from raw source only; the packet exposes no field evidence refs for these offsets",
+    "The default index -1 produces sub-list offset 96, and the behaviour for unhandled tags is unresolved",
+    "The exact roles of dword_8AB704 and dword_8AB708 (only written when the free list was empty) and of the payload flag byte at node+8 are unresolved"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "address": "0x00594478",
+  "proposed_name": "SlabHeapAllocateNewSlab",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00594478"]
+  },
+  "summary": "Allocates and initializes a new slab for a custom heap allocator. If the slab descriptor array is full (dword_8D48F8 == dword_8D48E8) it grows the array via HeapReAlloc (capacity +16). It then allocates a descriptor slot, a 0x41C4-byte bitmap/free-list metadata block via HeapAlloc, and reserves a 1MB slab via VirtualAlloc, initializing descriptor fields (slot[0..2], bitmap head) and incrementing the active-slab counter dword_8D48F8. Returns the descriptor pointer, or 0 when any allocation fails (freeing earlier allocations on failure). Called by sub_59416F (0059416f) on the frame path.",
+  "local_names": {
+    "v0": "current active-slab count dword_8D48F8 read as the descriptor slot index",
+    "v1": "HeapReAlloc result pointer for the grown descriptor array",
+    "v2": "descriptor slot pointer computed as lpMem + 20 * v0",
+    "v3": "bitmap/free-list metadata block allocated by HeapAlloc",
+    "v4": "1MB slab reservation returned by VirtualAlloc"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If dword_8D48F8 == dword_8D48E8 (descriptor array full), grow it by calling HeapReAlloc(hHeap, 0, lpMem, 4 * (5 * dword_8D48E8 + 80))",
+      "evidence_refs": ["global:0x008D48E8", "global:0x008D48F8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "HeapReAlloc(hHeap, 0, lpMem, 4 * (5 * dword_8D48E8 + 80)) grows the slab descriptor array; on a NULL return the function returns 0",
+      "evidence_refs": ["global:0x0059E1B4", "global:0x008D48E8", "global:0x008D48FC", "global:0x008D4904", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "After a successful grow: dword_8D48E8 += 16 (raised capacity), lpMem = v1 (new array base), v0 = dword_8D48F8 (re-read active count)",
+      "evidence_refs": ["global:0x008D48E8", "global:0x008D48F8", "global:0x008D48FC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute descriptor slot pointer v2 = (char *)lpMem + 20 * v0 (20-byte stride per descriptor)",
+      "evidence_refs": ["global:0x008D48FC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "HeapAlloc(hHeap, 8u, 0x41C4u) allocates the bitmap/free-list metadata block stored at v2[4]; on NULL return the function returns 0",
+      "evidence_refs": ["global:0x0059E1C0", "global:0x008D4904", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "VirtualAlloc(0, 0x100000u, 0x2000u, 4u) reserves the 1MB slab address space stored at v2[3]; on NULL return it frees the bitmap block (HeapFree(hHeap, 0, v2[4])) and returns 0",
+      "evidence_refs": ["global:0x0059E0A0", "global:0x0059E1BC", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Initialize the descriptor: v2[2] = -1 (free-block sentinel), v2[0] = 0, v2[1] = 0, increment dword_8D48F8 (active slab count), and set the bitmap head *v2[4] = -1",
+      "evidence_refs": ["global:0x008D48F8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v2 (the new slab descriptor pointer) on success, or 0 on any of the three allocation failures",
+      "evidence_refs": ["function:0x00594478", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by sub_59416F (0059416f) on the frame path to obtain a fresh slab when the heap needs capacity",
+      "evidence_refs": ["caller:0x0059416F"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v0 = dword_8D48F8;",
+    "if (dword_8D48F8 == dword_8D48E8) {",
+    "  v1 = HeapReAlloc(hHeap, 0, lpMem, 4 * (5 * dword_8D48E8 + 80));",
+    "  if (!v1) return 0;",
+    "  dword_8D48E8 += 16;",
+    "  lpMem = v1;",
+    "  v0 = dword_8D48F8;",
+    "}",
+    "v2 = (char *)lpMem + 20 * v0;",
+    "v3 = HeapAlloc(hHeap, 8u, 0x41C4u);",
+    "v2[4] = v3;",
+    "if (!v3) return 0;",
+    "v4 = VirtualAlloc(0, 0x100000u, 0x2000u, 4u);",
+    "v2[3] = v4;",
+    "if (!v4) { HeapFree(hHeap, 0, v2[4]); return 0; }",
+    "v2[2] = -1; v2[0] = 0; v2[1] = 0;",
+    "++dword_8D48F8;",
+    "**v2[4] = -1;",
+    "return v2;"
+  ],
+  "unresolved": [
+    "The 20-byte descriptor layout and the semantics of the 0x41C4-byte bitmap are inferred from surrounding allocations, not documented here",
+    "Import stubs (VirtualAlloc, HeapReAlloc, HeapFree, HeapAlloc) are treated as read-only globals by packet facts; their IAT role is not stated in the packet"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

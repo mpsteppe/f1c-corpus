@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "address": "0x004FC700",
+  "proposed_name": "MatchAndUpdateCloudSceneNames",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x004FC700", "source:raw"]
+  },
+  "summary": "Matches two packed name strings from an input packet against stored cloud-scene name buffers on the object; when the names differ it copies both names into the object buffers, then either triggers cloud texture setup (sub_4FC550) or stores a session-type code at this+0x44. When the names already match it refreshes the stored type code unless it is -1. Execution is gated by a multiplayer flag bit and a scoring-gate packed-flag read.",
+  "local_names": {
+    "v3": "session_mode_flag (bit0 of dword_7C56A0)",
+    "v10": "scoring_gate_mode_flag",
+    "v12": "extracted_type_code (byte(a2+3) & 7)",
+    "v5": "first_name_ptr (a2+8)",
+    "v13": "second_name_ptr (immediately after first name NUL)",
+    "v8": "first_name_buffer_ptr (this+0x50)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Match/update path runs only when bit0 of dword_7C56A0 is clear OR the scoring-gate condition holds (dword_8AB6E4 equals 2 and PackedFlagRead_9a00 of dword_8AB6EC returns 0).",
+      "evidence_refs": ["global:0x007C56A0", "global:0x008AB6E4", "global:0x008AB6EC", "callee:0x004B9A00", "caller:0x004B3400"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute input string pointers from packet a2: first name at a2+8, second name starting right after its NUL, and extract the type code v12 = byte(a2+3) & 7.",
+      "evidence_refs": ["function:0x004FC700", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Names differ when strcmp of the stored first-name buffer (this+0x50) with the input first name is non-zero OR strcmp of the stored second-name buffer (this+0x84) with the input second name is non-zero.",
+      "evidence_refs": ["field:this:0x0000006F", "field:this:0x000000A3"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy 31 bytes of the input first name into the first buffer (this+0x50) via sub_587DD0 and write the NUL terminator at this+0x6F.",
+      "evidence_refs": ["callee:0x00587DD0", "field:this:0x0000006F"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy 31 bytes of the input second name into the second buffer (this+0x84) via sub_587DD0 and write the NUL terminator at this+0xA3.",
+      "evidence_refs": ["callee:0x00587DD0", "field:this:0x000000A3"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "After updating names: when the scoring-gate flag v10 is set or the extracted type code equals dword_7C56A4 (session type), call sub_4FC550 to load cloud textures; otherwise store the extracted type code into this+0x44.",
+      "evidence_refs": ["callee:0x004FC550", "global:0x007C56A4", "field:this:0x00000044"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When names already match and the stored type code at this+0x44 is not -1 (guard), refresh it with the extracted type code.",
+      "evidence_refs": ["field:this:0x00000044", "guard:0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the last computed status value (effectively void semantics).",
+      "evidence_refs": ["function:0x004FC700"]
+    }
+  ],
+  "clean_pseudocode": [
+    "session_flag = dword_7C56A0 & 1;",
+    "gate_flag = (dword_8AB6E4 == 2) && !PackedFlagRead_9a00(&dword_8AB6EC);",
+    "if (!session_flag || gate_flag) {",
+    "    first = (const char*)(packet + 8);",
+    "    second = first + strlen(first) + 1;",
+    "    type_code = *(packet + 3) & 7;",
+    "    if (strcmp(this + 0x50, first) || strcmp(this + 0x84, second)) {",
+    "        sub_587DD0(this + 0x50, first, 31);",
+    "        *(this + 0x6F) = 0;",
+    "        sub_587DD0(this + 0x84, second, 31);",
+    "        *(this + 0xA3) = 0;",
+    "        if (gate_flag || type_code == dword_7C56A4)",
+    "            sub_4FC550(this, 0);",
+    "        else",
+    "            *(this + 0x44) = type_code;",
+    "    } else if (*(this + 0x44) != -1) {",
+    "        *(this + 0x44) = type_code;",
+    "    }",
+    "}"
+  ],
+  "unresolved": [
+    "Exact meaning of bit0 of dword_7C56A0 (multiplayer flag) and of the packed flag read via dword_8AB6EC is not established.",
+    "Semantics of the extracted type code (byte(a2+3) & 7) and its relation to dword_7C56A4 are unknown.",
+    "sub_4FC550 confirmed as cloud-texture setup only from existing analysis, not from this function alone."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

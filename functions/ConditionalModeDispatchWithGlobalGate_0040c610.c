@@ -1,0 +1,24 @@
+int __thiscall sub_40C610(_DWORD *this)
+{
+  int result; // eax
+
+  if ( dword_7CFCC8 )
+  {
+    result = 1;
+    if ( this[3] == 1 )
+    {
+      this[5] = 1;
+      return GameActionStateMachine(2, 0);
+    }
+  }
+  else
+  {
+    result = this[3];
+    if ( result == 1 || result == 2 )
+    {
+      this[5] = result;
+      return GameActionStateMachine(0, 0);
+    }
+  }
+  return result;
+}

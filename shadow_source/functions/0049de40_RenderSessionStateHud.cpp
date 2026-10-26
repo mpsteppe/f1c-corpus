@@ -1,0 +1,60 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0049DE40
+// Canonical corpus name: sub_49DE40
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_49DE40_0049de40.c
+
+void UnknownObject::RenderSessionStateHud()
+{
+    // Renders a race session HUD overlay for the current session state: draws a clipped backdrop, two blink-gated status widgets colored from the input state, four suspension corner position bars and four secondary corner indicators, a delta/highlight row, a fixed green marker, and up to four formatted text rows (position, time, event/round name, short state) using the render surface at this+0x8. A non-zero a2 renders only the backdrop.
+    // GUARD: Return early when the display context at this+0x14 is null, when the draw width at (this+0x14) + 84 is null, or when the secondary context at this+0x1C is null. [field:this:0x00000014, field:this:0x0000001C, source:raw]
+    // CALCULATION: Compute the blink phase v5 = (CRTFtol(dbl_8AFEA0) % 2) == 0 from the session time double at global 0x8AFEA0. [callee:0x00587BDC, global:0x008AFEA0, source:raw]
+    // CALL: Draw the clipped backdrop with ClippedRectRender(0, 0, width, 0, 0, 1, 1, 0, 0); when a2 is non-zero the function returns right after this draw. [callee:0x005432F0, field:this:0x00000014, source:raw]
+    // CALCULATION: Derive the first status-widget flag v7 from the input object dword_7C54E0: active when the dword at object + 3284 is set and either the byte at object + 3348 is set or the blink phase holds. [global:0x007C54E0, source:raw]
+    // CALL: Render the first status widget with RenderDrawOperationWithClipping at (195, 26, 18, 53), green when active, red otherwise. [callee:0x00543440, global:0x007C54E0, source:raw]
+    // CALCULATION: Derive the second status-widget flag v8 from the same input object dword_7C54E0 using the dword at object + 3352 and the byte at object + 3416 with the same blink logic. [global:0x007C54E0, source:raw]
+    // CALL: Render the second status widget with RenderDrawOperationWithClipping at (42, 35, 14, 35), green when active, red otherwise. [callee:0x00543440, global:0x007C54E0, source:raw]
+    // CALL: Draw the four suspension corner position bars via SuspensionCornerCheck for corners 2, 0, 3, 1 at their grid positions. [callee:0x0049E570, source:raw]
+    // CALL: Draw the four secondary corner indicators via sub_49E7B0 for corners 2, 0, 3, 1 at their grid positions. [callee:0x0049E7B0, source:raw]
+    // STATE_TRANSITION: Clear the one-shot HUD indicator byte_7C8B40 to 0 and capture its prior value to detect a change in this frame. [global:0x007C8B40, source:raw]
+    // CALL: Highlight the delta row: when the value at dword_7C54F0[dword_7C54DC] + 18580 differs from dword_7C54F0[dword_7C54E4] + 18580, or the one-shot indicator just cleared, render it green at (59, 49, 46, 6), otherwise yellow. [callee:0x00543440, global:0x007C54F0, global:0x007C54DC, global:0x007C54E4, global:0x007C8B40, source:raw]
+    // CALL: Render a fixed green marker with RenderDrawOperationWithClipping at (87, 45, 16, 13). [callee:0x00543440, source:raw]
+    // GUARD: Proceed to text rendering only when the render surface at this+0x8 is non-null; otherwise return null. [field:this:0x00000008, source:raw]
+    // CALL: Text row 1: sub_49C700 formats position text into a short buffer, then StringFormatAndRender draws it at (58, 105) using the surface and display context. [callee:0x0049C700, callee:0x0049F6A0, field:this:0x00000008, field:this:0x00000014, source:raw]
+    // CALL: Text row 2: sub_49C770 formats time/gap text into a short buffer, then StringFormatAndRender draws it at (66, 105). [callee:0x0049C770, callee:0x0049F6A0, field:this:0x00000008, field:this:0x00000014, source:raw]
+    // CALL: Text row 3: EventRoundNameLookup fills the event/round name into a short buffer, then StringFormatAndRender draws it at (184, 105). [callee:0x0049C830, callee:0x0049F6A0, field:this:0x00000008, field:this:0x00000014, source:raw]
+    // CALL: Text row 4: ShortComputation_c8a0 formats a short state value into a short buffer, then StringFormatAndRender draws it at (192, 105); its return value is returned by this function. [callee:0x0049C8A0, callee:0x0049F6A0, field:this:0x00000008, field:this:0x00000014, source:raw]
+    // RETURN: Return the last StringFormatAndRender result, or null when the render surface was absent. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_49DE40(void *self, int onlyBackdrop) {
+    //     void *ctx = self->display;
+    //     if (!ctx || !*(int*)(ctx + 84) || !self->aux) return 0;
+    //     int blink = (CRTFtol(dbl_8AFEA0) % 2) == 0;
+    //     ClippedRectRender(0, 0, *(int*)(ctx + 84), 0, 0, 1, 1, 0, 0);
+    //     if (onlyBackdrop) return 0;
+    //     int w1 = active_widget(dword_7C54E0, 3284, 3348, blink) ? GREEN : RED;
+    //     RenderDrawOperationWithClipping(195, 26, 18, 53, w1);
+    //     int w2 = active_widget(dword_7C54E0, 3352, 3416, blink) ? GREEN : RED;
+    //     RenderDrawOperationWithClipping(42, 35, 14, 35, w2);
+    //     SuspensionCornerCheck(2, 48, 16, 25, 15); SuspensionCornerCheck(0, 164, 16, 25, 15);
+    //     SuspensionCornerCheck(3, 48, 74, 25, 15); SuspensionCornerCheck(1, 164, 74, 25, 15);
+    //     sub_49E7B0(2, 48, 4, 25, 7); sub_49E7B0(0, 164, 4, 25, 7);
+    //     sub_49E7B0(3, 48, 94, 25, 7); sub_49E7B0(1, 164, 94, 25, 7);
+    //     int changed = *(int*)(veh[playerIdx] + 18580) != *(int*)(veh[focusIdx] + 18580) || byte_7C8B40;
+    //     byte_7C8B40 = 0;
+    //     RenderDrawOperationWithClipping(59, 49, 46, 6, changed ? GREEN : YELLOW);
+    //     RenderDrawOperationWithClipping(87, 45, 16, 13, GREEN);
+    //     if (self->surface) {
+    //       sub_49C700(buf, 15);  StringFormatAndRender(buf, 58, 105, self->surface, *(int*)(ctx + 84), 1);
+    //       sub_49C770(buf, 15);  StringFormatAndRender(buf, 66, 105, self->surface, *(int*)(ctx + 84), 0);
+    //       EventRoundNameLookup(buf, 15); StringFormatAndRender(buf, 184, 105, self->surface, *(int*)(ctx + 84), 1);
+    //       ShortComputation_c8a0(buf, 15);
+    //       return StringFormatAndRender(buf, 192, 105, self->surface, *(int*)(ctx + 84), 0);
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: Widget meaning of the two dword_7C54E0 flag pairs (offsets 3284/3348 and 3352/3416) and the HUD indicator byte_7C8B40 depends on the input-state object layout, not derivable here.
+    // UNRESOLVED: The exact semantic of the row rendered by ShortComputation_c8a0 and the return value of StringFormatAndRender are unknown.
+    // UNRESOLVED: this+0x68 and globals dword_7CE048 / unk_7CE234 are listed in the packet but do not appear in the raw source; their role in this function is unexplained.
+}

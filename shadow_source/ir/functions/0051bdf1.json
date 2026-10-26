@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "address": "0x0051BDF1",
+  "proposed_name": "BufferedDataReader",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Ring-buffer read manager. Lazily allocates the read buffer on first use (when the ring read position is zero) via a vtable slot on this+0x4, then copies up to the requested amount into the caller's output buffer, clamping by the ring's unread bytes, the caller's remaining request, and this+0x60 as a per-call size ceiling. Advances both the caller's byte counter and the ring read position, and wraps the position back to 0 while advancing the accumulated offset when the capacity is reached.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load the ring-buffer sub-struct pointer from this+0x188 into v7; all ring state is read and written through it.",
+      "evidence_refs": ["field:this:0x00000188"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the ring read position (v7[6] at this+0x1A0) is zero, the read buffer has not been allocated yet.",
+      "evidence_refs": ["field:this:0x000001A0"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the read buffer through vtable slot 28 at this+0x4 with arguments (this, v7[2], v7[5], v7[4], 0); store the result at v7[3] (this+0x194).",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000190", "field:this:0x00000194", "field:this:0x0000019C", "field:this:0x00000198"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v8 as the unread amount: ring capacity v7[4] (this+0x198) minus current read position v7[6] (this+0x1A0).",
+      "evidence_refs": ["field:this:0x00000198", "field:this:0x000001A0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Clamp v8 against the caller's remaining request (max minus the bytes already written via *a6).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Clamp v8 against the per-call size ceiling: this+0x60 minus the accumulated offset v7[5] (this+0x19C).",
+      "evidence_refs": ["field:this:0x00000060", "field:this:0x0000019C"]
+    },
+    {
+      "kind": "call",
+      "description": "Copy v8 bytes from the read buffer at v7[3] + 4 * read position into the caller output at a5 + 4 * *a6, through the copy function table at this+0x1A4.",
+      "evidence_refs": ["field:this:0x000001A4", "field:this:0x00000194", "field:this:0x000001A0"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Advance the caller byte counter (*a6) and the ring read position (v7[6]) by v8.",
+      "evidence_refs": ["field:this:0x000001A0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Record the ring capacity v7[4] as the result value before the wrap check.",
+      "evidence_refs": ["field:this:0x00000198"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "When the read position has reached the capacity, advance the accumulated offset v7[5] (this+0x19C) by the capacity and reset the read position to 0.",
+      "evidence_refs": ["field:this:0x0000019C", "field:this:0x00000198", "field:this:0x000001A0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the ring capacity value.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "unsigned int BufferedDataReader(_DWORD* this, int a2, int a3, int a4, int a5, _DWORD* a6, int a7) {",
+    "  _DWORD* ring = (_DWORD*)this[98];",
+    "  if (!ring[6])",
+    "    ring[3] = (*(int(__cdecl**)(_DWORD*,_DWORD,_DWORD,_DWORD,_DWORD))(this[1] + 28))(this, ring[2], ring[5], ring[4], 0);",
+    "  unsigned int n = ring[4] - ring[6];",
+    "  if (n > a7 - *a6) n = a7 - *a6;",
+    "  if (n > this[24] - ring[5]) n = this[24] - ring[5];",
+    "  (*(void(__cdecl**)(_DWORD*,int,int,unsigned int))(this[105] + 4))(this, ring[3] + 4 * ring[6], a5 + 4 * *a6, n);",
+    "  *a6 += n;",
+    "  ring[6] += n;",
+    "  unsigned int result = ring[4];",
+    "  if (ring[6] >= result) {",
+    "    ring[5] += result;",
+    "    ring[6] = 0;",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The meanings of ring slots v7[2] (allocation size) and the caller parameters a2/a3/a4 are unknown; a2, a3 and a4 are not referenced by the raw body.",
+    "What the copy function table at this+0x1A4 dispatches to (memcpy-style copy, or a channel/DMA write) depends on the table implementation.",
+    "Fields this+0x20 and this+0x1A8 are present in the layout but not referenced by the raw function body."
+  ],
+  "unresolved_evidence_refs": ["field:this:0x00000020", "field:this:0x000001A8"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

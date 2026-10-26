@@ -1,0 +1,69 @@
+## sub_6B92EA_006b92ea — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| obj | 0x10 | R | — | [LLM] |
+| this | 0x0 | R | — | [LLM] |
+| this | 0x24 | R | — | [LLM] |
+| this | 0x2C | R | — | [LLM] |
+| this | 0x30 | R | — | [LLM] |
+| this | 0x38 | R | — | [LLM] |
+| this | 0x3C | R | — | [LLM] |
+| this | 0x40 | RW | — | [LLM] |
+| this | 0x4C | R | — | [LLM] |
+| this | 0x50 | R | — | [LLM] |
+| this | 0x54 | RW | — | [LLM] |
+| this | 0x58 | RW | 2 | [LLM] |
+| this | 0x5C | RW | — | [LLM] |
+| this | 0x60 | RW | 0 | [LLM] |
+| this | 0x64 | R | — | [LLM] |
+| this | 0x68 | R | — | [LLM] |
+| this | 0x6C | RW | — | [LLM] |
+| this | 0x70 | RW | — | [LLM] |
+| this | 0x78 | R | — | [LLM] |
+| this | 0x80 | R | — | [LLM] |
+| this | 0x1690 | R | — | [LLM] |
+| this | 0x1694 | R | — | [LLM] |
+| this | 0x1698 | R | — | [LLM] |
+| this | 0x169C | R | — | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x40: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x54: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x58: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x5C: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x60: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x6C: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x70: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 00748610 | byte_748610 | R | [LLM] |
+| 00748710 | byte_748710 | R | [LLM] |
+| 00748810 | byte_748810 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 006b88ee | sub_6B88EE | [LLM] |
+| 006b8c7e | sub_6B8C7E | [LLM] |
+| 006b8dc8 | sub_6B8DC8 | [LLM] |
+| 006daac0 | sub_6DAAC0 | [LLM] |
+
+**Guard conditions (deterministic — field vs literal):**
+
+| Base | Offset | Test | Value | Field / meaning |
+|------|--------|------|-------|-----------------|
+| this | 0x80 | != | 2 | [LLM] |
+| this | 0x80 | == | 1 | [LLM] |
+
+**Guard interpretation:** [LLM: from the table — what PASSES vs what is BLOCKED]

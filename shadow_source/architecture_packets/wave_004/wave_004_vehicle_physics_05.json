@@ -1,0 +1,1687 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_vehicle_physics_05",
+  "scope": "vehicle_physics",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x0054B770",
+      "function_ref": "function:0x0054B770",
+      "name": "TransformationMatrixUpdate",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0054B770"
+        ]
+      },
+      "summary": "Updates a scene-node world transform matrix. When a parent node pointer exists at this+0x40, the local matrix at this+0xD4 is concatenated with the parent world matrix (parent+0x114) through the D3D wrapper vtable stored at dword_8B8F24, writing the result to this+0x114; with no parent, the local matrix is copied to this+0x114 when the local-transform flag (this+0x3C bit 0) is set. When the scaling flag (this+0x3C bit 14, 0x4000) is set, the matrix columns are scaled by per-axis factors at this+0x194/0x198/0x19C before being composed with either the parent world matrix or the inverse-local transform at this+0x94, and the final matrix is stored at this+0x1A0; otherwise this+0x114 is copied to this+0x1A0.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Branches on the parent node pointer this+0x40: non-null selects the world-matrix composition path, null selects the copy path gated by this+0x3C bit 0",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Indirect call through the D3D wrapper vtable at dword_8B8F24 (slot +8) concatenating the local matrix at this+212 with the parent world matrix (parent+276), writing the composed world matrix to this+276",
+          "evidence_refs": [
+            "global:0x008B8F24",
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When the parent pointer is null and this+0x3C bit 0 is set, copies the 0x40-byte local matrix from this+212 to the world matrix slot this+276",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Scaling path gated on this+0x3C bit 14 (0x4000): when set, the local matrix is copied to a working buffer and column-scaled; when clear, this+276 is copied straight to the output at this+416",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Scales the working matrix columns by the per-axis factors at this+404 (X, columns 0-2), this+408 (Y, columns 4-6) and this+412 (Z, columns 8-10)",
+          "evidence_refs": [
+            "field:this:0x00000194",
+            "field:this:0x00000198",
+            "field:this:0x0000019C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Indirect vtable calls through dword_8B8F24 composing the scaled matrix with the parent world matrix (parent+276) when a parent exists, or with the transform at this+148 when this+0x3C bit 0 is set, writing the final matrix to this+416",
+          "evidence_refs": [
+            "global:0x008B8F24",
+            "field:this:0x00000040",
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Root-node fallbacks: the scaled working matrix is copied directly to this+416 when there is no parent and this+0x3C bit 0 is clear; the unscaled world matrix this+276 is copied to this+416 when the scaling flag is clear",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the parent-node-derived result value (this+0x40, or zero for a root node)",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The D3D wrapper at dword_8B8F24 is reached only through its vtable slot +8; the concrete wrapper class and the semantics of slot +8 (matrix multiply vs. concat) are not established by this packet",
+        "this+0x94 (148) is used as an alternate transform input for the bit-0 path; its owner and precomposition semantics are unknown",
+        "The meaning of this+0x3C bit 0 (local transform present) vs. bit 14 (scaling enabled) is taken from the prior fill and is DERIVED, not proven by this packet"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0054CA00",
+      "function_ref": "function:0x0054CA00",
+      "name": "ApplyVertexMaterialTransforms",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Processes a scene-graph mesh object's vertex element array, applying material-based vertex/UV transforms. Guarded by a re-entry bit (0x8000000) in this+0x14; a sub-object byte at this+0x138+60 selects a stride constant (18 vs 34). For each element in the this[71] array (count this[70]), it waits on audio resources, runs per-element wrappers, and either follows a 16-DWORD vertex stride path (flag 0x800000 set) that ORs a packed color into vertices and applies per-material 37-float transforms via jump table jpt_54CBC0, or a 12-DWORD stride path via jpt_54CE21. Material entries are deduplicated through sub_54FC70. Copies index data, updates UI context via sub_55D720, and finally sets done flags (this+0x14 |= 0x9000020). Returns 0 normally, -1 on audio wait failure.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Re-entry guard: if bit 27 (0x8000000) of this+0x14 is set, the function is blocked and returns 0 immediately.",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Default the stride constant v85 to 18; override to 34 when byte at (this+0x138)+60 has bit 4 (0x10) set.",
+          "evidence_refs": [
+            "field:this:0x00000138",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the element count this+0x118 (this[70]) is <= 0, skip processing, set done flags and return 0.",
+          "evidence_refs": [
+            "field:this:0x00000118",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Main loop over vertex elements: iterate this+0x11C (this[71]) array entries at 64-byte stride (v4 += 64) until v86 reaches the count. This function is invoked per node by PriorityQueueRecursiveProcess during recursive scene-graph traversal.",
+          "evidence_refs": [
+            "field:this:0x0000011C",
+            "caller:0x00544DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the selected stride constant v85 into the element header at offset 56.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_540940(dword_8B78A0, element) to check/wait on audio resource state for the element; a nonzero return aborts the whole function with -1.",
+          "evidence_refs": [
+            "callee:0x00540940",
+            "global:0x008B78A0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call SingleCallWrapper_e0e0(element, 12) to run the element's single-call wrapper.",
+          "evidence_refs": [
+            "callee:0x0054E0E0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Per-element guard: only process vertex data when the pointer stored at element offset 32 is non-null.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call FloatToIntSwitch(vertex_ptr, 2, &v83) to convert source floats into a packed int value v83, then shift it left by 24 bits (packed color/flag word).",
+          "evidence_refs": [
+            "callee:0x005472D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Path selector: when this+0x14 bit 23 (0x800000) is set (tested via constant unk_800000) take the 16-DWORD vertex stride path; otherwise the 12-DWORD stride path.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "global:0x00800000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "16-DWORD stride path: for each vertex, OR the packed v83 into the color field and zero the adjacent fields, advancing through the vertex array; switch on the selected case via jump table jpt_54CBC0 to apply the per-material UV/color transform (D3D-transformed data layout).",
+          "evidence_refs": [
+            "global:0x0054D00C",
+            "abi:lead",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Material dedup loop (16-DWORD path): compare each material's 3-float triple against previously seen entries; when no match, call sub_54FC70(++v81) to register a new material index.",
+          "evidence_refs": [
+            "callee:0x0054FC70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "12-DWORD stride path: copy six source DWORDs per vertex, OR packed flags into field 6, zero field 7, advancing 12 DWORDs in and 16 DWORDs out; case switch uses jump table jpt_54CE21 for untransformed vertex data.",
+          "evidence_refs": [
+            "global:0x0054D01C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Material dedup loop (12-DWORD path): match materials by 4-float comparison against previously seen entries; call sub_54FC70(v50) for an existing match or sub_54FC70(v84) when allocating a new index, then apply the transform per switch case.",
+          "evidence_refs": [
+            "callee:0x0054FC70",
+            "global:0x0054D01C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Copy element index data: if the pointer at element offset 40 is non-null, qmemcpy it from element offset 20 with size 2 * element offset 16.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_55D720(*(dword_8B8F28 + 248), 0) to update the UI/context state pointer.",
+          "evidence_refs": [
+            "callee:0x0055D720",
+            "global:0x008B8F28"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call Wrapper_e0f0(element, 12) for element post-processing.",
+          "evidence_refs": [
+            "callee:0x0054E0F0"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set bit 0x200 in the element header at offset 56 to mark the element as processed.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "On loop completion set done flags on the object: this+0x14 |= 0x9000020 (bits 5, 21, 24).",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 on the normal/completed paths and -1 when the audio wait sub_540940 fails.",
+          "evidence_refs": [
+            "function:0x0054CA00",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "this+0x174 appears in the packet fields but is not visible in the raw body; its read site is unresolved (noted by the fill as a sub-object property used by callers).",
+        "The 37-float material entry layout and the exact meaning of the four switch cases (0..3) are inferred from loop structure, not proven.",
+        "Whether the 16-DWORD path is D3D-transformed and the 12-DWORD path untransformed is DERIVED from the legacy ABI name only."
+      ],
+      "unresolved_evidence_refs": [
+        "field:this:0x00000174"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005569F0",
+      "function_ref": "function:0x005569F0",
+      "name": "SceneNodeStateUpdateWithTransform",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Performs a full scene-node state update with world-transform upload, collision detection and optional bone-transform copies. Runs a linked-list timer update on a3, calls sub_54B570 for dispatch setup, computes the mesh bounding box when a2+428 is zero, uploads the world transform through the dword_8B8F24 vtable (slot +4) when the 0x20000000 flag is clear, runs collision contact detection, copies 8 twelve-byte bone transforms through the same vtable when the 0x4 flag is set and 0x8 clear, then optionally runs material/shader processing (sub_55ED10, sub_55D5C0) and finalizes via sub_556D60 when the 0x5 flags are set.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "LinkedListTraversalWithConditionalTimerUpdate((_DWORD*)a3) traverses/updates the animation channel linked list with a timer check.",
+          "evidence_refs": [
+            "callee:0x00551760"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_54B570(this, (float*)a2, a3) performs animation dispatch setup/check for the node.",
+          "evidence_refs": [
+            "callee:0x0054B570"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If *(a2+428) is zero (bounding box not yet computed), call MeshBoundingBoxComputation(a3).",
+          "evidence_refs": [
+            "callee:0x0054D9F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the world-transform flag (a3+20 bit 0x20000000) is clear, call the dword_8B8F24 vtable slot +4 to upload the world transform built from this+516 + 220 and this+416 into a3+232, then set the flag.",
+          "evidence_refs": [
+            "global:0x008B8F24",
+            "field:this:0x00000204",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "CollisionContactStateDetection(a3, (float*)a2, (float*)(a3+232), 0) detects collision contact state for the node.",
+          "evidence_refs": [
+            "callee:0x0054D7A0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If (a3+20) has bit 0x4 set and bit 0x8 clear, set bit 0x8 and enter the 8-bone transform copy loop.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Loop 8 times copying 12-byte bone transforms via the dword_8B8F24 vtable slot +4, walking from a3+28 with stride 12 and the matrix base this+416.",
+          "evidence_refs": [
+            "global:0x008B8F24",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If (a3+20) has bit 0x5 set: when bit 0x20 is clear, call sub_55ED10(this, a3, this+276) if **(a3+284) has bit 0x100, and call sub_55D5C0(a2, 0) if (a3+20) has bit 0x100000.",
+          "evidence_refs": [
+            "callee:0x0055ED10",
+            "callee:0x0055D5C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "When the 0x5 flags are set, return sub_556D60(a3, a2); otherwise return the unmodified (a3+20) flags word.",
+          "evidence_refs": [
+            "callee:0x00556D60",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The dword_8B8F24 vtable slot +4 call target is a scene-manager/D3D wrapper whose concrete function is not identified here.",
+        "The meaning of the node state word a3+20 bit flags (0x4, 0x8, 0x5, 0x20, 0x100, 0x100000) is inferred from legacy analysis only.",
+        "dword_8B8F28 appears only in legacy analysis; it has no raw-source grounding in this function.",
+        "The exact identity of this object (which carries +516, +416, +276 state) is unknown."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x008B8F28"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x0055E320",
+      "function_ref": "function:0x0055E320",
+      "name": "TransformMeshVerticesWithLighting",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x0055E320"
+        ]
+      },
+      "summary": "Per-vertex 3D mesh transform, lighting and color-pack pipeline. Reads the scene graph node pointer from this+0x18 and the source vertex buffer from this+0x0C, selects a 12- or 16-byte vertex stride based on a flags test against global unk_800000, invokes world/screen transform helpers through the transform vtable at global dword_8B8F24 (outputs v67/v66), optionally relocates dynamic vertices when this+0x0 render flag bit 0x100 is set and the node vertex count is positive, computes per-vertex distance-weighted contributions from the source-mesh vertex fields, then writes packed lighting colors (via MMX packuswb with qword_8B6C20) to this+0x20 output vertices at +24/+28 and specular channels at +40/+44. Specular components are scaled by TableLookupScale against the per-vertex object's lookup table at *(this+0x04)+180.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "v3 = this[6] reads the scene graph node pointer; v50 = v3 + 256 derives a scene-space address used by the transform calls",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Stride selection: if (unk_800000 & *(v3 + 20)) == 0 the vertex source v6 = v5 + 12 with stride 12, otherwise v6 = v5 + 28 with stride 16; v5 is the source vertex buffer pointer this[3]",
+          "evidence_refs": [
+            "global:0x00800000",
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "v7 = *(dword_8B8F28 + 288) and v44 = *(v3 + 312) + 340 load transform/lighting parameters; v8 = *(void**)dword_8B8F24 is the transform vtable base",
+          "evidence_refs": [
+            "global:0x008B8F24",
+            "global:0x008B8F28",
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Two initial transform calls through the vtable at dword_8B8F24 (entry v8 = *(dword_8B8F24), then vtable+0) fill v67 (position) and v66 (direction/normal) for the vertex",
+          "evidence_refs": [
+            "global:0x008B8F24",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Dynamic vertex relocation: guarded by (v13 & 0x100) != 0 on the flags at this+0 and node vertex count > 0; iterates v10 = *(float**)(v9 + 272) with count *(v9 + 268) and stride 14, calling vtable+24 and vtable+20 on dword_8B8F24 with this[1] and accumulating the offsets into the vertex list",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000018",
+            "global:0x008B8F24",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Reads the source mesh vertex data: source mesh pointer at this+0x128, its vertex data pointer at *(*(this+0x128)) + 0, and transformed data words at +0x10/+0x14/+0x18/+0x1C; vertex position at +0x38/+0x3C/+0x40 and radius/flag word at +0x50 are consumed by the per-vertex distance loop",
+          "evidence_refs": [
+            "field:this:0x00000128",
+            "field:*(this+0x128):0x00000000",
+            "field:*(this+0x128):0x00000010",
+            "field:*(this+0x128):0x00000014",
+            "field:*(this+0x128):0x00000018",
+            "field:*(this+0x128):0x0000001C",
+            "field:*(*(this+0x128)+0x0):0x00000000",
+            "field:*(*(this+0x128)+0x0):0x00000038",
+            "field:*(*(this+0x128)+0x0):0x0000003C",
+            "field:*(*(this+0x128)+0x0):0x00000040",
+            "field:*(*(this+0x128)+0x0):0x00000050",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "v13 = *(this[1] + 156) is the per-vertex flag word; v95 = v13 & 0x40 selects color scaling, and later v96 = v13 & 0x80 selects the specular path",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When the 0x40 flag is set, the vertex color components at this[1]+100/+104/+108 are either read directly or scaled by *(v7 + 36); when the 0x4000 flag is set the alpha component *(this[1]+80) is scaled by *(v7 + 36) * 255.0, otherwise by 255.0 alone",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Lighting-space calls: vtable+24 and vtable+20 on dword_8B8F24 receive dword_8B8F28, the float parameter and this[1], producing v70 (specular) and v69 (lighting direction)",
+          "evidence_refs": [
+            "global:0x008B8F24",
+            "global:0x008B8F28",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "MMX color packing: _m_packuswb(v76, qword_8B6C20) packs the per-component colors (v70/v71/v72 and the truncated v52) into the base packed color v53",
+          "evidence_refs": [
+            "global:0x008B6C20",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Per-vertex output loop bounded by the vertex count this[2]; output pointer advances by 64 bytes per vertex (v18 += 64) and the source advances by v98 = 4 * stride",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Per-vertex distance weighting: when dynamic relocation (v79) is active the vertex list is re-read from the node (count *(v19 + 268), list *(v19 + 272)); for each entry the distance to the target is accumulated from vertex positions and radius (+56/+60/+64 and +80 relative to the vertex object), attenuated as 1 - sqrt(distsq) * v20[4] unless flag 0x100 on the vertex object forces direct weighting, then weighted by v20[5..7]",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Backface/depth test: v31 = -(v67[0]*x + v67[1]*y + v67[2]*z) over the transformed vertex; if v31 <= 0 the precomputed color v53 is written to output+24, otherwise the lit color v69 * v31 + v70 is packed and written to output+24",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "global:0x008B6C20",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Specular lighting: when flag 0x40 (v95) is set and the dot product v32 of v66 with the vertex direction is positive, TableLookupScale(*(int*)(this[1]+180), v47) scales the components v85/v81/v86, packed and written to output+28; otherwise output+28 is cleared",
+          "evidence_refs": [
+            "callee:0x0053AC40",
+            "field:this:0x00000004",
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Specular reflection channels: when flag 0x80 (v96) is set the vertex is transformed through vtable+0 on dword_8B8F24 into v63, then a normalized reflection vector is computed from v60/v61/v62 plus a2[9..11] and written as 0.5-scaled channels to output+40 and output+44",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "global:0x008B8F24",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns result = last processed vertex index (v77 + 1) after the per-vertex loop, or v51 when no vertices were processed",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Shared helper reached from UIElementBitfieldStateSetter (0054bdc0), MeshBoundingBoxComputation (0054d9f0) and sub_55D720 (0055d720)",
+          "evidence_refs": [
+            "caller:0x0054BDC0",
+            "caller:0x0054D9F0",
+            "caller:0x0055D720",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The static-pipeline guard this+0x124 > 0 (guard:0) is not visible as an explicit branch in the raw decompilation; its role is unresolved.",
+        "Fields this+0x2C/+0x54/+0x68/+0x6C/+0x70/+0xA0/+0xB8/+0x150 are listed in packet field evidence but do not appear as explicit operands in the raw text; purposes unresolved.",
+        "Globals dbl_59E430, flt_59E43C, flt_59E450, flt_59FEC8 are referenced by extracted facts but not named in the raw source text; roles unresolved.",
+        "The second 64-bit half of the MMX operand qword_8B6C20 used by packuswb is unknown.",
+        "The destination meaning of the output +40/+44 specular channels (surface brightness vs. shininess) is not confirmed."
+      ],
+      "unresolved_evidence_refs": [
+        "field:this:0x0000002C",
+        "field:this:0x00000054",
+        "field:this:0x00000068",
+        "field:this:0x0000006C",
+        "field:this:0x00000070",
+        "field:this:0x000000A0",
+        "field:this:0x000000B8",
+        "field:this:0x00000124",
+        "field:this:0x00000150",
+        "guard:0",
+        "global:0x0059E430",
+        "global:0x0059E43C",
+        "global:0x0059E450",
+        "global:0x0059FEC8"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005692A0",
+      "function_ref": "function:0x005692A0",
+      "name": "F_3x3InertiaTensorTransform",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead"
+        ]
+      },
+      "summary": "Transforms the diagonal body-space inertia tensor into world space as R * I * R^T using the 3x3 rotation matrix (doubles at 0x1C..0x5C) and the diagonal inertia components (0xD4, 0xDC, 0xE4). Writes the symmetric world-space inertia matrix at 0xEC..0x12C, computing the upper triangle then mirroring it to the lower triangle via paired DWORD half-copies.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Load the 3x3 rotation matrix R (doubles at 0x1C, 0x24, 0x2C, 0x34, 0x3C, 0x44, 0x4C, 0x54, 0x5C) and the diagonal body inertia components Ixx (0xD4), Iyy (0xDC), Izz (0xE4).",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "field:this:0x00000024",
+            "field:this:0x0000002C",
+            "field:this:0x00000034",
+            "field:this:0x0000003C",
+            "field:this:0x00000044",
+            "field:this:0x0000004C",
+            "field:this:0x00000054",
+            "field:this:0x0000005C",
+            "field:this:0x000000D4",
+            "field:this:0x000000DC",
+            "field:this:0x000000E4"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute column products of matrix column 0 scaled by the inertia diagonal: v1 = R00*Ixx, v2 = R10*Iyy, v3 = R20*Izz.",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "field:this:0x00000024",
+            "field:this:0x0000002C",
+            "field:this:0x000000D4",
+            "field:this:0x000000DC",
+            "field:this:0x000000E4"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute column products of matrix column 1 scaled by the inertia diagonal: v5 = R01*Ixx, v6 = R11*Iyy, v7 = R21*Izz.",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "field:this:0x0000003C",
+            "field:this:0x00000044",
+            "field:this:0x000000D4",
+            "field:this:0x000000DC",
+            "field:this:0x000000E4"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute column products of matrix column 2 scaled by the inertia diagonal: v8 = R02*Ixx, v9 = R12*Iyy, v10 = R22*Izz.",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "field:this:0x00000054",
+            "field:this:0x0000005C",
+            "field:this:0x000000D4",
+            "field:this:0x000000DC",
+            "field:this:0x000000E4"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write world-space inertia element (0,0) at 0xEC as v1*R00 + v2*R10 + v3*R20.",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "field:this:0x0000001C",
+            "field:this:0x00000024",
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write world-space inertia element (0,1) at 0xF4 as v1*R01 + v2*R11 + v3*R21.",
+          "evidence_refs": [
+            "field:this:0x000000F4",
+            "field:this:0x00000034",
+            "field:this:0x0000003C",
+            "field:this:0x00000044"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write world-space inertia element (0,2) at 0xFC as v1*R02 + v2*R12 + v3*R22.",
+          "evidence_refs": [
+            "field:this:0x000000FC",
+            "field:this:0x0000004C",
+            "field:this:0x00000054",
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Mirror element (0,1) into (1,0) at 0x104/0x108 by copying the two DWORD halves of the double at 0xF4, reading the high DWORD from 0xF8.",
+          "evidence_refs": [
+            "field:this:0x00000104",
+            "field:this:0x00000108",
+            "field:this:0x000000F8"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write world-space inertia element (1,1) at 0x10C as v5*R01 + v6*R11 + v7*R21.",
+          "evidence_refs": [
+            "field:this:0x0000010C",
+            "field:this:0x00000034",
+            "field:this:0x0000003C",
+            "field:this:0x00000044"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write world-space inertia element (1,2) at 0x114 as v5*R02 + v6*R12 + v7*R22.",
+          "evidence_refs": [
+            "field:this:0x00000114",
+            "field:this:0x0000004C",
+            "field:this:0x00000054",
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Mirror element (0,2) into (2,0) at 0x11C/0x120 by copying the two DWORD halves of the double at 0xFC, reading the high DWORD from 0x100.",
+          "evidence_refs": [
+            "field:this:0x0000011C",
+            "field:this:0x00000120",
+            "field:this:0x00000100"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Mirror element (1,2) into (2,1) at 0x124/0x128 by copying the two DWORD halves of the double at 0x114, reading the high DWORD from 0x118.",
+          "evidence_refs": [
+            "field:this:0x00000124",
+            "field:this:0x00000128",
+            "field:this:0x00000118"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write world-space inertia element (2,2) at 0x12C as v8*R02 + v9*R12 + v10*R22.",
+          "evidence_refs": [
+            "field:this:0x0000012C",
+            "field:this:0x0000004C",
+            "field:this:0x00000054",
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the low DWORD of the (1,2) element (0x114), the value left in EAX by the final DWORD half-copy.",
+          "evidence_refs": [
+            "function:0x005692A0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Exact matrix element ordering (column-major vs row-major) cannot be decided from this packet alone.",
+        "The lower triangle is written by DWORD copies of doubles (high half read from the adjacent 0xF8/0x100/0x118), a compiler artifact of symmetric layout.",
+        "Return value (low DWORD of element (1,2)) has no obvious semantic purpose; callers likely ignore it."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00569410",
+      "function_ref": "function:0x00569410",
+      "name": "InertiaTensorWorldSpaceTransform",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead"
+        ]
+      },
+      "summary": "Computes world-space angular acceleration from a torque vector as R * diag(1/I) * R^T * T. Reads the torque vector (0x7C, 0x84, 0x8C), the 3x3 rotation matrix (doubles at 0x1C..0x5C) and the diagonal inertia reciprocals (0xBC, 0xC4, 0xCC); writes the result vector at 0x94, 0x9C, 0xA4.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Load the 3x3 rotation matrix R (doubles at 0x1C, 0x24, 0x2C, 0x34, 0x3C, 0x44, 0x4C, 0x54, 0x5C), the input torque vector T (0x7C, 0x84, 0x8C) and the diagonal inertia reciprocals (0xBC, 0xC4, 0xCC).",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "field:this:0x00000024",
+            "field:this:0x0000002C",
+            "field:this:0x00000034",
+            "field:this:0x0000003C",
+            "field:this:0x00000044",
+            "field:this:0x0000004C",
+            "field:this:0x00000054",
+            "field:this:0x0000005C",
+            "field:this:0x0000007C",
+            "field:this:0x00000084",
+            "field:this:0x0000008C",
+            "field:this:0x000000BC",
+            "field:this:0x000000C4",
+            "field:this:0x000000CC"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the body-frame angular acceleration terms: v3 = (R^T*T)[0] * invIxx, v1 = (R^T*T)[1] * invIyy, v2 = (R^T*T)[2] * invIzz, each dot product mixing R columns with the torque components then scaled by one reciprocal inertia diagonal.",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "field:this:0x00000024",
+            "field:this:0x0000002C",
+            "field:this:0x00000034",
+            "field:this:0x0000003C",
+            "field:this:0x00000044",
+            "field:this:0x0000004C",
+            "field:this:0x00000054",
+            "field:this:0x0000005C",
+            "field:this:0x0000007C",
+            "field:this:0x00000084",
+            "field:this:0x0000008C",
+            "field:this:0x000000BC",
+            "field:this:0x000000C4",
+            "field:this:0x000000CC"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write world-space angular acceleration X at 0x94 as R00*v3 + R10*v1 + R20*v2.",
+          "evidence_refs": [
+            "field:this:0x00000094",
+            "field:this:0x0000001C",
+            "field:this:0x00000024",
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write world-space angular acceleration Y at 0x9C as R01*v3 + R11*v1 + R21*v2.",
+          "evidence_refs": [
+            "field:this:0x0000009C",
+            "field:this:0x00000034",
+            "field:this:0x0000003C",
+            "field:this:0x00000044"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write world-space angular acceleration Z at 0xA4 as R02*v3 + R12*v1 + R22*v2.",
+          "evidence_refs": [
+            "field:this:0x000000A4",
+            "field:this:0x0000004C",
+            "field:this:0x00000054",
+            "field:this:0x0000005C"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The interleaved register order of v1/v2/v3 makes the exact per-component mapping (which product scales which output) a DERIVED reconstruction, not a direct reading.",
+        "The 0xBC/0xC4/0xCC factors are treated as inverse-inertia diagonals following the enclosing inertia-tensor subsystem; the raw multiplication alone does not prove they are reciprocals.",
+        "The function returns void; all effects are the three output field writes."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00569990",
+      "function_ref": "function:0x00569990",
+      "name": "WriteRelativeTransformedPosition",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Transforms a world-space position a2 into the object-local frame using the object position and rotation matrix, then appends an 88-byte entry (transformed vector plus four metadata fields) to a ring buffer, post-incrementing the write index. Vehicle physics constraint point batching.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Compute append target as buffer base at this+0x240 plus 88 times the post-incremented write index at this+0x23C.",
+          "evidence_refs": [
+            "field:this:0x0000023C",
+            "field:this:0x00000240",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "delta.x = a2[0] minus object position X at this+0x4.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "delta.y = a2[1] minus object position Y at this+0xC.",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "delta.z = a2[2] minus object position Z at this+0x14.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Local-space X = delta dotted with rotation matrix row 0 (this+0x1C, this+0x34, this+0x4C); stored as first double of the entry.",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "field:this:0x00000034",
+            "field:this:0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Local-space Y = delta dotted with rotation matrix row 1 (this+0x24, this+0x3C, this+0x54); stored at entry offset 8.",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "field:this:0x0000003C",
+            "field:this:0x00000054",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Local-space Z = delta dotted with rotation matrix row 2 (this+0x2C, this+0x44, this+0x5C); stored at entry offset 16.",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "field:this:0x00000044",
+            "field:this:0x0000005C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store metadata dword a3 at entry offset 48 and metadata byte a4 at entry offset 52.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store additional metadata dword a5 at entry offset 56 and metadata dword a6 at entry offset 60.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the pointer to the appended entry.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantic roles of the four metadata words (a3, a4, a5, a6) are not established.",
+        "Owner identity is UNKNOWN; shares its caller with the 56-byte-stride sibling append function."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0056F100",
+      "function_ref": "function:0x0056F100",
+      "name": "TransformBodiesToLocalReferenceFrame",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Transforms a set of rigid bodies into the local reference frame of a target body. When a5 is nonzero it first marks the active subset: it locates body a2 in the array at this+0x4 (stride 580), then iterates three batch arrays (this+0xC stride 48, this+0x14 stride 48, this+0x1C stride 72) whose bodies carry a flag byte at +44 (first/second batch) or +68 (third batch); active bodies have their two contact partners resolved and flagged, and the walk repeats until a pass adds no new body. When a5 is zero every body is flagged active. The transform then copies the reference position (a2+4) and rotation (a2+28), builds the local rotation via EulerAnglesTo33RotationMatrix and F_33MatrixMultiply, and for each flagged body translates its position relative to the reference and rewrites its orientation matrix plus Euler angles, finishing with FloatConvertWrapper and F_3x3RotationTensorMatrixTransform.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Branch on a5: when a5 == 0 skip the body-selection walk and treat every body as active; otherwise clear the active flags first.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "When a5 == 0, fill the 32-byte flag buffer v56 with 1 for all *this bodies via memset (length derived from the count).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "When a5 != 0, zero the flag buffer v56 via memset over the body count.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the body array at this+0x4 (element stride 580) to find the index of body a2, guarded by *this > 0, and mark that index active in v56.",
+          "evidence_refs": [
+            "source:raw",
+            "guard:0",
+            "field:this:0x00000000",
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the total batch size v11 = first-batch count (this+0x8) + third-batch count (this+0x18) + second-batch count (this+0x10).",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000008",
+            "field:this:0x00000018",
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate the three batch arrays (pointers this+0xC, this+0x14, this+0x1C with per-element strides 48, 48, 72); for each entry read the flag byte at element+44 (first/second batch) or element+68 (third batch) and skip the element when (flag & 1) == 0.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x0000000C",
+            "field:this:0x00000014",
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For each still-active batch element, read its two body references at element+4 and element+12, resolve both against the body array (stride 580) and set their flag bytes in v56; set v35 when a previously inactive body became active.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Repeat the batch walk until a full pass adds no new active body (v35 remains clear).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copy the reference body's position (a2+4, 3 doubles) into the local buffer v58.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call EulerAnglesTo33RotationMatrix(v61, a4) to build the reference-frame rotation matrix from Euler angles.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x0056BD40"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copy the reference body's rotation matrix (a2+28, 9 doubles) into v49 and transpose it into v55.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call F_33MatrixMultiply(v61, v55, v66) to compose the local-space rotation matrix.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x0056C740"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate all bodies while the index < *this; for each body whose flag in v56 is set, translate its position (body+4) by the reference offset v58 and rotate it through the v49/v61 matrices, writing the new position back to body+4.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000000",
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call F_33MatrixMultiply(v66, body+28, v62) to compute the body's local orientation matrix.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x0056C740"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Recover the Euler angles from the local matrix v62 via atan2, comparing fabs(v63) against the constant held at dbl_59E420 (1.0) to select the degenerate axis case.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x0059E420"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call FloatConvertWrapper(v34) to clamp/convert the recovered angle values.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x00588570"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call F_3x3RotationTensorMatrixTransform(body, &v52) to apply the final rotation tensor to the body.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x005691D0"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the final loop index result.",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x0056F100"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The three batch arrays (this+0x8/0xC, this+0x10/0x14, this+0x18/0x1C) and their differing element strides (48, 48, 72) and flag-byte offsets (+44, +68) are only evidenced from inside this function; the concrete batch object types are not established.",
+        "The exact semantics of a5 and of the two-body 'partners' resolved during selection are inferred from the flag churn; no packet evidence names the calling system's contract.",
+        "Local stack matrices v49/v55/v61/v66/v62 and the v56 flag buffer are decompiler-inferred stack shapes; their in-buffer layout is not independently evidenced.",
+        "FloatConvertWrapper's conversion contract is defined by the callee, not resolved here.",
+        "The degenerate-axis branch chosen by fabs(v63) == dbl_59E420 is reconstructed from the compare; the naming of v62 elements (m[0..8]) is an approximation of the raw v62[0..4] references."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x0058EF83",
+      "function_ref": "function:0x0058EF83",
+      "name": "PhysicsAllocatorNodeInit",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x0058EF83",
+          "abi:lead",
+          "source:raw"
+        ]
+      },
+      "summary": "Initializes a single allocator/exception-handler node tracked by global dword_8D3F58, with two paths selected by global dword_8D3F44. When dword_8D3F44 is nonzero: allocate a 172-byte zeroed block via sub_58AB58(1, 172); if the allocation fails return 1; if sub_58F014(v0) reports initialization failure, finalize the node (sub_58F362), free it (sub_58AA6F), and return 1; otherwise install the block as the IO function pointer off_5E99D0, finalize and free the old tracked node dword_8D3F58, and store the new block in dword_8D3F58. When dword_8D3F44 is zero: set off_5E99D0 to the default callback pointer off_5E99D8, finalize and free the old tracked node dword_8D3F58, and clear dword_8D3F58 to 0. Returns 0 on success in both paths.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Branch on global dword_8D3F44: nonzero selects the allocate-and-install path, zero selects the default-callback path.",
+          "evidence_refs": [
+            "global:0x008D3F44",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Allocate a zero-initialized 172-byte block with sub_58AB58(1, 172); store it as the new node.",
+          "evidence_refs": [
+            "callee:0x0058AB58",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the allocation returned null, return 1 (failure) without touching the tracked node.",
+          "evidence_refs": [
+            "callee:0x0058AB58",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Initialize the new node via sub_58F014(v0); a nonzero return marks node initialization as failed.",
+          "evidence_refs": [
+            "callee:0x0058F014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "On initialization failure: finalize the node via sub_58F362(v1), free the node block via sub_58AA6F(v1), and return 1.",
+          "evidence_refs": [
+            "callee:0x0058F362",
+            "callee:0x0058AA6F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Install the new node as the IO function pointer: off_5E99D0 = v1.",
+          "evidence_refs": [
+            "global:0x005E99D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Finalize the old tracked node dword_8D3F58 via sub_58F362, then free it via sub_58AA6F.",
+          "evidence_refs": [
+            "global:0x008D3F58",
+            "callee:0x0058F362",
+            "callee:0x0058AA6F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the new node as the tracked node: dword_8D3F58 = v1.",
+          "evidence_refs": [
+            "global:0x008D3F58",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Default-callback path: set the IO function pointer to the default callback global off_5E99D8: off_5E99D0 = off_5E99D8.",
+          "evidence_refs": [
+            "global:0x005E99D0",
+            "global:0x005E99D8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Finalize and free the old tracked node dword_8D3F58 on the default-callback path as well.",
+          "evidence_refs": [
+            "global:0x008D3F58",
+            "callee:0x0058F362",
+            "callee:0x0058AA6F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear the tracked node: dword_8D3F58 = 0 on the default-callback path.",
+          "evidence_refs": [
+            "global:0x008D3F58",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Both successful paths return 0; only the failed-allocation and failed-init branches return 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The identity of the object installed at off_5E99D0 and dword_8D3F58 is not evidenced by the packet; the fills read it as a physics allocator node / CRT exception handler chain, which is DERIVED only.",
+        "The semantics of sub_58F014's return value (nonzero reported as initialization failure) and the 172-byte node layout are not evidenced in this packet.",
+        "The finalize step sub_58F362 (run before freeing the old node) and why the default-callback path clears the tracked node are not explained by the packet.",
+        "Global dword_8D3F44 is read as a CRT-DLL switch by the fills; the packet only evidences the branch on its value."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0058F6FE",
+      "function_ref": "function:0x0058F6FE",
+      "name": "PhysicsAllocatorNodeInit_f6fe",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x0058F6FE",
+          "abi:lead",
+          "source:raw"
+        ]
+      },
+      "summary": "Initializes a 3-dword allocator node head stored at global off_5E9AC0, with two paths selected by global dword_8D3F3C. When dword_8D3F3C is nonzero: allocate a 48-byte zeroed block via sub_58AB58(1, 48); if the allocation fails return 1; if sub_58F7C9 initializes the new node and reports failure, free the node (MultiFieldFree_f8eb then sub_58AA6F) and return 1; otherwise copy the three dword fields of the current head off_5E9AC0 into the new node, install the new node as the head, free the old head dword_8D3F68, and store the new node in dword_8D3F68. When dword_8D3F3C is zero: copy the three head dword fields into a static 3-field sentinel at off_5E9A90/off_5E9A94/off_5E9A98, repoint off_5E9AC0 at the sentinel, free the old head dword_8D3F68, and clear dword_8D3F68 to 0. Returns 0 on success in both paths.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Branch on global dword_8D3F3C: nonzero selects the dynamic-allocate path, zero selects the static-sentinel path.",
+          "evidence_refs": [
+            "global:0x008D3F3C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Allocate a zero-initialized 48-byte block with sub_58AB58(1, 48); store it as the new node.",
+          "evidence_refs": [
+            "callee:0x0058AB58",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the allocation returned null, return 1 (failure) without touching the list.",
+          "evidence_refs": [
+            "callee:0x0058AB58",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Initialize the new node via sub_58F7C9(v0); a nonzero return marks node initialization as failed.",
+          "evidence_refs": [
+            "callee:0x0058F7C9",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "On initialization failure: free the node's internal multi-fields via MultiFieldFree_f8eb(v1), free the node block via sub_58AA6F(v1), and return 1.",
+          "evidence_refs": [
+            "callee:0x0058F8EB",
+            "callee:0x0058AA6F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copy the three dword fields of the current head into the new node: v1[0..2] = off_5E9AC0[0..2].",
+          "evidence_refs": [
+            "global:0x005E9AC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Install the new node as the list head: off_5E9AC0 = v1.",
+          "evidence_refs": [
+            "global:0x005E9AC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the old head dword_8D3F68: release its internal multi-fields via MultiFieldFree_f8eb, then free the block via sub_58AA6F.",
+          "evidence_refs": [
+            "global:0x008D3F68",
+            "callee:0x0058F8EB",
+            "callee:0x0058AA6F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the new node as the tracked head: dword_8D3F68 = v1.",
+          "evidence_refs": [
+            "global:0x008D3F68",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Static-sentinel path: copy the three head dword fields into the static sentinel off_5E9A90/off_5E9A94/off_5E9A98.",
+          "evidence_refs": [
+            "global:0x005E9AC0",
+            "global:0x005E9A90",
+            "global:0x005E9A94",
+            "global:0x005E9A98",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Repoint the list head at the static sentinel: off_5E9AC0 = &off_5E9A90.",
+          "evidence_refs": [
+            "global:0x005E9AC0",
+            "global:0x005E9A90",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the old head dword_8D3F68 (MultiFieldFree_f8eb then sub_58AA6F) on the static-sentinel path as well.",
+          "evidence_refs": [
+            "global:0x008D3F68",
+            "callee:0x0058F8EB",
+            "callee:0x0058AA6F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear the tracked head: dword_8D3F68 = 0 on the static-sentinel path.",
+          "evidence_refs": [
+            "global:0x008D3F68",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Both successful paths return 0; only the failed-allocation and failed-init branches return 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The three dword fields of the node head off_5E9AC0 are not named by the packet; the fills read them as locale-data pointers / an allocator chain, which is DERIVED only.",
+        "The semantics of sub_58F7C9's return value (nonzero reported as initialization failure) and the internal structure freed by MultiFieldFree_f8eb are not evidenced in this packet.",
+        "Global dword_8D3F3C is read as a mode switch (dynamic vs static sentinel) per the fills; the packet only evidences the branch on its value.",
+        "off_5E9A90/off_5E9A94/off_5E9A98 form a static 3-field sentinel structure only in aggregate; the packet does not describe its layout."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x0054B770",
+    "function:0x0054CA00",
+    "function:0x005569F0",
+    "function:0x0055E320",
+    "function:0x005692A0",
+    "function:0x00569410",
+    "function:0x00569990",
+    "function:0x0056F100",
+    "function:0x0058EF83",
+    "function:0x0058F6FE"
+  ],
+  "required_material_refs": [
+    "callee:0x0053AC40",
+    "callee:0x00540940",
+    "callee:0x005472D0",
+    "callee:0x0054B570",
+    "callee:0x0054D7A0",
+    "callee:0x0054D9F0",
+    "callee:0x0054E0E0",
+    "callee:0x0054E0F0",
+    "callee:0x0054FC70",
+    "callee:0x00551760",
+    "callee:0x00556D60",
+    "callee:0x0055D5C0",
+    "callee:0x0055D720",
+    "callee:0x0055ED10",
+    "callee:0x005691D0",
+    "callee:0x0056BD40",
+    "callee:0x0056C740",
+    "callee:0x00588570",
+    "callee:0x0058AA6F",
+    "callee:0x0058AB58",
+    "callee:0x0058F014",
+    "callee:0x0058F362",
+    "callee:0x0058F7C9",
+    "callee:0x0058F8EB",
+    "field:*(*(this+0x128)+0x0):0x00000000",
+    "field:*(*(this+0x128)+0x0):0x00000038",
+    "field:*(*(this+0x128)+0x0):0x0000003C",
+    "field:*(*(this+0x128)+0x0):0x00000040",
+    "field:*(*(this+0x128)+0x0):0x00000050",
+    "field:*(this+0x128):0x00000000",
+    "field:*(this+0x128):0x00000010",
+    "field:*(this+0x128):0x00000014",
+    "field:*(this+0x128):0x00000018",
+    "field:*(this+0x128):0x0000001C",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x0000002C",
+    "field:this:0x00000034",
+    "field:this:0x0000003C",
+    "field:this:0x00000040",
+    "field:this:0x00000044",
+    "field:this:0x0000004C",
+    "field:this:0x00000054",
+    "field:this:0x0000005C",
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x0000007C",
+    "field:this:0x00000084",
+    "field:this:0x0000008C",
+    "field:this:0x00000094",
+    "field:this:0x0000009C",
+    "field:this:0x000000A0",
+    "field:this:0x000000A4",
+    "field:this:0x000000B8",
+    "field:this:0x000000BC",
+    "field:this:0x000000C4",
+    "field:this:0x000000CC",
+    "field:this:0x000000D4",
+    "field:this:0x000000DC",
+    "field:this:0x000000E4",
+    "field:this:0x000000EC",
+    "field:this:0x000000F4",
+    "field:this:0x000000F8",
+    "field:this:0x000000FC",
+    "field:this:0x00000100",
+    "field:this:0x00000104",
+    "field:this:0x00000108",
+    "field:this:0x0000010C",
+    "field:this:0x00000114",
+    "field:this:0x00000118",
+    "field:this:0x0000011C",
+    "field:this:0x00000120",
+    "field:this:0x00000124",
+    "field:this:0x00000128",
+    "field:this:0x0000012C",
+    "field:this:0x00000138",
+    "field:this:0x00000150",
+    "field:this:0x00000174",
+    "field:this:0x00000194",
+    "field:this:0x00000198",
+    "field:this:0x0000019C",
+    "field:this:0x00000204",
+    "field:this:0x0000023C",
+    "field:this:0x00000240",
+    "global:0x0054D00C",
+    "global:0x0054D01C",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E450",
+    "global:0x0059FEC8",
+    "global:0x005E99D0",
+    "global:0x005E99D8",
+    "global:0x005E9A90",
+    "global:0x005E9A94",
+    "global:0x005E9A98",
+    "global:0x005E9AC0",
+    "global:0x00800000",
+    "global:0x008B6C20",
+    "global:0x008B78A0",
+    "global:0x008B8F24",
+    "global:0x008B8F28",
+    "global:0x008D3F3C",
+    "global:0x008D3F44",
+    "global:0x008D3F58",
+    "global:0x008D3F68"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x0053AC40",
+    "callee:0x00540940",
+    "callee:0x005472D0",
+    "callee:0x0054B570",
+    "callee:0x0054D7A0",
+    "callee:0x0054D9F0",
+    "callee:0x0054E0E0",
+    "callee:0x0054E0F0",
+    "callee:0x0054FC70",
+    "callee:0x00551760",
+    "callee:0x00556D60",
+    "callee:0x0055D5C0",
+    "callee:0x0055D720",
+    "callee:0x0055ED10",
+    "callee:0x005691D0",
+    "callee:0x0056BD40",
+    "callee:0x0056C740",
+    "callee:0x00588570",
+    "callee:0x0058AA6F",
+    "callee:0x0058AB58",
+    "callee:0x0058F014",
+    "callee:0x0058F362",
+    "callee:0x0058F7C9",
+    "callee:0x0058F8EB",
+    "caller:0x00544DB0",
+    "caller:0x0054BDC0",
+    "caller:0x0054D9F0",
+    "caller:0x0055D720",
+    "field:*(*(this+0x128)+0x0):0x00000000",
+    "field:*(*(this+0x128)+0x0):0x00000038",
+    "field:*(*(this+0x128)+0x0):0x0000003C",
+    "field:*(*(this+0x128)+0x0):0x00000040",
+    "field:*(*(this+0x128)+0x0):0x00000050",
+    "field:*(this+0x128):0x00000000",
+    "field:*(this+0x128):0x00000010",
+    "field:*(this+0x128):0x00000014",
+    "field:*(this+0x128):0x00000018",
+    "field:*(this+0x128):0x0000001C",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x0000002C",
+    "field:this:0x00000034",
+    "field:this:0x0000003C",
+    "field:this:0x00000040",
+    "field:this:0x00000044",
+    "field:this:0x0000004C",
+    "field:this:0x00000054",
+    "field:this:0x0000005C",
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x0000007C",
+    "field:this:0x00000084",
+    "field:this:0x0000008C",
+    "field:this:0x00000094",
+    "field:this:0x0000009C",
+    "field:this:0x000000A0",
+    "field:this:0x000000A4",
+    "field:this:0x000000B8",
+    "field:this:0x000000BC",
+    "field:this:0x000000C4",
+    "field:this:0x000000CC",
+    "field:this:0x000000D4",
+    "field:this:0x000000DC",
+    "field:this:0x000000E4",
+    "field:this:0x000000EC",
+    "field:this:0x000000F4",
+    "field:this:0x000000F8",
+    "field:this:0x000000FC",
+    "field:this:0x00000100",
+    "field:this:0x00000104",
+    "field:this:0x00000108",
+    "field:this:0x0000010C",
+    "field:this:0x00000114",
+    "field:this:0x00000118",
+    "field:this:0x0000011C",
+    "field:this:0x00000120",
+    "field:this:0x00000124",
+    "field:this:0x00000128",
+    "field:this:0x0000012C",
+    "field:this:0x00000138",
+    "field:this:0x00000150",
+    "field:this:0x00000174",
+    "field:this:0x00000194",
+    "field:this:0x00000198",
+    "field:this:0x0000019C",
+    "field:this:0x00000204",
+    "field:this:0x0000023C",
+    "field:this:0x00000240",
+    "function:0x0054B770",
+    "function:0x0054CA00",
+    "function:0x005569F0",
+    "function:0x0055E320",
+    "function:0x005692A0",
+    "function:0x00569410",
+    "function:0x00569990",
+    "function:0x0056F100",
+    "function:0x0058EF83",
+    "function:0x0058F6FE",
+    "global:0x0054D00C",
+    "global:0x0054D01C",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E450",
+    "global:0x0059FEC8",
+    "global:0x005E99D0",
+    "global:0x005E99D8",
+    "global:0x005E9A90",
+    "global:0x005E9A94",
+    "global:0x005E9A98",
+    "global:0x005E9AC0",
+    "global:0x00800000",
+    "global:0x008B6C20",
+    "global:0x008B78A0",
+    "global:0x008B8F24",
+    "global:0x008B8F28",
+    "global:0x008D3F3C",
+    "global:0x008D3F44",
+    "global:0x008D3F58",
+    "global:0x008D3F68",
+    "guard:0",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/wave_004/wave_004_vehicle_physics_05.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

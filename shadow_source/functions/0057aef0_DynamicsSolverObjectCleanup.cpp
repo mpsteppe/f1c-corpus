@@ -1,0 +1,37 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0057AEF0
+// Canonical corpus name: sub_57AEF0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_57AEF0_0057aef0.c
+
+void UnknownObject::DynamicsSolverObjectCleanup()
+{
+    // Cleanup routine for an object holding two embedded singly-linked lists. Sets the object vtable to off_5B8A1C, walks list A (head this[6], offset 0x18) freeing each node and its data pointer when the node flag byte at node+8 is set, zeroes this[6..9], then walks list B (head this[2], offset 0x8) the same way, zeroes this[2..5], and finally sets the vtable to off_5B8A40. Single caller is FlaggedDestructor (0x00583150).
+    // ASSIGNMENT: Set vtable pointer *this to off_5B8A1C before walking the lists. [global:0x005B8A1C, field:this:0x00000000]
+    // LOOP: Iterate embedded linked list A seeded from this[6] (offset 0x18); per node, read the next-pointer stored at node+4 and advance until null. [field:this:0x00000018, field:*(this+0x1C):0x00000004]
+    // GUARD: For each list-A node, if the flag byte at node+8 is nonzero, free the node's data pointer first. [source:raw, callee:0x00587BCF]
+    // CALL: Free each list-A node via FreeWrapper_7bcf; its return value is captured in result. [callee:0x00587BCF]
+    // ASSIGNMENT: Zero the four DWORD fields of list A: this[6] (head, 0x18), this[7] (0x1C), this[8] (0x20), this[9] (0x24). [field:this:0x00000018, field:this:0x0000001C, field:this:0x00000020, field:this:0x00000024]
+    // LOOP: Iterate embedded linked list B seeded from this[2] (offset 0x8); per node, read the next-pointer stored at node+4 and advance until null. [field:this:0x00000008, field:*(this+0xC):0x00000004]
+    // GUARD: For each list-B node, if the flag byte at node+8 is nonzero, free the node's data pointer first. [source:raw, callee:0x00587BCF]
+    // CALL: Free each list-B node via FreeWrapper_7bcf. [callee:0x00587BCF]
+    // ASSIGNMENT: Zero the four DWORD fields of list B: this[2] (head, 0x8), this[3] (0xC), this[4] (0x10), this[5] (0x14). [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014]
+    // ASSIGNMENT: Set vtable pointer *this to off_5B8A40, the post-cleanup vtable. [global:0x005B8A40, field:this:0x00000000]
+    // RETURN: Return the result of the last FreeWrapper_7bcf call from list A; its meaning to the caller is unknown. [abi:lead, function:0x0057AEF0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   *this = &off_5B8A1C;
+    //   i = this[6];
+    //   while (i != 0) { v3 = i; i = *(DWORD*)(i + 4); if (*(BYTE*)v3 + 8) FreeWrapper_7bcf(*(void**)v3); result = FreeWrapper_7bcf(v3); }
+    //   this[6] = this[7] = this[8] = this[9] = 0;
+    //   j = this[2];
+    //   while (j != 0) { v6 = j; j = *(DWORD*)(j + 4); if (*(BYTE*)v6 + 8) FreeWrapper_7bcf(*(void**)v6); result = FreeWrapper_7bcf(v6); }
+    //   this[2] = this[3] = this[4] = this[5] = 0;
+    //   *this = &off_5B8A40;
+    //   return result;
+    // UNRESOLVED: Node struct layout (data pointer at node+0, next at node+4, flag byte at node+8) is present in raw source but not captured as packet field evidence.
+    // UNRESOLVED: Semantic role of zeroed DWORD fields this[4] (0x10), this[5] (0x14), this[8] (0x20), this[9] (0x24) is unknown.
+    // UNRESOLVED: Purpose of this[3] (0xC) and this[7] (0x1C), treated here as list tail/state, is unknown.
+    // UNRESOLVED: The function returns the last FreeWrapper_7bcf result; caller 0x00583150 does not record what it does with it.
+    // UNRESOLVED: Whether off_5B8A1C and off_5B8A40 are object vtables is inferred from existing analysis, not proven by packet evidence.
+}

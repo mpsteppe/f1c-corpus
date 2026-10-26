@@ -1,0 +1,35 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00582360
+// Canonical corpus name: Win32MutexCreateRecreate
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/Win32MutexCreateRecreate_00582360.c
+
+void UnknownObject::RecreateMutex()
+{
+    // Creates (or recreates) an unnamed Win32 mutex stored on the receiver. If the validity flag at this+0x18 is set, the existing handle at this+0x10 is closed via CloseHandle and, on success, zeroed. An unnamed inheritable mutex is then created with CreateMutexA using a default security-attributes structure (nLength=12, no security descriptor, inheritable), and the new handle is stored at this+0x10. On a successful create the flag at this+0x18 is set to 1. The function returns the flag value (1 = mutex ready, 0 = failed to create).
+    // GUARD: if (*(this+0x18) != 0 && CloseHandle(*(this+0x10))) : close the existing mutex handle only when the validity flag is set and the handle closes successfully. [field:this:0x00000018, field:this:0x00000010, global:0x0059E1A8, source:raw]
+    // ASSIGNMENT: *(this+0x10) = 0 : zero the stored handle after the close succeeds. [field:this:0x00000010, source:raw]
+    // ASSIGNMENT: Initialize the stack security-attributes structure: nLength = 12, lpSecurityDescriptor = 0, bInheritHandle = 1. [source:raw]
+    // CALL: v2 = CreateMutexA(&MutexAttributes, 0, 0) : create an unnamed, initially not-owned mutex with default security attributes. [global:0x0059E1AC, source:raw]
+    // ASSIGNMENT: *(this+0x10) = v2 : store the new mutex handle. [field:this:0x00000010, source:raw]
+    // GUARD: if (v2 != 0) : the validity flag is set only when the create succeeded. [source:raw]
+    // ASSIGNMENT: *(this+0x18) = 1 : mark the mutex as valid. [field:this:0x00000018, source:raw]
+    // RETURN: return *(this+0x18) : return the validity flag (1 = mutex ready, 0 = failed). [field:this:0x00000018, source:raw]
+
+    // Conservative worker pseudocode:
+    //   char sub_582360(int this) {
+    //     SECURITY_ATTRIBUTES MutexAttributes;
+    //     if (*(_BYTE *)(this + 24) && CloseHandle(*(HANDLE *)(this + 16)))
+    //       *(_DWORD *)(this + 16) = 0;
+    //     MutexAttributes.nLength = 12;
+    //     MutexAttributes.lpSecurityDescriptor = 0;
+    //     MutexAttributes.bInheritHandle = 1;
+    //     HANDLE v2 = CreateMutexA(&MutexAttributes, 0, 0);
+    //     *(_DWORD *)(this + 16) = (int)v2;
+    //     if (v2)
+    //       *(_BYTE *)(this + 24) = 1;
+    //     return *(_BYTE *)(this + 24);
+    //   }
+    // UNRESOLVED: The three byte_FF0000000000545x globals (0xFF00000000005450/51/52) are reported as written by the function but do not appear in the raw decompiled source; they are treated as artifacts of stack-struct aliasing in the IDB and retained unresolved.
+    // UNRESOLVED: Object identity of `this` and the synchronization role of the mutex beyond generic use of the 0x10 handle / 0x18 validity byte are unknown; callers are sub_57BA10 0x0057BA10 and sub_5837F0 0x005837F0.
+}

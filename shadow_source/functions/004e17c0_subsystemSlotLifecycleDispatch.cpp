@@ -1,0 +1,32 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004E17C0
+// Canonical corpus name: SubsystemStateMachine
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SubsystemStateMachine_004e17c0.c
+
+void UnknownObject::subsystemSlotLifecycleDispatch()
+{
+    // Dispatch function for subsystem slot lifecycle. Switches on slot id a2 (0-13). For array-backed slots 0-3 it routes to SubslotCleanup on activation or ArrayEntryCleanup on deactivation based on a slot pointer/init-flag pair; for pointer-backed slots 4-13 it routes to LazyInitCallback on activation or ConditionalResourceRelease on deactivation. Slots 4-13 share the layout this + 68*a2 + 1236 with an init flag at slot+64.
+    // GUARD: Dispatch on slot id a2 via jump table; return a2 unchanged for unknown/default ids. [global:0x004E18A0, global:0x004E18B0, function:0x004E17C0]
+    // STATE_TRANSITION: Cases 0-3: on activation (a3), if slot pointer and init flag at this[296*a2+388] are both non-zero, call SubslotCleanup; on deactivation, if either is zero, call ArrayEntryCleanup. [callee:0x004E0E70, callee:0x004E0E20]
+    // STATE_TRANSITION: Cases 4-13: activation (a3) with pointer non-zero and init byte (slot+64) zero calls LazyInitCallback; deactivation with pointer zero or init byte non-zero calls ConditionalResourceRelease. [callee:0x004E0D00, callee:0x004E0D70, field:this:0x00000628, field:this:0x00000668]
+    // RETURN: Return the slot id a2 (or the slot/state pointer computed for the active case). [function:0x004E17C0, source:raw]
+    // UNKNOWN: Caller context: lifecycle ticked by VehiclePhysicsTimeStep and UIElementIterateUpdate. [caller:0x004C73F0, caller:0x004E19A0]
+
+    // Conservative worker pseudocode:
+    //   switch (a2) {
+    //     case 0..3:
+    //       if (a3) { if (ptr(a2) && initFlag(a2)) SubslotCleanup(this, a2); }
+    //       else if (!ptr(a2) || !initFlag(a2)) ArrayEntryCleanup(this, a2);
+    //       break;
+    //     case 4..13:
+    //       slot = this + 68*a2 + 1236;
+    //       if (a3) { if (*slot && !slot[64]) LazyInitCallback(this, slot); }
+    //       else if (!*slot || slot[64]) ConditionalResourceRelease(slot);
+    //       break;
+    //   }
+    //   return result;
+    // UNRESOLVED: Exact role of the byte data at 0x004E18B0 in the dispatch.
+    // UNRESOLVED: Confirmed semantics of a3 (activate vs deactivate) rest on the existing-analysis label.
+    // UNRESOLVED: Meaning of the returned value (slot id vs computed slot pointer).
+}

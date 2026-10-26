@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "address": "0x00537070",
+  "proposed_name": "MultiBlockAllocator",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Fastcall factory that builds a multi-block allocator object through the allocator interface embedded in a1. Calls the allocation callback at a1+32 with the allocator context at a1+40 to obtain the header object v6, then allocates an 8 x 1440-byte block array stored at v6[9] and a single a3-byte payload block stored at v6[10] (with v6[11] set to its end address). On success it records a2 at v6[14], zeroes the header word *v6, calls StateResetWithCallback(v6, a1, 0) and returns v6. On any allocation failure it rolls back with the deallocation callback at a1+36 and returns 0.",
+  "local_names": {
+    "a1": "allocator interface object (vtable: +32 alloc, +36 free, +40 context)",
+    "a2": "token/id stored in the allocator header",
+    "a3": "payload block size in bytes",
+    "v6": "allocator header object",
+    "v7": "block-array pointer (v6[9])",
+    "v8": "allocator context (copy of a1+40)",
+    "v9": "payload block pointer (v6[10])"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Call the allocation callback at a1+32 with context *(a1+40), count 1 and size 64 to allocate the allocator header; result is v6.",
+      "evidence_refs": ["function:0x00537070", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v6 is non-null, proceed with setup; otherwise return the unset result (null).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call the allocation callback at a1+32 with context *(a1+40), count 8 and size 1440 to allocate the block array; store the pointer at v6[9].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the block array at v6[9] is non-null, continue; otherwise free v6 through the deallocation callback at a1+36 and return 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call the allocation callback at a1+32 with context v8 (a1+40), count 1 and size a3 to allocate the single payload block; store the pointer at v6[10].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the payload at v6[10] is non-null, finish initialization; otherwise free the block array at v6[9] and the header v6 through the deallocation callback at a1+36 and return 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set v6[11] = a3 + v6[10] (end address of the payload block), v6[14] = a2, and zero the header word *v6.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call StateResetWithCallback(v6, a1, 0) to initialize the allocator state with the allocator interface as callback owner.",
+      "evidence_refs": ["callee:0x00537000", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v6 as the constructed multi-block allocator object on the success path; the failure paths return 0.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v6 = alloc(a1->ctx, 1, 64);",
+    "if (v6 == null) return 0;",
+    "v6[9] = alloc(a1->ctx, 8, 1440);",
+    "if (v6[9] == null) { free(a1->ctx, v6); return 0; }",
+    "v6[10] = alloc(a1->ctx, 1, a3);",
+    "if (v6[10] == null) { free(a1->ctx, v6[9]); free(a1->ctx, v6); return 0; }",
+    "v6[11] = a3 + v6[10];",
+    "v6[14] = a2;",
+    "*v6 = 0;",
+    "StateResetWithCallback(v6, a1, 0);",
+    "return v6;"
+  ],
+  "unresolved": [
+    "The roles of offsets a1+32, a1+36 and a1+40 (alloc callback, free callback, allocator context) are DERIVED from the raw source's indirect-call pattern and are not backed by a packet field list.",
+    "The meaning of a2 (stored at v6[14]) and the purpose of the 8 x 1440-byte block array are not evidenced beyond the literal allocation sizes.",
+    "The allocator vtable/interface layout of a1 is unknown; no owner type is recorded in the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x005356A0"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

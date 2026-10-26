@@ -1,0 +1,72 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00502C28
+// Canonical corpus name: ComplexMemoryAllocationWithFloatComputation
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ComplexMemoryAllocationWithFloatComputation_00502c28.c
+
+void UnknownObject::AudioResampleFilterTableBuild()
+{
+    // Allocates and builds a sample-rate conversion filter table. With a1 output positions and a2 source positions, computes ratio = a2/a1 and a per-output size estimate (16 * CRTFtol(ratio) + 12 bytes, from a 16-byte base), allocates that many bytes via OperatorNewNhMallocWrapper, then for each output position fills two phases with (source_index, weight) float-pair records plus per-phase byte lengths, returning the table pointer. When a3 is 0 positions are clamped to the source range; otherwise they wrap. Returns null on a zero size or an allocation failure.
+    // GUARD: Guard on a1 (output size) and a2 (input size) both non-zero; otherwise skip allocation and return null. [source:raw]
+    // CALCULATION: Compute ratio v5 = (float)a2 / (double)a1 stored in v24, and v21 = 0.5 / v5. [source:raw]
+    // LOOP: Size-estimation loop over a1 iterations: v6 starts at 16 and adds 16 * CRTFtol(v5) + 12 each pass. [source:raw, callee:0x00587BDC]
+    // CALL: Allocate v6 bytes for the filter table via OperatorNewNhMallocWrapper. [source:raw, callee:0x00587C03]
+    // GUARD: Guard on the allocation result: if null, return null. [source:raw]
+    // LOOP: Outer loop over a1 output positions v28; terminates once v28 reaches a1. [source:raw]
+    // LOOP: Inner do-while over two phases (v31 in 0 and 1) for each output position. [source:raw]
+    // CALCULATION: Fractional source position v11 = (v31 + v28 - 0.5) * v24 and v32 = v24 + v11. [source:raw]
+    // GUARD: When a3 is 0 (non-wrapping mode), clamp v11 to >= 0.0 and v32 to <= a2. [source:raw]
+    // CALL: Call sub_5895A2(v11) as a float processing/rounding step on the fractional position. [source:raw, callee:0x005895A2]
+    // CALCULATION: v12 = CRTFtol(v11) converts the fractional position to an integer; v13 = (double)v12. [source:raw, callee:0x00587BDC]
+    // LOOP: While v13 < v32, iterate contributing source positions resolving v14 with wraparound (v12, v12 - a2, or v12 + a2) and accumulate sub-weights v33 += (v29 - v13) * v16. [source:raw]
+    // GUARD: When the resolved index v14 differs from the last v8 and the accumulated weight v33 exceeds 0.0000099999997, flush the pending (index, weight) record. [source:raw]
+    // ASSIGNMENT: Write (source index as dword, weight as float) record pairs into the table v7, advancing by two dword slots per record. [source:raw]
+    // ASSIGNMENT: Store the per-phase segment byte length: *v19 = v9 * 4 - v20 for the current output position. [source:raw]
+    // ASSIGNMENT: On the last output position, store the total table byte size *v7 = v9 * 4 and return the table pointer. [source:raw, function:0x00502C28]
+    // RETURN: Return null when either size guard fails or the allocation returns null. [source:raw]
+    // CALL: Listed as invoked by sub_502F31 and sub_506003, consistent with a shared resampling table builder. [caller:0x00502F31, caller:0x00506003]
+
+    // Conservative worker pseudocode:
+    //   _DWORD* sub_502C28(unsigned a1, int a2, int wrap) {
+    //     if (!a1 || !a2) return 0;
+    //     float ratio = (float)a2 / (double)a1;
+    //     int size = 16;
+    //     for (unsigned k = 0; k < a1; k++) size += 16 * CRTFtol(ratio) + 12;
+    //     _DWORD* tbl = OperatorNewNhMallocWrapper(size);
+    //     if (!tbl) return 0;
+    //     int pos = 0, n = 1, last = 0;
+    //     float weight = 0.0;
+    //     for (;;) {
+    //       _DWORD* seg = tbl + n; int seg0 = n * 4; n++;
+    //       for (int phase = 0; phase < 2; phase++) {
+    //         float frac = (phase + pos - 0.5) * ratio;
+    //         float hi = ratio + frac;
+    //         if (!wrap) { if (frac < 0.0) frac = 0.0; if (hi > (float)a2) hi = (float)a2; }
+    //         sub_5895A2(frac);
+    //         int idx = CRTFtol(frac);
+    //         double d = (double)idx;
+    //         if (d < (double)hi) {
+    //           for (;;) {
+    //             double e = d + 1.0;
+    //             int src = (idx < 0) ? idx + a2 : (idx < a2 ? idx : idx - a2);
+    //             if (src != last) { if (weight > 0.0000099999997) { *(float*)&tbl[n] = (float)last; *(float*)&tbl[n+1] = weight; n += 2; } last = src; weight = 0.0; }
+    //             if (d < (double)frac) d = (double)frac;
+    //             if (e > (double)hi) e = (double)hi;
+    //             double f = (e + d) * (0.5 / ratio) - (phase + pos - 0.5);
+    //             if (phase) f = 1.0 - f;
+    //             idx++; d = (double)idx;
+    //             weight += (float)((e - d_prev) * f);
+    //             if (d >= (double)hi) break;
+    //           }
+    //         }
+    //       }
+    //       if (weight > 0.0000099999997) { *(float*)&tbl[n] = (float)last; *(float*)&tbl[n+1] = weight; n += 2; }
+    //       weight = 0.0;
+    //       *seg = n * 4 - seg0;
+    //       if (++pos >= (int)a1) { *tbl = n * 4; return tbl; }
+    //     }
+    //   }
+    // UNRESOLVED: Five read globals are listed in packet facts but do not appear in the raw decompiled source; the per-global semantic labels in the prior analysis are not grounded and are treated as unknown
+    // UNRESOLVED: Exact table header/segment layout (dword index and float weight records) is inferred from the write pattern and not externally documented
+    // UNRESOLVED: The a3 wrap-mode flag meaning (0 = clamp, non-zero = wrap) is inferred from the clamping branch only
+}

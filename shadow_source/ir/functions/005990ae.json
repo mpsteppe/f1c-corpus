@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "address": "0x005990AE",
+  "proposed_name": "readDecodedChar",
+  "owner": {
+    "type": "CodecvtBufferedStreamReader",
+    "trust": "DERIVED",
+    "evidence_refs": ["field:this:0x00000038", "callee:0x00589FCC", "source:raw"]
+  },
+  "summary": "Reads one decoded character from a buffered input stream. When a raw group remains unconsumed at the pointer stored in this+0x1C (and the group length at this+0x2C does not overflow), returns a raw byte directly via MSVCStreambufGninc. Otherwise, when a codecvt facet is present (this+0x38), drains bytes from the input stream (this+0x50), feeds them through the facet's do_in vtable slot +16, and returns the decoded character, a partially-decoded buffered byte, or -1. Without a facet, returns the next raw byte or -1 at end of stream.",
+  "local_names": {
+    "this": "buffered stream reader object wrapping an MSVC streambuf and optional codecvt facet",
+    "v2": "raw group value read through the pointer stored at this+0x1C (fast-path check)",
+    "v14": "decoded byte/character result",
+    "v4": "byte read from the input stream via StreamGetcWithUnderflowHandler",
+    "v5": "stream-buffer pointer stored at this+0x44 (first boundary check)",
+    "v6": "stream-buffer pointer stored at this+0x44 (second boundary check)",
+    "v13": "buffer field at *(this+0x44)+0x4 used to compute the do_in end pointer"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Fast path: reads group value v2 through the pointer stored at this+0x1C; when v2 is non-zero and v2 < v2 + (value through pointer at this+0x2C) (no unsigned wrap), returns a raw byte via MSVCStreambufGninc(this)",
+      "evidence_refs": ["field:*(this+0x1C):0x00000000", "field:*(this+0x2C):0x00000000", "field:this:0x0000001C", "field:this:0x0000002C", "callee:0x00599475"]
+    },
+    {
+      "kind": "guard",
+      "description": "Returns -1 when the input stream pointer at this+0x50 is null",
+      "evidence_refs": ["field:this:0x00000050"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branches on presence of the codecvt facet pointer at this+0x38",
+      "evidence_refs": ["field:this:0x00000038"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Saves the current position this+0x3C = this+0x40, then BufferTruncationShrink(0, -1) starts a fresh conversion group",
+      "evidence_refs": ["field:this:0x0000003C", "field:this:0x00000040", "callee:0x00599348"]
+    },
+    {
+      "kind": "loop",
+      "description": "Conversion loop: read one byte via StreamGetcWithUnderflowHandler(*(this+0x50)); break on -1; append it with BufferAppendWithMemset(1, byte); restore position this+0x40 = this+0x3C; run BufferBoundaryMarkerCheckSet on the stream-buffer pointer at this+0x44",
+      "evidence_refs": ["callee:0x00589FCC", "callee:0x005992EF", "field:this:0x00000040", "field:this:0x0000003C", "field:this:0x00000044", "callee:0x00599534"]
+    },
+    {
+      "kind": "call",
+      "description": "Invokes codecvt do_in: vtable slot +16 of the facet object (vtable pointer read via *(this+0x38):0x0) with conversion state at this+0x40, source pointer *(this+0x44)+0x4, end pointer computed as *(this+0x44)+0x4 + *(this+0x44)+0x8 when the base is non-zero, and output locals including v14",
+      "evidence_refs": ["field:*(*(this+0x38)+0x0):0x00000010", "field:*(this+0x38):0x00000000", "field:this:0x00000040", "field:*(this+0x44):0x00000004", "field:*(this+0x44):0x00000008", "field:this:0x00000044", "field:this:0x00000038"]
+    },
+    {
+      "kind": "return",
+      "description": "On do_in success (return value 0) returns the decoded character v14",
+      "evidence_refs": ["function:0x005990AE"]
+    },
+    {
+      "kind": "calculation",
+      "description": "do_in result decoding: result 1 means consumed all input (continue loop), result 2 is a partial decode; any other result returns -1. For partial decode, when *(this+0x44)+0x8 is non-zero, copies one byte from *(this+0x44)+0x4 into v14 via MemoryCopy_cc00 and returns it",
+      "evidence_refs": ["callee:0x0058CC00", "field:*(this+0x44):0x00000004", "field:*(this+0x44):0x00000008", "field:this:0x00000044"]
+    },
+    {
+      "kind": "return",
+      "description": "End of conversion group without a decoded result returns -1",
+      "evidence_refs": ["function:0x005990AE"]
+    },
+    {
+      "kind": "call",
+      "description": "No-codecvt path: reads a raw byte via StreamGetcWithUnderflowHandler(*(this+0x50)); returns -1 on end-of-stream, otherwise returns the byte as an unsigned char",
+      "evidence_refs": ["callee:0x00589FCC", "field:this:0x00000050", "function:0x005990AE"]
+    }
+  ],
+  "clean_pseudocode": [
+    "group = **(int **)(this + 0x1C);",
+    "if (group && group < group + **(int **)(this + 0x2C))",
+    "    return *(unsigned __int8 *)MSVCStreambufGninc(this);",
+    "if (!*(int *)(this + 0x50)) return -1;",
+    "if (*(int *)(this + 0x38)) {",
+    "    *(int *)(this + 0x3C) = *(int *)(this + 0x40);",
+    "    BufferTruncationShrink(0, -1);",
+    "    for (;;) {",
+    "        c = StreamGetcWithUnderflowHandler(*(int **)(this + 0x50));",
+    "        if (c == -1) break;",
+    "        BufferAppendWithMemset(1, c);",
+    "        buf = *(int *)(this + 0x44);",
+    "        *(int *)(this + 0x40) = *(int *)(this + 0x3C);",
+    "        BufferBoundaryMarkerCheckSet(buf);",
+    "        base = *(int *)(buf + 4);",
+    "        BufferBoundaryMarkerCheckSet(*(int *)(this + 0x44));",
+    "        r = codecvt_do_in(facet at this+0x38, state at this+0x40,",
+    "                          *(int *)(*(int *)(this + 0x44) + 4),",
+    "                          base ? base + *(int *)(buf + 8) : 0, out, &v14, ...);",
+    "        if (r == 0) return v14;",
+    "        if (r == 2) {",
+    "            if (*(int *)(*(int *)(this + 0x44) + 8)) {",
+    "                MemoryCopy_cc00(&v14, *(char **)(*(int *)(this + 0x44) + 4), 1);",
+    "                return v14;",
+    "            }",
+    "        }",
+    "        else if (r != 1) return -1;",
+    "    }",
+    "    return -1;",
+    "}",
+    "c = StreamGetcWithUnderflowHandler(*(int **)(this + 0x50));",
+    "return c == -1 ? -1 : (unsigned char)c;"
+  ],
+  "unresolved": [
+    "Read-only global dword_5B9C38 is listed but does not appear in the raw source; its role in this function is unknown",
+    "The exact stream/locale class is not identified; the do_in call shape matches std::codecvt but the concrete facet type is unverified",
+    "Semantics of the group-head pointers at this+0x1C and this+0x2C are inferred only from the unsigned-overflow guard"
+  ],
+  "unresolved_evidence_refs": ["global:0x005B9C38"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

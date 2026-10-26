@@ -1,0 +1,34 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C1670
+// Canonical corpus name: TimerCountdownWithStateTransition
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TimerCountdownWithStateTransition_004c1670.c
+
+void UnknownObject::TimerCountdownWithStateTransition()
+{
+    // Advances a countdown timer that drives a session-phase transition. When the timer-active flag byte at this+45392 is non-zero, it increments the counter dword at this+45384, reads the scene-order threshold via SceneOrderReader, and when the counter reaches that threshold sets the session phase dword at this+45380 to 3; it then resets the phase counter dword at this+45388 to 1 and clears the timer-active flag to 0. Returns the SceneOrderReader threshold on the active path, otherwise returns an unspecified value.
+    // GUARD: Read the timer-active flag byte at this+45392; if zero the function returns without any state change [field:this:0x0000B150, source:raw]
+    // CALCULATION: Increment the countdown counter dword at this+45384 [field:this:0x0000B148, source:raw]
+    // CALL: Call SceneOrderReader() to obtain the scene-order threshold into v2 [callee:0x004C1190, source:raw]
+    // GUARD: If the counter at this+45384 is greater than or equal to the scene-order threshold v2, set the session phase dword at this+45380 to 3 [field:this:0x0000B144, field:this:0x0000B148, source:raw]
+    // ASSIGNMENT: Reset the phase counter dword at this+45388 to 1 and clear the timer-active flag byte at this+45392 to 0 [field:this:0x0000B14C, field:this:0x0000B150, source:raw]
+    // RETURN: Return v2, which on the active path is the SceneOrderReader threshold [source:raw]
+    // CALL: Reached from PitStopPhaseAdvance (0x004C15A0) as the countdown driver for the session-phase transition [caller:0x004C15A0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   char TimerCountdownWithStateTransition(int this) {
+    //     int v2;
+    //     LOBYTE(v2) = *(BYTE*)(this + 45392);
+    //     if (LOBYTE(v2)) {
+    //       ++*(DWORD*)(this + 45384);
+    //       v2 = SceneOrderReader();
+    //       if (*(DWORD*)(this + 45384) >= v2) *(DWORD*)(this + 45380) = 3;
+    //       *(DWORD*)(this + 45388) = 1;
+    //       *(BYTE*)(this + 45392) = 0;
+    //     }
+    //     return v2;
+    //   }
+    // UNRESOLVED: The semantic meaning of phase value 3 at this+45380 (0xB144) is unknown; the wider transition is owned by the caller PitStopPhaseAdvance.
+    // UNRESOLVED: The return value on the flag-zero path is unspecified: v2's low byte holds the (zero) flag and is only clobbered on the active path.
+    // UNRESOLVED: The exact meaning of SceneOrderReader and why the counter is compared against it is unknown.
+}

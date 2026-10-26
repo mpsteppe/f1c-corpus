@@ -1,0 +1,128 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0042F470
+// Canonical corpus name: VehicleSetupValueFormatter
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VehicleSetupValueFormatter_0042f470.c
+
+void UnknownObject::VehicleSetupValueFormatter()
+{
+    // Formats one vehicle-setup parameter value into its display string for a garage/setup menu. The option index a2 selects a 64-byte per-option slot at this + (a2 << 6) + 2992 and dispatches through a large switch (50+ cases) to the correct format specifier, unit conversion (metric vs imperial selected by this+0x4, cm-to-inch 0.3937007874015748, radian-to-degree 57.29577951308232, liter-to-gallon 0.2641720372841846), and optional localized label lookup via BinarySearchInStringTable into byte_5EC4CC. Written output goes to the slot string buffer at +30 (this+3022). Several cases delegate to the sibling helpers SetupValueFormatDS, SetupValueFormat1fS and SetupValueFormatWithOffset. Called only from MenuOptionValueDisplay (0x004673B0).
+    // CALCULATION: Entry: the option index a2 dispatches the format path through a large switch; v4 = (a2 << 6) + this + 2992 addresses the option's 64-byte slot within the setup structure, and the combined value shown by most arms is (int)(slot+20) * (double)(slot+8) + (double)(slot+0). [abi:lead, function:0x0042F470, source:raw]
+    // CALL: Case 0 (tire brand/compound): the 'unknown' placeholder string aUnknown is localized via BinarySearchInStringTable into byte_5EC4CC and copied to the slot output buffer (v4+30). The brand is resolved with TireBrandLookup(dword_8AD254, this+112) and the compound with CompoundIndexLookup using the slot index at v4+20; the resolved brand string defaults to byte_5EA438 when empty, is localized into byte_5EC4CC, and written with StringFormatWithBufferOverflowCheck. Returns null when the brand/compound lookup fails. [callee:0x00423A00, callee:0x0058815F, callee:0x004D7570, callee:0x004D7880, global:0x008AD254, global:0x005EA438, global:0x005C307C, global:0x005EC4C0, global:0x005EC4CC, source:raw]
+    // CALCULATION: Cases 1, 2, 0x1F: the combined slot value is formatted as '%4.1f:%4.1f' into the slot output buffer (this + (a2 << 6) + 3022), showing 100.0 - combined*100.0 and combined*100.0. [callee:0x0058815F, source:raw]
+    // CALL: Case 3: the combined slot value is formatted as '%.2f %s' into v4+30 with the localized 'turns' unit label aTurns (BinarySearchInStringTable into byte_5EC4CC). [callee:0x00423A00, callee:0x0058815F, global:0x005C3828, global:0x005EC4C0, global:0x005EC4CC, source:raw]
+    // GUARD: Cases 4, 0x34, 0x35, 0x36 (fuel/laps): the counter field this+0x1884 gates whether an 'N/A' label replaces the computed value. a2==52 requires this+0x1884 < 1, a2==53 requires < 2, a2==54 requires >= 3 to fall through to the computed value; otherwise the localized 'N/A' label from off_5C3810 is output as '%s'. [field:this:0x00001884, guard:1, guard:2, guard:3, source:raw]
+    // CALL: Fuel/laps value computation: when the factor field this+0x1994 is 0.0 the value is unavailable and the buffer holds the localized '(%s)' placeholder; otherwise the combined value is scaled by the factor and truncated with CRTFtol. A result of 1 formats as '(1 %s)' using off_5C3804, any other count as '(%d %s)' using the localized aLaps label; the result is built in the temporary v47 buffer. [field:this:0x00001994, callee:0x00587BDC, callee:0x00423A00, callee:0x0058815F, global:0x005C37F4, global:0x005C3804, global:0x005EC4C0, global:0x005EC4CC, source:raw]
+    // CALCULATION: Final fuel/laps format: when the unit flag this+0x4 == 1 the value is output as '%4.1f %s %s' with the combined value converted by 0.2641720372841846 (US gallons per liter); otherwise as '%d %s %s' with the integer combined value. Unit label comes from this+88 and the lap-count suffix from the v47 buffer. [field:this:0x00000004, guard:0, callee:0x0058815F, source:raw]
+    // GUARD: Cases 5, 6 (ride height): if the override byte this+0x1989 is set the value is delegated to SetupValueFormatDS; otherwise the combined value is scaled by 100.0 and the unit flag this+0x4 selects '%3.3f'-style '%.3f %s' with cm-to-inch conversion (0.3937007874015748) versus metric '%.2f %s', using label this+24. [field:this:0x00001989, field:this:0x00000004, guard:0, callee:0x0042F180, callee:0x0058815F, source:raw]
+    // CALCULATION: Cases 7, 8: the combined value is converted from radians to degrees (multiplied by 57.29577951308232) and formatted as '%.2f %s' with the label at this+40 into the slot output buffer. [callee:0x0058815F, source:raw]
+    // CALCULATION: Cases 9, 0xA: the combined value scaled by 100.0; the unit flag this+0x4 selects '%.2f %s' with cm-to-inch conversion (0.3937007874015748) versus metric '%.1f %s', using label this+24. [field:this:0x00000004, guard:0, callee:0x0058815F, source:raw]
+    // CALCULATION: Cases 0xB, 0xC, 0x22: the combined value is converted radians-to-degrees (multiplied by 57.29577951308232) and formatted as '%.1f %s' with the label at this+40. [callee:0x0058815F, source:raw]
+    // CALL: Cases 0xD, 0xE, 0xF, 0x15: delegates formatting to SetupValueFormatWithOffset(this, slot buffer, 0.0). [callee:0x0042F260, source:raw]
+    // CALL: Cases 0x10, 0x16: delegates formatting to SetupValueFormatDS(this, slot buffer). [callee:0x0042F180, source:raw]
+    // CALL: Cases 0x11, 0x12, 0x13, 0x14, 0x17, 0x18, 0x19, 0x1A: delegates formatting to SetupValueFormat1fS(this, slot buffer). [callee:0x0042F1E0, source:raw]
+    // GUARD: Cases 0x1B, 0x1C: if bit 0 of the flags byte this+0x198C is set, the output is '%d' of (slot int at +20 + 1); otherwise '%d %s' of the combined value with the label at this+40. [field:this:0x0000198C, callee:0x0058815F, source:raw]
+    // CALL: Case 0x1D: if bit 1 of this+0x198C is set, the output is '%d' of (slot int at +20 + 1); otherwise '%d%%' of (100.0 - combined value). [field:this:0x0000198C, callee:0x0058815F, source:raw]
+    // CALL: Cases 0x1E, 0x26, 0x28: output is '%d' of (slot int at +20 + 1). [callee:0x0058815F, source:raw]
+    // CALCULATION: Cases 0x20, 0x21, 0x23, 0x24, 0x25: output is '%d%%' of the combined value scaled by 100.0. [callee:0x0058815F, source:raw]
+    // CALCULATION: Case 0x27: the combined value scaled by 9.549296585513721 is truncated to the integer v44 and output as '%d%03d' of v44 / 1000 and v44 % 1000 (RPM-style display). [callee:0x0058815F, source:raw]
+    // CALL: Cases 0x29, 0x33: output is '%d' of the slot int at +20. [callee:0x0058815F, source:raw]
+    // CALL: Case 0x2A (bevel/differential gear): two ratio components are fetched from the array at this+6512 via ArrayElementGetter and BoundedArrayElementAccessor using the slot int at +20, plus the stored gear values this+0x1980 and this+0x1984; the 'bevel' label is localized via BinarySearchInStringTable. If bit 2 of this+0x198C is set the output is '%2d/%2d (%s %2d/%2d)', otherwise the ratio is formatted as '%.2f:1'. [callee:0x0042DCC0, callee:0x0042DCE0, callee:0x00423A00, callee:0x0058815F, field:this:0x00001980, field:this:0x00001984, field:this:0x0000198C, global:0x005C36C0, global:0x005EC4C0, global:0x005EC4CC, source:raw]
+    // GUARD: Cases 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32 (gear ratios): if the slot byte at +3020 is set, two gear values are fetched via BoundedArrayAccessor and BoundsCheckedArrayLookup and a ratio computed via RatioCalculator over the this+6512 array using this+0x1644 as the track/gear count; bit 2 of this+0x198C selects '%2d/%2d (%.3f)' versus '%.2f (%.2f)'. Otherwise the localized 'N/A' label from off_5C3810 is output as '%s'. [callee:0x0042DC80, callee:0x0042DCA0, callee:0x0042DD00, callee:0x00423A00, callee:0x0058815F, field:this:0x00001644, field:this:0x0000198C, global:0x005C3810, global:0x005EC4C0, global:0x005EC4CC, source:raw]
+    // RETURN: Default arm: returns a2 (the option index) unchanged. All explicit case arms return the output buffer pointer produced by StringFormatWithBufferOverflowCheck (or a delegate helper's result). [callee:0x0058815F, source:raw]
+
+    // Conservative worker pseudocode:
+    //   slot = this + (a2 << 6) + 2992;
+    //   calc = (double)*(int*)(slot + 20) * *(double*)(slot + 8) + *(double*)slot;
+    //   switch (a2) {
+    //     case 0: // tire brand/compound
+    //       localize(aUnknown -> byte_5EC4CC);
+    //       brand = TireBrandLookup(&dword_8AD254, this + 112);
+    //       if (brand) {
+    //         compound = CompoundIndexLookup(brand, *(int*)(slot + 20));
+    //         if (compound) {
+    //           name = *compound ? *compound : byte_5EA438;
+    //           if (BinarySearchInStringTable(byte_5EC4C0, name, byte_5EC4CC))
+    //             name ? strcpy(byte_5EC4CC, name) : (byte_5EC4CC[0] = 0);
+    //           return fmt(slot + 30, "%s", byte_5EC4CC);
+    //         }
+    //       }
+    //       return 0;
+    //     case 1: case 2: case 0x1F:
+    //       return fmt(this + (a2 << 6) + 3022, "%4.1f:%4.1f", 100.0 - calc * 100.0, calc * 100.0);
+    //     case 3:
+    //       localize(aTurns -> byte_5EC4CC);
+    //       return fmt(slot + 30, "%.2f %s", calc, byte_5EC4CC);
+    //     case 4: case 0x34: case 0x35: case 0x36: // fuel / laps
+    //       threshold = a2 == 52 ? 1 : (a2 == 53 ? 2 : (a2 == 54 ? 3 : 0));
+    //       if (*(int*)(this + 0x1884) op threshold failed)
+    //         return fmt(slot + 30, "%s", localize(off_5C3810));
+    //       if (*(double*)(this + 0x1994) == 0.0)
+    //         tmp = fmt(v47, "(%s)", localize(off_5C3810));
+    //       else {
+    //         laps = CRTFtol(calc * *(double*)(this + 0x1994));
+    //         tmp = laps == 1 ? fmt(v47, "(1 %s)", localize(off_5C3804))
+    //                          : fmt(v47, "(%d %s)", laps, localize(aLaps));
+    //       }
+    //       return (*(int*)(this + 0x4) == 1)
+    //         ? fmt(slot + 30, "%4.1f %s %s", calc * 0.2641720372841846, (char*)(this + 88), tmp)
+    //         : fmt(slot + 30, "%d %s %s", (int)calc, (char*)(this + 88), tmp);
+    //     case 5: case 6: // ride height
+    //       if (*(byte*)(this + 0x1989)) return SetupValueFormatDS(this, slot);
+    //       val = calc * 100.0;
+    //       return (*(int*)(this + 0x4))
+    //         ? fmt(this + (a2 << 6) + 3022, "%.3f %s", val * 0.3937007874015748, (char*)(this + 24))
+    //         : fmt(this + (a2 << 6) + 3022, "%.2f %s", val, (char*)(this + 24));
+    //     case 7: case 8:
+    //       return fmt(this + (a2 << 6) + 3022, "%.2f %s", calc * 57.29577951308232, (char*)(this + 40));
+    //     case 9: case 0xA:
+    //       val = calc * 100.0;
+    //       return (*(int*)(this + 0x4))
+    //         ? fmt(this + (a2 << 6) + 3022, "%.2f %s", val * 0.3937007874015748, (char*)(this + 24))
+    //         : fmt(this + (a2 << 6) + 3022, "%.1f %s", val, (char*)(this + 24));
+    //     case 0xB: case 0xC: case 0x22:
+    //       return fmt(this + (a2 << 6) + 3022, "%.1f %s", calc * 57.29577951308232, (char*)(this + 40));
+    //     case 0xD: case 0xE: case 0xF: case 0x15:
+    //       return SetupValueFormatWithOffset(this, slot, 0.0);
+    //     case 0x10: case 0x16: return SetupValueFormatDS(this, slot);
+    //     case 0x11: case 0x12: case 0x13: case 0x14: case 0x17: case 0x18: case 0x19: case 0x1A:
+    //       return SetupValueFormat1fS(this, slot);
+    //     case 0x1B: case 0x1C:
+    //       if (*(byte*)(this + 0x198C) & 1) return fmt(slot + 30, "%d", *(int*)(slot + 20) + 1);
+    //       return fmt(slot + 30, "%d %s", (int)calc, (char*)(this + 40));
+    //     case 0x1D:
+    //       if (*(byte*)(this + 0x198C) & 2) return fmt(slot + 30, "%d", *(int*)(slot + 20) + 1);
+    //       return fmt(slot + 30, "%d%%", (int)(100.0 - calc));
+    //     case 0x1E: case 0x26: case 0x28:
+    //       return fmt(slot + 30, "%d", *(int*)(slot + 20) + 1);
+    //     case 0x20: case 0x21: case 0x23: case 0x24: case 0x25:
+    //       return fmt(slot + 30, "%d%%", (int)(calc * 100.0));
+    //     case 0x27:
+    //       v44 = (int)(calc * 9.549296585513721);
+    //       return fmt(slot + 30, "%d%03d", v44 / 1000, v44 % 1000);
+    //     case 0x29: case 0x33: return fmt(slot + 30, "%d", *(int*)(slot + 20));
+    //     case 0x2A: // bevel / differential gear
+    //       localize(aBevel -> byte_5EC4CC);
+    //       a = ArrayElementGetter((int*)(this + 6512), *(int*)(slot + 20));
+    //       b = BoundedArrayElementAccessor((int*)(this + 6512), a2-derived index);
+    //       c = *(int*)(this + 0x1980); d = *(int*)(this + 0x1984);
+    //       if (*(byte*)(this + 0x198C) & 4)
+    //         return fmt(slot + 30, "%2d/%2d (%s %2d/%2d)", a, b, byte_5EC4CC, c, d);
+    //       return fmt(slot + 30, "%.2f:1", (double)(b * d) / (double)(a * c));
+    //     case 0x2B: case 0x2C: case 0x2D: case 0x2E: case 0x2F: case 0x30: case 0x31: case 0x32:
+    //       if (*(byte*)(slot + 28)) {
+    //         a = BoundedArrayAccessor((int*)(this + 6512), *(int*)(slot + 20));
+    //         b = BoundsCheckedArrayLookup((int*)(this + 6512), index);
+    //         r = RatioCalculator((int*)(this + 6512), index, *(int*)(this + 0x1644));
+    //         if (*(byte*)(this + 0x198C) & 4) return fmt(slot + 30, "%2d/%2d (%.3f)", a, b, r);
+    //         return fmt(slot + 30, "%.2f (%.2f)", (double)b / (double)a, r);
+    //       }
+    //       return fmt(slot + 30, "%s", localize(off_5C3810));
+    //     default: return (const char**)a2;
+    //   }
+    // UNRESOLVED: The switch dispatches through the jump-table global jpt_42F49D (0x42FC74); the decompiled text inlines every case so the table itself is never referenced, but it is the compiled backing of the dispatch.
+    // UNRESOLVED: String globals aS_4, aD_1, a1fS, aDS, a3fS, a2f2f, a2d2d3f, a2f1, a2d2dS2d2d, aD03d, aD, aDSS, a41fSS, aDS_0, a1S, aS, a41f41f, a2fS and byte_42FCC4 are flagged by packet facts but never named in the decompiled text; they most likely back the inline string literals or jump-table data, but their exact contents are unverifiable here.
+    // UNRESOLVED: Double globals dbl_59E430, dbl_59EA18, dbl_59EA20, dbl_59EA30, dbl_59EA38, dbl_59EA40 are absent from the decompiled text; they may back the inline conversion constants (0.2641720372841846, 0.3937007874015748, 57.29577951308232, 9.549296585513721) but that mapping is unverified.
+    // UNRESOLVED: The per-option slot layout (64-byte stride; double at +0, double at +8, int at +20, byte at +28, string at +30) is visible only through the raw-source literals 2992/3000/3012/3020/3022; those offsets have no dedicated packet field evidence, so the underlying structure is undocumented.
+    // UNRESOLVED: Return-value semantics are ambiguous: format arms return the output buffer pointer produced by StringFormatWithBufferOverflowCheck, while the default arm returns a2 (the option index cast to const char**); how MenuOptionValueDisplay consumes the return is not evidenced here.
+}

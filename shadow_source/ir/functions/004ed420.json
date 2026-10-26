@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "address": "0x004ED420",
+  "proposed_name": "VehicleGeometryProximityTest",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004ED420", "source:raw"]
+  },
+  "summary": "Vehicle geometry proximity/contact test. Transforms a probe point a2 into the vehicle-local frame via sub_4EA930, then rotates it (together with a reference vector a3) by the 3x3 matrix stored at this+0x34B0..0x34D0. Builds a contact-normal candidate by cross product and a relative position by vector add. Iterates up to four vehicle corners (positions at this+0x3594 with 62-float stride, squared-distance threshold at v18[31], contact pointer at this+0x828 with active byte at this+0x868); on a hit computes an anisotropic contact response scaled by the per-corner scalar this[62*i+3436] that adjusts the relative position. Writes *a4 = signed projection of the position onto the rotated normal and *a5 = AnisoVectorTripleProduct result. If a6 is non-null, corrects the contact point and writes the response through F_33MatrixVectorMultiply into a6, returning a6; otherwise returns null. On the per-frame collision path.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "sub_4EA930(a2, this + 3381, &v38) transforms the probe point a2 into the vehicle-local frame relative to the origin vector this+3381, returning a 3-component result (v8, v9, v31).",
+      "evidence_refs": ["callee:0x004EA930", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Rotate the local vector (v8, v9, v31) by the 3x3 matrix at this+0x34B0..0x34D0 (columns this[3372..3380]) into the corner-space position (v35, v36, v37).",
+      "evidence_refs": ["field:this:0x000034B0", "field:this:0x000034B4", "field:this:0x000034B8", "field:this:0x000034BC", "field:this:0x000034C0", "field:this:0x000034C4", "field:this:0x000034C8", "field:this:0x000034CC", "field:this:0x000034D0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Rotate the second input vector a3 by the same matrix into the normal-space components (v26, v27, v28).",
+      "evidence_refs": ["field:this:0x000034B0", "field:this:0x000034B4", "field:this:0x000034B8", "field:this:0x000034BC", "field:this:0x000034C0", "field:this:0x000034C4", "field:this:0x000034C8", "field:this:0x000034CC", "field:this:0x000034D0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "F_3DCrossProduct(&v38) computes the cross product of the local vector into the contact-normal candidate (v32, v33, v34).",
+      "evidence_refs": ["callee:0x004ED750", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Vec3Add(v41) sums vectors into the relative position (v29, v30, v31) used by the corner loop and the final projection.",
+      "evidence_refs": ["callee:0x004ED710", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate up to four vehicle corners: position pointer v18 starts at this + 3429 (offset 0x3594) with a 62-float stride, contact pointer v17 starts at this + 522 (offset 0x828) with a 74-float stride; stop after 4 iterations.",
+      "evidence_refs": ["field:this:0x00003594", "field:this:0x00000828", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Per corner, compute the squared distance from (v35, v36, v37) to the corner position; break when it is below the corner threshold squared v18[31]^2 (offset 0x3610) AND the corner contact pointer at v17 is non-null AND the active byte at v17 + 64 (offset 0x868) is set.",
+      "evidence_refs": ["field:this:0x00003610", "field:this:0x00000828", "field:this:0x00000868", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "On a corner hit, build the anisotropic response: v21 = -(v34 * this[v20 + 3436]) and v22 = v33 * this[v20 + 3436] using the per-corner scalar at index v20 + 3436, then v23 = v28 * v22 + v27 * v21 (plus v26 scaled by the near-zero global constant flt_59E440, folded to 0.0 in the raw text), and adjust the relative position (v29, v30, v31) by the scaled normal components.",
+      "evidence_refs": ["global:0x0059E440", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the signed projection *a4 = v31 * v28 + v30 * v27 + v29 * v26, the dot of the relative position with the rotated normal (contact depth along the normal).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Compute *a5 = AnisoVectorTripleProduct(this, &v35, &v26) — the anisotropic triple-product contact response.",
+      "evidence_refs": ["callee:0x004ED380", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If a6 is non-null, correct the contact point by subtracting the depth-scaled normal, then write the response through F_33MatrixVectorMultiply(&v38, a6) and return the result pointer a6.",
+      "evidence_refs": ["callee:0x004ED7B0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return a6 when a response vector was requested, otherwise return null.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called by F_3DCollisionDetectionWithAABBTestAndContactResp (0x004EA040), CollisionDetectionSystem (0x004EA970) and VehicleYawRotationRecoveryController (0x004F1C40) as part of per-frame collision handling.",
+      "evidence_refs": ["caller:0x004EA040", "caller:0x004EA970", "caller:0x004F1C40", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int VehicleGeometryProximityTest(float* this, float* a2, float* a3, float* a4, float* a5, int a6) {",
+    "  float* v7 = sub_4EA930(a2, this + 3381, &v38);",
+    "  float x = v7[0], y = v7[1], z = v7[2];",
+    "  v35 = z * this[3378] + y * this[3375] + x * this[3372];",
+    "  v36 = z * this[3379] + y * this[3376] + x * this[3373];",
+    "  v37 = z * this[3380] + y * this[3377] + x * this[3374];",
+    "  v26 = this[3378] * a3[2] + this[3375] * a3[1] + a3[0] * this[3372];",
+    "  v27 = this[3379] * a3[2] + this[3376] * a3[1] + this[3373] * a3[0];",
+    "  v28 = this[3380] * a3[2] + this[3377] * a3[1] + this[3374] * a3[0];",
+    "  float* cp = F_3DCrossProduct(&v38);",
+    "  v32 = cp[0]; v33 = cp[1]; v34 = cp[2];",
+    "  float* sp = Vec3Add(v41);",
+    "  v29 = sp[0]; v30 = sp[1]; v31 = sp[2];",
+    "  int i = 0;",
+    "  float* ctl = this + 522;",
+    "  float* pos = this + 3429;",
+    "  for (;;) {",
+    "    float ex = v35 - pos[0], ey = v36 - pos[1], ez = v37 - pos[2];",
+    "    if (pos[31] * pos[31] > ez * ez + ey * ey + ex * ex",
+    "        && *(int*)ctl && *((char*)ctl + 64)) break;",
+    "    ++i; pos += 62; ctl += 74;",
+    "    if (i >= 4) goto LABEL_8;",
+    "  }",
+    "  {",
+    "    float s = this[62 * i + 3436];",
+    "    float v21 = -(v34 * s), v22 = v33 * s;",
+    "    float v23 = v28 * v22 + v27 * v21 + v26 * 0.0;",
+    "    v33 = v27 * v23; v34 = v28 * v23; v38 = -(v26 * v23);",
+    "    v39 = v21 - v33;",
+    "    v29 += v38; v30 += v39; v31 += v22 - v34;",
+    "  }",
+    "LABEL_8:",
+    "  *a4 = v31 * v28 + v30 * v27 + v29 * v26;",
+    "  *a5 = AnisoVectorTripleProduct(this, &v35, &v26);",
+    "  if (a6) {",
+    "    float d = *a4;",
+    "    v39 = v27 * d; v40 = v28 * d;",
+    "    v32 = v29 - v26 * d; v38 = v32;",
+    "    v33 = v30 - v39; v39 = v33;",
+    "    v34 = v31 - v40; v40 = v34;",
+    "    return F_33MatrixVectorMultiply(&v38, a6);",
+    "  }",
+    "  return a6;",
+    "}"
+  ],
+  "unresolved": [
+    "The 3x3 matrix at this+0x34B0..0x34D0 is interpreted here as the vehicle rotation matrix from the column-access pattern only; that semantic identity is DERIVED, not packet-confirmed.",
+    "sub_4EA930's exact transform and the identity of the Vec3Add operand vector (v41 scratch, not visible in the decompiled text) are unresolved.",
+    "Per-corner scalar at this[62*i + 3436] and the threshold v18[31] semantics (radius vs squared radius) are DERIVED from the raw text only.",
+    "Contact response units and the exact role of the packet global flt_59E440 (near-zero constant folded to 0.0 in the raw text) are unknown."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

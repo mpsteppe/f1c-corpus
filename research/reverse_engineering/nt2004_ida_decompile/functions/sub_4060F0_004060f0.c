@@ -1,0 +1,22 @@
+int __thiscall sub_4060F0(_DWORD *this)
+{
+  int result; // eax
+
+  *this = -1;
+  sub_578600(&byte_629120);
+  this[3] = 0;
+  this[4] = -1;
+  this[5] = 0;
+  this[6] = 0;
+  this[7] = -1;
+  this[8] = 0;
+  this[9] = 0;
+  this[10] = 0;
+  this[11] = 0;
+  sub_52EFF0(this + 12);
+  this[14] = 0;
+  result = 0;
+  memset(this + 17, 0, 0x2Cu);
+  *((_BYTE *)this + 112) = 0;
+  return result;
+}

@@ -1,0 +1,39 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004BFF70
+// Canonical corpus name: sub_4BFF70
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4BFF70_004bff70.c
+
+void UnknownObject::AssignStartingGridPositions()
+{
+    // Assigns starting grid positions to all vehicles. In the qualifying path (player display index dword_7D0110 equals a second display/session field) it gathers per-driver qualifying position and time, sorts the gathered triples ascending by qualifying position, then writes grid positions and times into each vehicle record. In the non-qualifying path it places the player (randomly when the stored display index is zero) and fills the remaining vehicles sequentially, skipping the player's grid position.
+    // GUARD: Early-exit unless championship mode flag dword_7D0410 is greater than 0 and at most 5; grid assignment only runs for championship sessions. [global:0x007D0410, source:raw]
+    // GUARD: Branch selection: the qualifying-session grid order path runs when the player display index dword_7D0110 equals a second display/session field; otherwise the random/sequential placement path runs. [global:0x007D0110, source:raw]
+    // CALCULATION: vehicle_count v0 is read from dword_5C329C; per-vehicle records are reached by 18624-byte strides from the vehicle data array whose base is unk_5EC6D0. [global:0x005C329C, global:0x005EC6D0, source:raw]
+    // LOOP: Qualifying gather loop, one iteration per vehicle: for vehicle index 0 when ScoringGateCheck() is active the name source is the track name string dword_7CE668, falling back to byte_5EA438 when that pointer is null; for later vehicles it is the driver-name string at unk_5F0CF8 + 18624 * index. [global:0x007CE668, global:0x005EA438, global:0x005F0CF8, callee:0x0042BC10, source:raw]
+    // CALL: Inside the gather loop sub_4C0260 resolves the qualifying position and sub_4C02D0 the qualifying time for each driver name; both results plus the original vehicle index are stored together as a triple. [callee:0x004C0260, callee:0x004C02D0, source:raw]
+    // LOOP: Selection-sort loop reorders the triples ascending by the qualifying position field, swapping all three words of each triple. [source:raw]
+    // LOOP: Grid assignment loop over the sorted triples: for each triple the vehicle record at unk_5F070C + 18624 * stored_index receives the qualifying time at float index 10, the grid position at dword index 9, and ConditionalFieldSetter applies the same grid position to the record. [global:0x005F070C, callee:0x004BC2F0, source:raw]
+    // CALL: Non-qualifying player placement: when ScoringGateCheck() is active the player grid v13 is taken from dword_7D0110, or RandLCGRandomNumberGenerator() modulo vehicle_count plus 1 when dword_7D0110 is zero, then clamped into the 1..vehicle_count range. [callee:0x0042BC10, global:0x007D0110, callee:0x005884ED, global:0x005C329C, source:raw]
+    // ASSIGNMENT: Writes the player grid into the player vehicle pointed to by dword_7C54E8 at byte offset 16472, stores the sentinel -1082130432 at byte offset 16476, and calls ConditionalFieldSetter on the byte offset 16436 context field. [global:0x007C54E8, callee:0x004BC2F0, source:raw]
+    // LOOP: Fills the remaining vehicle grid positions: starting from unk_5F0734 + 18624 * index, each vehicle receives the next grid number (incrementing past the player grid v13), the same sentinel -1082130432 in its time field, and a ConditionalFieldSetter call; the record pointer advances by 4656 dwords per vehicle. [global:0x005F0734, callee:0x004BC2F0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (dword_7D0410 < 1 || dword_7D0410 > 5) return;
+    //   count = dword_5C329C;
+    //   if (dword_7D0110 == second_display_field) {
+    //       for each vehicle: name = (index==0 && ScoringGateCheck()) ? (dword_7CE668 or byte_5EA438) : driver_name_string(index);
+    //                        triple = { sub_4C0260(name), sub_4C02D0(name), index };
+    //       sort triples ascending by first element;
+    //       for pos = 1..count: record = unk_5F070C + 18624 * triple.index; record.time = triple.qual_time; record.grid = pos; ConditionalFieldSetter(record, pos);
+    //   } else {
+    //       if (ScoringGateCheck()) {
+    //           grid = dword_7D0110 ? dword_7D0110 : (RandLCGRandomNumberGenerator() % count + 1);
+    //           clamp grid to 1..count;
+    //           player + 16472 = grid; player + 16476 = -1082130432; ConditionalFieldSetter(player + 16436, grid);
+    //       }
+    //       for each remaining vehicle: skip grid == player_grid; record.grid = next_grid; record.time = -1082130432; ConditionalFieldSetter(record, next_grid++);
+    //   }
+    // UNRESOLVED: The qualifying/random branch compares dword_7D0110 against a second display/session field spelled dword_7D011C in the raw source, which is absent from the packet global list.
+    // UNRESOLVED: Exact VEH field semantics behind the unk_5F070C and unk_5F0734 writes (grid position vs qualifying time) follow the existing analysis and are not independently confirmed.
+}

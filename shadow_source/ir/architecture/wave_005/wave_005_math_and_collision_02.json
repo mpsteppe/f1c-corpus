@@ -1,0 +1,1089 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_005_math_and_collision_02",
+  "scope": "math_and_collision",
+  "subsystem": {
+    "name": "MathAndCollision",
+    "responsibility": "Vector and matrix math utilities (vector3 add/subtract, 3x3 matrix-vector multiply, dot product, SSE/3DNow matrix builders), particle-system orientation-axis update, and a broad set of bounded/strided array helpers (counted dword arrays, sorted LRU arrays, socket arrays, Bink frame-lookup arrays, particle element arrays, network record arrays, allocation descriptors) plus their teardown, lookup, and reset paths. Most owners are UNKNOWN at the function-IR level; the only named owner is the respawn-state array (VehicleRespawnState).",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x004CC840",
+      "function:0x004CE8F0",
+      "function:0x004DD470",
+      "function:0x004DED20",
+      "function:0x004DEDB0",
+      "function:0x004DF030",
+      "function:0x004E0E20",
+      "function:0x004E3890",
+      "function:0x004EA930",
+      "function:0x004ED710",
+      "function:0x004ED7B0",
+      "function:0x004EFEE0",
+      "function:0x0052087E",
+      "function:0x0052273B",
+      "function:0x0052DA10",
+      "function:0x0053C190",
+      "function:0x0054BF10",
+      "function:0x0054C270",
+      "function:0x0054E240",
+      "function:0x005504D0",
+      "function:0x00558CB0",
+      "function:0x0055BFD0",
+      "function:0x0055BFF0",
+      "function:0x0055D460",
+      "function:0x0055D5C0",
+      "function:0x00560B60",
+      "function:0x00562D20",
+      "function:0x00563230",
+      "function:0x005646D0",
+      "function:0x005648B0",
+      "function:0x00564990",
+      "source:raw"
+    ]
+  },
+  "summary": "Proposal for the math_and_collision slice of Wave 5. The functions fall into three groups. (1) Pure math utilities: vector3 add/subtract (0x4EA930, 0x4ED710), 3x3 matrix-vector multiply (0x4ED7B0), vector3 dot product (0x4EFEE0), an SSE constant matrix init (0x52087E) and a 3DNow translation-matrix constructor (0x52273B). (2) A particle-system orientation-axis updater (0x4CC840) that walks a 10-float strided axis array, a vector-field presence test (0x4CE8F0), and a scene-relative direction-vector computation feeding a DirectX vertex buffer (0x55D5C0, 0x55D460). (3) Array containers and their operations: teardown loops (0x4DD470, 0x4DED20), a sorted LRU array with eviction and reporting (0x4DEDB0, 0x4DF030), lazy-init entry cleanup (0x4E0E20), respawn-state array reset (0x4E3890), bounded index reads and lookups (0x54E240, 0x5504D0, 0x558CB0, 0x55BFD0, 0x55BFF0), batch walkers (0x53C190, 0x54C270), a socket array create/search pair sharing a count-at-0x6C base-at-0x8 layout (0x562D20, 0x563230), an int-array allocator (0x560B60), a five-dword allocation descriptor (0x5646D0), and a network record array with linear-interpolation addressing and shift-removal (0x5648B0, 0x564990). Almost every owner is UNKNOWN; the groupings below are DERIVED/GUESS proposals, not confirmed identities.",
+  "function_roles": [
+    {
+      "address": "0x004CC840",
+      "role": "Recalculates a strided array of particle orientation axes: obtains a source direction (and a Y component) from an object reached through VirtualDispatchHelper(&dword_5EA510) at offset +36, scales X and Z by -0.03125, walks 10-float entries from unk_8AC840 to the end marker flt_8ACAC0, writes each entry's direction, computes the cross product of the two direction rows, stores it as the entry axis, and normalizes the axis to length this[4]/2 (default X-axis of that length when magnitude is zero).",
+      "owner": "ParticleMatrixRotationUpdater",
+      "evidence_refs": [
+        "function:0x004CC840",
+        "source:raw",
+        "callee:0x0040C870",
+        "global:0x005EA510",
+        "global:0x008AC840",
+        "global:0x008ACAC0",
+        "field:this:0x00000010"
+      ]
+    },
+    {
+      "address": "0x004CE8F0",
+      "role": "Pure presence check over three float channels of the input struct: returns TRUE when the float at offset 0x00 is non-zero OR the float at offset 0x14 is non-zero OR the float at offset 0x28 is non-zero; otherwise FALSE. No side effects; frame-path helper called by 0x004EE2D0.",
+      "owner": "VectorFieldPresenceStruct",
+      "evidence_refs": [
+        "function:0x004CE8F0",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000014",
+        "field:this:0x00000028",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x004DD470",
+      "role": "Cleanup helper: frees a single resource pointer at offset 8 via FreeWrapper_7bcf when non-null, then when the array pointer at offset 16 is non-null reads the element count from the length header 4 bytes before the array pointer, iterates backward over 24-byte elements calling ShortComputation_d4d0 on each, and frees the allocation (starting at the length header) via FreeWrapper_7bcf; returns the single-free result when no array is present.",
+      "owner": "SingleResourceArrayOwner",
+      "evidence_refs": [
+        "function:0x004DD470",
+        "source:raw",
+        "field:this:0x00000008",
+        "field:this:0x00000010",
+        "callee:0x00587BCF",
+        "callee:0x004DD4D0",
+        "caller:0x004E3360",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x004DED20",
+      "role": "Destructor for an object holding two heap arrays whose element counts live in the allocation header 4 bytes before each block: zeroes head fields at offsets 0x4/0x8, tears down the first array (pointer at 0xC, 12-byte elements, per-element teardown sub_4DD4C0) from last to first, frees the block via FreeWrapper_7bcf, zeroes 0xC/0x10, tears down the second array (pointer at 0x14, 24-byte elements, per-element ShortComputation_d4d0), frees it, zeroes 0x14/0x18, and returns 0.",
+      "owner": "DualArrayOwner",
+      "evidence_refs": [
+        "function:0x004DED20",
+        "source:raw",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "callee:0x004DD4C0",
+        "callee:0x004DD4D0",
+        "callee:0x00587BCF",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x004DEDB0",
+      "role": "Inserts a 9-float (36-byte) entry into a fixed-capacity sorted array (max 20 entries, stride 9 floats, count at this+0x18, entries from this+0x20): rejects exact duplicates with a -1 index report via sub_4DF110, evicts a minimum-score LRU candidate when full by shifting entries left, finds the sorted insertion position by key a2[1], shifts entries right to make room, copies the entry, increments the count, and returns the sub_4DF110 report of the inserted key and index.",
+      "owner": "SortedLRUArray",
+      "evidence_refs": [
+        "function:0x004DEDB0",
+        "source:raw",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x0000003C",
+        "callee:0x004DF110",
+        "global:0x0059E670",
+        "global:0x005AD140"
+      ]
+    },
+    {
+      "address": "0x004DF030",
+      "role": "Builds a 9-float stack entry (type marker 1 in slot 0, value a2 in slot 1, slots 2-8 zeroed) and inserts it into the sorted LRU array via SortedArrayInsertWithLRUEviction only when the dword flag at this+0x18 is nonzero; returns the flag value when the insertion is skipped, else the insertion result.",
+      "owner": "SortedLRUArray",
+      "evidence_refs": [
+        "function:0x004DF030",
+        "source:raw",
+        "field:this:0x00000018",
+        "callee:0x004DEDB0"
+      ]
+    },
+    {
+      "address": "0x004E0E20",
+      "role": "Per-entry lazy-cleanup within an array owned by a subsystem object: selects an array entry by scaling the a2 index by 74 dwords, runs one-time lazy initialization (0x4E0D00) on a sub-block 81 dwords into the entry, advances 98 dwords, runs lazy initialization on the second sub-block, then if that sub-block's first dword is nonzero flags a state condition through FlagFieldBitManipulation(1, 1, 0, 0); otherwise returns the initialization result.",
+      "owner": "ArrayEntryLazyInitSubsystem",
+      "evidence_refs": [
+        "function:0x004E0E20",
+        "source:raw",
+        "callee:0x004E0D00",
+        "callee:0x0054C030",
+        "caller:0x004E17C0",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x004E3890",
+      "role": "Resets an array of per-vehicle respawn state entries: reads the entry count at this+0xBA8, and when it is greater than zero iterates entries with a 187-float (748-byte) stride starting at this+747 floats, calling sub_4DF110(current_entry, 0.0, -1) on each and clearing the entry's sixth float at this+0xBC4 to 0.0; returns the last-read count. Called by VehicleRespawnReset (0x004E0800).",
+      "owner": "VehicleRespawnState",
+      "evidence_refs": [
+        "function:0x004E3890",
+        "source:raw",
+        "field:this:0x00000BA8",
+        "field:this:0x00000BC4",
+        "callee:0x004DF110",
+        "caller:0x004E0800"
+      ]
+    },
+    {
+      "address": "0x004EA930",
+      "role": "Per-component 3-float vector subtraction: writes a3[0..2] = a1[0..2] - a2[0..2] and returns the output pointer a3. Invoked from 3D collision, vehicle contact force and vehicle geometry proximity paths.",
+      "owner": "Vector3",
+      "evidence_refs": [
+        "function:0x004EA930",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008"
+      ]
+    },
+    {
+      "address": "0x004ED710",
+      "role": "Per-component 3-float vector addition: writes a3[0..2] = a1[0..2] + a2[0..2] and returns the output pointer a3. Invoked from vehicle geometry proximity and ray/triangle intersection paths.",
+      "owner": "Vector3",
+      "evidence_refs": [
+        "function:0x004ED710",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008"
+      ]
+    },
+    {
+      "address": "0x004ED7B0",
+      "role": "Multiplies a 3x3 matrix (nine floats at offsets 0x0..0x20) by a three-component vector a2 and stores the result in a3; each output component is the dot of one matrix row with a2. Returns the original input vector pointer a2. Used for rigid-body transforms; called by VehicleGeometryProximityTest (0x004ED420) and RayTriangleIntersectionWithBarycentricCoordinate (0x004EFBD0).",
+      "owner": "Matrix33VectorMultiplyHelper",
+      "evidence_refs": [
+        "function:0x004ED7B0",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "caller:0x004ED420",
+        "caller:0x004EFBD0"
+      ]
+    },
+    {
+      "address": "0x004EFEE0",
+      "role": "__fastcall 3-component dot product over two float vectors a1 and a2: returns a1[0]*a2[0] + a1[1]*a2[1] + a1[2]*a2[2] as double. No branches, globals or callees. Single static caller: RayTriangleIntersectionWithBarycentricCoordinate (0x004EFBD0).",
+      "owner": "Vector3DotProductHelper",
+      "evidence_refs": [
+        "function:0x004EFEE0",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "caller:0x004EFBD0"
+      ]
+    },
+    {
+      "address": "0x0052087E",
+      "role": "Initializes a 52-byte matrix/struct at a1 from SSE constants and the __m128 result of EmptyStub_8bd0: row 0 is the fixed constant xmmword_8D61D0, the low dword of xmmword_8D61C0 lands at +0x10 and +0x2C, the full vector at +0x30, and partial stores from the EmptyStub result plus an XOR of its shuffled value with xmmword_8D61B0 fill +0x14/+0x1C/+0x24. Returns a1.",
+      "owner": "SSE52ByteMatrixInitializer",
+      "evidence_refs": [
+        "function:0x0052087E",
+        "source:raw",
+        "callee:0x00528BD0",
+        "field:this:0x00000000",
+        "field:this:0x00000010",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "global:0x008D61B0",
+        "global:0x008D61C0",
+        "global:0x008D61D0",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x0052273B",
+      "role": "Builds a 4x4 transformation matrix stored as 8 __m64 slots in a1: enters 3DNow mode, seeds identity-like constants (1.0f at this+0x0 and this+0x28, packed 1.0f pair at this+0x10), packs the three float parameters a2, a3, a4 into the last two rows (this+0x30 = punpckldq(a2, a3), this+0x38 = punpckldq(a4, 1.0f)), exits 3DNow mode and returns a1.",
+      "owner": "ThreeDNowTransformBuilder",
+      "evidence_refs": [
+        "function:0x0052273B",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "field:this:0x00000028",
+        "field:this:0x00000030",
+        "field:this:0x00000038",
+        "global:0x005AF9C0",
+        "global:0x005AF9C8"
+      ]
+    },
+    {
+      "address": "0x0052DA10",
+      "role": "Zero-initializes a per-object buffer at this+4 whose element count depends on global dword_8B0108: 576 elements by default, 1152 when the flag is clear; memset clears 4 * v2 bytes (4-byte cells). Returns 0 unconditionally. Called from CMpegBase_Open (0x0052E090) and CMpegFilePlayer_Open (0x0052E1D0), i.e. MPEG open paths.",
+      "owner": "ConditionalSizedBufferZeroer",
+      "evidence_refs": [
+        "function:0x0052DA10",
+        "source:raw",
+        "field:this:0x00000004",
+        "global:0x008B0108",
+        "caller:0x0052E090",
+        "caller:0x0052E1D0",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x0053C190",
+      "role": "Fixed-count batch walk over 42 contiguous elements starting at dword_8B6C28 with a 76-byte stride, calling sub_556220 on each element; returns the result of the last call.",
+      "owner": "IterateStructArray42Helper",
+      "evidence_refs": [
+        "function:0x0053C190",
+        "source:raw",
+        "global:0x008B6C28",
+        "callee:0x00556220",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x0054BF10",
+      "role": "Walks a linked list of UI nodes (head at this[129], next pointer at node+0x10); for each node iterates its state-word array (count at node+0x118, base at node+0x11C) and sign-extends each state word by replicating the signed upper 16 bits into the low 16 bits. Called by RecursiveTraversal (0x0054BCD0) as part of UI scene-node state normalization.",
+      "owner": "UiSceneStateWordNormalizer",
+      "evidence_refs": [
+        "function:0x0054BF10",
+        "source:raw",
+        "field:this:0x00000204",
+        "field:this:0x00000224",
+        "field:this:0x0000032C",
+        "field:this:0x00000330",
+        "field:this:0x00000332",
+        "caller:0x0054BCD0",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x0054C270",
+      "role": "Fixed-count batch initialization of a 256-element array of 104-byte float-bearing structs at unk_8B8F40 (stride 26 dwords), calling F_10FloatStructInitializer (0x0053B130) on each element; returns the last initializer result.",
+      "owner": "FloatStructArray256Initializer",
+      "evidence_refs": [
+        "function:0x0054C270",
+        "source:raw",
+        "global:0x008B8F40",
+        "callee:0x0053B130",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x0054E240",
+      "role": "Bounds-checked indexed read: when a2 is below the element count at this+0x120, computes an element entry address from the base pointer at this+0x124 with stride 36 (36*a2+8), dereferences it to a target pointer, and returns the DWORD at target+4; returns 0 when a2 is out of range.",
+      "owner": "IndexedElementArray",
+      "evidence_refs": [
+        "function:0x0054E240",
+        "source:raw",
+        "field:this:0x00000120",
+        "field:this:0x00000124",
+        "caller:0x0044ACB0",
+        "caller:0x004DFCE0"
+      ]
+    },
+    {
+      "address": "0x005504D0",
+      "role": "Bounds-checked lookup into a frame array: index a3 validated against the count at this+0xA4; entry base is this+0xA8 + 148*a3. For terminal frames (entry field 18 <= 1), optionally resets the Bink video decoder via BinkVideoFrameDecoder when entry field 36 and global dword_8B6AC4 are both non-zero, clearing bit 0x400 on the decoder buffer, then returns the frame pointer at entry field 35. For non-terminal frames, a2 == -1 returns the frame pointer directly; otherwise a sub-indexed lookup against the list at entry field 19 (offset by entry field 20) yields a frame offset of 96 times the selected list entry.",
+      "owner": "BinkFrameLookupArray",
+      "evidence_refs": [
+        "function:0x005504D0",
+        "source:raw",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "callee:0x00551DD0",
+        "global:0x008B6AC4"
+      ]
+    },
+    {
+      "address": "0x00558CB0",
+      "role": "Bounds-checked array element flag setter: when index a2 is below the element count at this[0x2C], calls sub_53B330 on the element entry at array base + a2*128 + 16 with three caller arguments, then sets flag 0x4000 on the element base dword at array base + a2*128; returns the element base pointer on success, or the raw index a2 when out of bounds. Per-frame path called by ParticleCollisionSpark (0x004CB620), WheelRenderObjectPerFrameUpdate (0x004CB860), ParticleTrailEmitter (0x004CBC50) and ParticleInstanceUpdate (0x004CC1D0).",
+      "owner": "ParticleElementArray",
+      "evidence_refs": [
+        "function:0x00558CB0",
+        "source:raw",
+        "field:this:0x0000002C",
+        "field:this:0x00000034",
+        "callee:0x0053B330",
+        "caller:0x004CB620",
+        "caller:0x004CB860",
+        "caller:0x004CBC50",
+        "caller:0x004CC1D0",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x0055BFD0",
+      "role": "Bounded array accessor: returns element a2 of a dword array that follows a count field; when a2 is >= the count at this+0x4 the accessor fails closed and returns 0, otherwise returns the dword at this + 8 + 4*a2. Used by UtilityFunction_9160 (0x004F9160) and sub_55F0D0 (0x0055F0D0).",
+      "owner": "CountedDwordArray",
+      "evidence_refs": [
+        "function:0x0055BFD0",
+        "source:raw",
+        "field:this:0x00000004",
+        "caller:0x004F9160",
+        "caller:0x0055F0D0",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x0055BFF0",
+      "role": "Slot-indexed conditional delegator: loads the element pointer at this dword index a2+2, returns -1 when null, forwards a3..a7 to sub_55BD20, returns -1 when that sub-call fails, otherwise stores the slot index a2 back into this[0] and returns the sub-call result.",
+      "owner": "SlotArrayDelegator",
+      "evidence_refs": [
+        "function:0x0055BFF0",
+        "source:raw",
+        "field:this:0x00000000",
+        "callee:0x0055BD20",
+        "caller:0x004F9310"
+      ]
+    },
+    {
+      "address": "0x0055D460",
+      "role": "Stores a 3-component vector (a2, a3, a4) at this+0x44/+0x48/+0x4C, normalizes all three to unit length when the vector length is non-zero, then calls DirectXVertexBufferTextureCoordinateSetup with global dword_8B78A0, this and its handle at this+0x4 under mode 5, and finally ORs dirty flag 0x800 into dword_8B8F28+236; returns dword_8B8F28. Invoked by sub_55A500 on a DirectX vertex-buffer normal/vector update path.",
+      "owner": "DxVertexBufferVectorStore",
+      "evidence_refs": [
+        "function:0x0055D460",
+        "source:raw",
+        "field:this:0x00000004",
+        "field:this:0x00000044",
+        "field:this:0x00000048",
+        "field:this:0x0000004C",
+        "callee:0x005416A0",
+        "global:0x008B78A0",
+        "global:0x008B8F28",
+        "caller:0x0055A500",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x0055D5C0",
+      "role": "Computes and stores a normalized direction vector on a scene-node object: sets dirty flag 0x40000 at this+0x14, walks a context node list rooted at dword_8B8F28 to find a target entry, obtains a scene position (the object's stored position at this+0xE8..0xF0 or SceneNodePositionGetter result depending on the bit-0x10 flag at the node reached through this+0x138 at byte +0x3C), combines it with the caller offset a2[9..11], and stores a twice-normalized delta direction at this+0x100/0x104/0x108.",
+      "owner": "SceneRelativeDirectionComputer",
+      "evidence_refs": [
+        "function:0x0055D5C0",
+        "source:raw",
+        "field:this:0x00000014",
+        "field:this:0x00000138",
+        "field:*(this+0x138):0x0000003C",
+        "field:this:0x000000E8",
+        "field:this:0x000000EC",
+        "field:this:0x000000F0",
+        "field:this:0x00000100",
+        "field:this:0x00000104",
+        "field:this:0x00000108",
+        "callee:0x0054B950",
+        "global:0x008B8F28",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E670"
+      ]
+    },
+    {
+      "address": "0x00560B60",
+      "role": "Initializes an integer-array container object: zeroes the element-count word at this+0x0, allocates backing storage for a2 integers via OperatorNewNhMallocWrapper(4 * a2), stores the pointer at this+0x4, and returns this as the initialized container.",
+      "owner": "IntArrayContainer",
+      "evidence_refs": [
+        "function:0x00560B60",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "callee:0x00587C03",
+        "caller:0x00560C10"
+      ]
+    },
+    {
+      "address": "0x00562D20",
+      "role": "Creates a pre-allocated array of sockets: guarded by the count at this+0x6C (returns 0 when not > 0); loops over 28-byte entries off the array base pointer at this+0x8 calling socket(2, 2, 17) and storing the handle at entry+0 with entry+4 and entry+8 zeroed; on a socket() == -1 break returns 1 when no sockets were created, otherwise truncates this+0x6C to the created count and returns 0; returns 0 when the full count is reached. Called by DeviceInitializationWithStateSetup (0x00562C90), MultiStageInitializationChainWithErrorChecking (0x00563020) and NetworkConnection (0x00563260).",
+      "owner": "SocketArrayContainer",
+      "evidence_refs": [
+        "function:0x00562D20",
+        "source:raw",
+        "guard:0",
+        "field:this:0x0000006C",
+        "field:this:0x00000008",
+        "callee:0x00598648",
+        "caller:0x00562C90",
+        "caller:0x00563020",
+        "caller:0x00563260",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x00563230",
+      "role": "Searches a container's array of 7-dword-stride elements for an ID value equal to a2 and returns the zero-based element index, or -1 when no element matches; the element count is read from the container at offset 108 (0x6C) and the array base pointer at offset 8 (elements examined starting 4 bytes into that array). Called by NetworkConnection.",
+      "owner": "SocketArrayContainer",
+      "evidence_refs": [
+        "function:0x00563230",
+        "source:raw",
+        "field:this:0x0000006C",
+        "field:this:0x00000008",
+        "caller:0x00563260",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x005646D0",
+      "role": "Allocates a five-dword descriptor and a backing array of a2 element slots, then fills every slot with a distinct heap object built by Malloc0x18ByteStructWithInnerBuffer(a6): descriptor index 0 holds the element array pointer, index 1 the element count a2, index 2 the factory parameter a6, indices 3 and 4 the caller-supplied values a4 and a5. Returns the descriptor pointer. Shared by MemoryObjectAllocator (0x00562B50), DirectDrawDisplayModeInit (0x00563E00) and StructAllocInitWithSwitchBasedType (0x005642F0).",
+      "owner": "ArrayDescriptorFactory",
+      "evidence_refs": [
+        "function:0x005646D0",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "callee:0x0058A935",
+        "callee:0x00564810",
+        "caller:0x00562B50",
+        "caller:0x00563E00",
+        "caller:0x005642F0"
+      ]
+    },
+    {
+      "address": "0x005648B0",
+      "role": "Straight-line arithmetic helper matching the ABI label Linear_Interpolation: reads a 32-bit value at object offset +20 as a base and one at offset +8 as a delta, returns base + a2 * delta (a2 acts as the interpolation factor). No branches, calls or side effects.",
+      "owner": "NetworkRecordArray",
+      "evidence_refs": [
+        "function:0x005648B0",
+        "source:raw",
+        "caller:0x005631D0",
+        "caller:0x00563260",
+        "caller:0x00563AB0",
+        "caller:0x00563E80",
+        "caller:0x00564890",
+        "caller:0x005648D0",
+        "caller:0x00564960",
+        "caller:0x00564990",
+        "caller:0x00564A20"
+      ]
+    },
+    {
+      "address": "0x00564990",
+      "role": "Removes the element at index a2 from a packed record array rooted at a1: when a2 is not the final element it shifts the array tail down one record by copying a1[2] * (count - a2 - 1) bytes from element a2 + 1 onto element a2 via sub_58B130 (element addresses resolved through LinearInterpolation), then decrements the stored count at a1[0] and returns the new count. The single caller NetworkConnection suggests a connection/record list that shrinks when an entry is dropped.",
+      "owner": "NetworkRecordArray",
+      "evidence_refs": [
+        "function:0x00564990",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x00000014",
+        "callee:0x005648B0",
+        "callee:0x0058B130",
+        "caller:0x00563260"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "Vector3",
+      "responsibility": "Three-component float vector container used by the arithmetic helpers: per-component add (0x4ED710) and subtract (0x4EA930) write a caller output pointer from two input vectors. The this-relative reads at 0x0/0x4/0x8 record the first input vector's components.",
+      "trust": "DERIVED",
+      "methods": ["0x004EA930", "0x004ED710"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000004", "name": "y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004"]},
+        {"base": "this", "offset": "0x00000008", "name": "z", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000008"]}
+      ],
+      "evidence_refs": ["function:0x004EA930", "function:0x004ED710", "field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "name": "Matrix33VectorMultiplyHelper",
+      "responsibility": "Row-major 3x3 float matrix (nine floats at 0x0..0x20) multiplied by a three-component vector; used as a rigid-body transform primitive by vehicle-geometry proximity and ray/triangle intersection paths.",
+      "trust": "GUESS",
+      "methods": ["0x004ED7B0"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "m00", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000004", "name": "m01", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004"]},
+        {"base": "this", "offset": "0x00000008", "name": "m02", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000008"]},
+        {"base": "this", "offset": "0x0000000C", "name": "m10", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000000C"]},
+        {"base": "this", "offset": "0x00000010", "name": "m11", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000010"]},
+        {"base": "this", "offset": "0x00000014", "name": "m12", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000014"]},
+        {"base": "this", "offset": "0x00000018", "name": "m20", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000018"]},
+        {"base": "this", "offset": "0x0000001C", "name": "m21", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000001C"]},
+        {"base": "this", "offset": "0x00000020", "name": "m22", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000020"]}
+      ],
+      "evidence_refs": ["function:0x004ED7B0", "field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "field:this:0x0000001C", "field:this:0x00000020", "caller:0x004ED420", "caller:0x004EFBD0", "source:raw"]
+    },
+    {
+      "name": "Vector3DotProductHelper",
+      "responsibility": "3-component float dot product returning a double; single consumer is the ray/triangle intersection query (0x004EFBD0). Structural twin of the 0045eb00 cluster whose packet name (Vector3ScalarMultiply) is not confirmed by this packet.",
+      "trust": "GUESS",
+      "methods": ["0x004EFEE0"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "vx", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000004", "name": "vy", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004"]},
+        {"base": "this", "offset": "0x00000008", "name": "vz", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000008"]}
+      ],
+      "evidence_refs": ["function:0x004EFEE0", "field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "caller:0x004EFBD0", "source:raw"]
+    },
+    {
+      "name": "ParticleMatrixRotationUpdater",
+      "responsibility": "Particle-system orientation-axis updater: reads a source direction through a virtual dispatch and rewrites a strided (10-float) array of particle axis rows between unk_8AC840 and the end marker flt_8ACAC0, normalizing each axis to a target half-length stored at this+0x10.",
+      "trust": "GUESS",
+      "methods": ["0x004CC840"],
+      "fields": [
+        {"base": "this", "offset": "0x00000010", "name": "axis_half_length", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000010"]}
+      ],
+      "evidence_refs": ["function:0x004CC840", "field:this:0x00000010", "callee:0x0040C870", "global:0x005EA510", "global:0x008AC840", "global:0x008ACAC0", "source:raw"]
+    },
+    {
+      "name": "VectorFieldPresenceStruct",
+      "responsibility": "Struct with three float channels at 0x0/0x14/0x28 whose non-zero presence is tested as a frame-path helper; the channel semantics (velocity/magnitude) are not evidenced by the raw source.",
+      "trust": "GUESS",
+      "methods": ["0x004CE8F0"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "channel0", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000014", "name": "channel1", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000014"]},
+        {"base": "this", "offset": "0x00000028", "name": "channel2", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000028"]}
+      ],
+      "evidence_refs": ["function:0x004CE8F0", "field:this:0x00000000", "field:this:0x00000014", "field:this:0x00000028", "source:raw"]
+    },
+    {
+      "name": "SingleResourceArrayOwner",
+      "responsibility": "Object holding one scalar resource pointer at offset 8 and one heap array pointer at offset 16; teardown frees the resource and runs per-element destructors (24-byte elements) before freeing the array allocation at its count-header base.",
+      "trust": "GUESS",
+      "methods": ["0x004DD470"],
+      "fields": [
+        {"base": "this", "offset": "0x00000008", "name": "resource_ptr", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000008"]},
+        {"base": "this", "offset": "0x00000010", "name": "array_ptr", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000010"]}
+      ],
+      "evidence_refs": ["function:0x004DD470", "field:this:0x00000008", "field:this:0x00000010", "callee:0x004DD4D0", "callee:0x00587BCF", "caller:0x004E3360", "source:raw"]
+    },
+    {
+      "name": "DualArrayOwner",
+      "responsibility": "Object holding two heap arrays (12-byte and 24-byte elements) whose counts live in each allocation's header; the destructor clears head fields 0x4/0x8, tears each array down element-by-element, frees each block at its header base, and zeroes the pointer/companion pairs 0xC/0x10 and 0x14/0x18.",
+      "trust": "GUESS",
+      "methods": ["0x004DED20"],
+      "fields": [
+        {"base": "this", "offset": "0x00000004", "name": "head0", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000004"]},
+        {"base": "this", "offset": "0x00000008", "name": "head1", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000008"]},
+        {"base": "this", "offset": "0x0000000C", "name": "array1_ptr", "type_guess": "pointer", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000000C"]},
+        {"base": "this", "offset": "0x00000010", "name": "array1_companion", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000010"]},
+        {"base": "this", "offset": "0x00000014", "name": "array2_ptr", "type_guess": "pointer", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000014"]},
+        {"base": "this", "offset": "0x00000018", "name": "array2_companion", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000018"]}
+      ],
+      "evidence_refs": ["function:0x004DED20", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "callee:0x004DD4C0", "callee:0x004DD4D0", "callee:0x00587BCF", "caller:0x004DE5F0", "caller:0x004DFCA0", "caller:0x004E09E0", "caller:0x004E38D0", "source:raw"]
+    },
+    {
+      "name": "SortedLRUArray",
+      "responsibility": "Fixed-capacity (20-entry) sorted array of 36-byte records ordered by key at entry[1], with duplicate rejection, minimum-score LRU eviction (scored against globals flt_59E670/flt_5AD140), right-shift insertion, and a reporting callback (0x4DF110). The typed insert (0x4DF030) gates insertion on the flag at this+0x18 and stamps entry slot 0 with a type marker.",
+      "trust": "GUESS",
+      "methods": ["0x004DEDB0", "0x004DF030"],
+      "fields": [
+        {"base": "this", "offset": "0x00000018", "name": "entry_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000018"]},
+        {"base": "this", "offset": "0x0000001C", "name": "tail_slot", "type_guess": "int", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x0000001C"]},
+        {"base": "this", "offset": "0x00000020", "name": "entries", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000020"]},
+        {"base": "this", "offset": "0x00000024", "name": "first_entry_component_1", "type_guess": "float", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000024"]},
+        {"base": "this", "offset": "0x0000003C", "name": "first_entry_component_7", "type_guess": "float", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x0000003C"]}
+      ],
+      "evidence_refs": ["function:0x004DEDB0", "function:0x004DF030", "field:this:0x00000018", "field:this:0x0000001C", "field:this:0x00000020", "field:this:0x00000024", "field:this:0x0000003C", "callee:0x004DF110", "callee:0x004DEDB0", "global:0x0059E670", "global:0x005AD140", "source:raw"]
+    },
+    {
+      "name": "ArrayEntryLazyInitSubsystem",
+      "responsibility": "Array of entries (74-dword stride) whose per-entry lazy initialization runs on two sub-blocks (81 and 98 dwords into the entry) via a lazy-init callback (0x4E0D00), with a flag-state path through FlagFieldBitManipulation (0x54C030) when the second sub-block is non-empty. Layout is grounded only in raw addressing.",
+      "trust": "GUESS",
+      "methods": ["0x004E0E20"],
+      "fields": [],
+      "evidence_refs": ["function:0x004E0E20", "callee:0x004E0D00", "callee:0x0054C030", "caller:0x004E17C0", "source:raw"]
+    },
+    {
+      "name": "VehicleRespawnState",
+      "responsibility": "Per-vehicle respawn state array: entry count at this+0xBA8, entries at a 748-byte stride starting at this+747 floats, per-entry state reset through sub_4DF110(entry, 0.0, -1) plus clearing the entry sixth float at this+0xBC4. Reset invoked by VehicleRespawnReset (0x004E0800).",
+      "trust": "DERIVED",
+      "methods": ["0x004E3890"],
+      "fields": [
+        {"base": "this", "offset": "0x00000BA8", "name": "entry_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000BA8"]},
+        {"base": "this", "offset": "0x00000BC4", "name": "entry_state_float", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000BC4"]}
+      ],
+      "evidence_refs": ["function:0x004E3890", "field:this:0x00000BA8", "field:this:0x00000BC4", "callee:0x004DF110", "caller:0x004E0800", "source:raw"]
+    },
+    {
+      "name": "SSE52ByteMatrixInitializer",
+      "responsibility": "Initializes a 52-byte matrix/struct from SSE constants (xmmword_8D61D0/8D61C0/8D61B0) and the __m128 result of EmptyStub_8bd0; stores row 0 at +0, low dwords at +0x10/+0x2C, partial SSE results at +0x14/+0x1C/+0x24, and the full vector at +0x30. The output class is not identified.",
+      "trust": "GUESS",
+      "methods": ["0x0052087E"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "row0", "type_guess": "__m128", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000010", "name": "component_0x10", "type_guess": "float", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000010"]},
+        {"base": "this", "offset": "0x0000002C", "name": "component_0x2C", "type_guess": "float", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x0000002C"]},
+        {"base": "this", "offset": "0x00000030", "name": "row3", "type_guess": "__m128", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000030"]}
+      ],
+      "evidence_refs": ["function:0x0052087E", "field:this:0x00000000", "field:this:0x00000010", "field:this:0x0000002C", "field:this:0x00000030", "callee:0x00528BD0", "global:0x008D61B0", "global:0x008D61C0", "global:0x008D61D0", "source:raw"]
+    },
+    {
+      "name": "ThreeDNowTransformBuilder",
+      "responsibility": "Builds a 4x4 transformation matrix as 8 __m64 slots using 3DNow instructions: identity-like seed constants in slots 0..5, the translation pair (a2, a3) packed at +0x30, and (a4, 1.0f) at +0x38 forming the translation-plus-homogeneous row.",
+      "trust": "GUESS",
+      "methods": ["0x0052273B"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "cell0", "type_guess": "__m64", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000008", "name": "cell1", "type_guess": "__m64", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000008"]},
+        {"base": "this", "offset": "0x00000010", "name": "cell2", "type_guess": "__m64", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000010"]},
+        {"base": "this", "offset": "0x00000018", "name": "cell3", "type_guess": "__m64", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000018"]},
+        {"base": "this", "offset": "0x00000020", "name": "cell4", "type_guess": "__m64", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000020"]},
+        {"base": "this", "offset": "0x00000028", "name": "cell5", "type_guess": "__m64", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000028"]},
+        {"base": "this", "offset": "0x00000030", "name": "translation_xy_row", "type_guess": "__m64", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000030"]},
+        {"base": "this", "offset": "0x00000038", "name": "z_homogeneous_row", "type_guess": "__m64", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000038"]}
+      ],
+      "evidence_refs": ["function:0x0052273B", "field:this:0x00000000", "field:this:0x00000008", "field:this:0x00000010", "field:this:0x00000018", "field:this:0x00000020", "field:this:0x00000028", "field:this:0x00000030", "field:this:0x00000038", "global:0x005AF9C0", "global:0x005AF9C8", "source:raw"]
+    },
+    {
+      "name": "ConditionalSizedBufferZeroer",
+      "responsibility": "Zero-initializes a per-object buffer at this+4 whose element count is 576 by default or 1152 when global dword_8B0108 is clear (4-byte cells); used on MPEG open paths (CMpegBase_Open 0x0052E090, CMpegFilePlayer_Open 0x0052E1D0).",
+      "trust": "GUESS",
+      "methods": ["0x0052DA10"],
+      "fields": [
+        {"base": "this", "offset": "0x00000004", "name": "buffer", "type_guess": "byte_buffer", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000004"]}
+      ],
+      "evidence_refs": ["function:0x0052DA10", "field:this:0x00000004", "global:0x008B0108", "caller:0x0052E090", "caller:0x0052E1D0", "source:raw"]
+    },
+    {
+      "name": "IterateStructArray42Helper",
+      "responsibility": "Fixed-count batch walk over a 42-element global array at dword_8B6C28 with a 76-byte stride, invoking a per-element action (0x00556220); the element type and action semantics are outside this packet.",
+      "trust": "GUESS",
+      "methods": ["0x0053C190"],
+      "fields": [],
+      "evidence_refs": ["function:0x0053C190", "global:0x008B6C28", "callee:0x00556220", "source:raw"]
+    },
+    {
+      "name": "UiSceneStateWordNormalizer",
+      "responsibility": "Walks a UI element linked list (head at this+0x204, next at node+0x10) and sign-extends each node's state words (count at node+0x118, array at node+0x11C) by replicating the signed upper 16 bits into the low 16 bits. Called by RecursiveTraversal (0x0054BCD0).",
+      "trust": "GUESS",
+      "methods": ["0x0054BF10"],
+      "fields": [
+        {"base": "this", "offset": "0x00000204", "name": "list_head", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000204"]},
+        {"base": "this", "offset": "0x00000224", "name": "next_node", "type_guess": "pointer", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000224"]},
+        {"base": "this", "offset": "0x0000032C", "name": "state_count", "type_guess": "int", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x0000032C"]},
+        {"base": "this", "offset": "0x00000330", "name": "state_word", "type_guess": "int", "trust": "GUESS", "access": "read_write", "evidence_refs": ["field:this:0x00000330"]},
+        {"base": "this", "offset": "0x00000332", "name": "state_word_high", "type_guess": "short", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000332"]}
+      ],
+      "evidence_refs": ["function:0x0054BF10", "field:this:0x00000204", "field:this:0x00000224", "field:this:0x0000032C", "field:this:0x00000330", "field:this:0x00000332", "caller:0x0054BCD0", "source:raw"]
+    },
+    {
+      "name": "FloatStructArray256Initializer",
+      "responsibility": "Fixed-count batch initialization of a 256-element array of 104-byte float-bearing structs at unk_8B8F40, invoking a per-element initializer (0x0053B130); element layout is outside this packet.",
+      "trust": "GUESS",
+      "methods": ["0x0054C270"],
+      "fields": [],
+      "evidence_refs": ["function:0x0054C270", "global:0x008B8F40", "callee:0x0053B130", "source:raw"]
+    },
+    {
+      "name": "IndexedElementArray",
+      "responsibility": "Array container with element count at this+0x120 and base pointer at this+0x124; elements are packed structs of stride 36 whose entry at offset 8 holds a target pointer, and the accessor returns the DWORD at target+4.",
+      "trust": "GUESS",
+      "methods": ["0x0054E240"],
+      "fields": [
+        {"base": "this", "offset": "0x00000120", "name": "element_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000120"]},
+        {"base": "this", "offset": "0x00000124", "name": "element_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000124"]}
+      ],
+      "evidence_refs": ["function:0x0054E240", "field:this:0x00000120", "field:this:0x00000124", "caller:0x0044ACB0", "caller:0x004DFCE0", "source:raw"]
+    },
+    {
+      "name": "BinkFrameLookupArray",
+      "responsibility": "Frame array with count at this+0xA4 and base at this+0xA8; entries are 148-byte structs whose terminal/sub-index layout drives Bink video-frame selection and an optional decoder reset (0x00551DD0) gated by entry field 36 and global dword_8B6AC4.",
+      "trust": "GUESS",
+      "methods": ["0x005504D0"],
+      "fields": [
+        {"base": "this", "offset": "0x000000A4", "name": "frame_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000A4"]},
+        {"base": "this", "offset": "0x000000A8", "name": "frame_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000A8"]}
+      ],
+      "evidence_refs": ["function:0x005504D0", "field:this:0x000000A4", "field:this:0x000000A8", "callee:0x00551DD0", "global:0x008B6AC4", "source:raw"]
+    },
+    {
+      "name": "ParticleElementArray",
+      "responsibility": "Particle element array with count at this[0x2C] and base pointer at this[0x34]; 128-byte elements, per-frame element update through sub_53B330 at entry+16 and a 0x4000 dirty flag on the element base dword. Called per frame by particle collision/spark, wheel-render, trail-emitter and instance-update paths.",
+      "trust": "GUESS",
+      "methods": ["0x00558CB0"],
+      "fields": [
+        {"base": "this", "offset": "0x0000002C", "name": "element_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000002C"]},
+        {"base": "this", "offset": "0x00000034", "name": "element_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000034"]}
+      ],
+      "evidence_refs": ["function:0x00558CB0", "field:this:0x0000002C", "field:this:0x00000034", "callee:0x0053B330", "caller:0x004CB620", "caller:0x004CB860", "caller:0x004CBC50", "caller:0x004CC1D0", "source:raw"]
+    },
+    {
+      "name": "CountedDwordArray",
+      "responsibility": "Simple dword array that begins right after a count field: the count at this+0x4 bounds the index and the element at index a2 lives at this + 8 + 4*a2; out-of-range access fails closed with 0.",
+      "trust": "GUESS",
+      "methods": ["0x0055BFD0"],
+      "fields": [
+        {"base": "this", "offset": "0x00000004", "name": "element_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004"]}
+      ],
+      "evidence_refs": ["function:0x0055BFD0", "field:this:0x00000004", "caller:0x004F9160", "caller:0x0055F0D0", "source:raw"]
+    },
+    {
+      "name": "SlotArrayDelegator",
+      "responsibility": "Slot-indexed delegator over an element-pointer array starting at this dword index 2: loads the element for index a2, returns -1 when the slot is null or the delegated call (0x0055BD20) fails, otherwise records the slot index at this[0] and returns the delegated result.",
+      "trust": "GUESS",
+      "methods": ["0x0055BFF0"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "last_slot", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000000"]}
+      ],
+      "evidence_refs": ["function:0x0055BFF0", "field:this:0x00000000", "callee:0x0055BD20", "caller:0x004F9310", "source:raw"]
+    },
+    {
+      "name": "DxVertexBufferVectorStore",
+      "responsibility": "Stores and unit-normalizes a 3-component vector at this+0x44/0x48/0x4C, pushes it into a DirectX vertex buffer via DirectXVertexBufferTextureCoordinateSetup (0x005416A0, mode 5) using the handle at this+0x4 and global dword_8B78A0, and flags buffer dirtiness at dword_8B8F28+236.",
+      "trust": "GUESS",
+      "methods": ["0x0055D460"],
+      "fields": [
+        {"base": "this", "offset": "0x00000004", "name": "handle", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004"]},
+        {"base": "this", "offset": "0x00000044", "name": "vector_x", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000044"]},
+        {"base": "this", "offset": "0x00000048", "name": "vector_y", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000048"]},
+        {"base": "this", "offset": "0x0000004C", "name": "vector_z", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000004C"]}
+      ],
+      "evidence_refs": ["function:0x0055D460", "field:this:0x00000004", "field:this:0x00000044", "field:this:0x00000048", "field:this:0x0000004C", "callee:0x005416A0", "global:0x008B78A0", "global:0x008B8F28", "caller:0x0055A500", "source:raw"]
+    },
+    {
+      "name": "SceneRelativeDirectionComputer",
+      "responsibility": "Scene-node object computing a normalized direction vector: sets dirty flag 0x40000 at this+0x14, walks a context node list rooted at dword_8B8F28, picks a scene position (stored at this+0xE8..0xF0 or via SceneNodePositionGetter 0x0054B950 depending on the node flag at *(this+0x138)+0x3C bit 0x10), and stores a twice-normalized delta direction at this+0x100/0x104/0x108.",
+      "trust": "GUESS",
+      "methods": ["0x0055D5C0"],
+      "fields": [
+        {"base": "this", "offset": "0x00000014", "name": "dirty_flags", "type_guess": "int", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000014"]},
+        {"base": "this", "offset": "0x00000138", "name": "scene_node", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000138"]},
+        {"base": "*(this+0x138)", "offset": "0x0000003C", "name": "node_flags", "type_guess": "int", "trust": "GUESS", "access": "read", "evidence_refs": ["field:*(this+0x138):0x0000003C"]},
+        {"base": "this", "offset": "0x000000E8", "name": "stored_pos_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000E8"]},
+        {"base": "this", "offset": "0x000000EC", "name": "stored_pos_y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000EC"]},
+        {"base": "this", "offset": "0x000000F0", "name": "stored_pos_z", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000F0"]},
+        {"base": "this", "offset": "0x00000100", "name": "direction_x", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000100"]},
+        {"base": "this", "offset": "0x00000104", "name": "direction_y", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000104"]},
+        {"base": "this", "offset": "0x00000108", "name": "direction_z", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000108"]}
+      ],
+      "evidence_refs": ["function:0x0055D5C0", "field:this:0x00000014", "field:this:0x00000138", "field:*(this+0x138):0x0000003C", "field:this:0x000000E8", "field:this:0x000000EC", "field:this:0x000000F0", "field:this:0x00000100", "field:this:0x00000104", "field:this:0x00000108", "callee:0x0054B950", "global:0x008B8F28", "global:0x0059E43C", "global:0x0059E440", "global:0x0059E670", "source:raw"]
+    },
+    {
+      "name": "IntArrayContainer",
+      "responsibility": "Integer-array container with an element-count word at this+0x0 and a backing allocation at this+0x4; construction zeroes the count and allocates 4*a2 bytes for a2 ints.",
+      "trust": "GUESS",
+      "methods": ["0x00560B60"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "element_count", "type_guess": "int", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000004", "name": "buffer", "type_guess": "pointer", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000004"]}
+      ],
+      "evidence_refs": ["function:0x00560B60", "field:this:0x00000000", "field:this:0x00000004", "callee:0x00587C03", "caller:0x00560C10", "source:raw"]
+    },
+    {
+      "name": "SocketArrayContainer",
+      "responsibility": "Array of socket records with count at this+0x6C and base pointer at this+0x8; entries are 28 bytes (7 dwords) with the socket handle/ID at entry+0. Creation (0x562D20) calls socket(2, 2, 17) per entry and zeroes entry+4/+8; search (0x563230) scans entries by their first-dword ID. Both are exercised on NetworkConnection paths.",
+      "trust": "GUESS",
+      "methods": ["0x00562D20", "0x00563230"],
+      "fields": [
+        {"base": "this", "offset": "0x0000006C", "name": "socket_count", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000006C"]},
+        {"base": "this", "offset": "0x00000008", "name": "socket_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000008"]}
+      ],
+      "evidence_refs": ["function:0x00562D20", "function:0x00563230", "field:this:0x0000006C", "field:this:0x00000008", "callee:0x00598648", "caller:0x00562C90", "caller:0x00563020", "caller:0x00563260", "source:raw"]
+    },
+    {
+      "name": "ArrayDescriptorFactory",
+      "responsibility": "Allocates a five-dword descriptor plus a backing array of a2 element slots, each filled with a distinct heap object built by Malloc0x18ByteStructWithInnerBuffer(a6): descriptor holds {element_array, count, factory_param, caller_value_a, caller_value_b}. Shared allocation contract for three caller paths.",
+      "trust": "GUESS",
+      "methods": ["0x005646D0"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "buffer", "type_guess": "pointer", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000004", "name": "count", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000004"]},
+        {"base": "this", "offset": "0x00000008", "name": "factory_param", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000008"]},
+        {"base": "this", "offset": "0x0000000C", "name": "caller_value_a", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x0000000C"]},
+        {"base": "this", "offset": "0x00000010", "name": "caller_value_b", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000010"]}
+      ],
+      "evidence_refs": ["function:0x005646D0", "field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "callee:0x0058A935", "callee:0x00564810", "caller:0x00562B50", "caller:0x00563E00", "caller:0x005642F0", "source:raw"]
+    },
+    {
+      "name": "NetworkRecordArray",
+      "responsibility": "Packed record array over network connections: count at offset 0, per-record byte stride at offset 8, element base at offset 14 (20). LinearInterpolation (0x5648B0) resolves element addresses as base + index * stride, and removal (0x564990) shifts the tail down over the removed slot via sub_58B130 and decrements the count. Caller NetworkConnection (0x00563260) is the primary consumer.",
+      "trust": "GUESS",
+      "methods": ["0x005648B0", "0x00564990"],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "record_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000008", "name": "record_stride", "type_guess": "int", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000008"]},
+        {"base": "this", "offset": "0x00000014", "name": "element_base", "type_guess": "pointer", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000014"]}
+      ],
+      "evidence_refs": ["function:0x005648B0", "function:0x00564990", "field:this:0x00000000", "field:this:0x00000008", "field:this:0x00000014", "callee:0x005648B0", "callee:0x0058B130", "caller:0x00563260", "caller:0x005631D0", "caller:0x00563AB0", "caller:0x00563E80", "caller:0x00564890", "caller:0x005648D0", "caller:0x00564960", "caller:0x00564990", "caller:0x00564A20", "source:raw"]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "SocketCreationFailureMode",
+      "owner": "SocketArrayContainer",
+      "states": ["full_success", "partial_failure_truncate", "total_failure", "not_requested"],
+      "transitions": [
+        {"from": "not_requested", "to": "full_success", "condition": "count at this+0x6C <= 0: creation skipped, returns 0"},
+        {"from": "not_requested", "to": "partial_failure_truncate", "condition": "requested count > 0: creation loop enters; on socket() == -1 break with v2 > 0, truncate this+0x6C to v2 and return 0"},
+        {"from": "not_requested", "to": "total_failure", "condition": "socket() == -1 on the first attempt (v2 == 0): return 1"},
+        {"from": "partial_failure_truncate", "to": "full_success", "condition": "loop completes with v2 == requested count: return 0"}
+      ],
+      "trust": "GUESS",
+      "evidence_refs": ["field:this:0x0000006C", "callee:0x00598648", "function:0x00562D20", "source:raw"]
+    },
+    {
+      "name": "FrameLookupSelector",
+      "owner": "BinkFrameLookupArray",
+      "states": ["out_of_bounds", "terminal_frame", "base_frame", "subindexed_frame"],
+      "transitions": [
+        {"from": "any", "to": "out_of_bounds", "condition": "a3 >= count at this+0xA4: return 0"},
+        {"from": "any", "to": "terminal_frame", "condition": "entry field 18 <= 1: optional Bink decoder reset (entry field 36 and dword_8B6AC4 non-zero), return frame pointer at entry field 35"},
+        {"from": "terminal_frame", "to": "base_frame", "condition": "a2 == -1: return the entry field 35 frame pointer directly"},
+        {"from": "terminal_frame", "to": "subindexed_frame", "condition": "a2 != -1: select entry field 19[abs(a2)] (offset by field 20) and add 96 * selected value to the frame pointer"}
+      ],
+      "trust": "GUESS",
+      "evidence_refs": ["field:this:0x000000A4", "field:this:0x000000A8", "callee:0x00551DD0", "global:0x008B6AC4", "function:0x005504D0", "source:raw"]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "IVector3Arithmetic",
+      "purpose": "Contract for the three-component float vector operations: per-component add (0x4ED710) and subtract (0x4EA930) each take two input vectors and a caller output pointer, writing a3[i] = a1[i] +/- a2[i] and returning the output pointer.",
+      "functions": ["0x004EA930", "0x004ED710"],
+      "trust": "GUESS",
+      "evidence_refs": ["function:0x004EA930", "function:0x004ED710", "field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "name": "ISortedLRUArray",
+      "purpose": "Contract for the fixed-capacity sorted LRU array: a 36-byte entry with key at entry[1], count at this+0x18, entries from this+0x20, duplicate rejection reporting -1 through sub_4DF110, minimum-score LRU eviction (globals flt_59E670/flt_5AD140), and typed insertion gated by the flag at this+0x18.",
+      "functions": ["0x004DEDB0", "0x004DF030"],
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x004DEDB0", "function:0x004DF030", "field:this:0x00000018", "field:this:0x00000020", "callee:0x004DF110", "global:0x0059E670", "global:0x005AD140", "source:raw"]
+    },
+    {
+      "name": "ISocketArrayContainer",
+      "purpose": "Contract for the socket record array shared by NetworkConnection paths: count at this+0x6C, base at this+0x8, 28-byte entries with the socket handle/ID at entry+0. Creation (0x562D20) opens UDP sockets and truncates the count on partial failure; search (0x563230) returns the zero-based index of the first entry whose ID matches.",
+      "functions": ["0x00562D20", "0x00563230"],
+      "trust": "GUESS",
+      "evidence_refs": ["function:0x00562D20", "function:0x00563230", "field:this:0x0000006C", "field:this:0x00000008", "callee:0x00598648", "caller:0x00563260", "source:raw"]
+    },
+    {
+      "name": "IRecordArrayContainer",
+      "purpose": "Contract for the packed network record array: element addresses resolve as base(offset 20) + index * stride(offset 8) through LinearInterpolation, count at offset 0; removal shifts the tail down over the removed slot with a byte block move and decrements the count.",
+      "functions": ["0x005648B0", "0x00564990"],
+      "trust": "GUESS",
+      "evidence_refs": ["function:0x005648B0", "function:0x00564990", "field:this:0x00000000", "field:this:0x00000008", "field:this:0x00000014", "callee:0x005648B0", "callee:0x0058B130", "caller:0x00563260", "source:raw"]
+    }
+  ],
+  "dependencies": [
+    {"from": "ParticleMatrixRotationUpdater", "to": "VirtualDispatchHelper", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0040C870", "global:0x005EA510", "function:0x004CC840"]},
+    {"from": "VectorFieldPresenceStruct", "to": "0x4EE2D0Caller", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["function:0x004CE8F0", "abi:lead"]},
+    {"from": "SingleResourceArrayOwner", "to": "ShortComputationHelper", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x004DD4D0", "function:0x004DD470"]},
+    {"from": "SingleResourceArrayOwner", "to": "FreeWrapper", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00587BCF", "function:0x004DD470"]},
+    {"from": "SingleResourceArrayOwner", "to": "ObjectTeardownPath", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004E3360"]},
+    {"from": "DualArrayOwner", "to": "FirstArrayElementTeardown", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x004DD4C0", "function:0x004DED20"]},
+    {"from": "DualArrayOwner", "to": "ShortComputationHelper", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x004DD4D0", "function:0x004DED20"]},
+    {"from": "DualArrayOwner", "to": "FreeWrapper", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00587BCF", "function:0x004DED20"]},
+    {"from": "DualArrayOwner", "to": "LifecycleCallers", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004DE5F0", "caller:0x004DFCA0", "caller:0x004E09E0", "caller:0x004E38D0"]},
+    {"from": "SortedLRUArray", "to": "InsertionReporter", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x004DF110", "function:0x004DEDB0"]},
+    {"from": "SortedLRUArray", "to": "SortedArrayInsert", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x004DEDB0", "function:0x004DF030"]},
+    {"from": "ArrayEntryLazyInitSubsystem", "to": "LazyInitCallback", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x004E0D00", "function:0x004E0E20"]},
+    {"from": "ArrayEntryLazyInitSubsystem", "to": "FlagFieldBitManipulation", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0054C030", "function:0x004E0E20"]},
+    {"from": "ArrayEntryLazyInitSubsystem", "to": "0x4E17C0Caller", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004E17C0"]},
+    {"from": "VehicleRespawnState", "to": "ContactConstraintSolverUpdate", "kind": "calls", "trust": "GUESS", "evidence_refs": ["callee:0x004DF110", "function:0x004E3890"]},
+    {"from": "VehicleRespawnState", "to": "VehicleRespawnReset", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004E0800"]},
+    {"from": "Matrix33VectorMultiplyHelper", "to": "VehicleGeometryProximityTest", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004ED420"]},
+    {"from": "Matrix33VectorMultiplyHelper", "to": "RayTriangleIntersectionWithBarycentricCoordinate", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004EFBD0"]},
+    {"from": "Vector3DotProductHelper", "to": "RayTriangleIntersectionWithBarycentricCoordinate", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004EFBD0"]},
+    {"from": "SSE52ByteMatrixInitializer", "to": "EmptyStub", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00528BD0", "function:0x0052087E"]},
+    {"from": "ConditionalSizedBufferZeroer", "to": "CMpegBaseOpen", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x0052E090"]},
+    {"from": "ConditionalSizedBufferZeroer", "to": "CMpegFilePlayerOpen", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x0052E1D0"]},
+    {"from": "IterateStructArray42Helper", "to": "PerElementAction", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00556220", "function:0x0053C190"]},
+    {"from": "UiSceneStateWordNormalizer", "to": "RecursiveTraversal", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x0054BCD0"]},
+    {"from": "FloatStructArray256Initializer", "to": "FloatStructInitializer", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0053B130", "function:0x0054C270"]},
+    {"from": "IndexedElementArray", "to": "0x44ACB0Caller", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x0044ACB0"]},
+    {"from": "IndexedElementArray", "to": "0x4DFCE0Caller", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004DFCE0"]},
+    {"from": "BinkFrameLookupArray", "to": "BinkVideoFrameDecoder", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00551DD0", "function:0x005504D0"]},
+    {"from": "ParticleElementArray", "to": "ElementUpdateHelper", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0053B330", "function:0x00558CB0"]},
+    {"from": "ParticleElementArray", "to": "ParticleCollisionSpark", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004CB620"]},
+    {"from": "ParticleElementArray", "to": "WheelRenderObjectPerFrameUpdate", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004CB860"]},
+    {"from": "ParticleElementArray", "to": "ParticleTrailEmitter", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004CBC50"]},
+    {"from": "ParticleElementArray", "to": "ParticleInstanceUpdate", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004CC1D0"]},
+    {"from": "CountedDwordArray", "to": "UtilityFunction", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004F9160"]},
+    {"from": "CountedDwordArray", "to": "0x55F0D0Caller", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x0055F0D0"]},
+    {"from": "SlotArrayDelegator", "to": "SlotDelegateTarget", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0055BD20", "function:0x0055BFF0"]},
+    {"from": "SlotArrayDelegator", "to": "VideoCubeCheckController", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x004F9310"]},
+    {"from": "DxVertexBufferVectorStore", "to": "DirectXVertexBufferTextureCoordinateSetup", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x005416A0", "function:0x0055D460"]},
+    {"from": "DxVertexBufferVectorStore", "to": "0x55A500Caller", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x0055A500"]},
+    {"from": "SceneRelativeDirectionComputer", "to": "SceneNodePositionGetter", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0054B950", "function:0x0055D5C0"]},
+    {"from": "IntArrayContainer", "to": "OperatorNewNhMallocWrapper", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00587C03", "function:0x00560B60"]},
+    {"from": "IntArrayContainer", "to": "0x560C10Caller", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x00560C10"]},
+    {"from": "SocketArrayContainer", "to": "SocketCreate", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00598648", "function:0x00562D20"]},
+    {"from": "SocketArrayContainer", "to": "DeviceInitializationWithStateSetup", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x00562C90"]},
+    {"from": "SocketArrayContainer", "to": "MultiStageInitializationChainWithErrorChecking", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x00563020"]},
+    {"from": "SocketArrayContainer", "to": "NetworkConnection", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x00563260"]},
+    {"from": "ArrayDescriptorFactory", "to": "MallocWrapperForNhMalloc", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0058A935", "function:0x005646D0"]},
+    {"from": "ArrayDescriptorFactory", "to": "SlotObjectFactory", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00564810", "function:0x005646D0"]},
+    {"from": "ArrayDescriptorFactory", "to": "MemoryObjectAllocator", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x00562B50"]},
+    {"from": "ArrayDescriptorFactory", "to": "DirectDrawDisplayModeInit", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x00563E00"]},
+    {"from": "ArrayDescriptorFactory", "to": "StructAllocInitWithSwitchBasedType", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x005642F0"]},
+    {"from": "NetworkRecordArray", "to": "LinearInterpolation", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x005648B0", "function:0x00564990"]},
+    {"from": "NetworkRecordArray", "to": "ByteBlockMove", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0058B130", "function:0x00564990"]},
+    {"from": "NetworkRecordArray", "to": "NetworkConnection", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x00563260"]},
+    {"from": "NetworkRecordArray", "to": "ArithmeticHelperCallers", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["caller:0x005631D0", "caller:0x00563AB0", "caller:0x00563E80", "caller:0x00564890", "caller:0x005648D0", "caller:0x00564960", "caller:0x00564990", "caller:0x00564A20"]}
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "ParticleAxisStridedArrayContract",
+      "category": "data_layout",
+      "description": "The particle orientation updater (0x004CC840) walks a strided array of 10-float entries between unk_8AC840 and the end marker flt_8ACAC0; each entry receives a direction vector and a cross-product axis normalized to length this[4] * 0.5. A replacement must preserve the 10-float stride, the -0.03125 X/Z scaling of the source direction, and the this+0x10 half-length field.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x004CC840", "global:0x008AC840", "global:0x008ACAC0", "field:this:0x00000010", "callee:0x0040C870", "source:raw"]
+    },
+    {
+      "name": "VectorFieldChannelPresenceContract",
+      "category": "math_semantics",
+      "description": "The vector-field presence helper (0x004CE8F0) returns TRUE iff any of the three float channels at offsets 0x00, 0x14, 0x28 is non-zero; a replacement must preserve the three dword float offsets and the logical OR of the three non-zero tests.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x004CE8F0", "field:this:0x00000000", "field:this:0x00000014", "field:this:0x00000028", "source:raw"]
+    },
+    {
+      "name": "DualArrayTeardownContract",
+      "category": "data_layout",
+      "description": "The dual-array destructor (0x004DED20) zeroes head fields 0x4/0x8, tears down the 12-byte-element array at 0xC (per-element 0x4DD4C0) and the 24-byte-element array at 0x14 (per-element 0x4DD4D0), frees both allocations at their count-header bases through 0x587BCF, and zeroes the pointer/companion pairs 0xC/0x10 and 0x14/0x18. The count-header (block-4) convention must be preserved.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x004DED20", "field:this:0x00000004", "field:this:0x0000000C", "field:this:0x00000014", "callee:0x004DD4C0", "callee:0x004DD4D0", "callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "name": "SortedLRUArrayContract",
+      "category": "data_layout",
+      "description": "The sorted LRU array holds count at this+0x18, a maximum of 20 entries of 36 bytes starting at this+0x20, ordered by the float key at entry[1]. Duplicate entries are rejected with a -1 report through sub_4DF110; full arrays evict a minimum-score candidate (scored against flt_59E670/flt_5AD140) by left shift. A replacement must preserve the entry stride, key slot, duplicate rejection and the 0x18 count field.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x004DEDB0", "field:this:0x00000018", "field:this:0x00000020", "callee:0x004DF110", "global:0x0059E670", "global:0x005AD140", "source:raw"]
+    },
+    {
+      "name": "VehicleRespawnStateEntryLayoutContract",
+      "category": "data_layout",
+      "description": "Vehicle respawn state keeps entry count at this+0xBA8 and 748-byte-stride entries starting at this+747 floats; reset (0x004E3890) calls sub_4DF110(entry, 0.0, -1) per entry and clears the entry sixth float at this+0xBC4. A replacement must keep the count field, the 748-byte stride and the reset call shape.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x004E3890", "field:this:0x00000BA8", "field:this:0x00000BC4", "callee:0x004DF110", "caller:0x004E0800", "source:raw"]
+    },
+    {
+      "name": "BinkFrameLookupContract",
+      "category": "data_layout",
+      "description": "The frame lookup (0x005504D0) uses count at this+0xA4 and base at this+0xA8 with 148-byte entries: entry field 18 <= 1 marks a terminal frame, entry field 35 holds the frame pointer, field 36 gates the Bink decoder reset (0x00551DD0 with arguments (0, 0, 32) and a 0x400 bit clear) together with global dword_8B6AC4, and non-terminal sub-indexing scales the entry-field-19 list value by 96. a2 == -1 selects the base frame pointer.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x005504D0", "field:this:0x000000A4", "field:this:0x000000A8", "callee:0x00551DD0", "global:0x008B6AC4", "source:raw"]
+    },
+    {
+      "name": "ParticleElementArrayContract",
+      "category": "data_layout",
+      "description": "The particle element array (0x00558CB0) keeps count at this[0x2C] and base at this[0x34] with 128-byte elements; the per-frame update calls sub_53B330 at element base + 16 and sets flag 0x4000 on the element base dword. A replacement must preserve the stride, the two header offsets and the 0x4000 flag semantics.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x00558CB0", "field:this:0x0000002C", "field:this:0x00000034", "callee:0x0053B330", "caller:0x004CB620", "source:raw"]
+    },
+    {
+      "name": "SocketArrayLayoutContract",
+      "category": "data_layout",
+      "description": "The socket array (0x00562D20, 0x00563230) keeps count at this+0x6C and base at this+0x8 with 28-byte entries whose first dword is the socket handle/ID; creation calls socket(2, 2, 17), zeroes entry+4/+8, and truncates the count on partial failure; search returns the index of the matching first dword or -1. Caller NetworkConnection depends on this layout.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x00562D20", "function:0x00563230", "field:this:0x0000006C", "field:this:0x00000008", "callee:0x00598648", "caller:0x00563260", "source:raw"]
+    },
+    {
+      "name": "SceneNodeDirectionVectorContract",
+      "category": "math_semantics",
+      "description": "SceneRelativeDirectionVectorCompute (0x0055D5C0) sets dirty flag 0x40000 at this+0x14, obtains a scene position from this+0xE8..0xF0 or via SceneNodePositionGetter (0x0054B950), and stores a twice-normalized delta direction at this+0x100/0x104/0x108. A replacement must preserve the three direction float offsets and the 0x40000 dirty flag.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x0055D5C0", "field:this:0x00000014", "field:this:0x000000E8", "field:this:0x00000100", "field:this:0x00000104", "field:this:0x00000108", "callee:0x0054B950", "source:raw"]
+    },
+    {
+      "name": "DirectXVectorStoreContract",
+      "category": "data_layout",
+      "description": "NormalizeAndStoreVectorWithDXUpdate (0x0055D460) writes a unit-normalized 3-float vector at this+0x44/0x48/0x4C, pushes it through DirectXVertexBufferTextureCoordinateSetup (0x005416A0, mode 5) using the handle at this+0x4 and global dword_8B78A0, and ORs dirty bit 0x800 into dword_8B8F28+236. A replacement must preserve the vector offsets, mode 5, and the 0x800 dirty bit.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x0055D460", "field:this:0x00000004", "field:this:0x00000044", "field:this:0x0000004C", "callee:0x005416A0", "global:0x008B78A0", "global:0x008B8F28", "source:raw"]
+    },
+    {
+      "name": "RecordArrayAddressingContract",
+      "category": "math_semantics",
+      "description": "Network record array addressing: element index a2 resolves as base(offset 20) + a2 * stride(offset 8) through LinearInterpolation (0x5648B0); removal (0x564990) shifts the tail down by stride * (count - index - 1) bytes and decrements count at offset 0. A replacement must preserve the base/stride/count offsets and the address formula.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x005648B0", "function:0x00564990", "field:this:0x00000000", "field:this:0x00000008", "field:this:0x00000014", "callee:0x005648B0", "callee:0x0058B130", "caller:0x00563260", "source:raw"]
+    }
+  ],
+  "unresolved": [
+    "Ownership is UNKNOWN for nearly every function in the packet; the class groupings are DERIVED/GUESS proposals, not confirmed identities, and no RTTI or vtable evidence appears in the packet.",
+    "The object behind VirtualDispatchHelper(&dword_5EA510) and the meaning of its +36 field are unknown (0x004CC840).",
+    "The 10-float entry layout of the particle axis array (unk_8AC840) and the meaning of each axis row are inferred from the arithmetic only; flt_8ACAC0 as an array terminator is DERIVED.",
+    "Globals flt_59E450, flt_59ED18 and dword_5ACEAC are flagged by packet facts for 0x004CC840 but are not consumed by its visible raw source.",
+    "The three-channel struct tested by 0x004CE8F0 (velocity/magnitude semantics) is inference; the raw source only grounds three non-zero float tests on an unnamed struct, and flt_59E440's role as a zero threshold is not evidenced in the raw source.",
+    "The exact destructor contract of ShortComputation_d4d0 / sub_4DD4C0 and what classes they destroy are not documented; the relation between the single resource pointer (0x8) and the array (0x10) in 0x004DD470 is not established.",
+    "The owner class of 0x004DED20 is unidentified; companion fields 0x10/0x18 are zeroed but never read, head fields 0x4/0x8 are never read or written elsewhere in the function, and the block-4 count-header convention is inferred.",
+    "The eviction cost model of SortedLRUArray (which combination of state flag and score yields eviction) and the role of flt_59E670/flt_5AD140 are inferred; sub_4DF110 reporting semantics are inferred from two call sites; the meaning of the this+0x1C slot is undetermined.",
+    "The ArrayEntryCleanup 74-dword entry stride and the 81/98-dword sub-block offsets are grounded only in raw addressing; FlagFieldBitManipulation(1, 1, 0, 0) constants and the *v3 nonzero branch meaning (initialized vs error) are unknown.",
+    "sub_4DF110 is named 'ContactConstraintSolverUpdate' by existing analysis in the StateArrayReset path; that name is unverified, and the 187-float stride / this+747-float base are derived addressing.",
+    "Vector3 helpers take three separate float pointers; the containing object identity of a1/a2/a3 is unconfirmed, and the structural-twin cluster addresses are outside the packet.",
+    "Row-major layout of the 3x3 matrix in 0x004ED7B0 is inferred; whether it is an orientation-only rotation or an upper-left sub-block of a 4x4 transform depends on the callers.",
+    "The 0045eb00 cluster name (Vector3ScalarMultiply) for 0x004EFEE0 is not confirmed by this packet; a2 is read at the same offsets as a1 but is not separately listed as field evidence.",
+    "SSEVectorMatrixInit passes four arguments read from an uninitialized-looking stack window to EmptyStub_8bd0; stores at +0x14/+0x1C/+0x24 have no packet field refs, parameter a2 is unused, and the 52-byte output class is unproven.",
+    "ThreeDNowMatrixConstructor: the association of each SIMD constant global (qword_5AF9C0/qword_5AF9C8) to specific literals is not evidenced (constants are inlined), and the float meaning of a2/a3/a4 (translation vs orientation) is inferred from the homogeneous row layout.",
+    "The semantic of dword_8B0108 (576 vs 1152 element selection) and the element type of the cleared this+4 buffer in 0x0052DA10 are unidentified.",
+    "sub_556220's semantics and the 76-byte element type of the 42-element array at dword_8B6C28 are not evidenced; the array is read-only from this function's perspective.",
+    "In 0x0054BF10 the a2 argument is unused; the raw source shows the inner loop does not advance v3 between iterations (same state word rewritten), which is either a decompiler artifact or genuine behavior; the node layout is expressed this-relative without an established this/node relationship.",
+    "F_10FloatStructInitializer (0x0053B130) semantics and the 104-byte element type of the unk_8B8F40 array are not evidenced.",
+    "In 0x0054E240 the target pointer loaded from the element entry and the value at target+4 have no named meaning; the 36-byte element struct layout is unknown.",
+    "In 0x005504D0 the frame entry fields (18/19/20/35/36 of the 148-byte entry) are not in the packet field list; the constants 32 (decoder argument) and 96 (sub-index scale) and the 0x400 bit are unexplained.",
+    "In 0x00558CB0 the roles of forwarded arguments a3/a4/a5 and the meaning of flag bit 0x4000 are unknown; the writers of element_count (0x2C) and array base (0x34) are elsewhere.",
+    "The dword element semantics of 0x0055BFD0 are unknown; whether callers 0x004F9160 and 0x0055F0D0 share the object layout is not established.",
+    "The semantics of sub_55BD20 and the type of the slot array starting at this dword index 2 in 0x0055BFF0 are unidentified; the relation between slot index a2 and forwarded args a3..a7 is unknown.",
+    "Globals dbl_59E430 and flt_59E43C are flagged by packet facts for 0x0055D460 but appear nowhere in its raw source; the meaning of mode 5 and the 0x800 dirty flag at dword_8B8F28+236 is not documented.",
+    "In 0x0055D5C0 caller argument a3 is unused; the exact zero-threshold role of flt_59E43C/flt_59E440/flt_59E670 is inferred from the constant pool, and the semantic identity of the node-list walk rooted at dword_8B8F28 depends on context.",
+    "In 0x00560B60 whether a2 is a fixed capacity or an initial count is not observable, and no deallocation or resize path is visible.",
+    "The socket-array buffer allocation site and the meaning of entry+4/entry+8 of each 28-byte entry are not evidenced; the constants 2/2/17 as AF_INET/SOCK_DGRAM/IPPROTO_UDP are a Winsock interpretation of raw-source literals.",
+    "ArrayOfStructStrideSearchByID and SocketArrayCreate share offsets 0x8 and 0x6C and both appear on NetworkConnection paths, but common ownership is a GUESS, not proven (equal offsets on different this bases are not identity).",
+    "The a4 and a5 descriptor fields of 0x005646D0 depend on each caller's use; the owning allocator subsystem is not established by this packet.",
+    "LinearInterpolation offsets +8 and +20 have no named field evidence, and the meaning of the interpolation factor a2 (time fraction, weighting, arbitrary scale) is not established.",
+    "In 0x00564990 v4 is uninitialized in the decompiled listing and is interpreted as the ecx this pointer equal to a1 (a DERIVED assumption); sub_58B130 is presumed to be a byte block copy/move and a1[2] is assumed to be the per-record stride.",
+    "The semantic meaning of the dword flag at this+24 in TypedLRUArrayInsert and the exact array element layout consumed by SortedArrayInsertWithLRUEviction are not established by the packet alone."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E670",
+    "global:0x0059ED18",
+    "global:0x005ACEAC",
+    "global:0x005AD140",
+    "abi:lead",
+    "guard:0",
+    "source:raw"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

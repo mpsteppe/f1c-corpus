@@ -1,0 +1,46 @@
+int __thiscall sub_4586E0(int this)
+{
+  sub_578600(&byte_629120);
+  *(_DWORD *)(this + 8) = -1;
+  sub_578600(&byte_629120);
+  *(_DWORD *)(this + 20) = 0;
+  *(_DWORD *)(this + 24) = 0;
+  *(_DWORD *)(this + 28) = 0;
+  *(_DWORD *)(this + 32) = 0;
+  *(_DWORD *)(this + 36) = 0;
+  *(_DWORD *)(this + 40) = 0;
+  *(_DWORD *)(this + 44) = 0;
+  *(_DWORD *)(this + 48) = 0;
+  *(_DWORD *)(this + 52) = 0;
+  *(_DWORD *)(this + 72) = 1056964608;
+  *(_DWORD *)(this + 76) = 1140457472;
+  *(_DWORD *)(this + 84) = 0;
+  *(_DWORD *)(this + 60) = 1110704128;
+  *(_DWORD *)(this + 68) = 1110704128;
+  *(_DWORD *)(this + 56) = 1114636288;
+  *(_DWORD *)(this + 64) = 1114636288;
+  *(_DWORD *)(this + 80) = 1065353216;
+  *(_DWORD *)(this + 88) = 0;
+  *(_DWORD *)(this + 92) = 0;
+  *(_DWORD *)(this + 96) = 0;
+  *(_DWORD *)(this + 100) = 1092616192;
+  *(_DWORD *)(this + 104) = 0;
+  *(_DWORD *)(this + 108) = 0;
+  *(_DWORD *)(this + 112) = 0;
+  *(_DWORD *)(this + 128) = 1065353216;
+  *(_DWORD *)(this + 140) = 0;
+  *(_BYTE *)(this + 116) = 0;
+  *(_DWORD *)(this + 120) = 0;
+  *(_DWORD *)(this + 124) = 0;
+  *(_DWORD *)(this + 132) = 0;
+  *(_DWORD *)(this + 144) = 1084227584;
+  *(_DWORD *)(this + 148) = 0;
+  *(_DWORD *)(this + 152) = 0;
+  *(_DWORD *)(this + 156) = 0;
+  *(_DWORD *)(this + 160) = 0;
+  *(_DWORD *)(this + 164) = 0;
+  *(_DWORD *)(this + 168) = 0;
+  *(_DWORD *)(this + 136) = 1120403456;
+  sub_578600(&byte_629120);
+  return sub_578600(&byte_629120);
+}

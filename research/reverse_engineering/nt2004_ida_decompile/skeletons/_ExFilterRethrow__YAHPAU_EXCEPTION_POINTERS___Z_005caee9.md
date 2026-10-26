@@ -1,0 +1,23 @@
+## ?ExFilterRethrow@@YAHPAU_EXCEPTION_POINTERS@@@Z_005caee9 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** ?CallCatchBlock@@YAPAXPAUEHExceptionRecord@@PAUEHRegistrationNode@@PAU_CONTEXT@@PBU_s_FuncInfo@@PAXHK@Z (005cadce)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0x0 | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

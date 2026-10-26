@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "address": "0x0052193C",
+  "proposed_name": "F_3DVectorNormalize",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "3DNow!/MMX vector normalization: loads the two packed input qwords (a3 x/y and low lane of a3[1] as z), accumulates the squared length via pfmul/pfadd, horizontally sums it with pfacc, approximates and refines the reciprocal square root (pfrsqrt, pfrsqit1, pfrcpit2), forms a packed scale multiplier from the a1 scalar and the refined rsqrt value, calls PackedFloatingPointMath, then guards whether the scaled magnitude exceeds a small threshold (pfcmpge against 0x3400000034000000 on the 0x7FFFFFFFFFFFFFFF-masked value) before applying the scale to the x/y and z components. Writes the normalized vector into a2 and returns a2. Reads the two packed-qword globals qword_5AF938 and qword_5AF948 as math constants (contents not in packet).",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load input vector components: a3->m64_u64 (x,y) into m64_u64 and the low dword of a3[1] into v3/v15 (z).",
+      "evidence_refs": ["source:raw", "function:0x0052193C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate the squared length: v4 = pfmul(a3->m64_u64, a3->m64_u64) + pfmul(v3, v3), then v5 = pfacc(v4, v4) to horizontally sum the two lanes.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Approximate the reciprocal square root v6 = pfrsqrt(v5) and refine it to v7 = pfrcpit2(pfrsqit1(pfmul(v6, v6), v5), v6).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build the packed scale multiplier v17 = PAIR64(a1, low32(v7)) (scalar a1 in the high lane, refined rsqrt low dword in the low lane); compute v8 = pfmul(v5, v7) and v14 = pfmul(highlane(v8), v17).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call PackedFloatingPointMath() at 0x005295E0 to set up the packed-math path before the magnitude comparison.",
+      "evidence_refs": ["callee:0x005295E0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Compare v9 = pfcmpge(pand(v8, 0x7FFFFFFFFFFFFFFF), 0x3400000034000000); extract v11 = low byte of the high-dword mask. If (v11 & 1) != 0, scale the components: v16 = lowlane(v14), then v15 = pfmul(v15, v16) (z) and m64_u64 = pfmul(m64_u64, v16) (x,y).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the normalized result into a2: a2->m64_u64 = scaled (x,y); a2[1].m64_u64 = pack(lowlane(v15), v13) for (z, magnitude); flush MMX state with femms; return a2.",
+      "evidence_refs": ["source:raw", "function:0x0052193C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the two packed-qword globals qword_5AF938 and qword_5AF948 as 3DNow! constants/masks used by the normalization math; their contents are not present in the packet.",
+      "evidence_refs": ["global:0x005AF938", "global:0x005AF948"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// 3DNow!/MMX normalize of a 3-component vector packed as two qwords.",
+    "// a1 is a scalar float placed into the high lane of the scale multiplier.",
+    "m64 *F_3DVectorNormalize(uint a1, m64 *a2, m64 *a3) {",
+    "  u64 xy = a3->m64_u64;",
+    "  u32 z = a3[1].m64_u32[0];",
+    "  f64 len2 = pfmul(xy,xy) + pfmul(z,z);          // per-lane squared terms",
+    "  f64 sum = pfacc(len2, len2);                   // horizontal sum -> v5",
+    "  f64 rsqrt = pfrsqrt(sum);                      // v6, then refined v7",
+    "  rsqrt = pfrcpit2(pfrsqit1(pfmul(rsqrt,rsqrt), sum), rsqrt);",
+    "  PackedFloatingPointMath();",
+    "  f64 mag = pfmul(sum, rsqrt);                   // v8 = pre-normalized magnitude",
+    "  f64 mul  = PAIR64(a1, low32(rsqrt));           // v17",
+    "  f64 hmag = pfmul(highlane(mag), mul);          // v14",
+    "  if ((lowbyte(pfcmpge(pand(mag, 0x7FFFFFFFFFFFFFFF), 0x3400000034000000)) & 1) != 0) {",
+    "    f64 s = lowlane(hmag);",
+    "    z   = pfmul(z, s);",
+    "    xy  = pfmul(xy, s);",
+    "  }",
+    "  a2->m64_u64 = xy;",
+    "  a2[1].m64_u64 = pack(lowlane(z), mag);",
+    "  femms();",
+    "  return a2;",
+    "}"
+  ],
+  "unresolved": [
+    "Owner/class of the function is UNKNOWN (no callers in the packet; packet owner trust UNKNOWN).",
+    "The exact role of the a1 scalar placed in the high lane of the scale multiplier is unconfirmed (unit normalization vs scale-to-target-magnitude).",
+    "The semantic meaning of the 0x3400000034000000 magnitude threshold and the meaning of the comparison result (which lanes survive scaling) are DERIVED from the raw source and not proven.",
+    "Contents of the packed-qword globals qword_5AF938 and qword_5AF948 are not in the packet; only that they are read.",
+    "PackedFloatingPointMath at 0x005295E0 is called but its exact computation is not deterministically established from this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

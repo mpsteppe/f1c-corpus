@@ -1,0 +1,81 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00565F80
+// Canonical corpus name: sub_565F80
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_565F80_00565f80.c
+
+void UnknownObject::EnumerateFilesRecursively()
+{
+    // Recursive directory file enumerator. Guards on a reentrancy counter at obj+0x21C (enters a reset path when it is zero), increments it on entry, and decrements it on exit, popping the list head via LinkedListPopFront_5f50 when it returns to zero. Queries a path via SemaphoreGuardedQueryCall, optionally descends into subdirectories (recursing on itself) when the a3 flag is set, and calls sub_565CA0 for every non-directory file found. Return value v8 reflects the last query or pop result.
+    // ASSIGNMENT: Initialize PathName buffer: seed PathName[0] from byte_5EA438[0] and zero the remainder with memset. [global:0x005EA438, source:raw]
+    // ASSIGNMENT: Initialize FileName buffer: seed FileName[0] from byte_5EA438[0] and zero the remainder with memset. [global:0x005EA438, source:raw]
+    // GUARD: If lpPathName is null, default v6 to the word_5BEB48 string (current-directory path). [global:0x005BEB48, source:raw]
+    // CALL: Call sub_588640(v6, asc_5E5160, 2); combined with sub_587C20 below to set the raw-path flag. [callee:0x00588640, global:0x005E5160, source:raw]
+    // CALL: Call sub_587C20(v6, byte_5C3F6C) as the second condition of the raw-path flag computation. [callee:0x00587C20, global:0x005C3F6C, source:raw]
+    // ASSIGNMENT: Set v13 = 1 when !sub_588640(v6, asc_5E5160, 2) OR sub_587C20(v6, byte_5C3F6C). [source:raw]
+    // GUARD: If the reentrancy counter at obj+0x21C (slot 135 of *v5) is zero, run the reset path. [field:obj:0x0000021C, source:raw]
+    // CALL: Call sub_565EB0(v5) to reset the enumeration context. [callee:0x00565EB0, source:raw]
+    // ASSIGNMENT: Write a5 into the flag byte at obj+0x218 (*(*v5 + 536)). [field:obj:0x00000218, source:raw]
+    // GUARD: If the flag byte at obj+0x218 is non-zero and v6 is non-null, store the path string. [field:obj:0x00000218, source:raw]
+    // CALL: Call StringCopyWithBufferRealloc(v6) to copy the path into the managed path buffer. [callee:0x00566650, source:raw]
+    // ASSIGNMENT: Read the path string pointer from obj+0x210 (slot 132 of *v5), defaulting to byte_5EA438 when null. [field:obj:0x00000210, global:0x005EA438, source:raw]
+    // CALL: Call sub_589901 on the resolved path string pointer. [callee:0x00589901, source:raw]
+    // ASSIGNMENT: Increment the reentrancy counter at obj+0x21C (slot 135 of *v5). [field:obj:0x0000021C, source:raw]
+    // CALL: Call SemaphoreGuardedQueryCall(PathName, 255); store result in v8. [callee:0x0058B903, source:raw]
+    // GUARD: If v8 is non-zero, proceed into the enumeration body. [source:raw]
+    // CALL: Call sub_59BA1D(v6); if the result is -1 the enumeration body is skipped. [callee:0x0059BA1D, source:raw]
+    // GUARD: If the a3 flag is set, build a pattern string and enumerate subdirectories. [source:raw]
+    // CALL: Format the subdirectory pattern into FileName via StringFormatWithBufferOverflowCheck using the dword_5C2AB8 format pointer. [callee:0x0058815F, global:0x005C2AB8, source:raw]
+    // CALL: Call FindFirstFileA(FileName, &FindFileData); if it returns -1 the directory scan is skipped. [global:0x0059E0E0, source:raw]
+    // LOOP: Loop while FindNextFileA returns results: for each entry with the directory attribute (0x10), skip the '.' and '..' entries (the latter compared against word_5BEB48) and recurse via sub_565F80 with the child directory name. [callee:0x00565F80, global:0x005BEB48, global:0x0059E0E4, source:raw]
+    // CALL: Close the directory search handle via FindClose. [global:0x0059E0E8, source:raw]
+    // CALL: Call FindFirstFileA(lpFileName, &FindFileData); if it returns -1 the file scan is skipped. [global:0x0059E0E0, source:raw]
+    // LOOP: Loop while FindNextFileA returns results: for each non-directory entry, build the full path into v22 via StringFormatWithBufferOverflowCheck (either '%s' when the raw-path flag is set, or '%s' / '%s\%s' depending on whether lpPathName equals word_5BEB48), append a backslash from word_5C2AAC when needed, and call sub_565CA0(*v5, &FindFileData, v22). [callee:0x00565CA0, callee:0x0058815F, global:0x0059E0E4, global:0x005BEB48, global:0x005C2AAC, field:this:0x00000000, source:raw]
+    // CALL: Close the file search handle via FindClose. [global:0x0059E0E8, source:raw]
+    // CALL: Call sub_59BA1D(PathName) to release/complete the path query. [callee:0x0059BA1D, source:raw]
+    // ASSIGNMENT: Decrement the reentrancy counter at obj+0x21C; if it reaches zero, pop the list head via LinkedListPopFront_5f50(v5). [callee:0x00565F50, field:obj:0x0000021C, source:raw]
+    // RETURN: Return v8. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   init(PathName); init(FileName);
+    //   if (lpPathName == NULL) v6 = word_5BEB48; else v6 = lpPathName;
+    //   v13 = (!sub_588640(v6, asc_5E5160, 2) || sub_587C20(v6, byte_5C3F6C));
+    //   if (obj->reentrancy_21C == 0) {
+    //     sub_565EB0(this);
+    //     obj->flag_218 = a5;
+    //     if (obj->flag_218 && v6) {
+    //       StringCopyWithBufferRealloc(v6);
+    //       str = obj->path_210 ? obj->path_210 : byte_5EA438;
+    //       sub_589901(str);
+    //     }
+    //   }
+    //   obj->reentrancy_21C++;
+    //   v8 = SemaphoreGuardedQueryCall(PathName, 255);
+    //   if (v8 && sub_59BA1D(v6) != -1) {
+    //     if (a3) {
+    //       StringFormatWithBufferOverflowCheck(FileName, dword_5C2AB8);
+    //       h = FindFirstFileA(FileName, &FindFileData);
+    //       if (h != -1) {
+    //         do { if (FindFileData.dwFileAttributes & 0x10)
+    //                 if (strcmp(name, word_5BEB48) && strcmp(name, "..")) sub_565F80(...); }
+    //         while (FindNextFileA(h, &FindFileData));
+    //         FindClose(h);
+    //       }
+    //     }
+    //     h = FindFirstFileA(lpFileName, &FindFileData);
+    //     if (h != -1) {
+    //       do { if (!(FindFileData.dwFileAttributes & 0x10)) {
+    //         build v22 from '%s' or '%s\\%s';
+    //         if (strlen(v22) > 0 && last_char != '\\') append word_5C2AAC;
+    //         sub_565CA0(*this, &FindFileData, v22);
+    //       } } while (FindNextFileA(h, &FindFileData));
+    //       FindClose(h);
+    //     }
+    //     sub_59BA1D(PathName);
+    //     if (--obj->reentrancy_21C == 0) LinkedListPopFront_5f50(this);
+    //   }
+    //   return v8;
+    // UNRESOLVED: Globals aS_4 (0x005C2C18), aSS_3 (0x005C2D64) and asc_5C2AB4 (0x005C2AB4) are present in the packet but do not map to any explicit source statement; they most likely back the inline '%s' / '%s\\%s' format literals and the pattern string, but the exact association is unconfirmed.
+    // UNRESOLVED: Globals byte_FF00000000005396 and byte_FF0000000000539E carry out-of-range addresses and appear to be decompiler artifacts; their role is unknown.
+    // UNRESOLVED: The exact mapping of slot indices (*v5)[132]/[135] to offsets 0x210/0x21C is DERIVED from the skeleton prose, not stated literally in the source.
+}

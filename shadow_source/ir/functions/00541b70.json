@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "address": "0x00541B70",
+  "proposed_name": "CameraProjectionUpdate",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Builds the camera projection matrix (orthographic when a2 bit 0x10 is set, perspective otherwise) and/or the view matrix, gated by flag bits in a2: flag value 4 selects the projection update, flag value 2 the view update, flag value 8 an additional sub_55CC20 update. Projection math reads near/far planes (this+4, this+8), field of view (this+28), aspect (this+32) and a camera flag byte at this+128; both matrices are uploaded through EnumToVTableCallMapper and the update is bracketed by EmptyStubWithFlagCheck calls.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Run the projection-matrix update only when (a2 & 4) is non-zero.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call EmptyStubWithFlagCheck(2, 0) before building the projection matrix.",
+      "evidence_refs": ["callee:0x0053AC70", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the 16-float local matrix v12 via memset.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on (a2 & 0x10): orthographic projection path when set, perspective path otherwise.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Orthographic path: derive scale from far plane (this+8) minus near plane (this+4) as 1/delta; fill v12[0]=0.2, v12[5]=0.2, v12[10]=1/delta, v12[11]=0.0, v12[14]=near * v12[10], v12[15]=1.0.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Perspective path: compute v10=1/(this+28), v6=1/(this+32), v7=(this+8)/((this+8)-(this+4)), v11=-(this+4)*v7; negate v10 when byte at this+128 has bit 0x10 set; fill v12[0], v12[5]=v6, v12[10]=v7, v12[11]=1.0, v12[14]=v11, v12[15]=0.0.",
+      "evidence_refs": ["field:this:0x0000001C", "field:this:0x00000020", "field:this:0x00000080", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call EmptyStubWithFlagCheck(1, 0) after building the projection matrix.",
+      "evidence_refs": ["callee:0x0053AC70", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Upload the projection matrix: EnumToVTableCallMapper(4, v12).",
+      "evidence_refs": ["callee:0x0055CA40", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Run the view-matrix update when (a2 & 2) is non-zero.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Upload the view matrix from this + 348: EnumToVTableCallMapper(2, this + 348).",
+      "evidence_refs": ["callee:0x0055CA40", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When (a2 & 8) is set, run the additional camera update and return its result.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call sub_55CC20(this) for the additional camera update.",
+      "evidence_refs": ["callee:0x0055CC20", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result produced by the last executed branch (sub_55CC20 result or the prior EnumToVTableCallMapper result).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int CameraProjectionUpdate(int this, char flags) {",
+    "  int result = 0;",
+    "  if (flags & 4) {",
+    "    EmptyStubWithFlagCheck(2, 0);",
+    "    memset(v12, 0, sizeof(v12));",
+    "    if (flags & 0x10) {",
+    "      // orthographic: built from near (this+4) and far (this+8) planes",
+    "    } else {",
+    "      // perspective: built from fov (this+28), aspect (this+32), near/far and flag byte (this+128)",
+    "    }",
+    "    EmptyStubWithFlagCheck(1, 0);",
+    "    result = EnumToVTableCallMapper(4, v12);",
+    "  }",
+    "  if (flags & 2) result = EnumToVTableCallMapper(2, this + 348);",
+    "  if (flags & 8) return sub_55CC20(this);",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Globals 0x0059E420 (double constant 1.0), 0x008B78A0 and 0x008B8F24 are read by this function per the fact table, but the read sites are not visible in the Hex-Rays pseudocode; their exact role is left unresolved rather than guessed into an operation.",
+    "The exact matrix element semantics of the D3D projection convention (row vs column major) are not resolved from this packet alone."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E420",
+    "global:0x008B78A0",
+    "global:0x008B8F24"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

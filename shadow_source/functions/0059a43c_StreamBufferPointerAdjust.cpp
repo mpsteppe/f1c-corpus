@@ -1,0 +1,21 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0059A43C
+// Canonical corpus name: StreamBufferPointerAdjust
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/StreamBufferPointerAdjust_0059a43c.c
+
+void UnknownObject::StreamBufferPointerAdjust()
+{
+    // Consumes the next character from a stream buffer. Decrements the remaining-count value pointed to by the pointer stored at this+0x30, reads the current character through the position pointer stored at this+0x20, then advances that position pointer by 2 bytes so the next call returns the following character. Returns the character value read before the advance. Invoked by sub_599ED6 (0x00599ED6).
+    // ASSIGNMENT: Decrements the value pointed to by the pointer stored at this+0x30 (this[12]) — the remaining-character count [field:this:0x00000030, source:raw]
+    // ASSIGNMENT: Loads the position pointer v1 from this+0x20 (this[8]) and reads the current character value result = *v1 [field:this:0x00000020, source:raw]
+    // ASSIGNMENT: Advances the position pointer stored at this+0x20 by 2 bytes (*v1 += 2) so the next call reads the following character [field:this:0x00000020, source:raw]
+    // RETURN: Returns the character value read before the pointer advance; the function is invoked by sub_599ED6 (0x00599ED6) [function:0x0059A43C, caller:0x00599ED6, abi:lead, source:raw]
+
+    // Conservative worker pseudocode:
+    //   --*(int*)(this+0x30);
+    //   int *pos = this+0x20;
+    //   int value = *pos;
+    //   *pos += 2;
+    //   return value;
+}

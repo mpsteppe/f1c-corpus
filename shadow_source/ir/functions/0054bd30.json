@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "address": "0x0054BD30",
+  "proposed_name": "SceneGraphRenderWalk",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Walks a scene-graph tree: for each node, reads its children-list head at this+0x204 and searches the linked list (child next at node+0x10, flag at node+0x14) for a child whose visibility flag has bit 0x80000 set; when such a child is found, registers the current node into the global render list (buffer at dword_8B8F28+336, element size 24, indexed by the counter at dword_8B8F28+332, current node stored at slot+16) and increments the counter. Recurses into the child pointer at this+0x44 when non-null and continues the walk through the sibling pointer at this+0x4C until the sibling chain ends. Called by VertexBufferResourceAllocation.",
+  "local_names": {
+    "result": "cursor: children-list head, then the visited child node, then the render-list slot",
+    "childListHead": "children-list head read from this+0x204",
+    "renderListCounter": "dword_8B8F28+332 counter of collected render nodes",
+    "renderListBuffer": "dword_8B8F28+336 buffer of collected render nodes"
+  },
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Outer loop walks the scene-graph tree through the sibling chain: each iteration operates on this, then advances to the sibling pointer at this+0x4C, repeating until the sibling pointer is null.",
+      "evidence_refs": ["field:this:0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Read the children-list head from this+0x204 (this[129]); if it is null skip the children search and go straight to the recursion check.",
+      "evidence_refs": ["field:this:0x00000204", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Children walk: while the child node's flag field at node+0x14 has bit 0x80000 clear, follow the child's next pointer at node+0x10; the walk stops at the first child with the bit set or when the list is exhausted.",
+      "evidence_refs": ["field:*(this+0x214):0x00000010", "field:*(this+0x214):0x00000014", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When a visible child is found, register the current node into the global render list: store this at the slot address renderListBuffer + 24 * renderListCounter + 16, then increment the counter at dword_8B8F28+332.",
+      "evidence_refs": ["global:0x008B8F28", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the child pointer at this+0x44 (this[17]) is non-null, recursively call SceneGraphRenderWalk on it to traverse that subtree.",
+      "evidence_refs": ["field:this:0x00000044", "callee:0x0054BD30", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Advance to the sibling at this+0x4C and repeat the outer loop; the function returns the last computed result once the sibling chain is exhausted.",
+      "evidence_refs": ["field:this:0x0000004C", "function:0x0054BD30", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int SceneGraphRenderWalk(this) {",
+    "  do {",
+    "    child = this[129];",
+    "    if (child) {",
+    "      while (!(child[20] & 0x80000)) {",
+    "        child = child[16];",
+    "        if (!child) goto next_node;",
+    "      }",
+    "      renderListBuffer[24 * renderListCounter + 16] = this;",
+    "      renderListCounter++;",
+    "    }",
+    "  next_node:",
+    "    if (this[17]) SceneGraphRenderWalk(this[17]);",
+    "    this = this[19];",
+    "  } while (this);",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The child node base was modeled as *(this+0x214) in the evidence while the raw walk starts from the children-list head at this+0x204; the exact relationship between 0x204 and 0x214 is not established.",
+    "The meaning of the visibility flag bit 0x80000 and the layout/usage of the global render list (element contents beyond the stored node pointer at +16) are not defined here.",
+    "The identity of the owning scene-graph object and the exact type of the recursion receiver are unknown from this packet."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x00543FA0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,45 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00512ACC
+// Canonical corpus name: sub_512ACC
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_512ACC_00512acc.c
+
+void UnknownObject::DecodeBlockCompressedPixels()
+{
+    // Block-compressed surface pixel decoder. Reads a pixel count at this+0, a format-selector byte at this+8 and a bit-depth byte at this+9, then walks the destination buffer a2 either as a palettized table copy through source a3 or as 16-bit lookups through base a4 indexed by (a4 + 4*(high byte >> a5)) + 2*low byte. The format byte (non-zero) switches between 2/4/6 channel-layout layouts at depths 8 and 16; when the format byte is zero, the bit-depth byte switches between 2/4/8/16-bit paths. Returns the result pointer, which starts as a3 and advances as the decode loops consume the destination.
+    // GUARD: Proceed into the decode body only when the bit-depth byte at this+9 is <= 8 with a non-null palette source a3, or equals 16 with a non-null lookup base a4; otherwise return the unchanged result pointer a3. [field:this:0x00000009, source:raw]
+    // CALCULATION: Read the pixel count from this+0 into v8/v37; it drives the iteration count of every per-pixel loop in the function. [field:this:0x00000000, source:raw]
+    // GUARD: Read the format-selector byte at this+8. If non-zero, dispatch to the switch on that byte (format cases 2, 4, 6); if zero, fall through to a second switch on the bit-depth byte at this+9 (cases 2, 4, 8, 16). [field:this:0x00000008, field:this:0x00000009, source:raw]
+    // LOOP: Format 2 at 8-bit depth: per-pixel palettized copy of three source bytes through a3[src], advancing the destination three bytes per pixel for the pixel count held in this+0. [source:raw]
+    // CALCULATION: Format 2 at non-8-bit depth: per-pixel 16-bit lookup into the table at (a4 + 4*(high byte >> a5)) + 2*low byte, writing the high byte then the low byte, advancing two bytes per pixel. [source:raw]
+    // LOOP: Format 4: at 8-bit depth copies one source byte through a3[src] every two destination bytes; otherwise performs the 16-bit table lookup and advances four bytes per pixel (two bytes written per four-byte pixel). [source:raw]
+    // LOOP: Format 6: at 8-bit depth copies three source bytes through a3[src] with a four-byte destination stride; otherwise performs the 16-bit table lookup and advances four bytes per pixel. [source:raw]
+    // CALCULATION: Format byte zero, bit-depth 2 path: nibble-planar decode combining source bits through a3 with bit twiddling, writing one destination byte per pixel. [source:raw]
+    // CALCULATION: Format byte zero, bit-depth 4 path: nibble-pair decode through a3 combining 4-bit groups, writing one destination byte per pixel. [source:raw]
+    // LOOP: Format byte zero, bit-depth 8 path: direct one-byte copy per pixel through a3[src]. [source:raw]
+    // LOOP: Format byte zero, bit-depth 16 path: per-pixel 16-bit table lookup advancing two bytes per pixel. [source:raw]
+    // RETURN: Return the result pointer, which starts as a3 and is advanced as the decode loops consume the destination. [source:raw]
+    // CALL: Invoked from sub_51389E (0x0051389E) as part of the surface/pixel decode call chain. [caller:0x0051389E, source:raw]
+
+    // Conservative worker pseudocode:
+    //   unsigned char *DecodeBlockCompressedPixels(int *a1, char *dst, unsigned char *pal, int table, char shift) {
+    //     int count = *a1;
+    //     unsigned char depth = *((char*)a1 + 9);
+    //     if (!((depth <= 8 && pal) || (depth == 16 && table))) return pal;
+    //     unsigned char format = *((char*)a1 + 8);
+    //     if (format) {
+    //       switch (format) {
+    //         case 2: /* 16-bit color, 2 bytes/pixel (or 3-byte palette copy at depth 8) * / break;
+    //         case 4: /* 4 bytes/pixel; one palette byte every two dst bytes at depth 8 * / break;
+    //         case 6: /* 4 bytes/pixel; 3-byte palette copy at depth 8 * / break;
+    //       }
+    //     } else {
+    //       switch (depth) { /* 2: nibble planar, 4: nibble pair, 8: direct copy, 16: 16-bit lookup * / }
+    //     }
+    //     return result; /* starts as pal, advanced by the decode loops * /
+    //   }
+    // UNRESOLVED: The exact meaning of the format byte (this+8 values 2/4/6) as channel layout and of the bit-depth byte (this+9 values 2/4/8/16) is DERIVED from the switch structure, not independently confirmed.
+    // UNRESOLVED: The ABI lead name DXT_Block_Compressed_Texture_Decompression is LEGACY trust and the specific DXT format family is unverified.
+    // UNRESOLVED: The lookup base a4 indexing formula (a4 + 4*(high byte >> a5)) + 2*low byte and the meaning of the shift a5 are unproven.
+    // UNRESOLVED: The prelabel claim that this function is a structural twin of sub_5123E0 (005123e0) is DERIVED and not verified here.
+}

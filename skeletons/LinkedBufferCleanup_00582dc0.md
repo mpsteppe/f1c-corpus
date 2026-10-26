@@ -1,0 +1,51 @@
+## LinkedBufferCleanup_00582dc0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Frame-path:** NOT_FOUND  
+**Call frequency:** UNKNOWN (no static path from tick root)
+
+**Called by:** sub_57BCE0 (0057bce0)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(obj+0x0) | 0x0 | R | — | [LLM] |
+| *(this+0x14) | 0x4 | R | — | [LLM] |
+| obj | 0x0 | R | — | [LLM] |
+| obj | 0x8 | R | — | [LLM] |
+| this | 0x0 | RW | 0 | [LLM] |
+| this | 0x4 | RW | 0 | [LLM] |
+| this | 0x8 | RW | 0 | [LLM] |
+| this | 0xC | RW | 0 | [LLM] |
+| this | 0x10 | RW | 0 | [LLM] |
+| this | 0x14 | RW | 0 | [LLM] |
+| this | 0x18 | RW | 0 | [LLM] |
+| this | 0x1C | RW | 0 | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x0: [LLM: once/conditional? does external poke survive?]
+- this 0x4: [LLM: once/conditional? does external poke survive?]
+- this 0x8: [LLM: once/conditional? does external poke survive?]
+- this 0xC: [LLM: once/conditional? does external poke survive?]
+- this 0x10: [LLM: once/conditional? does external poke survive?]
+- this 0x14: [LLM: once/conditional? does external poke survive?]
+- this 0x18: [LLM: once/conditional? does external poke survive?]
+- this 0x1C: [LLM: once/conditional? does external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 0047aa60 | EmptyStub_aa60 | R | [LLM] |
+| 0059cda8 | SEH_582DC0 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 00587bcf | FreeWrapper_7bcf | [LLM] |
+| 0058a5f7 | NTimeCallbackLoopWithSEH | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

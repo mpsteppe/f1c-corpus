@@ -1,0 +1,76 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00511B7C
+// Canonical corpus name: sub_511B7C
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_511B7C_00511b7c.c
+
+void UnknownObject::DecodeRowData()
+{
+    // Decodes image row data from an IDAT-chunk compressed stream held by the this object. Initializes buffer sizing when a flag is clear, then either performs a per-pass Huffman decode and returns, or reads/filters row data: guards row-read permission, refills IDAT chunks, inflates rows via sub_517ADC, verifies stream completion, copies pixel-format bytes, computes row geometry, unpacks and copies the row, runs optional post-processing, applies pass-aware horizontal stretch plus a2/a3 Huffman decode passes, finalizes via sub_519019, and invokes an optional callback stored at this+0x16C. Called by sub_511F23. Pass index (this+0x114) drives a 7-way switch of bitmask/threshold checks on (this+0xD4) and (this+0xB8).
+    // GUARD: Entry: decode image row data for this object (called by sub_511F23). If init flag (this+0x5C) bit 6 is clear, (re)initialize buffer sizing via AudioBufferSizeCalc(this). [function:0x00511B7C, caller:0x00511F23, source:raw, field:this:0x0000005C, callee:0x0051868C]
+    // GUARD: Dispatch guard: when (this+0x113) is zero or (this+0x60) bit 1 is clear, skip the per-pass switch and go directly to the row-read path. [field:this:0x00000113, field:this:0x00000060]
+    // STATE_TRANSITION: Switch on pass index (this+0x114). Each case tests bit masks of (this+0xD4) against per-pass thresholds of (this+0xB8) to decide whether to run an a3 Huffman decode pass then finalize via sub_519019, or fall through to the row-decode path. [field:this:0x00000114]
+    // STATE_TRANSITION: case 0: if (this+0xD4) & 7 == 0, fall through to row decode; otherwise branch to the shared a3 decode-and-finalize path (LABEL_34). [field:this:0x000000D4]
+    // STATE_TRANSITION: case 1: if (this+0xD4) & 7 != 0 or (this+0xB8) < 5 (guard:0), optionally run JPEGHuffmanDecoder(this, a3, 15) then return sub_519019(this). [field:this:0x000000D4, field:this:0x000000B8, guard:0, callee:0x00518032, callee:0x00519019]
+    // STATE_TRANSITION: case 2: if (this+0xD4) & 7 == 4, fall through; if a3 is null return sub_519019(this); else run JPEGHuffmanDecoder(this, a3, 255) then return sub_519019(this). [field:this:0x000000D4, callee:0x00518032, callee:0x00519019]
+    // STATE_TRANSITION: case 3: if (this+0xD4) & 3 != 0 or (this+0xB8) < 3 (guard:1), optionally run JPEGHuffmanDecoder(this, a3, 51) then return sub_519019(this). [field:this:0x000000D4, field:this:0x000000B8, guard:1, callee:0x00518032, callee:0x00519019]
+    // STATE_TRANSITION: case 4: if (this+0xD4) & 3 == 2, fall through; if a3 is null return sub_519019(this); else run JPEGHuffmanDecoder(this, a3, 255) then return sub_519019(this). [field:this:0x000000D4, callee:0x00518032, callee:0x00519019]
+    // STATE_TRANSITION: case 5: if (this+0xD4) & 1 != 0 or (this+0xB8) < 2 (guard:2), optionally run JPEGHuffmanDecoder(this, a3, 85) then return sub_519019(this). [field:this:0x000000D4, field:this:0x000000B8, guard:2, callee:0x00518032, callee:0x00519019]
+    // STATE_TRANSITION: default: if (this+0x114) == 6 (guard:3) and (this+0xD4) & 1 == 0, return sub_519019(this); otherwise fall through to the row-read path. [field:this:0x00000114, field:this:0x000000D4, guard:3, callee:0x00519019]
+    // GUARD: Row-read entry guard: if (this+0x58) bit 2 is clear, raise fatal error via GuardedCallWithLongjmp(this, aInvalidAttempt). [field:this:0x00000058, callee:0x00511869, global:0x005AF3CC]
+    // ASSIGNMENT: Set output row pointer (this+0x70) = row buffer (this+0xDC). [field:this:0x00000070, field:this:0x000000DC]
+    // ASSIGNMENT: Set rows remaining (this+0x74) = total row count (this+0xCC). [field:this:0x00000074, field:this:0x000000CC]
+    // LOOP: Decompression loop: while (this+0x68) is nonzero, inflate one row via sub_517ADC(this+0x64, 1); return value 1 means stream complete (exit loop), any other nonzero value means fatal error. [field:this:0x00000068, field:this:0x00000064, callee:0x00517ADC]
+    // LOOP: Chunk refill loop: while chunk length (this+0xFC) is zero, load the next chunk header: sub_518828(this, 0), CallbackDispatchWithNullGuard(this, &a1, 4), store ByteArrayToInt(&a1) into (this+0xFC), AnimationHandleAlloc(this), sub_517F58(this, this+0x10C, 4); if the 4-byte chunk type at this+0x10C is not 'IDAT' (aIdat), raise fatal 'Not enough image data' (aNotEnoughImage). [field:this:0x000000FC, field:this:0x0000010C, callee:0x00518828, callee:0x00513BD1, callee:0x00517F35, callee:0x00513CD8, callee:0x00517F58, callee:0x00511869, global:0x005AF26C, global:0x005AF3B4]
+    // ASSIGNMENT: Refill active chunk: (this+0x68) = chunk data size (this+0xA0), current pointer (this+0x64) = base (this+0x9C), clamp (this+0x68) to remaining chunk length (this+0xFC), consume bytes via sub_517F58(this, base, count), and subtract the consumed amount from (this+0xFC). [field:this:0x00000068, field:this:0x000000A0, field:this:0x00000064, field:this:0x0000009C, field:this:0x000000FC, callee:0x00517F58]
+    // GUARD: On sub_517ADC error, load message pointer (this+0x7C); default to 'Decompression error' (aDecompressionE) when null; raise fatal GuardedCallWithLongjmp(this, message). [field:this:0x0000007C, callee:0x00517ADC, callee:0x00511869, global:0x005AF3A0]
+    // GUARD: After a successful row inflate, if rows remaining (this+0x74) is zero, skip stream-completion verification and jump to post-row processing (LABEL_59). [field:this:0x00000074]
+    // GUARD: Stream-completion verification: if rows remaining (this+0x74), bytes remaining (this+0x68), or chunk length (this+0xFC) are nonzero, raise fatal 'Extra compressed data' (aExtraCompresse). [field:this:0x00000074, field:this:0x00000068, field:this:0x000000FC, callee:0x00511869, global:0x005AF388]
+    // ASSIGNMENT: Mark decompression complete: (this+0x58) |= 0x8 and (this+0x5C) |= 0x20. [field:this:0x00000058, field:this:0x0000005C]
+    // ASSIGNMENT: Copy pixel-format bytes into output state: (this+0xF8) = (this+0x116), (this+0xF9) = (this+0x117), (this+0xFA) = (this+0x11A), (this+0xFB) = (this+0x119). [field:this:0x000000F8, field:this:0x00000116, field:this:0x000000F9, field:this:0x00000117, field:this:0x000000FA, field:this:0x0000011A, field:this:0x000000FB, field:this:0x00000119]
+    // CALCULATION: Compute row geometry: samples = (this+0xD0), bpp = (this+0x119); store (this+0xF0) = samples and (this+0xF4) = (samples * bpp + 7) >> 3. [field:this:0x000000D0, field:this:0x00000119, field:this:0x000000F0, field:this:0x000000F4]
+    // CALL: Unpack/filter the decoded row: sub_518511(this, this+0xF0, rowbuf+1 where rowbuf=(this+0xDC), (this+0xD8)+1, filter-type byte at *(this+0xDC)). [field:this:0x000000F0, field:this:0x000000DC, field:this:0x000000D8, field:*(this+0xDC):0x00000000, callee:0x00518511]
+    // CALL: Copy the processed row to the output buffer: MemoryCopy(this, row size (this+0xD8), row buffer (this+0xDC), bytes-per-row (this+0xC8) + 1). [field:this:0x000000D8, field:this:0x000000DC, field:this:0x000000C8, callee:0x00517EE1]
+    // CALL: If (this+0x60) is nonzero, run post-row processing sub_51389E(this). [field:this:0x00000060, callee:0x0051389E]
+    // STATE_TRANSITION: Pass-aware post-decode (enabled when (this+0x113) is nonzero and (this+0x60) bit 1 set): when pass index (this+0x114) < 6, run TextureHorizontalStretch(this+0xF0, (this+0xDC)+1, (this+0x114)); then run JPEGHuffmanDecoder(this, a3, dword_5AF248[(this+0x114)]) and JPEGHuffmanDecoder(this, a2, dword_5AF22C[(this+0x114)]). [field:this:0x00000113, field:this:0x00000060, field:this:0x00000114, field:this:0x000000F0, field:this:0x000000DC, callee:0x00518248, callee:0x00518032, global:0x005AF248, global:0x005AF22C]
+    // CALL: Fallback post-decode: run JPEGHuffmanDecoder(this, a2, 255) and JPEGHuffmanDecoder(this, a3, 255). [callee:0x00518032]
+    // CALL: Finalize the decoded row / update state: sub_519019(this). [callee:0x00519019]
+    // RETURN: Load optional callback pointer (this+0x16C); if non-null, return callback(this, (this+0xD4), (this+0x114)); otherwise return null. [field:this:0x0000016C, field:this:0x000000D4, field:this:0x00000114]
+
+    // Conservative worker pseudocode:
+    //   if ((this+0x5C) & 0x40) == 0: AudioBufferSizeCalc(this)
+    //   if (this+0x113) == 0 or ((this+0x60) & 2) == 0: goto row_read_path
+    //   switch (this+0x114): per-pass bitmask/threshold checks on (this+0xD4)/(this+0xB8); each pass may run JPEGHuffmanDecoder(this, a3, N) then return sub_519019(this)
+    //   row_read_path:
+    //   guard: (this+0x58) & 4 != 0 else fatal aInvalidAttempt
+    //   this+0x70 = this+0xDC;  this+0x74 = this+0xCC
+    //   loop:
+    //     while (this+0xFC) == 0: read chunk header; verify 4-byte type == 'IDAT' (aIdat) else fatal aNotEnoughImage
+    //     this+0x68 = this+0xA0; this+0x64 = this+0x9C; clamp this+0x68 to this+0xFC; consume via sub_517F58; this+0xFC -= consumed
+    //     r = sub_517ADC(this+0x64, 1)
+    //     if r == 1: break (stream complete)
+    //     if r != 0: fatal (this+0x7C or aDecompressionE)
+    //     if this+0x74 == 0: goto post_row
+    //   verify this+0x74 == 0 and this+0x68 == 0 and this+0xFC == 0 else fatal aExtraCompresse
+    //   this+0x58 |= 8; this+0x5C |= 0x20
+    //   post_row:
+    //   copy format bytes: this+0xF8=this+0x116, this+0xF9=this+0x117, this+0xFA=this+0x11A, this+0xFB=this+0x119
+    //   this+0xF0 = this+0xD0; this+0xF4 = (this+0xD0 * (this+0x119) + 7) >> 3
+    //   sub_518511(this, this+0xF0, (this+0xDC)+1, (this+0xD8)+1, *(this+0xDC))
+    //   MemoryCopy(this, this+0xD8, this+0xDC, (this+0xC8)+1)
+    //   if this+0x60: sub_51389E(this)
+    //   if (this+0x113) and ((this+0x60) & 2):
+    //     if (this+0x114) < 6: TextureHorizontalStretch(this+0xF0, (this+0xDC)+1, (this+0x114))
+    //     if a3: JPEGHuffmanDecoder(this, a3, dword_5AF248[(this+0x114)])
+    //     if a2: JPEGHuffmanDecoder(this, a2, dword_5AF22C[(this+0x114)])
+    //   else:
+    //     if a2: JPEGHuffmanDecoder(this, a2, 255)
+    //     if a3: JPEGHuffmanDecoder(this, a3, 255)
+    //   sub_519019(this)
+    //   cb = (this+0x16C); return cb ? cb(this, this+0xD4, this+0x114) : NULL
+    // UNRESOLVED: Owner object type unresolved (UNKNOWN); callee semantic names (JPEGHuffmanDecoder, TextureHorizontalStretch, AnimationHandleAlloc, etc.) are prior-analysis labels and are not runtime-verified.
+    // UNRESOLVED: Whether the pass-index switch (0..6) implements Adam7 interlacing or per-frame Huffman passes is unresolved; the decoded stream is IDAT-chunk compressed image data.
+    // UNRESOLVED: Semantics of the per-pass constants 15/51/85/255 passed to JPEGHuffmanDecoder and of the lookup tables dword_5AF248 / dword_5AF22C are unknown.
+    // UNRESOLVED: The function returns a cdecl function pointer (stored at this+0x16C); whether the caller consumes it and its relationship to the a2/a3 arguments is unresolved.
+    // UNRESOLVED: Bit meanings of state fields (e.g. (this+0x58) bits, (this+0x60) bit 1, (this+0x5C) bits) are inferred from usage, not confirmed.
+}

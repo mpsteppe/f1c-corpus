@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "address": "0x00513022",
+  "proposed_name": "BitmapDecompression",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Multi-phase bitmap pixel decompression. The info struct (a1) carries a phase byte (this+0x8), a sub-state byte (this+0x9, bit depth or chroma-key index width), an output bytes-per-pixel byte (this+0xA), an output stride byte (this+0xB), a pixel count (this+0x0), and a byte-count/pointer field (this+0x4). Phase 0 unpacks 1/2/4-bit packed pixels into full bytes (scaling the optional key color a3[4] by 255/85/17) and then applies a chroma-key alpha pass (8-bit or 16-bit key width), writing 2 or 4 bytes per pixel and finalizing phase to 4. Phase 2 applies direct chroma-key conversion for 8-bit or 16-bit index formats, writing 4 or 8 bytes per pixel and finalizing phase to 6. Other phase values are a no-op. Returns the pixel count.",
+  "local_names": {
+    "a1": "bitmap info struct (this)",
+    "a2": "output pixel buffer",
+    "a3": "chroma-key word table"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard on phase byte (this+0x8): zero selects the bit-unpacking phase, value 2 selects the direct-color chroma-key phase, and any other value falls through as a no-op returning the pixel count.",
+      "evidence_refs": [
+        "abi:lead",
+        "caller:0x0051389E",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: phase == 2 and a chroma-key word table a3 non-null enters direct-color conversion; the key width is read from sub-state byte this+0x9.",
+      "evidence_refs": [
+        "field:this:0x00000008",
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: sub-state == 8 selects the 8-bit-index chroma-key path, comparing three consecutive source bytes against the key words a3[1], a3[2], a3[3].",
+      "evidence_refs": [
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "8-bit path: for each of count pixels (this+0x0), scan backward from a2 + 4*count - 1 and emit 4 output bytes: an alpha byte (0x00 when the three source bytes match the key words, else 0xFF) followed by the three copied color bytes.",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: sub-state == 16 selects the 16-bit-index chroma-key path, assembling three words from six source bytes and comparing them against a3[1], a3[2], a3[3].",
+      "evidence_refs": [
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "16-bit path: for each of count pixels (this+0x0), scan backward from a2 + 8*count - 1 and emit 8 output bytes: two alpha bytes (0x00 when the three source words match the key words, else 0xFF) followed by the six copied color bytes.",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Phase-2 tail: mark completion by setting this+0x8 = 6, this+0xA = 4 (bytes per pixel), this+0xB = 4 * sub-state, and this+0x4 = (count * this+0xB) >> 3.",
+      "evidence_refs": [
+        "field:this:0x00000008",
+        "field:this:0x0000000A",
+        "field:this:0x0000000B",
+        "field:this:0x00000004",
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: phase 0 and sub-state this+0x9 < 8 enters the bit-unpacking phase; when a3 is non-null the key color word is loaded from a3[4].",
+      "evidence_refs": [
+        "field:this:0x00000008",
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: sub-state == 1 selects the 1-bit unpack path, in which the key color is scaled by 255 and each packed bit expands to a 0x00 or 0xFF byte.",
+      "evidence_refs": [
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "1-bit path: iterate count pixels (this+0x0), reading each bit from the packed source at a running bit index and writing the expanded byte, walking pointers backward from a2 + count - 1.",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: sub-state == 2 selects the 2-bit unpack path, in which the key color is scaled by 85 and each 2-bit value is replicated four times to fill a byte.",
+      "evidence_refs": [
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "2-bit path: iterate count pixels (this+0x0), reading each 2-bit value from the packed source and writing the replicated byte, walking pointers backward from a2 + count - 1.",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: sub-state == 4 selects the 4-bit unpack path, in which the key color is scaled by 17 and each nibble is duplicated to fill a byte.",
+      "evidence_refs": [
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "4-bit path: iterate count pixels (this+0x0), reading each nibble from the packed source and writing the duplicated byte, walking pointers backward from a2 + count - 1.",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "After unpacking: set sub-state this+0x9 = 8, stride this+0xB = 8, and row byte count this+0x4 = count.",
+      "evidence_refs": [
+        "field:this:0x00000009",
+        "field:this:0x0000000B",
+        "field:this:0x00000004",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: second chroma-key pass on the unpacked row when a3 is non-null; sub-state == 8 selects a single-byte key compare and == 16 selects a two-byte word compare.",
+      "evidence_refs": [
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "8-bit chroma pass: compare each unpacked byte against the key color, writing an alpha byte (0x00 on match else 0xFF) plus the color byte, emitting 2 output bytes per pixel.",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "16-bit chroma pass: compare each two-byte word against the key color, writing two alpha bytes (0x00 on match else 0xFF) plus the two color bytes, emitting 4 output bytes per word.",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Chroma-key tail: mark completion by setting this+0x8 = 4, this+0xA = 2 (bytes per pixel), this+0xB = 2 * sub-state, and this+0x4 = (count * this+0xB) >> 3.",
+      "evidence_refs": [
+        "field:this:0x00000008",
+        "field:this:0x0000000A",
+        "field:this:0x0000000B",
+        "field:this:0x00000004",
+        "field:this:0x00000009",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "Return the pixel count read from this+0x0 at entry.",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "function:0x00513022",
+        "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "int BitmapDecompression(int *ctx, int out_buf, unsigned short *key_tab)",
+    "{",
+    "  int count = ctx[0];",
+    "  if ( ((unsigned char *)ctx)[8] == 2 )",
+    "  {",
+    "    if ( key_tab )",
+    "    {",
+    "      if ( ((unsigned char *)ctx)[9] == 8 )",
+    "        /* 8-bit indices: compare 3 source bytes to key_tab[1..3], write alpha + 3 color bytes per pixel */",
+    "      else if ( ((unsigned char *)ctx)[9] == 16 )",
+    "        /* 16-bit indices: compare 3 source words to key_tab[1..3], write alpha + 6 color bytes per pixel */",
+    "    }",
+    "    ((unsigned char *)ctx)[8] = 6;",
+    "    ((unsigned char *)ctx)[10] = 4;",
+    "    ((unsigned char *)ctx)[11] = 4 * ((unsigned char *)ctx)[9];",
+    "    ctx[1] = (count * 4 * ((unsigned char *)ctx)[9]) >> 3;",
+    "  }",
+    "  else if ( ((unsigned char *)ctx)[8] == 0 )",
+    "  {",
+    "    /* unpack 1/2/4-bit packed pixels to bytes, scaling key_tab[4] by 255/85/17 */",
+    "    ((unsigned char *)ctx)[9] = 8;",
+    "    ((unsigned char *)ctx)[11] = 8;",
+    "    ctx[1] = count;",
+    "    if ( key_tab )",
+    "    {",
+    "      /* chroma-key pass on 8-bit bytes or 16-bit words: write alpha + color bytes */",
+    "      ((unsigned char *)ctx)[8] = 4;",
+    "      ((unsigned char *)ctx)[10] = 2;",
+    "      ((unsigned char *)ctx)[11] = 2 * ((unsigned char *)ctx)[9];",
+    "      ctx[1] = (count * 2 * ((unsigned char *)ctx)[9]) >> 3;",
+    "    }",
+    "  }",
+    "  return count;",
+    "}"
+  ],
+  "unresolved": [
+    "The role of this+0x4 is dual: it is used as a source pointer base (a1[1] + a2) during the direct-color phase and overwritten as a row byte count in the phase tails; its exact meaning is unconfirmed.",
+    "Phase values 4 and 6 are written as completion markers but their intermediate semantics are not established.",
+    "Reachability of the sub-state 16 paths (in both the phase-2 and the phase-0 second pass) through normal call flow is unclear because the unpacking phase sets sub-state to 8.",
+    "The a3 word table layout (indices 1..3 as key colors, index 4 as the key color word) is inferred from the byte compares and is unconfirmed.",
+    "The object owner is unknown; the layout of this+0x0..0xB beyond the accessed offsets is unconfirmed."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "address": "0x0056CD70",
+  "proposed_name": "SparseTriangularSolve",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0056CD70"]
+  },
+  "summary": "Sparse triangular solver: forward substitution pass over rows 0..a4-1 followed by a backward substitution pass from row a4-2 down to 0. Row metadata is reached through two pointer arrays on this (this+0x0 for the forward pass, this+0x4 for the backward pass); each row subtracts the contributions of its nonzero off-diagonal entries (stored as byte-index/double pairs) from the workspace, then divides by the diagonal. The reciprocal uses the read-only constant dbl_59E420 (1.0). Called by sub_56ECF0 (0x0056ECF0) on the per-frame path.",
+  "local_names": {
+    "this": "solver handle holding the two sparse row-metadata arrays",
+    "a2": "index/workspace array of double values addressed by row-entry byte indices",
+    "a3": "current-column workspace cursor used as the right-hand side",
+    "a4": "matrix dimension (number of rows)",
+    "v8": "workspace index of the current row",
+    "v11": "reciprocal of the diagonal value for the current row"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Forward substitution pass is gated on a4 > 0 (matrix dimension must be positive).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Forward pass iterates rows 0..a4-1, walking each row's metadata block through the pointer array at *this (this+0x0) plus a byte cursor.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "For each row whose nonzero-count byte (at row metadata +1) is non-zero, subtracts the scaled contributions of its off-diagonal entries: workspace[row] -= coefficient * value for each (index, value) entry.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Computes the diagonal reciprocal v11 = 1.0 / workspace[row], with the 1.0 numerator sourced from the read-only constant dbl_59E420.",
+      "evidence_refs": ["global:0x0059E420", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Normalizes the row's remaining off-diagonal entries: writes v11 * workspace[entry] back into the workspace at each entry's double slot.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Divides the current row's right-hand-side cursor value by the diagonal: workspace cursor = v11 * workspace cursor.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Backward substitution pass iterates i = a4-2 down to 0, walking row metadata through this[1] (this+0x4).",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Backward pass subtracts the scaled contributions of each processed row's off-diagonal entries from the workspace cursor.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the final byte-cursor result (the value of the last substitution operation).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by sub_56ECF0 (0x0056ECF0), the only recorded caller, on the per-frame path.",
+      "evidence_refs": ["caller:0x0056ECF0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// forward substitution",
+    "if (a4 > 0) {",
+    "  for (row = 0; row < a4; ++row) {",
+    "    meta = *( *this + row_cursor + 4 );",
+    "    ws = *( a2 + 4*row );",
+    "    if ( *(byte*)(meta+1) != 0 )",
+    "      for each entry idx in meta block:",
+    "        ws -= *( *(a2 + 4*idx) + row_cursor ) * *( ws + 8*idx );",
+    "    v11 = 1.0 / *( row_cursor + ws );   // numerator constant = dbl_59E420",
+    "    for each remaining entry idx in meta block:",
+    "      *( ws + 8*idx ) = v11 * *( *(a2 + 4*idx) + row_cursor );",
+    "    *( row_cursor + a3 ) = v11 * *( row_cursor + a3 );",
+    "    row_cursor += 8;",
+    "  }",
+    "}",
+    "// backward substitution",
+    "for (i = a4-2; i >= 0; --i) {",
+    "  meta = *( this[1] + 8*i );",
+    "  if ( *(byte*)(meta + row_cursor + 1) != 0 )",
+    "    for each entry idx in meta block:",
+    "      *( 8*i + a3 ) -= *( ws + 8*idx ) * *( a3 + 8*idx );",
+    "}"
+  ],
+  "unresolved": [
+    "The sparse row-metadata layout behind *this and this[1] (nonzero-count byte at +1, entry pointer at +4) is only implied by the decompiled addressing; no explicit stride or element types are declared in the packet",
+    "a2 serves both as a per-row dword index array (a2 + 4*row) and as a double workspace (*(a2 + 4*idx) + cursor); its structure is not declared",
+    "a3 is used as the current-column right-hand-side cursor; its relationship to a2 is not shown in the packet",
+    "dbl_59E420 is flagged as read-only; the raw source expresses it as the literal 1.0, so its role as the reciprocal numerator is inferred rather than stated"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

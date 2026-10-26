@@ -1,0 +1,6 @@
+Start-Process powershell -WindowStyle Hidden -ArgumentList @("-File", "%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\architecture_launchers\wave_001\worker_01.ps1")
+Start-Process powershell -WindowStyle Hidden -ArgumentList @("-File", "%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\architecture_launchers\wave_001\worker_02.ps1")
+Start-Process powershell -WindowStyle Hidden -ArgumentList @("-File", "%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\architecture_launchers\wave_001\worker_03.ps1")
+Start-Process powershell -WindowStyle Hidden -ArgumentList @("-File", "%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\architecture_launchers\wave_001\worker_04.ps1")
+Start-Process powershell -WindowStyle Hidden -ArgumentList @("-File", "%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\architecture_launchers\wave_001\worker_05.ps1")
+Start-Process powershell -WindowStyle Hidden -ArgumentList @("-File", "%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\architecture_launchers\wave_001\worker_06.ps1")

@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "address": "0x0040F600",
+  "proposed_name": "CameraShakeRingBufferWrite",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Writes a camera-shake / vehicle-telemetry sample into a fixed ring buffer (432-byte entries, at most 1023) and optionally emits a progress-bar HUD event. Reads position, orientation (atan2-derived angles), velocity, and angular velocity from a source data structure, quantizes them into clamped 16-bit words, and stores them in the current ring-buffer entry. The switch on the mode field selects the HUD event type (cases 0-5) versus telemetry-only encoding.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Read the entry active flag byte at this+0xA into a local, clear it, and compute the HUD mode argument (0 when the flag was previously set, 2 otherwise).",
+      "evidence_refs": ["field:this:0x0000000A", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the ring-buffer write pointer dword_8AAE64; while the entry count dword_83EE60 is below 1023, increment the count and advance the write pointer by 432 bytes.",
+      "evidence_refs": ["global:0x008AAE64", "global:0x0083EE60", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Switch on the event mode field at this+0x1C; cases 0-5 route through the HUD progress-bar path, default falls through to the telemetry-only encode path.",
+      "evidence_refs": ["field:this:0x0000001C", "global:0x0040FAE4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ProgressBarEventEncode: emit a HUD event with a case-increasing type index (1-6), bar id 29, the current vehicle id read from dword_7C54F0[dword_7C54E4]+18580, the value float at *(this+0x20)+36, and the computed mode argument.",
+      "evidence_refs": ["callee:0x004B33B0", "global:0x007C54E4", "global:0x007C54F0", "field:this:0x00000020", "field:*(this+0x20):0x00000024", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the header word at this+0x8 into the current ring-buffer entry.",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Copy source-data position doubles from the *(this+0x20) structure into a float[3] and pass it to FloatToRGBColorConversion for colour encoding.",
+      "evidence_refs": ["callee:0x004B21F0", "field:*(this+0x20):0x000000D8", "field:*(this+0x20):0x000000E0", "field:*(this+0x20):0x000000E8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FloatConvertWrapper: normalize an orientation component read from the source data before the atan2 angle computation.",
+      "evidence_refs": ["callee:0x00588570", "field:*(this+0x20):0x00000118", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute orientation angles: when the roll component magnitude equals 1.0 use the gimbal-lock atan2 form, otherwise atan2 over the two remaining source-data pairs; store the three results as v37/v38/v39.",
+      "evidence_refs": ["field:*(this+0x20):0x000000F0", "field:*(this+0x20):0x00000100", "field:*(this+0x20):0x00000108", "field:*(this+0x20):0x00000110", "field:*(this+0x20):0x00000118", "field:*(this+0x20):0x00000120", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Quantize the three orientation angles: clamp each to the +-15.999 range, scale by 2048.0, truncate to 16-bit, and write at entry+19/+21/+23. The float/double constant table backing these clamps and scales is loaded from the 0059E420..0059E71C globals.",
+      "evidence_refs": ["global:0x0059E420", "global:0x0059E430", "global:0x0059E6FC", "global:0x0059E700", "global:0x0059E704", "global:0x0059E708", "global:0x0059E70C", "global:0x0059E710", "global:0x0059E714", "global:0x0059E718", "global:0x0059E71C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read velocity doubles from the source data, clamp each to the +-511.98 range, scale by 64.0, and store as 16-bit words at entry+25/+27/+29.",
+      "evidence_refs": ["field:*(this+0x20):0x00000130", "field:*(this+0x20):0x00000138", "field:*(this+0x20):0x00000140", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read angular-velocity doubles from the source data, clamp each to the +-255.99 range, scale by 128.0, and store as 16-bit words at entry+31/+33/+35.",
+      "evidence_refs": ["field:*(this+0x20):0x00000148", "field:*(this+0x20):0x00000150", "field:*(this+0x20):0x00000158", "field:*(this+0x20):0x00000160", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the last quantized 16-bit value.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// this: ring-buffer entry header; *(this+0x20): source data struct; v5 = *(this+0x20) + 212",
+    "int CameraShakeRingBufferWrite(int this) {",
+    "  char wasActive = *(char*)(this + 10); *(char*)(this + 10) = 0;",
+    "  int hudMode = wasActive ? 0 : 2;",
+    "  WORD* entry = (WORD*)dword_8AAE64;",
+    "  if (dword_83EE60 < 1023) { ++dword_83EE60; dword_8AAE64 += 432; }",
+    "  if (mode(this) in 0..5) ProgressBarEventEncode(1, mode+1, 29, vehicleId, valueFloat, hudMode);",
+    "  entry[4] = *(WORD*)(this + 8);",
+    "  FloatToRGBColorConversion(sourcePosition3);",
+    "  quantizeAndStore(orientationAngles, entry + 19, scale 2048, clamp 15.999);",
+    "  quantizeAndStore(velocity,        entry + 25, scale 64,   clamp 511.98);",
+    "  quantizeAndStore(angularVelocity, entry + 31, scale 128,  clamp 255.99);",
+    "  return lastQuantizedWord;",
+    "}"
+  ],
+  "unresolved": [
+    "The exact correspondence between the extracted *(this+0x20) field offsets and the v5-relative source-data quantities is DERIVED, not fully reconciled against the raw source.",
+    "The float/double constants at 0x59E420..0x59E71C are grouped as the clamp/scale constant table; their individual roles are not confirmed."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

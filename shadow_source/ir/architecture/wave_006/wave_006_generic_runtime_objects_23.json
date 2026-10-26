@@ -1,0 +1,2022 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_006_generic_runtime_objects_23",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Shared runtime container-object patterns for sprite compositing, media playback buffer management, processing-handler dispatch, and Huffman-coded bitstream decoding. The sprite/media functions share a this layout (sub-allocator vtable at +0x4, element count at +0x20, descriptor array at +0xC4, frame/copy state at +0x184, position counters at +0x80/+0x88, limit at +0x118) and are connected by selectProcessingHandler, which dispatches per-frame between the audio-synthesis and drawable-batch handlers. The bitstream functions share a decode-state struct at +0x194 (bit accumulator +0x1A4, bit count +0x1A8, remaining count +0x1B4, block counter +0x1C8, Huffman tree +0x1DC).",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x005198B3",
+      "function:0x0051A4B7",
+      "function:0x00519D51",
+      "function:0x00519F9A",
+      "function:0x0051AF57",
+      "function:0x0051B154",
+      "source:raw"
+    ]
+  },
+  "summary": "The packet describes two object families. Family A (sprite/media) is a runtime container that allocates a PlaybackStateController media buffer (0x005198B3), selects sprite frames (0x00519986), composites visible sprites onto a scan-line buffer (0x005199D5), copies the result into destination buffers (0x00519BB2), batch-processes drawable descriptors with a position-sync spin-wait (0x00519D51), copies validated render-state per object (0x00519EB7), runs the MPEG subband synthesis filterbank (0x00519F9A), and selects the per-frame processing handler (0x0051A4B7). Family B (bitstream) reads bytes with 0xFF escape handling (0x0051A794), decodes Huffman-coded texture sub-blocks (0x0051A9C6), resets decode counters (0x0051AEFC), decodes blocks with extra-bit tables (0x0051AF57), run-length/distance coding (0x0051B154), per-plane visibility bits (0x0051B37D), and signed deltas with rollback (0x0051B45F). Handler selection links the families conceptually through the shared container and the selectProcessingHandler dispatch slot.",
+  "function_roles": [
+    {
+      "address": "0x005198B3",
+      "role": "Media playback buffer allocation and frame-slot setup: allocates an 80-byte buffer, stamps it with the PlaybackStateController vtable, optionally dispatches playback state 4, gates on audio readiness and state 46, then allocates one frame buffer slot per sub-struct element.",
+      "owner": "SpriteRenderContext",
+      "evidence_refs": [
+        "function:0x005198B3",
+        "abi:lead",
+        "caller:0x00516C7B",
+        "global:0x0051984B",
+        "callee:0x00519375",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00519986",
+      "role": "Sprite frame value selection into the frame-info output struct: picks the frame from the sprite frame data array based on the animation position versus the frame limit, or pins the value to 1 in multi-frame mode, and zeroes two output fields.",
+      "owner": "SpriteRenderContext",
+      "evidence_refs": [
+        "function:0x00519986",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005199D5",
+      "role": "Compositing pass over visible sprites onto the shared scan-line buffer: zeroes the line buffer, polls readiness, dispatches each visible sprite draw callback per element, and advances frame counters with return codes 0/3/4.",
+      "owner": "SpriteRenderContext",
+      "evidence_refs": [
+        "function:0x005199D5",
+        "abi:lead",
+        "callee:0x00519986",
+        "callee:0x005159A8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00519BB2",
+      "role": "Copy of composited sprite pixel data into destination buffers through per-object sprite descriptors, advancing the animation frame when the copy line reaches the buffer limit.",
+      "owner": "SpriteRenderContext",
+      "evidence_refs": [
+        "function:0x00519BB2",
+        "abi:lead",
+        "callee:0x00519986",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00519D51",
+      "role": "Drawable-batch processing: spin-waits for render-position synchronization via a progress callback, allocates per-slot row buffers from the sub-allocator, and dispatches per-row render calls through a per-slot vtable entry; returns 3/4 as completion codes.",
+      "owner": "DrawableObjectBatchProcessor",
+      "evidence_refs": [
+        "function:0x00519D51",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00519EB7",
+      "role": "Validated render-state copy per sprite object descriptor: lazily allocates the destination buffer, skips null/negative entries, copies 5 dwords per object and returns a validation flag.",
+      "owner": "SpriteRenderContext",
+      "evidence_refs": [
+        "function:0x00519EB7",
+        "abi:lead",
+        "caller:0x0051A4B7",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00519F9A",
+      "role": "MPEG audio subband synthesis filterbank: fills the subband input buffer, runs the polyphase synthesis loop per active channel with five scaling/shift-clamp filters and a per-block synthesis callback, then advances the subband block counter.",
+      "owner": "AudioSubbandSynthesisFilterbank",
+      "evidence_refs": [
+        "function:0x00519F9A",
+        "abi:lead",
+        "callee:0x00515986",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051A4B7",
+      "role": "Per-frame processing-handler selection: when the handler-state enable flag is set, chooses AudioSubbandSynthesisFilterbank when the mode byte is nonzero and RenderStateCopyWithValidation succeeds, otherwise DrawableObjectBatchProcessor; zeroes the position counter.",
+      "owner": "SpriteRenderContext",
+      "evidence_refs": [
+        "function:0x0051A4B7",
+        "abi:lead",
+        "callee:0x00519EB7",
+        "global:0x00519D51",
+        "global:0x00519F9A",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051A794",
+      "role": "Bit accumulator refill with 0xFF escape (start-code emulation) handling and a one-shot escape-underflow error signal through the parent context.",
+      "owner": "BitstreamReaderWithEscape",
+      "evidence_refs": [
+        "function:0x0051A794",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051A9C6",
+      "role": "Huffman texture batch decode: conditionally reinitializes via AudioBufferReset, decodes up to this+0x13C sub-blocks into the output descriptor array consulting three lookup globals, and persists bitstream/decode state.",
+      "owner": "HuffmanCodec",
+      "evidence_refs": [
+        "function:0x0051A9C6",
+        "abi:lead",
+        "callee:0x0051A968",
+        "callee:0x0051A794",
+        "callee:0x0051A87E",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051AEFC",
+      "role": "Consumed-byte counter accumulation and decode-counter reset: adds consumed bytes to an output total, zeroes the byte counter, invokes an indirect callback and, on a nonzero result, resets per-channel counters, a ready flag and a counter field.",
+      "owner": "HuffmanCodec",
+      "evidence_refs": [
+        "function:0x0051AEFC",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051AF57",
+      "role": "Single-block bitstream decode: conditionally resets counters, decodes Huffman symbols per sub-block with short-code and extra-bit threshold/base-offset tables, writes 16-bit output words, and decrements the remaining-block count.",
+      "owner": "HuffmanCodec",
+      "evidence_refs": [
+        "function:0x0051AF57",
+        "abi:lead",
+        "callee:0x0051A794",
+        "callee:0x0051A87E",
+        "callee:0x0051AEFC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051B154",
+      "role": "Huffman decode with run-length and distance encoding: refreshes the block counter, decodes symbols through a short-symbol table or the symbol decoder, and writes run-length/distance-adjusted words shifted by this+0x174.",
+      "owner": "HuffmanCodec",
+      "evidence_refs": [
+        "function:0x0051B154",
+        "abi:lead",
+        "callee:0x0051A794",
+        "callee:0x0051A87E",
+        "callee:0x0051AEFC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051B37D",
+      "role": "Per-plane visibility bit test with bitfield output: reads one bit per plane sub-block from the bitstream, ORs a mask into caller-supplied 16-bit output words, and persists the decode state.",
+      "owner": "HuffmanCodec",
+      "evidence_refs": [
+        "function:0x0051B37D",
+        "abi:lead",
+        "callee:0x0051A794",
+        "callee:0x0051AEFC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051B45F",
+      "role": "Huffman-coded signed delta decode with sign adjustment over a coefficient range and rollback of modified entries on failure.",
+      "owner": "HuffmanCodec",
+      "evidence_refs": [
+        "function:0x0051B45F",
+        "abi:lead",
+        "callee:0x0051A794",
+        "callee:0x0051A87E",
+        "callee:0x0051AEFC",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "SpriteRenderContext",
+      "responsibility": "Container object for sprite compositing and media playback: owns a sub-allocator vtable, sprite descriptor arrays, the frame/copy working state at +0x184, frame/position counters and limits, and the per-frame processing-handler selection that dispatches between the audio-synthesis and drawable-batch handlers.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005198B3",
+        "0x00519986",
+        "0x005199D5",
+        "0x00519BB2",
+        "0x00519EB7",
+        "0x0051A4B7"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable",
+          "type_guess": "void**",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "sub_allocator_vtable",
+          "type_guess": "SubAllocatorVtable*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "field:*(this+0x4):0x00000000",
+            "field:*(this+0x4):0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "element_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000049",
+          "name": "mode_byte",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000049"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "frame_position",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000080"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "frame_counter",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000088"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000008C",
+          "name": "render_state_source_buffer",
+          "type_guess": "int*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000008C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C4",
+          "name": "sprite_object_descriptor_array",
+          "type_guess": "SpriteObjectDescriptor*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C8",
+          "name": "render_state_enable_flag",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000114",
+          "name": "frame_size_factor",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000114"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000118",
+          "name": "frame_limit",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000118"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000120",
+          "name": "sprite_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000120"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000124",
+          "name": "sprite_frame_data_array",
+          "type_guess": "SpriteDescriptor*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000124"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000134",
+          "name": "line_lower_bound",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000134"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000013C",
+          "name": "line_buffer_size",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000013C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000180",
+          "name": "media_buffer_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000180"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000184",
+          "name": "frame_copy_state_ptr",
+          "type_guess": "FrameProcessingState*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000184"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000018C",
+          "name": "frame_complete_callback_vtable",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000018C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000194",
+          "name": "buffer_readiness_vtable",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000194"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000198",
+          "name": "scan_position",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000198"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000019C",
+          "name": "current_line",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000019C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001A0",
+          "name": "line_limit",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001A4",
+          "name": "line_buffer",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001A4"
+          ]
+        },
+        {
+          "base": "*(this+0x19C)",
+          "offset": "0x00000008",
+          "name": "audio_readiness_flag",
+          "type_guess": "char",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x19C):0x00000008"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "buffer_vtable",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:obj:0x00000000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000014",
+          "name": "dispatcher_state",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000014"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005198B3",
+        "function:0x00519986",
+        "function:0x005199D5",
+        "function:0x00519BB2",
+        "function:0x00519EB7",
+        "function:0x0051A4B7",
+        "abi:lead",
+        "global:0x0051984B",
+        "global:0x00519D51",
+        "global:0x00519F9A",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DrawableObjectBatchProcessor",
+      "responsibility": "Batch processor for drawable sprite descriptors: synchronizes render positions, allocates per-slot row buffers from the sub-allocator, and dispatches per-row render calls through a per-slot vtable entry.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00519D51"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "sub_allocator_vtable",
+          "type_guess": "SubAllocatorVtable*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "field:*(this+0x4):0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "sprite_object_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000007C",
+          "name": "sub_position",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000007C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "scan_position",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000080"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000084",
+          "name": "sub_position_limit",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000084"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "total_position_counter",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000088"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C4",
+          "name": "descriptor_array",
+          "type_guess": "SpriteObjectDescriptor*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000118",
+          "name": "line_position_limit",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000118"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000184",
+          "name": "frame_info_ptr",
+          "type_guess": "FrameProcessingState*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000184",
+            "field:*(this+0x184):0x00000048"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000018C",
+          "name": "progress_callback_vtable",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000018C",
+            "field:*(this+0x18C):0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000198",
+          "name": "render_dispatch_table",
+          "type_guess": "void***",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000198"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00519D51",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AudioSubbandSynthesisFilterbank",
+      "responsibility": "MPEG audio subband synthesis filterbank: fills the subband input buffer and runs the polyphase synthesis loop over active channels with a per-block synthesis callback; selected as a per-frame processing handler by SpriteRenderContext.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00519F9A"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "sub_allocator_vtable",
+          "type_guess": "SubAllocatorVtable*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "channel_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000007C",
+          "name": "input_read_position",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000007C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "scan_position",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000080"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000084",
+          "name": "input_limit",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000084"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "block_counter",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000088"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C4",
+          "name": "channel_state_array",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000118",
+          "name": "block_count_limit",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000118"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000168",
+          "name": "fill_loop_term",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000168"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000184",
+          "name": "decoder_working_state",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000184"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000018C",
+          "name": "codec_callback_vtable",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000018C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000198",
+          "name": "synthesis_callback",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000198"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00519F9A",
+        "abi:lead",
+        "callee:0x00515986",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "BitstreamReaderWithEscape",
+      "responsibility": "Bit accumulator reader that refills a byte buffer through a callback table, handles 0xFF start-code escape sequences, and signals escape-underflow errors once through a parent context.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051A794"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "byte_cursor",
+          "type_guess": "char*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "bytes_remaining",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "saved_escape_byte",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "bit_accumulator",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "bit_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "parent_context_vtable",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "field:*(this+0x1C):0x00000004",
+            "field:*(this+0x1C):0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "error_latch",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "refill_table",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "field:*(this+0x30):0x00000000",
+            "field:*(this+0x30):0x00000004",
+            "field:*(this+0x30):0x0000000C"
+          ]
+        },
+        {
+          "base": "*(*(this+0x30)+0x0)",
+          "offset": "0x00000000",
+          "name": "refill_function",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x30)+0x0):0x00000000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "error_vtable",
+          "type_guess": "void**",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000000"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051A794",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "HuffmanCodec",
+      "responsibility": "Huffman-coded bitstream decoder container: block-counter management, per-sub-block symbol decode, run-length/distance and signed-delta variants, and per-plane visibility tests, sharing a decode-state struct at this+0x194 and the global decode lookup tables.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051A9C6",
+        "0x0051AEFC",
+        "0x0051AF57",
+        "0x0051B154",
+        "0x0051B37D",
+        "0x0051B45F"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable",
+          "type_guess": "void**",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "read_pointer_record",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "write_state",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000FC",
+          "name": "block_count_flag",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000FC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000120",
+          "name": "channel_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000120"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000013C",
+          "name": "sub_block_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000013C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000140",
+          "name": "output_descriptor_array",
+          "type_guess": "int*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000140"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000168",
+          "name": "decode_range_start",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000168"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000016C",
+          "name": "decode_range_end",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000016C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000174",
+          "name": "output_shift",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000174"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000178",
+          "name": "saved_scalar",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000178"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000190",
+          "name": "byte_total_record",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000190"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000194",
+          "name": "decode_state",
+          "type_guess": "HuffmanDecodeState*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000194"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001A4",
+          "name": "bit_accumulator",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001A4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001A8",
+          "name": "bit_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001A8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001AC",
+          "name": "ready_flag",
+          "type_guess": "char",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B4",
+          "name": "remaining_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B8",
+          "name": "per_channel_counters",
+          "type_guess": "int[0x120]",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000001B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001BC",
+          "name": "intermediate_value_a",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001BC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001C0",
+          "name": "intermediate_value_b",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001C0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001C4",
+          "name": "remaining_block_counter",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001C8",
+          "name": "block_counter",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001C8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001DC",
+          "name": "huffman_tree_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001DC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001E8",
+          "name": "output_total",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001E8"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000004",
+          "name": "error_handler_vtable",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000004"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000014",
+          "name": "error_slot",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000014"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051A9C6",
+        "function:0x0051AEFC",
+        "function:0x0051AF57",
+        "function:0x0051B154",
+        "function:0x0051B37D",
+        "function:0x0051B45F",
+        "abi:lead",
+        "global:0x005AF778",
+        "global:0x005B03A0",
+        "global:0x005B03E0",
+        "global:0x005B0488",
+        "global:0x005B04C8",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SpriteDescriptor",
+      "responsibility": "Per-sprite frame descriptor consumed by the compositing and copy passes: type, width, visibility, strides, source offsets and the scan threshold.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x00000004",
+          "name": "sprite_type",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x00000004"
+          ]
+        },
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x0000000C",
+          "name": "width",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x0000000C"
+          ]
+        },
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x00000024",
+          "name": "draw_stride",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x00000024"
+          ]
+        },
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x00000030",
+          "name": "visibility_flag",
+          "type_guess": "char",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x00000030"
+          ]
+        },
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x00000034",
+          "name": "low_source_offset",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x00000034"
+          ]
+        },
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x00000038",
+          "name": "row_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x00000038"
+          ]
+        },
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x0000003C",
+          "name": "stride_step",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x0000003C"
+          ]
+        },
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x00000040",
+          "name": "row_multiplier",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x00000040"
+          ]
+        },
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x00000044",
+          "name": "high_source_offset",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x00000044"
+          ]
+        },
+        {
+          "base": "*(this+0x124)",
+          "offset": "0x00000048",
+          "name": "scan_threshold",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x124):0x00000048"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(this+0x124):0x00000004",
+        "field:*(this+0x124):0x0000000C",
+        "field:*(this+0x124):0x00000024",
+        "field:*(this+0x124):0x00000030",
+        "field:*(this+0x124):0x00000034",
+        "field:*(this+0x124):0x00000038",
+        "field:*(this+0x124):0x0000003C",
+        "field:*(this+0x124):0x00000040",
+        "field:*(this+0x124):0x00000044",
+        "field:*(this+0x124):0x00000048"
+      ]
+    },
+    {
+      "name": "SpriteObjectDescriptor",
+      "responsibility": "Sprite object descriptor array element (84-byte stride) used by batch draw and render-state copy.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0xC4)",
+          "offset": "0x0000000C",
+          "name": "width",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xC4):0x0000000C"
+          ]
+        },
+        {
+          "base": "*(this+0xC4)",
+          "offset": "0x0000001C",
+          "name": "row_stride",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xC4):0x0000001C"
+          ]
+        },
+        {
+          "base": "*(this+0xC4)",
+          "offset": "0x00000020",
+          "name": "element_field",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xC4):0x00000020"
+          ]
+        },
+        {
+          "base": "*(this+0xC4)",
+          "offset": "0x00000024",
+          "name": "row_step",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xC4):0x00000024"
+          ]
+        },
+        {
+          "base": "*(this+0xC4)",
+          "offset": "0x00000030",
+          "name": "enable_flag",
+          "type_guess": "char",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xC4):0x00000030"
+          ]
+        },
+        {
+          "base": "*(this+0xC4)",
+          "offset": "0x0000004C",
+          "name": "sprite_object_word_array",
+          "type_guess": "SpriteObjectWordRecord*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xC4):0x0000004C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(this+0xC4):0x0000000C",
+        "field:*(this+0xC4):0x0000001C",
+        "field:*(this+0xC4):0x00000020",
+        "field:*(this+0xC4):0x00000024",
+        "field:*(this+0xC4):0x00000030",
+        "field:*(this+0xC4):0x0000004C"
+      ]
+    },
+    {
+      "name": "SpriteObjectWordRecord",
+      "responsibility": "Word-array record referenced by each sprite object descriptor at +0x4C; entries are validated non-null before the render-state copy.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(*(this+0xC4)+0x4C)",
+          "offset": "0x00000000",
+          "name": "word_00",
+          "type_guess": "unsigned short",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0xC4)+0x4C):0x00000000"
+          ]
+        },
+        {
+          "base": "*(*(this+0xC4)+0x4C)",
+          "offset": "0x00000002",
+          "name": "word_02",
+          "type_guess": "unsigned short",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0xC4)+0x4C):0x00000002"
+          ]
+        },
+        {
+          "base": "*(*(this+0xC4)+0x4C)",
+          "offset": "0x00000004",
+          "name": "word_04",
+          "type_guess": "unsigned short",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0xC4)+0x4C):0x00000004"
+          ]
+        },
+        {
+          "base": "*(*(this+0xC4)+0x4C)",
+          "offset": "0x00000010",
+          "name": "word_10",
+          "type_guess": "unsigned short",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0xC4)+0x4C):0x00000010"
+          ]
+        },
+        {
+          "base": "*(*(this+0xC4)+0x4C)",
+          "offset": "0x00000012",
+          "name": "word_12",
+          "type_guess": "unsigned short",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0xC4)+0x4C):0x00000012"
+          ]
+        },
+        {
+          "base": "*(*(this+0xC4)+0x4C)",
+          "offset": "0x00000020",
+          "name": "word_20",
+          "type_guess": "unsigned short",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0xC4)+0x4C):0x00000020"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(*(this+0xC4)+0x4C):0x00000000",
+        "field:*(*(this+0xC4)+0x4C):0x00000002",
+        "field:*(*(this+0xC4)+0x4C):0x00000004",
+        "field:*(*(this+0xC4)+0x4C):0x00000010",
+        "field:*(*(this+0xC4)+0x4C):0x00000012",
+        "field:*(*(this+0xC4)+0x4C):0x00000020"
+      ]
+    },
+    {
+      "name": "FrameProcessingState",
+      "responsibility": "Frame/copy working-state object reachable at this+0x184: holds the selected processing handler, the enable flag, the per-slot allocation index array and the destination render-state buffer.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x184)",
+          "offset": "0x0000000C",
+          "name": "processing_handler_slot",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x184):0x0000000C"
+          ]
+        },
+        {
+          "base": "*(this+0x184)",
+          "offset": "0x00000010",
+          "name": "enable_flag",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x184):0x00000010"
+          ]
+        },
+        {
+          "base": "*(this+0x184)",
+          "offset": "0x00000048",
+          "name": "allocation_index_array",
+          "type_guess": "int*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x184):0x00000048"
+          ]
+        },
+        {
+          "base": "*(this+0x184)",
+          "offset": "0x00000070",
+          "name": "render_state_buffer",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x184):0x00000070"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(this+0x184):0x0000000C",
+        "field:*(this+0x184):0x00000010",
+        "field:*(this+0x184):0x00000048",
+        "field:*(this+0x184):0x00000070"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "FrameScanProgress",
+      "owner": "SpriteRenderContext",
+      "states": [
+        "scanning_line",
+        "line_limit_reached",
+        "frame_complete",
+        "next_sprite_frame"
+      ],
+      "transitions": [
+        "current_line (this+0x19C) reaches the line limit (this+0x1A0) -> frame counters this+0x80/this+0x88 advance",
+        "this+0x80 reaches this+0x118 -> frame-complete callback at (this+0x18C)+12 fires, return 4",
+        "otherwise -> SpriteFrameSelector (0x00519986) advances to the next sprite frame, return 3",
+        "scan position (this+0x198) below the line lower bound (this+0x134) keeps copying; otherwise the scan position resets to 0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x005199D5",
+        "function:0x00519BB2",
+        "callee:0x00519986",
+        "field:this:0x00000080",
+        "field:this:0x00000088",
+        "field:this:0x00000118",
+        "field:this:0x00000134",
+        "field:this:0x00000198",
+        "field:this:0x000001A0"
+      ]
+    },
+    {
+      "name": "DecodeBlockCounter",
+      "owner": "HuffmanCodec",
+      "states": [
+        "blocks_remaining",
+        "block_exhausted",
+        "stream_failure"
+      ],
+      "transitions": [
+        "block-count flag (this+0xFC) nonzero and block counter (this+0x1C8) zero -> CounterUpdateWithZero (0x0051AEFC) resets counters",
+        "counter reset returns 0 -> abort the whole decode with 0",
+        "decode loop runs while sub-block count (this+0x13C) is positive",
+        "success path decrements the block counter (this+0x1C8) and returns 1"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051AF57",
+        "function:0x0051B154",
+        "function:0x0051B37D",
+        "function:0x0051B45F",
+        "callee:0x0051AEFC",
+        "field:this:0x000000FC",
+        "field:this:0x0000013C",
+        "field:this:0x000001C8"
+      ]
+    },
+    {
+      "name": "EscapeUnderflowLatch",
+      "owner": "BitstreamReaderWithEscape",
+      "states": [
+        "idle",
+        "error_signaled"
+      ],
+      "transitions": [
+        "0xFF escape run interrupted by a null byte while the error latch (this+0x20) is clear -> write 113 to the error slot (*(this+0x1C)+0x14), invoke the error callback (*(this+0x1C)+0x4) with -1, set this+0x20",
+        "error latch set -> the error signal fires only once"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0051A794",
+        "field:this:0x00000020",
+        "field:*(this+0x1C):0x00000004",
+        "field:*(this+0x1C):0x00000014"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "SubAllocatorVtable",
+      "purpose": "Sub-allocator vtable at this+0x4: entry 0x0 allocates media/render-state buffers, entry 0x8 allocates frame buffer slots, entry 0x20 allocates per-slot row buffers.",
+      "functions": [
+        "0x005198B3",
+        "0x00519D51",
+        "0x00519EB7"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:*(this+0x4):0x00000000",
+        "field:*(this+0x4):0x00000008",
+        "field:*(this+0x4):0x00000020"
+      ]
+    },
+    {
+      "name": "PlaybackStateController",
+      "purpose": "Media buffer vtable (global 0x0051984B) written into the allocated buffer's first field; dispatch entry at obj+0x0 and playback state at obj+0x14.",
+      "functions": [
+        "0x005198B3"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x0051984B",
+        "field:obj:0x00000000",
+        "field:obj:0x00000014"
+      ]
+    },
+    {
+      "name": "FrameCompletionCallback",
+      "purpose": "Frame lifecycle callbacks: frame-complete at (this+0x18C)+12, buffer-readiness poll at (this+0x194)+4, progress poll at (this+0x18C)+0.",
+      "functions": [
+        "0x005199D5",
+        "0x00519BB2",
+        "0x00519D51"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:this:0x0000018C",
+        "field:this:0x00000194",
+        "field:*(this+0x18C):0x00000000"
+      ]
+    },
+    {
+      "name": "CodecCallbackVtable",
+      "purpose": "Audio codec callback at *(this+0x18C) for the filterbank fill loop, and the error-handler vtable (obj+0x4) with error slot (obj+0x14) used by the bitstream decoders.",
+      "functions": [
+        "0x00519F9A",
+        "0x0051B45F",
+        "0x0051A794"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:this:0x0000018C",
+        "field:obj:0x00000004",
+        "field:obj:0x00000014"
+      ]
+    },
+    {
+      "name": "RefillCallbackTable",
+      "purpose": "Bitstream refill callback table at this+0x30 (entries 0x0, 0x4, 0xC, with a double-indirected function pointer) invoked on buffer exhaustion.",
+      "functions": [
+        "0x0051A794"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:this:0x00000030",
+        "field:*(this+0x30):0x00000000",
+        "field:*(this+0x30):0x00000004",
+        "field:*(this+0x30):0x0000000C",
+        "field:*(*(this+0x30)+0x0):0x00000000"
+      ]
+    },
+    {
+      "name": "HuffmanDecodeTables",
+      "purpose": "Shared decode lookup tables: output-index table dword_5AF778, extra-bit threshold/base-offset tables dword_5B0488/dword_5B04C8, and texture decode tables dword_5B03A0/dword_5B03E0.",
+      "functions": [
+        "0x0051A9C6",
+        "0x0051AF57",
+        "0x0051B154",
+        "0x0051B45F"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x005AF778",
+        "global:0x005B03A0",
+        "global:0x005B03E0",
+        "global:0x005B0488",
+        "global:0x005B04C8"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "SpriteRenderContext",
+      "to": "0x00519375",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00519375",
+        "function:0x005198B3",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "SpriteRenderContext",
+      "to": "0x005159A8",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005159A8",
+        "function:0x005199D5",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "SpriteRenderContext",
+      "to": "SpriteRenderContext",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00519986",
+        "function:0x005199D5",
+        "function:0x00519BB2",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0051A4B7",
+      "to": "0x00519EB7",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00519EB7",
+        "caller:0x0051A4B7",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "SpriteRenderContext",
+      "to": "DrawableObjectBatchProcessor",
+      "kind": "dispatch",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x00519D51",
+        "function:0x0051A4B7",
+        "field:*(this+0x184):0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "SpriteRenderContext",
+      "to": "AudioSubbandSynthesisFilterbank",
+      "kind": "dispatch",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x00519F9A",
+        "function:0x0051A4B7",
+        "field:*(this+0x184):0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "AudioSubbandSynthesisFilterbank",
+      "to": "0x00515986",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00515986",
+        "function:0x00519F9A",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "HuffmanCodec",
+      "to": "BitstreamReaderWithEscape",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051A794",
+        "function:0x0051A9C6",
+        "function:0x0051AF57",
+        "function:0x0051B154",
+        "function:0x0051B37D",
+        "function:0x0051B45F",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "HuffmanCodec",
+      "to": "0x0051A87E",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051A87E",
+        "function:0x0051A9C6",
+        "function:0x0051AF57",
+        "function:0x0051B154",
+        "function:0x0051B45F",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "HuffmanCodec",
+      "to": "0x0051A968",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051A968",
+        "function:0x0051A9C6",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "HuffmanCodec",
+      "to": "HuffmanCodec",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051AEFC",
+        "function:0x0051AF57",
+        "function:0x0051B154",
+        "function:0x0051B37D",
+        "function:0x0051B45F",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00516C7B",
+      "to": "SpriteRenderContext",
+      "kind": "caller",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00516C7B",
+        "function:0x005198B3",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "DrawableObjectBatchProcessor",
+      "to": "SpriteRenderContext",
+      "kind": "shared_container",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051A4B7",
+        "field:this:0x00000088",
+        "field:this:0x00000118",
+        "field:this:0x00000184",
+        "source:raw"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "FrameStepReturnCodes",
+      "category": "protocol",
+      "description": "Compositing and batch-processing entry points return 0 (partial line/copy), 3 (next sprite frame) and 4 (frame sequence complete); callers must not treat a nonzero return as an error and must re-invoke the entry point to continue.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005199D5",
+        "function:0x00519BB2",
+        "function:0x00519D51",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DecoderFailureReturnZero",
+      "category": "contract",
+      "description": "Bitstream readers and Huffman decoders return 1 on success and 0 on refill/decoder/counter failure; callers propagate the zero and abort the current frame decode.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0051AF57",
+        "function:0x0051B154",
+        "function:0x0051B37D",
+        "function:0x0051B45F",
+        "callee:0x0051A794",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MediaBufferLayout",
+      "category": "layout",
+      "description": "The media buffer is 80 bytes, allocated through sub-allocator entry 0, holds its vtable at offset 0 (PlaybackStateController, global 0x0051984B) and one frame-buffer slot per descriptor element beginning 8 bytes in; the final slot index is returned to the caller.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005198B3",
+        "global:0x0051984B",
+        "field:this:0x00000180",
+        "field:obj:0x00000000",
+        "field:*(this+0x4):0x00000000"
+      ]
+    },
+    {
+      "name": "RenderStateRecordLayout",
+      "category": "layout",
+      "description": "The render-state copy writes 5 dwords per sprite object into a destination buffer at *(this+0x184)+0x70 with a 24-byte destination stride and a 256-byte source stride; a validation flag is returned when any copied dword is non-zero.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00519EB7",
+        "field:*(this+0x184):0x00000070",
+        "field:this:0x0000008C",
+        "field:this:0x00000020"
+      ]
+    }
+  ],
+  "unresolved": [
+    "The sprite/media functions (0x005198B3, 0x00519986, 0x005199D5, 0x00519BB2, 0x00519EB7, 0x0051A4B7) are grouped into one container (SpriteRenderContext) on the shared this+0x4/0x20/0xC4/0x184/0x80/0x88/0x118 layout, but 0x00519D51 carries the packet's DERIVED owner DrawableObjectBatchProcessor and 0x00519F9A is dispatched under the label AudioSubbandSynthesisFilterbank; whether these are one class or several tightly-coupled classes sharing a container is not proven by this packet.",
+    "0x00519EB7's packet prose names its invoker ProtocolStateHandler while 0x0051A4B7 is named selectProcessingHandler; both are grouped under SpriteRenderContext here, and the ProtocolStateHandler label is not otherwise evidenced.",
+    "this+0x198 is read as a draw-dispatch table (0x00519D51 and CompositingPass), as the scan/copy position (CompositingPass, CompositingCopy), and as an output frame value (SpriteFrameSelector); the three readings are not reconciled.",
+    "Sprite descriptor field +0x30 is read as a visibility/enable byte in the raw source, but the packet field table lists it as an offset; the byte interpretation is DERIVED and the two readings conflict (also for SpriteObjectDescriptor +0x30, labeled 'Y stride in buffer' elsewhere).",
+    "The descriptor fields used in the frame-size calculation of 0x005198B3 (the fields eight and twenty-four bytes below *(this+0xC4)+0x24) have no packet field references.",
+    "The frame-size factor (this+0x114 + 2) and the dispatcher state values 4 and 46 written by MediaBufferAllocAndSetup are not interpreted by the packet.",
+    "The refill table is modeled by deterministic fields as this+0x30 (entries 0x0/0x4/0xC) but the raw source resolves it through parent+0x14 double indirection; the two models are not reconciled.",
+    "The 5-dword render-state record (24-byte destination stride) and the 84-byte sprite descriptor layout are not defined by the packet.",
+    "0x00519F9A's decoder scalar fields (this+0x24, 0xD0, 0xE0, 0xE4, 0xE8, 0xF4, 0x110, 0x19D, 0x1CC, 0x1F4) and the *(this+0x110) word offsets are listed by the fact extractor but not used by the visible raw body; their roles require the channel-state/decoder layout to be confirmed.",
+    "The Huffman table layout (direct short-code table at tree+212, per-symbol table at tree+1236) is inferred from index expressions only; the organization of the five lookup globals (which length/distance/output table each serves) is not grounded.",
+    "The block decoders use different remaining-block counters inside the decode state (0x0051A9C6 reads this+0x1C4 while the others read this+0x1C8); the decode-state sub-struct at this+0x194 is shared by usage but its layout is not packet-defined.",
+    "BitstreamReaderWithEscape's a1 record (this+0x0/0x4/0x8/0xC/0x18) may alias the caller's stack read-state record rather than the container object; the parent-context relationship (this+0x1C versus this+0x30) is unresolved.",
+    "The per-slot word loaded from a2[slot] in 0x00519D51 and its role as the v16 render argument are unconfirmed, and the a2 per-sprite base-offset array layout of CompositingPass is caller-defined.",
+    "0x0051AEFC's read-only field this+0x198 is listed by the fact extractor but never referenced in the function body; the indirect callback target at *(this+0x190+8) is not statically resolvable."
+  ],
+  "unresolved_evidence_refs": [
+    "field:*(this+0x110):0x00000000",
+    "field:*(this+0x110):0x00000002",
+    "field:*(this+0x110):0x00000004",
+    "field:*(this+0x110):0x00000010",
+    "field:*(this+0x110):0x00000012",
+    "field:*(this+0x110):0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x000000D0",
+    "field:this:0x000000E0",
+    "field:this:0x000000E4",
+    "field:this:0x000000E8",
+    "field:this:0x000000F4",
+    "field:this:0x00000110",
+    "field:this:0x00000130",
+    "field:this:0x0000019D",
+    "field:this:0x000001CC",
+    "field:this:0x000001F4"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

@@ -1,0 +1,64 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00414210
+// Canonical corpus name: GlobalListTripleCleanupWithTimerRemoval
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/GlobalListTripleCleanupWithTimerRemoval_00414210.c
+
+void UnknownObject::GlobalListTripleCleanupWithTimerRemoval()
+{
+    // Global teardown helper that cleans up three global linked lists. It first runs DrawableResourceCleanup on the head at dword_5EA5E8, then walks each of the three lists (heads dword_5EA608, dword_5EA5F8, dword_5EA5E8) freeing valid (byte +8 non-zero) payloads with type-specific destructors followed by FreeWrapper_7bcf, then zeroes every list head/tail/counter global. No arguments and no return value contract beyond the last free-wrapper result.
+    // CALL: Run DrawableResourceCleanup on the drawable-resource list head at dword_5EA5E8 as the first cleanup step. [callee:0x004150C0, global:0x005EA5E8, source:raw]
+    // LOOP: First linked-list walk starting at the head dword_5EA608: per node, snapshot the validity byte at +8, advance through the next pointer at +4, and continue while the node is non-null. [global:0x005EA608, source:raw]
+    // CALL: For each valid node (validity byte +8 non-zero) whose payload *node is non-null, free the payload with MultiPointerFree and then free the payload block with FreeWrapper_7bcf. [callee:0x00414420, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Reset the first list head/tail/count globals dword_5EA608, dword_5EA60C, dword_5EA610 to zero before the next walk. [global:0x005EA608, global:0x005EA60C, global:0x005EA610, source:raw]
+    // LOOP: Second linked-list walk starting at the head dword_5EA5F8, initializing the loop counter global dword_5EA614 to zero; per node, snapshot the validity byte at +8 and advance through the next pointer at +4. [global:0x005EA5F8, global:0x005EA614, source:raw]
+    // CALL: For each valid node in the second walk whose payload *node is non-null, free the payload with MultiFieldPointerFree and then free the payload block with FreeWrapper_7bcf. [callee:0x00414380, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Reset the second list head/tail/count globals dword_5EA5F8, dword_5EA5FC, dword_5EA600 to zero. [global:0x005EA5F8, global:0x005EA5FC, global:0x005EA600, source:raw]
+    // LOOP: Third linked-list walk starting at the head dword_5EA5E8 (the list already run through DrawableResourceCleanup), initializing the loop counter global dword_5EA604 to zero; per node, snapshot the validity byte at +8 and advance through the next pointer at +4. [global:0x005EA5E8, global:0x005EA604, source:raw]
+    // CALL: For each valid node in the third walk whose payload *node is non-null, run TextFormatStructInitializer on the payload, then ArrayDestructorIterator over payload+34 with element stride 20, count 2 and the __thiscall callback ShortComputation_4370. [callee:0x004149A0, callee:0x00401030, global:0x00414370, source:raw]
+    // CALL: Run ArrayDestructorIterator over payload+24, payload+14 and payload+4, each with element stride 20, count 2 and the callback ShortComputation_4370. [callee:0x00401030, global:0x00414370, source:raw]
+    // CALL: Destroy the payload root with ShortComputation_4370(payload) and then free the payload block with FreeWrapper_7bcf(payload). [callee:0x00414370, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Reset the first (drawable resource) list head/tail/count globals dword_5EA5E8, dword_5EA5EC, dword_5EA5F0, dword_5EA5F4 to zero. [global:0x005EA5E8, global:0x005EA5EC, global:0x005EA5F0, global:0x005EA5F4, source:raw]
+    // RETURN: Return the accumulated result value (the last FreeWrapper_7bcf result observed by the decompiled loop bookkeeping). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int GlobalListTripleCleanupWithTimerRemoval() {
+    //     int result = DrawableResourceCleanup(&dword_5EA5E8);
+    //     for (node = dword_5EA608; node; result = FreeWrapper_7bcf(node)) {
+    //       next = *(int*)(node + 4);
+    //       if (*(char*)(node + 8) && *(void**)node) {
+    //         void* p = *(void**)node;
+    //         MultiPointerFree(p); FreeWrapper_7bcf(p);
+    //       }
+    //       node = next;
+    //     }
+    //     dword_5EA608 = 0; dword_5EA60C = 0; dword_5EA610 = 0;
+    //     for (dword_5EA614 = 0, node = dword_5EA5F8; node; result = FreeWrapper_7bcf(node)) {
+    //       next = *(int*)(node + 4);
+    //       if (*(char*)(node + 8) && *(void**)node) {
+    //         void* p = *(void**)node;
+    //         MultiFieldPointerFree(p); FreeWrapper_7bcf(p);
+    //       }
+    //       node = next;
+    //     }
+    //     dword_5EA5F8 = 0; dword_5EA5FC = 0; dword_5EA600 = 0;
+    //     for (dword_5EA604 = 0, node = dword_5EA5E8; node; result = FreeWrapper_7bcf(node)) {
+    //       next = *(int*)(node + 4);
+    //       if (*(char*)(node + 8) && *(void**)node) {
+    //         void* p = *(void**)node;
+    //         TextFormatStructInitializer(p);
+    //         ArrayDestructorIterator((int)p + 34, 20, 2, ShortComputation_4370);
+    //         ArrayDestructorIterator((int)p + 24, 20, 2, ShortComputation_4370);
+    //         ArrayDestructorIterator((int)p + 14, 20, 2, ShortComputation_4370);
+    //         ArrayDestructorIterator((int)p + 4, 20, 2, ShortComputation_4370);
+    //         ShortComputation_4370(p); FreeWrapper_7bcf(p);
+    //       }
+    //       node = next;
+    //     }
+    //     dword_5EA5E8 = 0; dword_5EA5EC = 0; dword_5EA5F0 = 0; dword_5EA5F4 = 0;
+    //     return result;
+    //   }
+    // UNRESOLVED: The owners of the three global lists (drawable resources, multi-field pointer objects, text-format records) are not established by this packet alone.
+    // UNRESOLVED: The canonical name mentions timer removal but no timer-specific calls are visible in the body; the two loop-counter globals dword_5EA614 and dword_5EA604 are reused as walk iterators.
+    // UNRESOLVED: The exact object layout destroyed by the third walk (TextFormatStructInitializer plus four ArrayDestructorIterator passes with stride 20) is unknown.
+}

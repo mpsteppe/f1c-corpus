@@ -1,0 +1,23 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00553D40
+// Canonical corpus name: sub_553D40
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_553D40_00553d40.c
+
+void UnknownObject::FillHorizontalSpan()
+{
+    // Fastcall helper that normalizes two boundary arguments and fills a contiguous horizontal run of a value in a 2D buffer. Swaps a1/a2 so that a1 <= a2, then calls ArrayFillWithValue at base offset a1 + a5 * a3 with run length a2 - a1 + 1, passing a4 and a6 through. Shape matches a horizontal line-fill primitive where a3 selects a row and a5 is a row stride.
+    // GUARD: If a1 > a2, swap them so the run start is the smaller of the two boundary values. [source:raw]
+    // CALCULATION: Compute the destination base offset as a1 + a5 * a3 (row a3, stride a5). [source:raw]
+    // CALCULATION: Compute the run length as a2 - a1 + 1 (inclusive span after normalization). [source:raw]
+    // CALL: Call ArrayFillWithValue(a1 + a5 * a3, a2 - a1 + 1, a4, a6) to fill the horizontal run. [callee:0x00561ACF, source:raw]
+    // RETURN: Return the result of ArrayFillWithValue. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_553D40(int a1, int a2, int a3, int a4, int a5, int a6) {
+    //     if (a1 > a2) { int t = a1; a1 = a2; a2 = t; }
+    //     return ArrayFillWithValue(a1 + a5 * a3, a2 - a1 + 1, a4, a6);
+    //   }
+    // UNRESOLVED: Meaning of a3 (row index) and a5 (stride) confirmed only by this one call shape; no callers listed in the packet.
+    // UNRESOLVED: Semantics of the value argument a4 and the final argument a6 depend on ArrayFillWithValue's contract.
+}

@@ -1,0 +1,20 @@
+void __thiscall sub_6575E4(_DWORD *this, int a2, int a3, float *a4)
+{
+  _BYTE *v5; // eax
+  _BYTE *i; // edi
+  int v7; // [esp+18h] [ebp+10h]
+
+  v5 = (_BYTE *)(this[8] + a3 * this[25] + a2 * this[24]);
+  for ( i = &v5[this[26]]; v5 < i; *(a4 - 1) = 1.0 )
+  {
+    *a4 = (double)(*v5 >> 5) * 0.14285715;
+    a4 += 4;
+    *(a4 - 3) = (double)((*v5 >> 2) & 7) * 0.14285715;
+    v7 = *v5++ & 3;
+    *(a4 - 2) = (double)v7 * 0.33333334;
+  }
+  if ( this[6] )
+    sub_650019((int)this, (unsigned int)&a4[-4 * this[26]]);
+  if ( this[4] )
+    sub_650286(this, (unsigned int)&a4[-4 * this[26]]);
+}

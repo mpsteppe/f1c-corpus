@@ -1,0 +1,43 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00476EC0
+// Canonical corpus name: SeasonSceneSearchByName
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SeasonSceneSearchByName_00476ec0.c
+
+void UnknownObject::SeasonSceneSearchByName()
+{
+    // Searches a season-scene linked list for the node whose name string matches the filtered path resolved by ConditionalDispatch_40b0. The list head is held at this+0xF0 and walked through the traversal cursor this+0xF8. Each node contributes a name string at node+4 (defaulting to byte_5EA438 when null) that is compared byte-by-byte against the dispatch result's name data at +124. On a match the node index is stored at this+0x174. Called by SeasonSceneInitialization (00477720).
+    // CALL: Virtual dispatch at entry through the vtable pointer at this+0; calls the method at vtable offset 160 [field:this:0x00000000, source:raw]
+    // GUARD: Path selection: dword_7CE64C is used when non-zero, otherwise the default path byte_5EA438 is substituted [global:0x007CE64C, global:0x005EA438, source:raw]
+    // CALL: ConditionalDispatch_40b0 resolves the selected path into a structure whose name data is read at +124 [callee:0x004C40B0, global:0x007CE64C, global:0x005EA438, source:raw]
+    // GUARD: The whole search runs only when the dispatch result is non-zero [source:raw]
+    // ASSIGNMENT: Traversal cursor this+0xF8 initialized to the list head pointer at this+0xF0 [field:this:0x000000F0, field:this:0x000000F8, source:raw]
+    // LOOP: Outer traversal loop walks the linked list; each node contributes a name string pointer at node+4, defaulting to byte_5EA438 when null [field:*(this+0xF0):0x00000004, global:0x005EA438, source:raw]
+    // LOOP: Inner loop compares the dispatch structure's name at +124 against the node name two bytes per iteration, breaking on the first mismatch or string end [field:*(*(this+0xF0)+0x4):0x00000000, field:*(*(this+0xF0)+0x4):0x00000001, source:raw]
+    // STATE_TRANSITION: On mismatch the traversal cursor this+0xF8 advances to the next node via its +4 pointer and the index counter increments [field:this:0x000000F8, source:raw]
+    // ASSIGNMENT: On a name match the matched node index is stored at this+0x174 [field:this:0x00000174, source:raw]
+    // RETURN: Returns the comparison status byte (v4); also returns when the list runs out or the dispatch result is empty [source:raw]
+    // CALL: Invoked by SeasonSceneInitialization (00477720) during season-scene setup [caller:0x00477720, source:raw]
+
+    // Conservative worker pseudocode:
+    //   vt = *(this + 0); call (*(vt + 160))(this);
+    //   path = dword_7CE64C ? (char*)dword_7CE64C : byte_5EA438;
+    //   res = ConditionalDispatch_40b0(path);
+    //   if (res) {
+    //     cursor = this[0xF0/4]; this[0xF8/4] = cursor;
+    //     idx = 0;
+    //     while (cursor && *(int*)cursor) {
+    //       node = *(int*)cursor;
+    //       name = *(char**)(node + 4); if (!name) name = byte_5EA438;
+    //       cmp = compare_bytes((char*)(res + 124), name);
+    //       if (cmp == 0) { this[0x174/4] = idx; break; }
+    //       ++idx;
+    //       cursor = this[0xF8/4];
+    //       this[0xF8/4] = cursor ? *(int*)(cursor + 4) : 0;
+    //     }
+    //   }
+    // UNRESOLVED: unk_8AC388 is flagged in the packet globals but appears nowhere in the raw decompiled source; the skeleton fill labels it VehicleFilePathBuffer, unverifiable from this packet
+    // UNRESOLVED: obj+0xA0 is flagged as an unknown field in the dispatch result object but has no matching access in the raw decompiled source
+    // UNRESOLVED: this+0xFC is flagged as read but never appears in the raw decompiled source
+    // UNRESOLVED: The name comparison target at dispatch result +124 is not covered by a packet field entry; the concrete layout of the dispatch result structure is unresolved
+}

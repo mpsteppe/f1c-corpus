@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "address": "0x00531250",
+  "proposed_name": "TextureDecompression_1250",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Audio frame decompression dispatcher. Reads a Huffman codebook header plus codebook selectors and delta-coded side information from a bitstream held in the this object, decodes magnitude/sample values into an output buffer, then dispatches to either a hardware-accelerated path (sub_530840 + AudioResampler) or a software path (MP3AudioDecoderHuffmanSampleRendering + AudioMixerFloatingPointTo16BitPCMConversion) selected by global dword_8B0108. Entry point called from sub_52DF10.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard on the input bitstream buffer pointer at this+0x24A4; when null return 0 immediately.",
+      "evidence_refs": ["field:this:0x000024A4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Select the codebook entry count: when the channel-mode byte at this+0x24BE is nonzero use a fixed count of 4, otherwise index byte_5B65E0 with an expression built from this+0x24C4, this+0x24CC and this+0x24C3.",
+      "evidence_refs": ["field:this:0x000024BE", "field:this:0x000024C4", "field:this:0x000024CC", "field:this:0x000024C3", "global:0x005B65E0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Look up the entry count in word_5B6620[v4] and store it at this+0x24B8.",
+      "evidence_refs": ["global:0x005B6620", "field:this:0x000024B8", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the codebook offset table pointer v57 = off_5DA760[v4] and compute the working count v58 = (this+0x24CC) * entry_count.",
+      "evidence_refs": ["global:0x005DA760", "field:this:0x000024CC", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Stereo path (this+0x24CC == 2): loop entry_count times decoding Huffman codebook selectors from the bitstream (dword at this+0x24A8 >> 3 within the buffer at this+0x24A4) masked by dword_5B4788, advancing the bit cursor and the codebook pointer by 2 << selector per entry.",
+      "evidence_refs": ["field:this:0x000024CC", "field:this:0x000024A8", "field:this:0x000024A4", "global:0x005B4788", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Stereo continuation: decode 2-bit side-information per entry into the local v54 scratch buffer, advancing the bit cursor by 2 per entry.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Non-stereo path: decode codebook selectors into the v56 scratch with the same bitstream advance when the entry count is nonzero, then decode 2-bit side-information into v54.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Magnitude decode: loop over the working count, reading a 2-bit class from the v54 scratch per entry; depending on the class consume 6, 12 or 18 bits from the bitstream and emit two or three 6-bit magnitude values into the v55 output buffer, advancing the cursor at this+0x24A8 accordingly.",
+      "evidence_refs": ["field:this:0x000024A8", "field:this:0x000024A4", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Output setup: v58 = (a2 != 0) ? (this+0x24D0) : 0, giving the output stride or sample count used by both mix paths.",
+      "evidence_refs": ["field:this:0x000024D0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Dispatch on global dword_8B0108: a nonzero value selects the hardware-accelerated path, zero selects the software decode path.",
+      "evidence_refs": ["global:0x008B0108", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Hardware path: loop sub_530840(this, unk_5B2BA4, v56, unk_8B0424, v55[...], v57) over the dword_8B1624 range, then resample three output blocks per iteration via AudioResampler, walking unk_8B04A4 until byte_8B16A4 is reached.",
+      "evidence_refs": ["callee:0x00530840", "callee:0x00532AA0", "global:0x005B2BA4", "global:0x008B0424", "global:0x008B1624", "global:0x008B04A4", "global:0x008B16A4", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Software path: loop twelve iterations of MP3AudioDecoderHuffmanSampleRendering(this, v56, dword_8B1624, v55, ...) followed by three AudioMixerFloatingPointTo16BitPCMConversion calls writing into unk_8B1724 and unk_8B1824.",
+      "evidence_refs": ["callee:0x00530050", "callee:0x00531830", "global:0x008B1624", "global:0x008B1724", "global:0x008B1824", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 after the selected decode and mix path completes; on the hardware path an extra _m_empty() barrier runs before returning.",
+      "evidence_refs": ["source:raw", "caller:0x0052DF10"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_531250(int this, int a2) {",
+    "  if (!*(dword*)(this + 0x24A4)) return 0;",
+    "  if (*(byte*)(this + 0x24BE)) v4 = 4;",
+    "  else v4 = byte_5B65E0[16 * (2 * *(byte*)(this + 0x24C4) - *(dword*)(this + 0x24CC)) + *(byte*)(this + 0x24C3)];",
+    "  *(dword*)(this + 0x24B8) = word_5B6620[v4];",
+    "  tab = off_5DA760[v4];",
+    "  work = *(dword*)(this + 0x24CC) * *(dword*)(this + 0x24B8);",
+    "  if (*(dword*)(this + 0x24CC) == 2) {",
+    "    decode codebook selectors from bitstream into v56 using dword_5B4788, advancing this+0x24A8;",
+    "    decode 2-bit side info into v54;",
+    "  } else {",
+    "    decode codebook selectors (mono) into v56;",
+    "    if (*(dword*)(this + 0x24B8)) decode 2-bit side info into v54;",
+    "  }",
+    "  decode magnitude values from bitstream into v55 (variable 6/12/18-bit reads);",
+    "  v58 = a2 ? *(dword*)(this + 0x24D0) : 0;",
+    "  if (dword_8B0108) {",
+    "    loop { sub_530840(this, unk_5B2BA4, v56, unk_8B0424, v55, tab); } until dword_8B1624;",
+    "    loop { AudioResampler x3; } until byte_8B16A4;",
+    "  } else {",
+    "    loop 12 times {",
+    "      MP3AudioDecoderHuffmanSampleRendering(this, v56, dword_8B1624, v55, ...);",
+    "      AudioMixerFloatingPointTo16BitPCMConversion x3 into unk_8B1724 / unk_8B1824;",
+    "    }",
+    "  }",
+    "  if (dword_8B0108) _m_empty();",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "Globals dword_5B4790, dword_5B47A0, dword_5B47B8 and dword_5B47D0 are read per static facts but do not appear in the visible decompiled body; likely Huffman table constants whose exact role is unconfirmed.",
+    "Exact Huffman/quantization semantics (bit lengths 6/12/18 and masks 0x3F / 0xFFF / 0x3FFFF) are codec-internal and not fully mapped.",
+    "a2 selects the output stride via this+0x24D0; whether the unit is bytes or samples is unconfirmed."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005B4790",
+    "global:0x005B47A0",
+    "global:0x005B47B8",
+    "global:0x005B47D0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

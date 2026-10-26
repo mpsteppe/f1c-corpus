@@ -1,0 +1,443 @@
+int __stdcall sub_578F76(int a1)
+{
+  int result; // eax
+
+  result = a1;
+  switch ( a1 )
+  {
+    case 0:
+      dbl_8D2120 = 1.0;
+      dbl_8D21D0 = 0.0;
+      dbl_8D2280 = 0.0;
+      dbl_8D2330 = 0.0;
+      dbl_8D23E0 = 0.0;
+      dbl_8D2490 = 0.0;
+      dbl_8D2540 = 0.0;
+      dbl_8D25F0 = 0.0;
+      dbl_8D26A0 = 0.0;
+      dbl_8D2750 = 0.0;
+      dbl_8D2AF8 = 0.0;
+      dbl_8D2C08 = 0.0;
+      dbl_8D2D18 = 0.0;
+      dbl_8D2FA8 = 0.0;
+      dbl_8D3870 = 0.0;
+      break;
+    case 1:
+      dbl_8D21D0 = 0.0;
+      dbl_8D21D8 = 1.0;
+      dbl_8D2288 = 0.0;
+      dbl_8D2338 = 0.0;
+      dbl_8D23E8 = 0.0;
+      dbl_8D2498 = 0.0;
+      dbl_8D2548 = 0.0;
+      dbl_8D25F8 = 0.0;
+      dbl_8D26A8 = 0.0;
+      dbl_8D2758 = 0.0;
+      dbl_8D2B00 = 0.0;
+      dbl_8D2C10 = 0.0;
+      dbl_8D2D20 = 0.0;
+      dbl_8D2FB0 = 0.0;
+      dbl_8D3878 = 0.0;
+      break;
+    case 2:
+      dbl_8D2280 = 0.0;
+      dbl_8D2288 = 0.0;
+      dbl_8D2290 = 1.0;
+      dbl_8D2340 = 0.0;
+      dbl_8D23F0 = 0.0;
+      dbl_8D24A0 = 0.0;
+      dbl_8D2550 = 0.0;
+      dbl_8D2600 = 0.0;
+      dbl_8D26B0 = 0.0;
+      dbl_8D2760 = 0.0;
+      dbl_8D2B08 = 0.0;
+      dbl_8D2C18 = 0.0;
+      dbl_8D2D28 = 0.0;
+      dbl_8D2FB8 = 0.0;
+      dbl_8D3880 = 0.0;
+      break;
+    case 3:
+      result = sub_58BB10(&dbl_8D2330, 0, 24);
+      dbl_8D2348 = 1.0;
+      dbl_8D23F8 = 0.0;
+      dbl_8D24A8 = 0.0;
+      dbl_8D2558 = 0.0;
+      dbl_8D2608 = 0.0;
+      dbl_8D26B8 = 0.0;
+      dbl_8D2768 = 0.0;
+      dbl_8D2B10 = 0.0;
+      dbl_8D2C20 = 0.0;
+      dbl_8D2D30 = 0.0;
+      dbl_8D2FC0 = 0.0;
+      dbl_8D3888 = 0.0;
+      break;
+    case 4:
+      result = sub_58BB10(&dbl_8D23E0, 0, 32);
+      dbl_8D2400 = 1.0;
+      dbl_8D24B0 = 0.0;
+      dbl_8D2560 = 0.0;
+      dbl_8D2610 = 0.0;
+      dbl_8D26C0 = 0.0;
+      dbl_8D2770 = 0.0;
+      dbl_8D2B18 = 0.0;
+      dbl_8D2C28 = 0.0;
+      dbl_8D2D38 = 0.0;
+      dbl_8D2FC8 = 0.0;
+      dbl_8D3890 = 0.0;
+      break;
+    case 5:
+      result = sub_58BB10(&dbl_8D2490, 0, 40);
+      dbl_8D24B8 = 1.0;
+      dbl_8D2568 = 0.0;
+      dbl_8D2618 = 0.0;
+      dbl_8D26C8 = 0.0;
+      dbl_8D2778 = 0.0;
+      dbl_8D2B20 = 0.0;
+      dbl_8D2C30 = 0.0;
+      dbl_8D2D40 = 0.0;
+      dbl_8D2FD0 = 0.0;
+      dbl_8D3898 = 0.0;
+      break;
+    case 6:
+      result = sub_58BB10(&dbl_8D2540, 0, 48);
+      dbl_8D2570 = 1.0;
+      dbl_8D2620 = 0.0;
+      dbl_8D26D0 = 0.0;
+      dbl_8D2780 = 0.0;
+      dbl_8D2B28 = 0.0;
+      dbl_8D2C38 = 0.0;
+      dbl_8D2D48 = 0.0;
+      dbl_8D2FD8 = 0.0;
+      dbl_8D38A0 = 0.0;
+      break;
+    case 7:
+      result = sub_58BB10(&dbl_8D25F0, 0, 56);
+      dbl_8D2628 = 1.0;
+      dbl_8D26D8 = 0.0;
+      dbl_8D2788 = 0.0;
+      dbl_8D2B30 = 0.0;
+      dbl_8D2C40 = 0.0;
+      dbl_8D2D50 = 0.0;
+      dbl_8D2FE0 = 0.0;
+      dbl_8D38A8 = 0.0;
+      break;
+    case 8:
+      result = sub_58BB10(&dbl_8D26A0, 0, 64);
+      dbl_8D26E0 = 1.0;
+      dbl_8D2790 = 0.0;
+      dbl_8D2B38 = 0.0;
+      dbl_8D2C48 = 0.0;
+      dbl_8D2D58 = 0.0;
+      dbl_8D2FE8 = 0.0;
+      dbl_8D38B0 = 0.0;
+      break;
+    case 9:
+      result = sub_58BB10(&dbl_8D2750, 0, 72);
+      dbl_8D2798 = 1.0;
+      dbl_8D2B40 = 0.0;
+      dbl_8D2C50 = 0.0;
+      dbl_8D2D60 = 0.0;
+      dbl_8D2FF0 = 0.0;
+      dbl_8D38B8 = 0.0;
+      break;
+    case 10:
+      dbl_8D2800 = 1.0;
+      dbl_8D2898 = 0.0;
+      dbl_8D2930 = 0.0;
+      dbl_8D29C8 = 0.0;
+      dbl_8D2A60 = 0.0;
+      dbl_8D31B8 = 0.0;
+      dbl_8D3278 = 0.0;
+      dbl_8D3338 = 0.0;
+      dbl_8D33F8 = 0.0;
+      dbl_8D34B8 = 0.0;
+      dbl_8D38C0 = 0.0;
+      break;
+    case 11:
+      dbl_8D2898 = 0.0;
+      dbl_8D28A0 = 1.0;
+      dbl_8D2938 = 0.0;
+      dbl_8D29D0 = 0.0;
+      dbl_8D2A68 = 0.0;
+      dbl_8D31C0 = 0.0;
+      dbl_8D3280 = 0.0;
+      dbl_8D3340 = 0.0;
+      dbl_8D3400 = 0.0;
+      dbl_8D34C0 = 0.0;
+      dbl_8D38C8 = 0.0;
+      break;
+    case 12:
+      dbl_8D2930 = 0.0;
+      dbl_8D2938 = 0.0;
+      dbl_8D2940 = 1.0;
+      dbl_8D29D8 = 0.0;
+      dbl_8D2A70 = 0.0;
+      dbl_8D31C8 = 0.0;
+      dbl_8D3288 = 0.0;
+      dbl_8D3348 = 0.0;
+      dbl_8D3408 = 0.0;
+      dbl_8D34C8 = 0.0;
+      dbl_8D38D0 = 0.0;
+      break;
+    case 13:
+      result = sub_58BB10(&dbl_8D29C8, 0, 24);
+      dbl_8D29E0 = 1.0;
+      dbl_8D2A78 = 0.0;
+      dbl_8D31D0 = 0.0;
+      dbl_8D3290 = 0.0;
+      dbl_8D3350 = 0.0;
+      dbl_8D3410 = 0.0;
+      dbl_8D34D0 = 0.0;
+      dbl_8D38D8 = 0.0;
+      break;
+    case 14:
+      result = sub_58BB10(&dbl_8D2A60, 0, 32);
+      dbl_8D2A80 = 1.0;
+      dbl_8D31D8 = 0.0;
+      dbl_8D3298 = 0.0;
+      dbl_8D3358 = 0.0;
+      dbl_8D3418 = 0.0;
+      dbl_8D34D8 = 0.0;
+      dbl_8D38E0 = 0.0;
+      break;
+    case 15:
+      result = sub_58BB10(&dbl_8D2AF8, 0, 80);
+      dbl_8D2B70 = 1.0;
+      dbl_8D2C80 = 0.0;
+      dbl_8D2D90 = 0.0;
+      dbl_8D3020 = 0.0;
+      dbl_8D31E0 = 0.0;
+      dbl_8D32A0 = 0.0;
+      dbl_8D3360 = 0.0;
+      dbl_8D3420 = 0.0;
+      dbl_8D34E0 = 0.0;
+      dbl_8D3578 = 0.0;
+      dbl_8D3610 = 0.0;
+      dbl_8D36A8 = 0.0;
+      dbl_8D3740 = 0.0;
+      dbl_8D37D8 = 0.0;
+      dbl_8D38E8 = 0.0;
+      break;
+    case 16:
+      result = sub_58BB10(&dbl_8D2C08, 0, 80);
+      dbl_8D2C80 = 0.0;
+      dbl_8D2C88 = 1.0;
+      dbl_8D2D98 = 0.0;
+      dbl_8D3028 = 0.0;
+      dbl_8D31E8 = 0.0;
+      dbl_8D32A8 = 0.0;
+      dbl_8D3368 = 0.0;
+      dbl_8D3428 = 0.0;
+      dbl_8D34E8 = 0.0;
+      dbl_8D3580 = 0.0;
+      dbl_8D3618 = 0.0;
+      dbl_8D36B0 = 0.0;
+      dbl_8D3748 = 0.0;
+      dbl_8D37E0 = 0.0;
+      dbl_8D38F0 = 0.0;
+      break;
+    case 17:
+      result = sub_58BB10(&dbl_8D2D18, 0, 80);
+      dbl_8D2D90 = 0.0;
+      dbl_8D2D98 = 0.0;
+      dbl_8D2DA0 = 1.0;
+      dbl_8D3030 = 0.0;
+      dbl_8D31F0 = 0.0;
+      dbl_8D32B0 = 0.0;
+      dbl_8D3370 = 0.0;
+      dbl_8D3430 = 0.0;
+      dbl_8D34F0 = 0.0;
+      dbl_8D3588 = 0.0;
+      dbl_8D3620 = 0.0;
+      dbl_8D36B8 = 0.0;
+      dbl_8D3750 = 0.0;
+      dbl_8D37E8 = 0.0;
+      dbl_8D38F8 = 0.0;
+      break;
+    case 18:
+      dbl_8D2E28 = 1.0;
+      dbl_8D2EA8 = 0.0;
+      dbl_8D2F28 = 0.0;
+      dbl_8D30B8 = 0.0;
+      dbl_8D3138 = 0.0;
+      dbl_8D3590 = 0.0;
+      dbl_8D3628 = 0.0;
+      dbl_8D36C0 = 0.0;
+      dbl_8D3758 = 0.0;
+      dbl_8D37F0 = 0.0;
+      dbl_8D3900 = 0.0;
+      break;
+    case 19:
+      dbl_8D2EA8 = 0.0;
+      dbl_8D2EB0 = 1.0;
+      dbl_8D2F30 = 0.0;
+      dbl_8D30C0 = 0.0;
+      dbl_8D3140 = 0.0;
+      dbl_8D3598 = 0.0;
+      dbl_8D3630 = 0.0;
+      dbl_8D36C8 = 0.0;
+      dbl_8D3760 = 0.0;
+      dbl_8D37F8 = 0.0;
+      dbl_8D3908 = 0.0;
+      break;
+    case 20:
+      dbl_8D2F28 = 0.0;
+      dbl_8D2F30 = 0.0;
+      dbl_8D2F38 = 1.0;
+      dbl_8D30C8 = 0.0;
+      dbl_8D3148 = 0.0;
+      dbl_8D35A0 = 0.0;
+      dbl_8D3638 = 0.0;
+      dbl_8D36D0 = 0.0;
+      dbl_8D3768 = 0.0;
+      dbl_8D3800 = 0.0;
+      dbl_8D3910 = 0.0;
+      break;
+    case 21:
+      sub_58BB10(&dbl_8D2FA8, 0, 80);
+      result = sub_58BB10(&dbl_8D3020, 0, 24);
+      dbl_8D3050 = 1.0;
+      dbl_8D3210 = 0.0;
+      dbl_8D32D0 = 0.0;
+      dbl_8D3390 = 0.0;
+      dbl_8D3450 = 0.0;
+      dbl_8D3510 = 0.0;
+      dbl_8D35A8 = 0.0;
+      dbl_8D3640 = 0.0;
+      dbl_8D36D8 = 0.0;
+      dbl_8D3770 = 0.0;
+      dbl_8D3808 = 0.0;
+      dbl_8D3918 = 0.0;
+      break;
+    case 22:
+      result = sub_58BB10(&dbl_8D30B8, 0, 24);
+      dbl_8D30D8 = 1.0;
+      dbl_8D3158 = 0.0;
+      dbl_8D35B0 = 0.0;
+      dbl_8D3648 = 0.0;
+      dbl_8D36E0 = 0.0;
+      dbl_8D3778 = 0.0;
+      dbl_8D3810 = 0.0;
+      dbl_8D3920 = 0.0;
+      break;
+    case 23:
+      result = sub_58BB10(&dbl_8D3138, 0, 24);
+      dbl_8D3158 = 0.0;
+      dbl_8D3160 = 1.0;
+      dbl_8D35B8 = 0.0;
+      dbl_8D3650 = 0.0;
+      dbl_8D36E8 = 0.0;
+      dbl_8D3780 = 0.0;
+      dbl_8D3818 = 0.0;
+      dbl_8D3928 = 0.0;
+      break;
+    case 24:
+      result = sub_58BB10(&dbl_8D31B8, 0, 64);
+      dbl_8D3210 = 0.0;
+      dbl_8D3228 = 1.0;
+      dbl_8D32E8 = 0.0;
+      dbl_8D33A8 = 0.0;
+      dbl_8D3468 = 0.0;
+      dbl_8D3528 = 0.0;
+      dbl_8D35C0 = 0.0;
+      dbl_8D3658 = 0.0;
+      dbl_8D36F0 = 0.0;
+      dbl_8D3788 = 0.0;
+      dbl_8D3820 = 0.0;
+      dbl_8D3930 = 0.0;
+      break;
+    case 25:
+      result = sub_58BB10(&dbl_8D3278, 0, 64);
+      dbl_8D32D0 = 0.0;
+      dbl_8D32E8 = 0.0;
+      dbl_8D32F0 = 1.0;
+      dbl_8D33B0 = 0.0;
+      dbl_8D3470 = 0.0;
+      dbl_8D3530 = 0.0;
+      dbl_8D35C8 = 0.0;
+      dbl_8D3660 = 0.0;
+      dbl_8D36F8 = 0.0;
+      dbl_8D3790 = 0.0;
+      dbl_8D3828 = 0.0;
+      dbl_8D3938 = 0.0;
+      break;
+    case 26:
+      result = sub_58BB10(&dbl_8D3338, 0, 64);
+      dbl_8D3390 = 0.0;
+      dbl_8D33A8 = 0.0;
+      dbl_8D33B0 = 0.0;
+      dbl_8D33B8 = 1.0;
+      dbl_8D3478 = 0.0;
+      dbl_8D3538 = 0.0;
+      dbl_8D35D0 = 0.0;
+      dbl_8D3668 = 0.0;
+      dbl_8D3700 = 0.0;
+      dbl_8D3798 = 0.0;
+      dbl_8D3830 = 0.0;
+      dbl_8D3940 = 0.0;
+      break;
+    case 27:
+      sub_58BB10(&dbl_8D33F8, 0, 64);
+      dbl_8D3450 = 0.0;
+      result = sub_58BB10(&dbl_8D3468, 0, 24);
+      dbl_8D3480 = 1.0;
+      dbl_8D3540 = 0.0;
+      dbl_8D35D8 = 0.0;
+      dbl_8D3670 = 0.0;
+      dbl_8D3708 = 0.0;
+      dbl_8D37A0 = 0.0;
+      dbl_8D3838 = 0.0;
+      dbl_8D3948 = 0.0;
+      break;
+    case 28:
+      sub_58BB10(&dbl_8D34B8, 0, 64);
+      dbl_8D3510 = 0.0;
+      result = sub_58BB10(&dbl_8D3528, 0, 32);
+      dbl_8D3548 = 1.0;
+      dbl_8D35E0 = 0.0;
+      dbl_8D3678 = 0.0;
+      dbl_8D3710 = 0.0;
+      dbl_8D37A8 = 0.0;
+      dbl_8D3840 = 0.0;
+      dbl_8D3950 = 0.0;
+      break;
+    case 29:
+      result = sub_58BB10(&dbl_8D3578, 0, 112);
+      dbl_8D35E8 = 1.0;
+      dbl_8D3680 = 0.0;
+      dbl_8D3718 = 0.0;
+      dbl_8D37B0 = 0.0;
+      dbl_8D3848 = 0.0;
+      dbl_8D3958 = 0.0;
+      break;
+    case 30:
+      result = sub_58BB10(&dbl_8D3610, 0, 120);
+      dbl_8D3688 = 1.0;
+      dbl_8D3720 = 0.0;
+      dbl_8D37B8 = 0.0;
+      dbl_8D3850 = 0.0;
+      dbl_8D3960 = 0.0;
+      break;
+    case 31:
+      result = sub_58BB10(&dbl_8D36A8, 0, 128);
+      dbl_8D3728 = 1.0;
+      dbl_8D37C0 = 0.0;
+      dbl_8D3858 = 0.0;
+      dbl_8D3968 = 0.0;
+      break;
+    case 32:
+      result = sub_58BB10(&dbl_8D3740, 0, 136);
+      dbl_8D37C8 = 1.0;
+      dbl_8D3860 = 0.0;
+      dbl_8D3970 = 0.0;
+      break;
+    case 33:
+      result = sub_58BB10(&dbl_8D37D8, 0, 144);
+      dbl_8D3868 = 1.0;
+      dbl_8D3978 = 0.0;
+      break;
+    default:
+      return result;
+  }
+  return result;
+}

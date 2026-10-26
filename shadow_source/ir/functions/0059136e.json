@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "address": "0x0059136E",
+  "proposed_name": "FloatingPointRemainder",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0059136E", "source:raw"]
+  },
+  "summary": "Extended-precision floating-point remainder (x87 FPREM-style) helper, structurally a twin of 005910b6 per the DERIVED cluster prelabel. Validates the control word of operand a2 (dword at a2+6 xored with 0x700), classifies both operands through the byte_5E74FC table and exponent masks (0x7FFF0000, with the all-ones and zero patterns excluded), then reduces a5 modulo a2 either by repeated scaled subtraction (iteration count from the exponent-byte gap, divisor scaled by dbl_5E752C each step) or by direct x87 __FPREM__ when the exponent gap is small. Finally reloads the x87 environment when the a1 flag requests it. Reached from DoublePrecisionFloatClassification (0x00591574).",
+  "local_names": {
+    "a1": "byte flag in dl whose low bits request an x87 environment reload",
+    "a2": "first 80-bit operand (divisor); dword at a2+6 holds the control/exponent word",
+    "a5": "second 80-bit operand (dividend); reduced by remainder operations in place",
+    "v8": "fabs(divisor) value scaled by dbl_5E752C during the subtraction loop",
+    "v10": "fabs(dividend) value reduced by subtraction under the FPU condition flag"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Gate the whole reduction on the control-word check of operand a2: ((dword at a2+6) ^ 0x700) & 0x700 == 0 identifies a valid 80-bit long-double pattern.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Index the classification table byte_5E74FC at ((xored control word >> 11) & 0xF); a non-zero entry admits the operand to the reduction path.",
+      "evidence_refs": ["global:0x005E74FC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Exponent-class guards: skip when a2's exponent field (mask 0x7FFF0000) equals 0x7FFF0000 (infinity/NaN pattern), or when a5's exponent field is 0 or equals 0x7FFF0000 (also written 2147418112).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Skip when either operand's low doubleword of the mantissa (2 * DWORD1) is zero, marking an exact class that needs no reduction.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the exponent gap: if (a5 exponent, 0x7FFF mask) is greater than (a2 exponent, 0x7FFF mask) + 63 take the scaled-subtraction path, otherwise take the direct FPREM path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scaled-subtraction path: compute the iteration count from the exponent-byte difference (((expByte(a5) - expByte(a2)) & 0x3F | 0x20) + 1), then repeatedly subtract fabs(a2) from fabs(a5) while the FPU condition word lacks 0x100, scaling the divisor by dbl_5E752C each step until the count expires.",
+      "evidence_refs": ["global:0x005E752C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Direct path: while (a5 exponent, 0x7FFF mask) minus ((a2 exponent, 0x7FFF mask) + 10) is not negative, overwrite a5 with __FPREM__(a5, a2).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Reached from DoublePrecisionFloatClassification (0x00591574), consistent with an IEEE-754 remainder helper used by the classification path.",
+      "evidence_refs": ["caller:0x00591574", "function:0x0059136E", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "When the a1 flag has low bits set ((a1 & 3) != 0), reload the x87 floating-point environment (fnstenv/fldenv) so the caller observes the FPU status word.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the accumulated FPU status/condition value result.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "unsigned int sub_59136E(char a1, long double a2, long double a5) {",
+    "  unsigned int w = *((DWORD*)(&a2) + 6) ^ 0x700;",
+    "  if ((w & 0x700) == 0) {",
+    "    if (byte_5E74FC[(w >> 11) & 0xF]) {",
+    "      if ((expfield(a2) != 0x7FFF0000) &&",
+    "          (expfield(a5) != 0) && (expfield(a5) != 2147418112) &&",
+    "          (lowmant(a5) != 0) && (lowmant(a2) != 0)) {",
+    "        if ((exponent(a5) & 0x7FFF) > (exponent(a2) & 0x7FFF) + 63) {",
+    "          int n = ((expbyte(a5) - expbyte(a2)) & 0x3F | 0x20) + 1;",
+    "          double d = fabs(a2);",
+    "          double r = fabs(a5);",
+    "          do {",
+    "            if (!(fpsword & 0x100)) r = r - d;",
+    "            d = d * dbl_5E752C;",
+    "            --n;",
+    "          } while (n);",
+    "        } else {",
+    "          while ((int)((exponent(a5) & 0x7FFF) - ((exponent(a2) & 0x7FFF) + 10)) >= 0)",
+    "            a5 = __FPREM__(a5, a2);",
+    "        }",
+    "      }",
+    "    }",
+    "  }",
+    "  if ((a1 & 3) != 0) { fnstenv/env; fldenv/env; }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Globals dbl_5E751C (0x005E751C) and tbyte_5E7534 (0x005E7534) are listed as read by the deterministic fact table but do not appear anywhere in the decompiled body; their role (likely adjacent FP constants or a table) is not evidenced in the source.",
+    "The __usercall ABI (a1 in dl) and the unused arguments a3/a4 are not consumed in the visible body; their contract is unknown.",
+    "Semantics of the byte_5E74FC entries and of the returned FPU condition word for the caller DoublePrecisionFloatClassification are not proven.",
+    "The DERIVED cluster prelabel names 005910b6 as a structural twin; that equivalence was not independently verified in this packet."
+  ],
+  "unresolved_evidence_refs": ["global:0x005E751C", "global:0x005E7534"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

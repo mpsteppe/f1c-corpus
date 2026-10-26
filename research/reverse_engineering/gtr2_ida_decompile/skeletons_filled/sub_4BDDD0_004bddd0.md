@@ -1,0 +1,24 @@
+## sub_4BDDD0_004bddd0 — scalar deleting destructor
+
+**Summary:** MSVC scalar deleting destructor: runs the class destructor `sub_4BDDF0()`, then frees the object block with `j__free` when bit 0 of flag `a2` is set. Returns the object pointer.
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 004bddf0 | sub_4BDDF0 | Destructor body for this class |
+| 006308d3 | j__free | Heap free (operator delete) of the object block |
+
+**Guard conditions:** `a2 & 1` (bit 0 of the second argument): PASSES (block freed) when bit 0 set — normal `delete`; BLOCKED (no free, destructor still runs) when clear — stack/embedded-destructor-only call.

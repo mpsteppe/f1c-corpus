@@ -1,0 +1,34 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005317C0
+// Canonical corpus name: LargeTableCopyFromROMData
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LargeTableCopyFromROMData_005317c0.c
+
+void UnknownObject::LargeTableCopyFromROMData()
+{
+    // Copies two fixed-size lookup tables from ROM into a single runtime buffer at unk_8B1924 using an interleaved 32-byte-block pattern. First pass sources 16*15 blocks of 32 bytes from unk_5B6F0C using offsets (j - i) with j in {0..896 step 64} and i in {0..30 step 2}; second pass sources 16*17 blocks of 32 bytes from unk_5B730C using offsets (m - k) with m in {0..1024 step 64} and k in {0..30 step 2}.. A no-op stub is called first. Semantic purpose (e.g. audio/DSP coefficient de-interleave or transpose) is not proven by the packet.
+    // CALL: Calls EmptyStub_0170 (no-op stub) before the copy loops. [callee:0x004B0170, source:raw]
+    // ASSIGNMENT: Initializes destination pointer v0 to the start of runtime buffer unk_8B1924. [global:0x008B1924, source:raw]
+    // LOOP: Outer loop i from 0 to 30 step 2 (16 iterations) selects an interleave row. [function:0x005317C0, source:raw]
+    // LOOP: Inner loop j from 0 to 896 step 64 (15 iterations) selects a source block. [source:raw]
+    // CALCULATION: Table-A source offset v4 = j - i. [source:raw]
+    // ASSIGNMENT: Copies 32 bytes from unk_5B6F0C + (j - i) into current destination v3 and advances v0 by 32. [global:0x005B6F0C, source:raw]
+    // LOOP: Second outer loop k from 0 to 30 step 2 (16 iterations). [source:raw]
+    // LOOP: Second inner loop m from 0 to 1024 step 64 (17 iterations). [source:raw]
+    // CALCULATION: Table-B source offset = m - k. [source:raw]
+    // ASSIGNMENT: Copies 32 bytes from unk_5B730C + (m - k) into current destination v7 and advances v0 by 32. [global:0x005B730C, source:raw]
+    // RETURN: Returns the last computed offset (m - k); value is incidental, not a meaningful status. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   EmptyStub_0170();
+    //   dest = &unk_8B1924;
+    //   for (i = 0; i < 32; i += 2)
+    //     for (j = 0; j <= 896; j += 64)
+    //       copy_32_bytes(dest, &unk_5B6F0C + (j - i)); dest += 32;
+    //   for (k = 0; k < 32; k += 2)
+    //     for (m = 0; m <= 1024; m += 64)
+    //       copy_32_bytes(dest, &unk_5B730C + (m - k)); dest += 32;
+    // UNRESOLVED: Packet labels unk_8B1924 as read (rw=R) although the source writes it as the copy destination; the rw classification is inconsistent with source:raw.
+    // UNRESOLVED: Semantic purpose of the de-interleaved table contents (audio/DSP coefficients, DCT lookup) is DERIVED prose, not proven by this packet.
+    // UNRESOLVED: No callers are listed, so when this buffer initialization runs is unknown.
+}

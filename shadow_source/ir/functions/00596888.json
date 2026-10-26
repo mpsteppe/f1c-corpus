@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "address": "0x00596888",
+  "proposed_name": "PushByteToBuffer",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Byte-push writer over an allocator-managed buffer descriptor a2 (current position, element count, allocation end, flag word). Rejects the sentinel input a1 == -1 and flag-state mismatches, lazily initializes the descriptor via MemoryAllocatorInit when no allocation exists, then either writes byte a1 at a decremented position or verifies it matches in match mode (flag 0x40). Returns the byte on success, -1 on failure.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Reject the sentinel input: return -1 immediately when a1 == -1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Read the flag word a2[3]; return -1 when bit 0x1 is clear and (bit 0x80 is clear or bit 0x2 is set), i.e. the descriptor is not in a writable state.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Lazily initialize the descriptor: when the allocation pointer a2[2] is null, call MemoryAllocatorInit(a2).",
+      "evidence_refs": ["callee:0x005957BD", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the current position *a2 equals the allocation end a2[2]: reject if the element count a2[1] is nonzero, otherwise advance the current position.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Match mode (flag 0x40 set): decrement the current position and compare the stored byte against a1; on mismatch restore the position and return -1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write mode (flag 0x40 clear): decrement the current position and store byte a1 there.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Bump the element count a2[1] and update the flag word: a2[3] = (a2[3] & 0xEE) | 1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the written/verified byte as an unsigned char of a1.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int PushByteToBuffer(int value, unsigned *desc) {",
+    "  if (value == -1) return -1;",
+    "  if (!(desc[3] & 1) && ((desc[3] & 0x80) == 0 || (desc[3] & 2))) return -1;",
+    "  if (!desc[2]) MemoryAllocatorInit(desc);",
+    "  if (desc[0] == desc[2]) { if (desc[1]) return -1; ++desc[0]; }",
+    "  if (desc[3] & 0x40) { if (*(unsigned char*)--desc[0] != (unsigned char)value) { ++desc[0]; return -1; } }",
+    "  else *(unsigned char*)--desc[0] = (unsigned char)value;",
+    "  ++desc[1];",
+    "  desc[3] = (desc[3] & 0xEE) | 1;",
+    "  return (unsigned char)value;",
+    "}"
+  ],
+  "unresolved": [
+    "The concrete class of descriptor a2 is unproven; MemoryAllocatorInit on it only proves it is allocator-managed.",
+    "The semantics of the flag bits (0x1, 0x2, 0x40, 0x80) beyond the observed transitions are unproven.",
+    "Whether a2[1] counts bytes or elements is undetermined."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

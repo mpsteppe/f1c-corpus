@@ -1,0 +1,51 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00467F90
+// Canonical corpus name: HTMLOutputSectionProcessor
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/HTMLOutputSectionProcessor_00467f90.c
+
+void UnknownObject::ProcessHtmlOutputSection()
+{
+    // Processes a parsed HTML/output section. Initializes traversal pointer this+0x100 (this[64]) from the primary list head this+0xF8 (this[62]), destroys the secondary list anchored at this+0x44 (this[17]) with DestructorWithDoubleFreePattern per node and clears its four fields, then walks the primary list. Each node's string payload (defaulting to global byte_5EA438 when null) is compared against the Header literal aHeader_0 via sub_588410; a Header match that is not also aHeader2 inserts the string with LinkedListInsertWithNodeAllocation(string, -1), while a non-match advances to the next node and inserts that node's string. Traversal advances through this+0x100 and stops when it becomes null.
+    // ASSIGNMENT: Set traversal pointer this+0x100 (this[64]) to the primary list head this+0xF8 (this[62]) and capture the first node's data pointer (first dword of the head node). [field:this:0x000000F8, field:this:0x00000100, field:*(this+0xF8):0x00000000]
+    // LOOP: Destroy the secondary list anchored at this+0x44 (this[17]): per node save the next pointer (node+0x4) then call DestructorWithDoubleFreePattern(node, 1) (callee 0x00418D60). [field:this:0x00000044, field:*(this+0x48):0x00000004, callee:0x00418D60]
+    // ASSIGNMENT: Clear the four secondary-list fields this+0x44, this+0x48, this+0x4C, this+0x50. [field:this:0x00000044, field:this:0x00000048, field:this:0x0000004C, field:this:0x00000050]
+    // GUARD: Traversal proceeds only when the primary list head this+0xF8 is non-null. [field:this:0x000000F8]
+    // LOOP: Walk the primary list node chain through traversal pointer this+0x100; each node's data pointer is its first dword (node+0x0). [field:this:0x00000100, field:*(this+0x100):0x00000000]
+    // ASSIGNMENT: Resolve the string payload through the node's data pointer; a null payload defaults to global byte_5EA438 (0x005EA438). [field:*(this+0x100):0x00000000, global:0x005EA438]
+    // GUARD: Compare the payload against the Header literal aHeader_0 (0x005C6720) using sub_588410 (callee 0x00588410). [callee:0x00588410, global:0x005C6720]
+    // GUARD: When the Header literal matches, additionally test the payload against aHeader2 (0x005C6714); a match suppresses insertion. [callee:0x00588410, global:0x005C6714]
+    // CALL: Insert the current node's resolved string into the output list with LinkedListInsertWithNodeAllocation(string, -1) (callee 0x00486F30). [callee:0x00486F30, global:0x005EA438]
+    // ASSIGNMENT: When the payload does not match the Header literal, advance this+0x100 to the next node (next pointer at node+0x4) and insert that node's resolved string. [field:this:0x00000100, field:*(this+0x100):0x00000000, callee:0x00486F30, global:0x005EA438]
+    // LOOP: After each iteration advance this+0x100 to the next node; the walk ends when this+0x100 becomes null. [field:this:0x00000100, field:*(this+0x100):0x00000000]
+    // RETURN: Return the final traversal pointer (null on normal completion). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   LPVOID **sub_467F90(_DWORD *this_ptr) {
+    //     this_ptr[64] = this_ptr[62];  // traversal = primary head (this+0x100 = this+0xF8)
+    //     for (node = this_ptr[17]; node; node = next) {  // destroy secondary list (this+0x44)
+    //       next = *(node + 1);
+    //       DestructorWithDoubleFreePattern(node, 1);
+    //     }
+    //     this_ptr[17] = this_ptr[18] = this_ptr[19] = this_ptr[20] = 0;
+    //     while (node = this_ptr[64]) {
+    //       data = *node;
+    //       str = *data ? *data : byte_5EA438;
+    //       if (sub_588410(str, aHeader_0)) {
+    //         if (!sub_588410(str, aHeader2))
+    //           LinkedListInsertWithNodeAllocation(str, -1);
+    //       } else {
+    //         this_ptr[64] = *(this_ptr[64] + 1);  // advance to next node
+    //         if (this_ptr[64]) {
+    //           nxt = *this_ptr[64];
+    //           if (nxt) LinkedListInsertWithNodeAllocation(*nxt ? *nxt : byte_5EA438, -1);
+    //         }
+    //       }
+    //       this_ptr[64] = this_ptr[64] ? *(this_ptr[64] + 1) : 0;
+    //       if (!this_ptr[64]) break;
+    //     }
+    //     return this_ptr[64];
+    //   }
+    // UNRESOLVED: Field this+0x104 (this[65]) is extracted as read but no use is visible in the raw source.
+    // UNRESOLVED: The exact meaning of the aHeader_0/aHeader2 string comparisons beyond Header detection is not established.
+}

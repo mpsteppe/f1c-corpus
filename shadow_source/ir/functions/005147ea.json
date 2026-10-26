@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "address": "0x005147EA",
+  "proposed_name": "DxtBlockCompressor",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Compresses a 4x4 float4 pixel block (a1, RGBA) to a DXT/BC block written to a2. When alpha handling is enabled (a3), counts transparent pixels (alpha < 0.5) and returns early writing a fully-transparent marker when all 16 are transparent; otherwise picks a 2-color (4) or 3-color (3) endpoint mode from the transparent count. Accumulates per-channel color sums over the block, quantizes the average to 16-bit 5:6:5, and error-diffuses residuals into per-channel buffers with 0.4375/0.1875/0.3125/0.0625 coefficients. Fits an oriented bounding box (OBBFittingAndProjection) to the colors to obtain two endpoint candidates, scales them by color-space factors, quantizes each to 16-bit via sub_513E80, and either writes them directly (4-color mode with equal endpoints) or decodes them back to float, orders them, and interpolates intermediate colors (0.5 split for 3-color, 0.3333/0.6666 for 4-color). A second pass over the 16 pixels projects each pixel onto the endpoint axis, picks a 2-bit selector via dot-product sign and a lookup table (unk_5AF628/unk_5AF618), packs the selectors into a bitmask, and writes it to a2+4.",
+  "local_names": {
+    "a1": "input 4x4 RGBA float block",
+    "a2": "output DXT block (word0/2 endpoint colors, dword4 selector bits)",
+    "a3": "alpha-handling flag",
+    "v4": "count of transparent pixels (alpha < 0.5)",
+    "v94": "endpoint mode (4 = opaque, 3 = alpha used)",
+    "v90/v91/v92": "accumulated R/G/B channel sums and later endpoint vectors",
+    "v17/v18": "quantized 16-bit endpoint colors",
+    "v30": "packed 2-bit selector bitmask",
+    "v89": "selector lookup table base (unk_5AF628 for 3-color, unk_5AF618 for 4-color)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Alpha scan: when a3 is nonzero, walk all 16 pixels' alpha (this+0xC) and count those below 0.5; if all 16 are transparent, write a2+2 = -1, a2+4 = -1, a2+0 = 0 and return 0 immediately.",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Select the endpoint mode v94: 3 when any pixel was transparent (a3 truthy, v4 != 0), otherwise 4.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Zero the v46 scratch buffer (memset 256 bytes), derive a set of stack pointer offsets against the input block a1, and reset the FPU control word via FPUControlWordMerger.",
+      "evidence_refs": ["callee:0x00513E5D", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Accumulation loop over the 16 pixels (v11 step 4): sum the R/G/B channels (reading this+0x4 for G and this+0x8 for B alongside the R/A neighbors), quantize each average to 5:6:5 (31.0/63.0 scales, 1/31 and 1/63 decode), store the reconstructed color, and accumulate the quantization error into per-channel buffers gated by the pass counter (this pixel's (v97 & 3)) with coefficients 0.4375, 0.1875, 0.3125, and 0.0625.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Write the color-space-scaled channel sums into the v42 staging array using flt_5D79BC, flt_5D79C0, flt_5D79C4 for R, G, B respectively.",
+      "evidence_refs": ["global:0x005D79BC", "global:0x005D79C0", "global:0x005D79C4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "OBBFittingAndProjection computes the two endpoint color candidates from the accumulated block data.",
+      "evidence_refs": ["callee:0x0051427F", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Scale the two endpoint candidates by flt_5D79CC, flt_5D79D0, flt_5D79D4 into the v47 and v84 groups.",
+      "evidence_refs": ["global:0x005D79CC", "global:0x005D79D0", "global:0x005D79D4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Quantize each scaled endpoint to a 16-bit color via sub_513E80 (called twice, producing v17 and v18).",
+      "evidence_refs": ["callee:0x00513E80", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When v94 == 4 and the low words of v17 and v18 are equal, write the block directly: a2+4 = 0, a2+0 = v17, a2+2 = v18.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Otherwise decode both endpoints back to float via F_16BitColorToFloat4Decoder, rescale with flt_5D79BC/C0/C4, order the endpoints by comparing v94==3 against v19 >= v17, and build the interpolated color set (0.5 midpoint for 3-color mode, 0.3333/0.6666 thirds for 4-color mode).",
+      "evidence_refs": ["callee:0x00513D63", "global:0x005D79BC", "global:0x005D79C0", "global:0x005D79C4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Select the selector lookup table: unk_5AF628 for 3-color mode, unk_5AF618 otherwise; compute the projection scale factor v29 (0 when the endpoint low words match, else (v94-1) divided by the endpoint-difference dot product).",
+      "evidence_refs": ["global:0x005AF628", "global:0x005AF618", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Selector pass over the 16 pixels: for 3-color mode, transparent pixels (alpha < 0.5 at this+0xC) force the opaque-alpha selector bits; otherwise project the pixel onto the endpoint axis, pick the selector value (0, 1, or a lookup at v89 + 4*index) from the dot product, shift it into the v30 bitmask, and error-diffuse the residuals with the same 0.4375/0.1875/0.3125/0.0625 coefficients, resetting the FPU control word again via FPUControlWordMerger.",
+      "evidence_refs": ["field:this:0x0000000C", "callee:0x00513E5D", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the packed selector bitmask v30 to a2+4.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0. Called by FileIOWrapper (005152EB), QuantizationColorSpaceConversion (00515303), and sub_515417 (00515417).",
+      "evidence_refs": ["function:0x005147EA", "caller:0x005152EB", "caller:0x00515303", "caller:0x00515417", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_5147EA(float *a1, int a2, int a3) {",
+    "  int v94, transparent = 0;",
+    "  if (a3) {",
+    "    for (int n = 0; n < 16; ++n) if (a1[3 + 4*n] < 0.5) ++transparent;",
+    "    if (transparent == 16) { *(WORD*)(a2+2) = -1; *(DWORD*)(a2+4) = -1; *(WORD*)a2 = 0; return 0; }",
+    "    v94 = 4 - (transparent != 0);",
+    "  } else v94 = 4;",
+    "  memset(&v46, 0, sizeof(v46)); FPUControlWordMerger();",
+    "  // pass 1: accumulate RGBA sums, quantize average to 5:6:5, error-diffuse residuals",
+    "  for (int k = 0; k < 64; k += 4) {",
+    "    ...quantize sum with 31.0/63.0 scales and 1/31, 1/63 decodes...",
+    "    ...diffuse error into 4 accumulation buffers (0.4375/0.1875/0.3125/0.0625)...",
+    "    v42[k]   = rsum * flt_5D79BC;",
+    "    v42[k+1] = gsum * flt_5D79C0;",
+    "    v42[k+2] = bsum * flt_5D79C4;",
+    "  }",
+    "  OBBFittingAndProjection(&v80, &v90, &v43, v94);",
+    "  v47 = v80*flt_5D79CC; v48 = v81*flt_5D79D0; v49 = v82*flt_5D79D4;",
+    "  v84 = v90*flt_5D79CC; v85 = v91*flt_5D79D0; v86 = v92*flt_5D79D4;",
+    "  v17 = sub_513E80(&v47); v18 = sub_513E80(&v84);",
+    "  if (v94 == 4 && (WORD)v17 == (WORD)v18) {",
+    "    *(DWORD*)(a2+4) = 0; *(WORD*)a2 = v17; *(WORD*)(a2+2) = v18; return 0;",
+    "  }",
+    "  F_16BitColorToFloat4Decoder(&v47, v17); F_16BitColorToFloat4Decoder(&v84, v18);",
+    "  // rescale, order endpoints, build interpolated set (0.5 or 0.3333/0.6666 splits)",
+    "  // choose lookup table unk_5AF628 (3-color) or unk_5AF618 (4-color)",
+    "  v30 = 0;",
+    "  for (int p = 0; p < 16; ++p) {",
+    "    if (v94 == 3 && a1[3 + 4*p] < 0.5) v30 = (v30 >> 2) | 0xC0000000;",
+    "    else {",
+    "      // project pixel, pick selector 0/1/LUT, accumulate v30 = sel<<30 | v30>>2",
+    "      // error-diffuse residuals; FPUControlWordMerger();",
+    "    }",
+    "  }",
+    "  *(DWORD*)(a2+4) = v30;",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "The legacy ABI label Texture_Filter_and_Layer_Compositing conflicts with the concrete DXT/BC block-compression reading of the body (OBB endpoints, 5:6:5 quantization, 2-bit selectors); the ABI name is carried by the packet with LEGACY trust only.",
+    "The quantization constants (31.0, 63.0, 1/31, 1/63) appear as inline literals in the raw source; their association with flt_5ACCD0/D4/D8/DC comes only from the existing-analysis prose, not the raw text, so those globals are not grounded in operations here.",
+    "Globals flt_59E440, flt_59E450, flt_59E98C, flt_59E9E0, flt_5AD1F4, flt_5ADB14, flt_5AF634, flt_5AF638, flt_5AF63C, and dword_8B00A0 are listed as read in the packet but never referenced by name in the raw source body.",
+    "The exact DXT variant (DXT1 vs DXT3/5) and the role of a2+4 (selector bitmask vs. alpha data) are DERIVED from the bit packing, not proven by packet evidence alone."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E98C",
+    "global:0x0059E9E0",
+    "global:0x005ACCD0",
+    "global:0x005ACCD4",
+    "global:0x005ACCD8",
+    "global:0x005ACCDC",
+    "global:0x005AD1F4",
+    "global:0x005ADB14",
+    "global:0x005AF634",
+    "global:0x005AF638",
+    "global:0x005AF63C",
+    "global:0x008B00A0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

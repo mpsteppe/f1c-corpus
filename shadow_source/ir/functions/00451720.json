@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "address": "0x00451720",
+  "proposed_name": "DriverInputControllerUpdateTick",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00451720"]
+  },
+  "summary": "Per-frame driver input controller tick. Dispatches enable/disable to four audio sub-controllers from global byte_7C56AC, derives wheel-speed magnitudes from the player vehicle (dword_7C54E0), folds wheel-contact types into per-frame gains and flags, then runs a ten-channel dispatch (steering, brake, throttle, rotation force-feedback, rumble) that computes effort/headroom/raw outputs and pushes them through each channel object's vtable. Zeroes the six rotation doubles at this+0x560..0x574 and returns 0.",
+  "local_names": {
+    "v20": "wheel-type dependent gain, raised for front wheels on contact types 6/7",
+    "v79": "differential/force-simulation active flag from dword_7C54E8 vs dword_7C54E0",
+    "v83": "active-axle wheel speed magnitude from the player vehicle",
+    "v84": "lateral command offset built from wheel contact type 11 per wheel index",
+    "v85": "max of the two wheel speed magnitudes",
+    "v87": "scaled gain: flt_7D21AC * v20",
+    "v24": "cached global byte_7D1358",
+    "v26": "per-channel effort (0..10000)",
+    "v51/v59": "per-channel headroom value (1000000 = forced idle)",
+    "v81": "raw channel output, clamped to [-10000,10000] or [-5000,5000]"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Audio sub-controller enable/disable dispatch: when global byte_7C56AC is nonzero and the latched init byte at this+0x418 is clear, walk each of the four sub-controller pointers this+0x4E8/0x4EC/0x4F0/0x4F4, follow the inner object at +0x80 and its vtable at +0, and when present call vtable slot +0x58 with argument 32 (enable); when byte_7C56AC is zero and this+0x418 is set, call the same slots with argument 16 (disable). Latch this+0x418 to 1 or 0 afterwards",
+      "evidence_refs": ["global:0x007C56AC", "field:this:0x00000418", "field:this:0x000004EC", "field:*(this+0x4E8):0x00000080", "field:*(this+0x4EC):0x00000080", "field:*(this+0x4F0):0x00000080", "field:*(this+0x4F4):0x00000080", "field:*(*(this+0x4E8)+0x80):0x00000000", "field:*(*(this+0x4EC)+0x80):0x00000000", "field:*(*(this+0x4F0)+0x80):0x00000000", "field:*(*(this+0x4F4)+0x80):0x00000000", "field:*(*(*(this+0x4E8)+0x80)+0x0):0x00000058", "field:*(*(*(this+0x4EC)+0x80)+0x0):0x00000058", "field:*(*(*(this+0x4F0)+0x80)+0x0):0x00000058", "field:*(*(*(this+0x4F4)+0x80)+0x0):0x00000058", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Wheel-speed magnitudes from the player vehicle: select the front-axle magnitude at offset 14004 of dword_7C54E0 when offsets 2396 and 2460 are active, else the rear-axle magnitude at offset 13756 when offsets 2100 and 2164 are active, else 0.0, into v83; then set v85 to the larger of the absolute values at offsets 14252 and 14500",
+      "evidence_refs": ["global:0x007C54E0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Reset per-frame accumulators: zero this+0x4D0, this+0x4D8 and this+0x4E0, zero v84, and compute v79 = (dword_7C54E8 != dword_7C54E0) OR (dword_7C54E8 + 13000) OR ((dword_7C54E8 + 13388) && dword_7CE7A8)",
+      "evidence_refs": ["global:0x007C54E0", "global:0x007C54E8", "global:0x007CE7A8", "field:this:0x000004D0", "field:this:0x000004D8", "field:this:0x000004E0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Four-iteration scan over wheel entries at dword_7C54E0+13940 (stride 248). For each entry holding an object at +84, accumulate the wheel-type value at +48 into this+0x4E0 and switch on it: type 6 or 7 adds 0.4 to the gain v20 for the front two wheels; type 9 or 10 sets this+0x4D8; type 11 sets this+0x4D0 and adjusts v84 per wheel index (+1.0, -1.0, +0.25, -0.25)",
+      "evidence_refs": ["global:0x007C54E0", "field:this:0x000004D0", "field:this:0x000004D8", "field:this:0x000004E0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Cache global byte_7D1358 as v24; when v79 is active force v84 to 0 and, if byte_7D1358 is clear, also clear this+0x4D0 and this+0x4D8",
+      "evidence_refs": ["global:0x007D1358", "field:this:0x000004D0", "field:this:0x000004D8", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Scale the wheel-type gain v20 by flt_7D21AC into v87",
+      "evidence_refs": ["global:0x007D21AC", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Ten-iteration dispatch over channel records laid out stride 104 from 'this'. A channel is live when the byte at +4 is nonzero and its object pointer at +100 is present; the record index (0..9) selects the handling block below",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Channel 0 (steering) feedback curve: derive a normalized factor from the front/axle state of dword_7C54E0 with gain terms dbl_7C77F8 and dbl_7C7C5C, blend it through dbl_7C8A80 / flt_7D2164, apply the shape flt_7D2140 (0.5 -> sqrt, 2.0 -> square, otherwise the sub_5881F0 helper), weight by flt_7D2188 and flt_7D211C and persist the filtered result into flt_7CD1F8 clamped to [-1,1] with the sign kept; combine the clamp shape flt_7CC130 / flt_7CC15C with the front velocity at dword_7C54E0+13696 into the raw output v81 (clamped to [-5000,5000]), then compare the stored position this+0x420 against a CRTFtol-scaled tolerance of flt_7D21D0 times 10000 using wheel speed this+0x4C0",
+      "evidence_refs": ["global:0x007C54E0", "global:0x007C77F8", "global:0x007C7C5C", "global:0x007C8A80", "global:0x007D2164", "global:0x007D2140", "global:0x007D2188", "global:0x007D211C", "global:0x007CD1F8", "global:0x007CC130", "global:0x007CC15C", "global:0x007D21D0", "field:this:0x000004C0", "field:this:0x00000420", "callee:0x00587BDC", "callee:0x005881F0", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Channel 0 (steering) effort selection and dispatch: gate on v83, flt_7D208C, dword_7D1FFC and the v79/byte_7D1358 state; compute effort from flt_7D20D4*v83 + flt_7D20B0*10000 clamped to [0,10000] and a CRTFtol tolerance flt_7D21D0 around this+0x428, gated by this+0x41C and the latched init byte this+0x418; on update store effort into this+0x41C, headroom into this+0x428, raw CRTFtol(v81) into this+0x420 and push the channel message via vtable +24, or clear the outputs when the init byte is set",
+      "evidence_refs": ["global:0x007D1358", "global:0x007D208C", "global:0x007D1FFC", "global:0x007D20D4", "global:0x007D20B0", "global:0x007D21D0", "field:this:0x00000418", "field:this:0x0000041C", "field:this:0x00000420", "field:this:0x00000428", "callee:0x00587BDC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Channel 5 (brake) effort: when the pedal magnitude at dword_7C54E0+14752 is non-positive, the init byte this+0x418 is set, a specific mismatch condition (v85, this+0x2D4, this+0x510/0x514 equality and this+0x4F0/0x4F4 equality) holds, or the v79/byte_7D1358 combination is not 1, force effort 0 and headroom 1000000. Otherwise, for gear state dword_7D1FD8==3 scale the brake delta (14752 - 400) by 6.8965516 through flt_7D22A8, or for other gears read this+0x4C4 divided by 14752 with headroom 1000000 and gain flt_7D22CC*... + flt_7D22A8*10000 clamped to [0,10000]; both paths clamp v81 to [-10000,10000]. Compare the stored this+0x498 against tolerance flt_7D2314 (this+0x48C/0x490) and dispatch via vtable +24",
+      "evidence_refs": ["global:0x007C54E0", "global:0x007D1FD8", "global:0x007D22A8", "global:0x007D22CC", "global:0x007D2314", "field:this:0x000002D4", "field:this:0x00000418", "field:this:0x000004C4", "field:this:0x0000048C", "field:this:0x00000490", "field:this:0x00000498", "field:this:0x00000510", "field:this:0x00000514", "field:this:0x000004F0", "field:this:0x000004F4", "callee:0x00587BDC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Channel 6 (throttle) effort: when the throttle magnitude at dword_7C54E0+13700 is non-positive, v85 is zero, the init byte this+0x418 is set, or the v79/byte_7D1358 combination is not 1, force headroom 1000000 and effort 0. Otherwise effort from this+0x4C8 divided by v85 (headroom 1000000 when out of range), gain flt_7D2380*10000 + flt_7D235C*10000 clamped to [0,10000], tolerance flt_7D23C8 around this+0x4A8 and this+0x49C; store headroom to this+0x4A8 and effort to this+0x49C, then dispatch",
+      "evidence_refs": ["global:0x007C54E0", "global:0x007D235C", "global:0x007D2380", "global:0x007D23C8", "field:this:0x00000418", "field:this:0x000004C8", "field:this:0x0000049C", "field:this:0x000004A8", "callee:0x00587BDC", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Channel 7 (rotation force-feedback): when v79 is clear and the init byte this+0x418 is clear, track a change of this+0x4E0 against this+0x4E4 (accumulating v83 * 0.0033333334 * 40000 into the double at this+0x560 when it changes), then when any of the doubles this+0x560 / this+0x570 / this+0x568 are non-zero, build v92/v93 through the rotation matrix dword_7C8A18 (coefficients at offsets +28/+44/+52/+68/+76/+92), select single-wheel mode when dword_7D1FD8==3 and this+0x4E8 is set, or mirrored mode when this+0x4E8 and this+0x4F4 are equal and dword_7D2068 is clear, clamp CRTFtol(this+0x570) into this+0x4AC within [-10000,10000], then dispatch via vtable +24 and +28",
+      "evidence_refs": ["global:0x007D1FD8", "global:0x007C8A18", "global:0x007D2068", "field:this:0x00000418", "field:this:0x000004E0", "field:this:0x000004E4", "field:this:0x000004E8", "field:this:0x000004F4", "field:this:0x000004AC", "field:this:0x00000560", "field:this:0x00000568", "field:this:0x00000570", "callee:0x00587BDC", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Channel 8 (rumble/audio-motor): when v83 is zero, or in gear state dword_7D1FD8==3 with this+0x4D0 clear and this+0x4D8 set, compute effort from this+0x4CC divided by v83 (headroom 1000000 out of range), gain flt_7D23EC (times 10000, or times 8000 when this+0x4D8 set) and raw v81 from this+0x4B0 times flt_7D2458 times v84 (clamped to [-10000,10000]); store into this+0x4B0, this+0x4B4 and this+0x4BC (or force 0/0/1000000 when the init byte this+0x418 is set) subject to the tolerance flt_7D247C, mirror this+0x4D0/0x4D8 into this+0x4D4/0x4DC, dispatch via vtable +24, and on shutdown clear this+0x4D0/0x4D4/0x4D8/0x4DC and call vtable +32",
+      "evidence_refs": ["global:0x007C54E0", "global:0x007D1FD8", "global:0x007D23EC", "global:0x007D2458", "global:0x007D247C", "field:this:0x00000418", "field:this:0x0000041C", "field:this:0x00000420", "field:this:0x00000428", "field:this:0x000004D0", "field:this:0x000004D4", "field:this:0x000004D8", "field:this:0x000004DC", "field:this:0x000004B0", "field:this:0x000004B4", "field:this:0x000004BC", "field:this:0x000004CC", "callee:0x00587BDC", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Per-frame cleanup: zero the six rotation/double slots this+0x560, this+0x564, this+0x568, this+0x56C, this+0x570 and this+0x574 and return 0",
+      "evidence_refs": ["field:this:0x00000560", "field:this:0x00000564", "field:this:0x00000568", "field:this:0x0000056C", "field:this:0x00000570", "field:this:0x00000574", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked per frame by MainGameTickUpdate (0042c690) as the driver input controller update tick",
+      "evidence_refs": ["caller:0x0042C690", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// enable/disable the four audio sub-controllers by byte_7C56AC and latch this+0x418;",
+    "v83 = axle-speed abs from dword_7C54E0 wheel masks; v85 = max axle abs;",
+    "clear this+0x4D0/0x4D8/0x4E0; v84 = 0.0; v79 = differential-state test;",
+    "scan 4 wheel entries at dword_7C54E0+13940 and fold types into v20, this+0x4D0, this+0x4D8, v84;",
+    "if (v79) { v84 = 0.0; if (!byte_7D1358) clear this+0x4D0/0x4D8; }",
+    "v87 = flt_7D21AC * v20;",
+    "for (channel = 0; channel < 10; channel++)",
+    "  if (live byte at this+104*channel+4 and object at +100)",
+    "    switch (channel) { 0: steering; 5: brake; 6: throttle; 7: rotation feedback; 8: rumble; }",
+    "zero this+0x560 .. this+0x574;",
+    "return 0;"
+  ],
+  "unresolved": [
+    "Three switch jump tables (jpt_451960 at 0x00452668, jpt_451982 at 0x00452680, jpt_451A5A at 0x00452690) are listed as accessed globals but do not appear in the raw decompiled text; they are the compiled switch dispatch tables for the channel and wheel-type switches",
+    "A block of read-only float/double globals (0x0059E430 .. 0x0059EF74) is listed as accessed but none appear in the raw decompiled text; they are likely compiler-emitted FPU constants, unverifiable from this function alone",
+    "flt_7D24A0 is listed as accessed but does not appear in the raw decompiled text; its role is unknown",
+    "The exact meaning of the large channel-message constants passed to vtable slots +24/+28 (e.g. 1073742080, 1073742144, 536871168) is not evidenced by this function",
+    "The precise owner type and the object at +0x80 inside each sub-controller are not evidenced here"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x00452668",
+    "global:0x00452680",
+    "global:0x00452690",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E670",
+    "global:0x0059E7E8",
+    "global:0x0059E7F8",
+    "global:0x0059E7FC",
+    "global:0x0059E800",
+    "global:0x0059E84C",
+    "global:0x0059E8C8",
+    "global:0x0059E920",
+    "global:0x0059E958",
+    "global:0x0059EE68",
+    "global:0x0059EF5C",
+    "global:0x0059EF60",
+    "global:0x0059EF64",
+    "global:0x0059EF68",
+    "global:0x0059EF6C",
+    "global:0x0059EF70",
+    "global:0x0059EF74",
+    "global:0x007D24A0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

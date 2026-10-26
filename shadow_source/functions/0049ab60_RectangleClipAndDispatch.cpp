@@ -1,0 +1,33 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0049AB60
+// Canonical corpus name: UIRectangleClipping
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/UIRectangleClipping_0049ab60.c
+
+void UnknownObject::RectangleClipAndDispatch()
+{
+    // Clips an input rectangle (a2,a4)-(a3,a5) against a widget's stored 16-bit rectangle at this+0x24..0x2A, then dispatches the result to ShortComputation_16e0. When either widget extent at 0x28 or 0x2A is <= 0 the clipping is skipped and ShortComputation_16e0 is called with the original unclipped bounds. Otherwise the rectangle is clamped: top to min(a2, origin at 0x26), bottom to min(a3, origin 0x26 + extent 0x2A - 1), left to max(a4, origin at 0x24), right to min(a5, origin 0x24 + extent 0x28 - 1), and the clipped rectangle is dispatched.
+    // CALCULATION: Compute v6 = (this[20] <= 0) testing the first widget extent at offset 0x28, and set v7 = this + 18 (base of the four 16-bit widget rectangle fields at 0x24..0x2A). [field:this:0x00000028, field:this:0x00000024, source:raw]
+    // GUARD: If the extent at 0x28 (this[20]) is <= 0, or the extent at 0x2A (v7[3]) is <= 0, skip clipping and dispatch the original unclipped bounds. [guard:0, guard:1, field:this:0x00000028, field:this:0x0000002A, source:raw]
+    // CALL: Dispatch ShortComputation_16e0(v7, a4, a2, a5 - a4, a3 - a2) with the original unclipped rectangle. [callee:0x004916E0, source:raw]
+    // CALCULATION: Clamp the top edge: v9 = min(this[19] at 0x26, a2). [field:this:0x00000026, source:raw]
+    // CALCULATION: Clamp the bottom edge: v10 = min(a3, v7[1] + v7[3] - 1), i.e. origin 0x26 plus extent 0x2A minus 1. [field:this:0x00000026, field:this:0x0000002A, source:raw]
+    // CALCULATION: Clamp the left edge: v11 = max(*v7 at 0x24, a4). [field:this:0x00000024, source:raw]
+    // CALCULATION: Clamp the right edge: v12 = min(a5, v7[2] + *v7 - 1), i.e. origin 0x24 plus extent 0x28 minus 1. [field:this:0x00000024, field:this:0x00000028, source:raw]
+    // CALL: Dispatch ShortComputation_16e0(v7, v11, v9, v12 - v11, v10 - v9) with the clipped rectangle. [callee:0x004916E0, source:raw]
+    // RETURN: Return the result of the ShortComputation_16e0 dispatch on whichever path (clipped or unclipped) was taken. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   i16 ClipAndDispatch(this, a2, a3, a4, a5) {
+    //     i16* rect = this + 18; /* fields 0x24..0x2A * /
+    //     if (this[20] <= 0 || rect[3] <= 0) return ShortComputation_16e0(rect, a4, a2, a5 - a4, a3 - a2);
+    //     i16 top    = min(a2,              rect[1]);
+    //     i16 bottom = min(a3, rect[1] + rect[3] - 1);
+    //     i16 left   = max(a4, rect[0]);
+    //     i16 right  = min(a5, rect[0] + rect[2] - 1);
+    //     return ShortComputation_16e0(rect, left, top, right - left, bottom - top);
+    //   }
+    // UNRESOLVED: The roles of the four 16-bit fields at 0x24..0x2A (origin vs extent) and which parameter is the x vs y axis is inferred from the clamp arithmetic only; the 0x28/0x2A extent naming follows the packet field labels and may be swapped.
+    // UNRESOLVED: The exact meaning of the two input pairs (a2,a3) and (a4,a5) and the semantics of ShortComputation_16e0's five arguments are unknown from static evidence alone.
+    // UNRESOLVED: The owner class providing the widget rectangle is unknown.
+}

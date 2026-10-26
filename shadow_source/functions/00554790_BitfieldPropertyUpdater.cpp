@@ -1,0 +1,49 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00554790
+// Canonical corpus name: sub_554790
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_554790_00554790.c
+
+void UnknownObject::BitfieldPropertyUpdater()
+{
+    // Compares a new flags bitmask a2 against the current state stored in this[1117]. For each changed bit it appends a (property ID, value) pair to a local change list, updating the stored resolution dword this[1263] and its low/high words as needed for the resolution and format mode flags. It then dispatches every queued property change to the device object this[1088] through a vtable method at +200, accumulates each return value into *this, and finally stores a2 as the new current flags.
+    // ASSIGNMENT: Load the current flags bitmask from this[1117] into a comparison register before diffing against a2. [field:this:0x00001174]
+    // GUARD: If the current flags equal the new flags a2, skip change-list building entirely and go straight to finalization. [source:raw, field:this:0x00001174]
+    // GUARD: If bit 4 changed, queue property 22; the value is 1 when the bit is newly set, otherwise the current value of this[1257] (the stored resolution field) is queued. [source:raw, field:this:0x000013A4]
+    // GUARD: If bit 0x400 changed, queue property 29 with the boolean of the newly-set state. [source:raw]
+    // GUARD: If bit 0x800 changed and it is newly cleared, queue property 27 with value 0; when the stored resolution this[1263] differs from 65538, queue sub-property 19 with value 2 when the low word at this+2526 differs from 2, queue sub-property 20 with value 1 when the high word at this+2527 differs from 1, then store 65538 as the new resolution and set the a3 high word to 1. [source:raw, field:this:0x000013BC, guard:0, field:this:0x000013BE, guard:1]
+    // GUARD: If bit 0x1000 changed and is newly set, queue property 27 with value 1; when the pending resolution v11 differs from 131074, queue sub-property 19 with value 2 when the low word differs from 2 and sub-property 20 with value 2 when the high word at this+2527 differs from 2, then store 131074 as the resolution and set the a3 high word to 2. [source:raw, field:this:0x000013BC, guard:2, field:this:0x000013BE]
+    // GUARD: If bit 0x10 changed and is newly set, queue property 9 with value 1. [source:raw]
+    // GUARD: If bit 0x20 changed and is newly set, queue property 9 with value 1. [source:raw]
+    // GUARD: If bit 0x100 changed and is newly set, queue property 9 with value 2. [source:raw]
+    // GUARD: If bit 1 changed, queue property 15 with the boolean of the newly-set state. [source:raw]
+    // GUARD: Finalization: when the new flags have bit 0x800 set and the pending resolution v11 differs from the stored resolution this[1263], queue sub-property 19 (low word of v11) and sub-property 20 (high word) when they differ from the stored words, then store v11 as the resolution. [source:raw, field:this:0x000013BC]
+    // GUARD: Finalization: when the new flags have bit 1 set and a4 differs from this[1264], queue property 24 with value a4 and store a4 into this[1264]. [source:raw, field:this:0x000013C0]
+    // LOOP: Iterate over the queued change pairs, from index 0 to the built count. [source:raw]
+    // CALL: Dispatch each queued (property ID, value) pair by calling the vtable method at +200 on the device object this[1088], passing the device, property ID and value. [source:raw, field:this:0x00001100, field:*(this+0x1100):0x000000C8]
+    // ASSIGNMENT: Store the dispatch method's return value into *this. [source:raw, field:this:0x00000000]
+    // ASSIGNMENT: Store a2 as the new current flags bitmask in this[1117]. [source:raw, field:this:0x00001174]
+    // RETURN: Void function; no explicit return value. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   // Diff new flags against stored flags; queue (property, value) pairs;
+    //   // dispatch them to the device object via vtable+200; commit new flags.
+    //   int build = 0;
+    //   int cur = this[1117];
+    //   if (cur == a2) goto commit;
+    //   if ((a2 & 4) != (cur & 4)) { ids[build] = 22; vals[build++] = (a2 & 4) ? 1 : this[1257]; }
+    //   if ((a2 & 0x400) != (cur & 0x400)) { ids[build] = 29; vals[build++] = (a2 & 0x400) != 0; }
+    //   if ((a2 & 0x800) != (cur & 0x800)) { /* property 27 + resolution sub-fields via this[1263] low/high words * / }
+    //   if ((a2 & 0x1000) != (cur & 0x1000) && (a2 & 0x1000)) { /* property 27, resolution 131074 * / }
+    //   if ((a2 & 0x10) != (cur & 0x10) && (a2 & 0x10)) { ids[build] = 9; vals[build++] = 1; }
+    //   if ((a2 & 0x20) != (cur & 0x20) && (a2 & 0x20)) { ids[build] = 9; vals[build++] = 1; }
+    //   if ((a2 & 0x100) != (cur & 0x100) && (a2 & 0x100)) { ids[build] = 9; vals[build++] = 2; }
+    //   if ((a2 & 1) != (cur & 1)) { ids[build] = 15; vals[build++] = (a2 & 1) != 0; }
+    //   commit:
+    //   if ((a2 & 0x800) && v11 != this[1263]) { /* queue sub-properties 19/20, store v11 * / }
+    //   if ((a2 & 1) && a4 != this[1264]) { ids[build] = 24; vals[build++] = a4; this[1264] = a4; }
+    //   for (i = 0; i < build; ++i) *this = (*(this[1088]->vtable + 200))(this[1088], ids[i], vals[i]);
+    //   this[1117] = a2;
+    // UNRESOLVED: Identity of the device object at this[1088] and the exact meaning of each queued property ID (22, 29, 27, 19, 20, 24, 9, 15) is external to this function.
+    // UNRESOLVED: The semantic role of the stored resolution dword this[1263] (offsets 0x13BC/0x13BE words) is inferred from the literal constants 65538 and 131074, not confirmed by a named field.
+}

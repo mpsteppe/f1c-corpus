@@ -1,0 +1,34 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051FBF0
+// Canonical corpus name: RotMatrixMul3x3
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/RotMatrixMul3x3_0051fbf0.c
+
+void UnknownObject::RotMatrixMul3x3()
+{
+    // Straight-line SSE 3x3 matrix multiply with packed multiplies and sign-flip XOR masks. Loads the high double-pair halves of the two input matrices a2 and a3 via load-high, splats and shuffles their lanes, XORs the shuffled lanes against the three read-only mask constants xmmword_8D6100/xmmword_8D60F0/xmmword_8D60E0, accumulates the products, stores the packed result to the output a1, and returns a1. The legacy abi name identifies the inputs as rotation matrices.
+    // CALCULATION: Load the high half of the first input matrix row into SSE register v3 via _mm_loadh_ps from a2+8. [source:raw]
+    // CALCULATION: Load the high half of the second input matrix row into SSE register v4 via _mm_loadh_ps from a3+8. [source:raw]
+    // CALCULATION: Splat the high lane of v4 (shuffle mask 255) and multiply by v3 to form the first partial product v5. [source:raw]
+    // CALCULATION: XOR the low lane of v4 against the read-only mask xmmword_8D6100, multiply by the shuffled v6, and add to v5 to form v7. [global:0x008D6100, source:raw]
+    // CALCULATION: XOR the v4 lanes against the read-only masks xmmword_8D60F0 and xmmword_8D60E0, multiply by the shuffled v6/v8 terms, and accumulate all products into v9. [global:0x008D60E0, global:0x008D60F0, source:raw]
+    // ASSIGNMENT: Store the packed result v9 to the output matrix a1: low half via _mm_storel_ps(a1) and high half via _mm_storeh_ps(a1 + 1). [source:raw]
+    // RETURN: Return the output pointer a1. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   double *RotMatrixMul3x3(double *out, int m0, int m1) {
+    //     __m128 v3 = _mm_loadh_ps((const double *)(m0 + 8));
+    //     __m128 v4 = _mm_loadh_ps((const double *)(m1 + 8));
+    //     __m128 v5 = _mm_mul_ps(_mm_shuffle_ps(v4, v4, 255), v3);
+    //     __m128 v6 = _mm_shuffle_ps(v3, v3, 27);
+    //     __m128 v7 = _mm_add_ps(v5, _mm_mul_ps(_mm_xor_ps(_mm_shuffle_ps(v4, v4, 0), (__m128)xmmword_8D6100), v6));
+    //     __m128 v8 = _mm_shuffle_ps(v6, v6, 177);
+    //     __m128 v9 = _mm_add_ps(_mm_add_ps(v7, _mm_mul_ps(_mm_xor_ps(_mm_shuffle_ps(v4, v4, 85), (__m128)xmmword_8D60F0), v8)), _mm_mul_ps(_mm_xor_ps(_mm_shuffle_ps(v4, v4, 170), (__m128)xmmword_8D60E0), _mm_shuffle_ps(v8, v8, 27)));
+    //     _mm_storel_ps(out, v9);
+    //     _mm_storeh_ps(out + 1, v9);
+    //     return out;
+    //   }
+    // UNRESOLVED: The byte values of the three XOR masks (xmmword_8D6100, xmmword_8D60F0, xmmword_8D60E0) are not present in the packet; their sign-flip role is DERIVED from the multiply usage, not proven.
+    // UNRESOLVED: The identification of the inputs as 3x3 rotation matrices comes only from the legacy abi name RotMatrixMul3x3; row/column ordering and the real element stride of a2/a3 are not established.
+    // UNRESOLVED: The raw signature types a2/a3 as int offsets rather than pointers; the exact matrix representation is unresolved.
+}

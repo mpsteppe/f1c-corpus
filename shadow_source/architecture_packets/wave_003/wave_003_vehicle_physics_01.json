@@ -1,0 +1,2690 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_003_vehicle_physics_01",
+  "scope": "vehicle_physics",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x00402220",
+      "function_ref": "function:0x00402220",
+      "name": "VehicleWheelContactHeightCheck",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "source:raw"
+        ]
+      },
+      "summary": "Computes the wheel contact patch position and its terrain penetration for a vehicle wheel. Takes a wheel-geometry array a2 (origin a2[0..2], length-scale, direction a2[8..10]) and a contact-type selector a4; writes the contact position, a half-extent probe frame and final suspension-compression/lateral-tilt values into the output a3. Computes a3[0..2] = a2[0..2] + scale * a2[8..10] where scale is a2[7] (a4==1) or a2[6] / a2[71]+a2[6] (other paths), then scales a direction vector by half of a scalar read from this (this[1] on the a4==1 path, *this elsewhere) to build the a3[3..5] half-extent. Queries SpatialGridQuery at the contact center and at plus/minus the half-extent, resolves side-height disagreement beyond a 0.35 threshold by mirroring the farther sample, then writes a3[1] = max(center, average of sides) + 0.06 and a3[4] = half the side-height difference.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Dispatch on a4 (contact-type selector): a4 == 1 takes the steering-aligned path using a2[7] as the scale; a4 == 0 selects the extended-spring length a2[71] + a2[6]; any other non-zero a4 uses a2[6] alone.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Contact-point computation: a3[0..2] = a2[0..2] + scale * a2[8..10], where scale is a2[7] on the a4 == 1 path and v5 (a2[6] or a2[71] + a2[6]) on the other paths.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the computed contact position into the output a3 (a3[0], a3[1], a3[2]).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Half-extent frame: read the scalar v8 from this — this[1] on the a4 == 1 path, *this otherwise — and set a3[3..5] = (v8 * 0.5) * a2[8..10].",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "SpatialGridQuery(&v46): terrain-height query at the contact position a3 (v46 = {a3[0], a3[1], a3[2]}); on success the returned height is captured in v53 (v29 = v53).",
+          "evidence_refs": [
+            "callee:0x0044C4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "SpatialGridQuery at the low-side probe (a3[0]-a3[3], a3[1], a3[2]-a3[5]); the returned height v30 falls back to the center height v29 when the query fails.",
+          "evidence_refs": [
+            "callee:0x0044C4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "SpatialGridQuery at the high-side probe (a3[0]+a3[3], a3[1], a3[2]+a3[5]); the returned height v25 falls back to v29 when the query fails.",
+          "evidence_refs": [
+            "callee:0x0044C4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Side-sample consistency: when v25 differs from (2 * v29 - v30) by more than 0.35, keep the side sample closer to the center and mirror the farther one (v30 = 2 * v29 - v25 or v25 = 2 * v29 - v30) so both sides agree with the center height.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Average the two side heights v28 = (v30 + v25) * 0.5, then clamp v28 to be at least the center height (v28 = v29 when v29 > v28).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Update the contact state in a3: a3[1] = v28 + 0.06 (compressed suspension height) and a3[4] = (v25 - v30) * 0.5 (lateral tilt from the side-height difference).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read-only scalar constants loaded from the globals 0x0059E450, 0x0059E454, 0x0059E458 and 0x007C9360 and consumed by the half-extent, threshold and lift arithmetic (the raw source renders the float constants as literals such as 0.5, 0.34999999 and 0.059999999).",
+          "evidence_refs": [
+            "global:0x0059E450",
+            "global:0x0059E454",
+            "global:0x0059E458",
+            "global:0x007C9360",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Exact mapping of the four read-only globals (0x0059E450, 0x0059E454, 0x0059E458, 0x007C9360) to the floating-point literals in the raw source (0.5, 0.34999999, 0.059999999) is not established by the packet; the existing analysis labels them DegreesToRadians / PhysicsConstant_59E454 / ConstraintForceEpsilon / Unknown_Struct_7C9360 at DERIVED trust, which is not adopted here.",
+        "The legacy ABI label 'Ray_Sphere_Intersection' (abi:lead) is inconsistent with the raw source, which performs terrain-height queries; the proposed name follows the existing analysis fill (VehicleWheelContactHeightCheck).",
+        "The exact meanings of the a2 fields (wheel origin/spring length/scale/direction) and of this[0]/this[1] (a vehicle half-height scalar) are interpretations from the fill, not independently evidenced."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00404460",
+      "function_ref": "function:0x00404460",
+      "name": "VehicleWheelPhaseProcessor",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00404460"
+        ]
+      },
+      "summary": "Time-sliced three-phase state machine that processes vehicle wheel data across multiple frames. Computes a target grip-derived value v9 = 1.0 - (flt_8AFEE8 + flt_8AFEEC) * 0.5 and enters the processing path when the stored float at this+0x170 differs from v9 beyond tolerance or the index at this+0x174 is not the idle sentinel -1. Each call processes a batch of at most 20 wheels: phase selector this+0x16C == 0 runs friction callback sub_4FB260(v9), == 1 runs suspension callback sub_4FAF60, == 2 runs VehicleProximity; the phase index advances in this+0x174 and a phase transition occurs only when a batch reaches the wheel count at this+0x130. When all wheels are done the machine returns to phase 0 with index -1 (idle).",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute target value v9 = 1.0 - (flt_8AFEE8 + flt_8AFEEC) * 0.5 from two global grip terms.",
+          "evidence_refs": [
+            "global:0x008AFEE8",
+            "global:0x008AFEEC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Enter processing if |float(this+0x170) - v9| > 0.05 or this+0x174 != -1; -1 is the idle sentinel for the phase index.",
+          "evidence_refs": [
+            "field:this:0x00000170",
+            "field:this:0x00000174",
+            "guard:0",
+            "guard:1",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Re-initialize the machine when idle: set this+0x174 = 0, store v9 into float(this+0x170), and set phase selector this+0x16C = 0.",
+          "evidence_refs": [
+            "field:this:0x00000174",
+            "field:this:0x00000170",
+            "field:this:0x0000016C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute batch end bound v3 = min(this+0x174 + 20, wheel count at this+0x130).",
+          "evidence_refs": [
+            "field:this:0x00000174",
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Dispatch on phase selector this+0x16C: 0 = friction, 1 = suspension, 2 = proximity.",
+          "evidence_refs": [
+            "field:this:0x0000016C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Phase 0: for each wheel index in [this+0x174, v3) call sub_4FB260(v9) and advance this+0x174.",
+          "evidence_refs": [
+            "callee:0x004FB260",
+            "field:this:0x00000174",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Phase 0 completion: when v3 reaches this+0x130, set this+0x16C = 1 and reset this+0x174 = 0.",
+          "evidence_refs": [
+            "field:this:0x0000016C",
+            "field:this:0x00000174",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Phase 1: for each wheel index in [this+0x174, v3) call sub_4FAF60 on wheel array base this+0x134 + 316 * index and advance this+0x174.",
+          "evidence_refs": [
+            "callee:0x004FAF60",
+            "field:this:0x00000134",
+            "field:this:0x00000174",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Phase 1 completion: when v3 reaches this+0x130, set this+0x174 = 0 and this+0x16C = 2.",
+          "evidence_refs": [
+            "field:this:0x00000174",
+            "field:this:0x0000016C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Phase 2: for each wheel index in [this+0x174, v3) call VehicleProximity on wheel array base this+0x134 + 316 * index and advance this+0x174.",
+          "evidence_refs": [
+            "callee:0x004FB2E0",
+            "field:this:0x00000134",
+            "field:this:0x00000174",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Phase 2 completion: when v3 reaches this+0x130, set this+0x16C = 0 and this+0x174 = -1, returning the machine to idle.",
+          "evidence_refs": [
+            "field:this:0x0000016C",
+            "field:this:0x00000174",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked from the frame/main-loop paths GamePostMainLoop (0x0042D8A0) and StateTriggerCheck (0x004B8AE0).",
+          "evidence_refs": [
+            "caller:0x0042D8A0",
+            "caller:0x004B8AE0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The float at this+0x170 is written with v9 and compared to v9 with a 0.05 tolerance, but its exact meaning (a per-run target grip derived from flt_8AFEE8 + flt_8AFEEC) is not confirmed; existing analysis prose called 0x170 an index, which conflicts with the raw float access.",
+        "The wheel array element type at base this+0x134 (stride 316) is not confirmed here; sub_4FAF60 and VehicleProximity are treated as suspension and proximity callbacks from existing analysis only.",
+        "Globals flt_59E43C, flt_59E450 and dbl_59E480 are listed in the packet globals but are not referenced by the raw source text of this function; their role is unclear.",
+        "The three callee names (friction/suspension/proximity) are DERIVED from existing analysis; only addresses are FACT."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E450",
+        "global:0x0059E480"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0040E990",
+      "function_ref": "function:0x0040E990",
+      "name": "PhysicsShapeInitType1",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Initializer for a physics collision-shape sub-object (proposed type-1 shape): writes the 16-bit discriminator a2 into this+8, sets the subtype field this+28 to the constant 1, stores a3 into this+32, fills a local six-dword array v6 with constant bit patterns (0, 1071644672, -1717986918, 1069128089, 0, 1071644672), passes it with the scalar 1.2 to CollisionInvMassStore, then bulk-sets six collision-data fields via F_6FieldBulkSetter(0, 1081671680, 0, 1078198272, -1610612736, 1072273817). When a4 is non-zero it continues into ShortComputation_e770(this, a4, 0); otherwise the fall-through returns a4 (zero). Invoked by sub_40FE50 as a per-entry shape initializer.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Store the 16-bit discriminator: *(_WORD*)(this + 8) = a2.",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set the subtype/kind field: *(_DWORD*)(this + 28) = 1 (the type-1 shape constant).",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the passed-through argument/pointer: *(_DWORD*)(this + 32) = a3.",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Fill the local six-dword array v6 with the constant bit patterns 0, 1071644672, -1717986918, 1069128089, 0, 1071644672.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "CollisionInvMassStore(1.2, (int)v6): store the scalar 1.2 together with the local constant array into collision data.",
+          "evidence_refs": [
+            "callee:0x00459950",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "F_6FieldBulkSetter(0, 1081671680, 0, 1078198272, -1610612736, 1072273817): bulk-set six fields in the collision data structure.",
+          "evidence_refs": [
+            "callee:0x00459990",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When a4 is non-zero, take the continuation path into ShortComputation_e770.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "ShortComputation_e770((_DWORD*)this, a4, 0): conditional continuation computation on this.",
+          "evidence_refs": [
+            "callee:0x0040E770",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return a4; because the guard already diverted all non-zero a4 values, the fall-through returns zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_40FE50 (0x0040FE50) as a per-entry shape initializer.",
+          "evidence_refs": [
+            "caller:0x0040FE50",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The v6 bit patterns and the F_6FieldBulkSetter arguments are float bit fields; their decoded float values are deliberately not asserted (no IEEE-754 synthesis per rules).",
+        "Whether the constant 1 at this+28 is truly a physics shape 'type' enum is a prose proposal from the existing analysis, not a confirmed enum value.",
+        "The concrete semantics and target structure of CollisionInvMassStore and F_6FieldBulkSetter are not confirmed from this packet.",
+        "The meaning of the 16-bit discriminator a2 (written at this+8) and the passed-through value a3 (stored at this+32) is unknown.",
+        "The owner class is unknown (UnknownObject)."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004109D0",
+      "function_ref": "function:0x004109D0",
+      "name": "PerVehicleCameraUpdateIterator",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Per-frame per-vehicle camera/physics update tick on the main game frame path. When the scoring gate is set to direct mode it walks the global vehicle array applying wheel contact transforms; otherwise it iterates the receiver's own camera-element array dispatching mode-render physics calls and, on a coarse camera-shake timer, writes shake data for eligible camera structs to a ring buffer.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Branch on the global scoring gate being set to the direct-contact mode.",
+          "evidence_refs": [
+            "global:0x008AB6E4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Direct mode: iterate over the global vehicle count, one pass per vehicle slot.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call a float-parameter sub-routine per vehicle slot during the direct-mode pass.",
+          "evidence_refs": [
+            "callee:0x004F0430",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Compute the wheel contact transform for each vehicle slot base (slot pointer plus an object offset) in direct mode.",
+          "evidence_refs": [
+            "callee:0x004EF180",
+            "global:0x007C54F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Otherwise: iterate the receiver's element array up to the count stored in the first field.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Dispatch the mode-ordered render physics call for each array element with the time argument.",
+          "evidence_refs": [
+            "callee:0x0040F300",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When the scoring gate is in the shake-enabled mode and the stored shake timestamp plus one is older than the current time argument, refresh the camera shake timer and scan for eligible camera structs.",
+          "evidence_refs": [
+            "global:0x008AB6E4",
+            "field:this:0x0000006C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the current time argument as the updated camera shake timestamp.",
+          "evidence_refs": [
+            "field:this:0x0000006C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Skip the shake sweep when the element count in the first field is not positive.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "guard:0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the camera element array and write shake data for elements whose per-element state field is not in the excluded state.",
+          "evidence_refs": [
+            "callee:0x0040F600",
+            "field:this:0x00000008",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Alternate shake path: walk the camera element array and write shake data only for elements neither in the excluded state nor flagged inactive by their flag byte.",
+          "evidence_refs": [
+            "callee:0x0040F600",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the element count stored in the first field as the result.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Role of the read-only global float at 0x0059E43C is not visible in this function's body.",
+        "Per-element camera struct fields at byte offsets +28 (state tag, value 6 excluded) and +10 (flag byte) are not listed in the packet field set.",
+        "Purpose of the float-parameter sub-call sub_4F0430 is caller-context dependent and unresolved here."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00412C30",
+      "function_ref": "function:0x00412C30",
+      "name": "MapCollisionShapeToBoneIndex",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Maps a collision shape identifier (one of 1-12, 15, 20, 25, 30, 35, 40, 50) to a bone index (153-189) by subtracting a boolean flag from a shape-specific base value. On success writes the bone index to output this+0x8 and the result of sub_414180(0) to this+0xC, then returns 1. Returns -1 when a2 is non-zero, when the shape identifier is unrecognized, or when the computed index is negative.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize result to -1 as the default failure value.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When a2 is non-zero, skip mapping and return the default -1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Dispatch on shape identifier a3 via the jump table jpt_412C54 and case table byte_412E18; for each recognized case compute v5 = base - (a4 != 0), with bases 189 down to 153 for shapes 1 through 50.",
+          "evidence_refs": [
+            "global:0x00412DC8",
+            "global:0x00412E18",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Proceed to the write only when the computed bone index v5 is >= 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the mapped bone index v5 to the output dword at this+0x8.",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Write the result of sub_414180(0) to the output dword at this+0xC.",
+          "evidence_refs": [
+            "callee:0x00414180",
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Set result to 1 after a successful mapping.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 on success, or -1 when a2 is non-zero or the shape identifier is unrecognized.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantics of sub_414180(0) and the meaning of the secondary value written to this+0xC.",
+        "Meaning of a2 (which must be zero) and of the boolean flag a4.",
+        "The receiver layout: this+0x8 and this+0xC are the only two dwords touched."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004139C0",
+      "function_ref": "function:0x004139C0",
+      "name": "CollisionShapeSizeClassify",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004139C0"
+        ]
+      },
+      "summary": "Classifies a collision-shape size argument a3 into an integer size class written to this+8, then stores the result of a sub-call at this+12. Classification only runs when a2 is zero and the a4 byte flag is clear, otherwise the function returns -1. The a3 value is promoted to double and pushed through a chain of ascending double thresholds held in the read-only dbl_59E788..dbl_59E7E0 globals (1.0 through 52.5) to produce the class index, with the upper tail split further by integer bounds 75, 110 and 999. Called by SoundEventDispatcher (00411E90).",
+      "operations": [
+        {
+          "kind": "return",
+          "description": "Early return path: the function defaults result to -1 and returns it whenever a2 is non-zero or a4 is non-zero, so classification only proceeds under the a2==0 && a4==0 guard",
+          "evidence_refs": [
+            "function:0x004139C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Classification gated on a2 == 0 and a4 == 0; both must be clear for the threshold chain to run",
+          "evidence_refs": [
+            "function:0x004139C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "a3 promoted to double and compared against the ascending chain of read-only double thresholds stored in dbl_59E788 through dbl_59E7E0 (the 1.0 through 52.5 constants), mapping the value onto integer class index 32..44",
+          "evidence_refs": [
+            "global:0x0059E788",
+            "global:0x0059E790",
+            "global:0x0059E798",
+            "global:0x0059E7A0",
+            "global:0x0059E7A8",
+            "global:0x0059E7B0",
+            "global:0x0059E7B8",
+            "global:0x0059E7C0",
+            "global:0x0059E7C8",
+            "global:0x0059E7D0",
+            "global:0x0059E7D8",
+            "global:0x0059E7E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Upper tail of the chain split by integer bounds: a3 >= 999 selects class 48, a3 >= 110 selects class 47, a3 >= 75 selects class 46, otherwise class 45; the dbl_59E420 threshold participates in this upper classification",
+          "evidence_refs": [
+            "global:0x0059E420",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Writes the computed size class index to the output struct at this+8",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_414180 invoked with argument 0 and its return value stored at this+12",
+          "evidence_refs": [
+            "callee:0x00414180",
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Successful classification returns 1; the a2==0 && a4==0 failure path returns -1",
+          "evidence_refs": [
+            "function:0x004139C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by SoundEventDispatcher (00411E90)",
+          "evidence_refs": [
+            "caller:0x00411E90",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The exact association of each dbl_59E420..dbl_59E7E0 global to a specific threshold literal (1.0..52.5) is not determinable from this packet; only the inline decimal constants appear in the raw source",
+        "The output struct type at this+8/this+12 is unknown; a1 is used only as a write base",
+        "sub_414180 is called with a constant 0 argument and its semantics are not defined in this packet"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0041B250",
+      "function_ref": "function:0x0041B250",
+      "name": "RetirementFailureEventHandler",
+      "owner": {
+        "type": "SessionState",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0041B250",
+          "source:raw"
+        ]
+      },
+      "summary": "Handles retirement/failure commentary events during a championship weekend session. Gated by race-active, track-state, session-type (7), race-phase (!= 8) and championship-mode (!= 5) flags. Builds a sentinel-initialized driver-table entry; when the retiring vehicle is the player (field +0x4894 matches the player vehicle's field +0x4894) the reason code maps to event IDs 119 (=1), 118 (=7), or 117 (other). For AI vehicles it derives a context index (FloatRangeIndexLookup on field +0x4044, default 3) and maps the reason code to event IDs 235 (=1), 238 (=4), 236 (=9), or 237 (other) using field +0x489C as context. Inserts the entry into the session event table at flt_5EA618 only when the built entry is not the -1 sentinel.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Session-state gate: only proceed when race active (dword_7D0308 nonzero), track state nonzero (flt_7CF3C8), session type is 7 (dword_7C56A4), race phase is not 8 (dword_7C56A8), and championship mode is not 5 (dword_7D0410).",
+          "evidence_refs": [
+            "global:0x007D0308",
+            "global:0x007CF3C8",
+            "global:0x007C56A4",
+            "global:0x007C56A8",
+            "global:0x007D0410",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "StructInitWithSentinelValues(v4) resets the 8-word driver-table entry buffer to sentinel values before any lookup fills it.",
+          "evidence_refs": [
+            "callee:0x004144D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Player identity check: compare field +0x4894 of the live player vehicle (dword_7C54E8) with field +0x4894 of this vehicle; equality selects the player-commentary path, otherwise the AI-commentary path.",
+          "evidence_refs": [
+            "global:0x007C54E8",
+            "field:this:0x00004894",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Player path, reason code == 1: DriverDataTableLookupAndTimeConversion with event 119.",
+          "evidence_refs": [
+            "field:this:0x00004068",
+            "guard:2",
+            "callee:0x004144F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Player path, reason code == 7: DriverDataTableLookupAndTimeConversion with event 118.",
+          "evidence_refs": [
+            "field:this:0x00004068",
+            "guard:1",
+            "callee:0x004144F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Player path, any other reason code: DriverDataTableLookupAndTimeConversion with event 117.",
+          "evidence_refs": [
+            "field:this:0x00004068",
+            "callee:0x004144F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "AI path context index: default lookupIndex = 3; when float field +0x4044 is greater than 0.0 the index comes from FloatRangeIndexLookup(field +0x4044) and a zero result falls back to 3.",
+          "evidence_refs": [
+            "field:this:0x00004044",
+            "callee:0x004D7C10",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "AI path, reason code == 1 (engine): DriverDataTableLookupAndTimeConversion with event 235, field +0x489C as context value and the computed lookupIndex.",
+          "evidence_refs": [
+            "field:this:0x00004068",
+            "guard:2",
+            "field:this:0x0000489C",
+            "callee:0x004144F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "AI path, reason code == 4 (brake): DriverDataTableLookupAndTimeConversion with event 238, field +0x489C as context value and the computed lookupIndex.",
+          "evidence_refs": [
+            "field:this:0x00004068",
+            "guard:0",
+            "field:this:0x0000489C",
+            "callee:0x004144F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "AI path, reason code == 9 (fuel): DriverDataTableLookupAndTimeConversion with event 236, field +0x489C as context value and the computed lookupIndex.",
+          "evidence_refs": [
+            "field:this:0x00004068",
+            "guard:3",
+            "field:this:0x0000489C",
+            "callee:0x004144F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "AI path, any other reason code: DriverDataTableLookupAndTimeConversion with event 237, field +0x489C as context value and the computed lookupIndex.",
+          "evidence_refs": [
+            "field:this:0x00004068",
+            "guard:0",
+            "field:this:0x0000489C",
+            "callee:0x004144F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Sentinel check: only insert when the first word of the built entry (driverTableEntry[0]) is not -1, i.e. the lookup produced a valid entry.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "InsertDriverTableEntry(flt_5EA618, v4) appends the built driver-table entry to the session event table referenced by flt_5EA618.",
+          "evidence_refs": [
+            "callee:0x00418560",
+            "global:0x005EA618",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "flt_59E440 is listed as read by the packet but never appears in the decompiled source text; no grounded operation could be derived for it.",
+        "dword_8AD264 is listed as read by the packet but is not referenced in the decompiled source; prior analysis labels it a penalty-message queue handled elsewhere.",
+        "The inner `else if (dword_7C56A8 != 8)` on the AI path duplicates the outer phase guard and has no distinct behavior in the raw text.",
+        "Reason-code value 7 (event 118) and the semantics of event IDs 117-119/235-238 come from the prior-analysis fill, not from the raw decompile.",
+        "The exact interpretation of field +0x489C as a context index (retired driver index vs. grid position) is not established by this packet alone."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E440",
+        "global:0x008AD264"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0042BBD0",
+      "function_ref": "function:0x0042BBD0",
+      "name": "SetPlayerVehicleIndex",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0042BBD0",
+          "source:raw"
+        ]
+      },
+      "summary": "Player-vehicle selector (stdcall, arg a1 = vehicle index): stores the computed player vehicle pointer (vehicle array base unk_5EC6D8 + stride 18624 * a1) into dword_7C54E0, then scans dword_7C54F0 (vehicle pointer array) for an entry equal to that pointer. On match it records the matching array index in dword_7C54DC and returns it; if the array is exhausted (104 entries) without a match, it returns 104. Vehicle-subsystem helper used by dispatch and network/session paths.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute the player vehicle pointer = (int)&unk_5EC6D8 + 18624 * a1 (stride 18624 = vehicle array element size) and write it to dword_7C54E0 as the current player vehicle pointer.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x005EC6D8",
+            "global:0x007C54E0"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize the array search index result = 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Linear search over dword_7C54F0 (vehicle pointer array) from index 0, comparing each entry against the computed player vehicle pointer.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x007C54F0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Loop continues while dword_7C54F0[result] != computed player vehicle pointer; on equality the loop exits to the match handling.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x007C54F0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Exhaustion guard: if ++result >= 104 (array limit), return result (not-found path) immediately without recording an index.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On a match, store the found array index into dword_7C54DC (current player vehicle array index).",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x007C54DC"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the matching array index, or 104 when no array entry equals the computed player vehicle pointer.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called from GameStateDispatchChain (0x0040D240), sub_40DE60 (0x0040DE60), DynMan_Init (0x0042C1A0), NetCommPlayerSlotSync (0x0045FC50), sub_4B9890 (0x004B9890) and sub_4BA1F0 (0x004BA1F0) to select the player vehicle.",
+          "evidence_refs": [
+            "caller:0x0040D240",
+            "caller:0x0040DE60",
+            "caller:0x0042C1A0",
+            "caller:0x0045FC50",
+            "caller:0x004B9890",
+            "caller:0x004BA1F0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantics of dword_7C54E0 (fill prose: postProcessInput) and dword_7C54DC (fill prose: CurrentPlayerIndex) come from higher-tier analysis, not this packet; only the writes are grounded here.",
+        "Meaning of a return of 104 (array not found) for the caller - the caller-side handling is not visible in this packet."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0042BC40",
+      "function_ref": "function:0x0042BC40",
+      "name": "SetPlayerVehicleIndex_bc40",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x0042BC40"
+        ]
+      },
+      "summary": "Computes the player vehicle pointer as vehicle-array base unk_5EC6D8 plus 18624 * a1, stores it in dword_7C54E8, then scans dword_7C54F0 (the 104-entry vehicle pointer array) for a matching entry. On a match stores the index in dword_7C54E4 and returns it; if the array is exhausted without a match returns 104.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Store dword_7C54E8 = (int)unk_5EC6D8 + 18624 * a1: the player vehicle pointer computed as vehicle-array base plus stride times slot index.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x007C54E8",
+            "global:0x005EC6D8"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize the search index result = 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "while dword_7C54F0[result] != (unk_5EC6D8 + 18624 * a1): scan the vehicle pointer array until the computed player pointer is found.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x007C54F0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "if (++result >= 104) return result: the array was exhausted without a match, so return 104.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On match, store dword_7C54E4 = result: record the found index as the current player vehicle index.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x007C54E4"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the matched index, or 104 when no entry matched.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "No branch verifies a1 is a valid slot index before computing the pointer; behavior for out-of-range a1 is unproven.",
+        "dword_7C54E4 (CurrentVehicleIndex) is written but never read inside this function; downstream consumers are not visible here.",
+        "All caller relationships (DynMan_Init, NetCommPlayerSlotSync, sub_4BA1F0) are recorded as evidence only; their expectations of the return value are unconfirmed."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0042BC80",
+      "function_ref": "function:0x0042BC80",
+      "name": "BuildActiveVehiclePointerArray",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x0042BC80",
+          "source:raw"
+        ]
+      },
+      "summary": "Builds the global active-vehicle pointer array: scans every vehicle slot from unk_5EC6D8 up to byte_7C54D8 and appends each slot whose dword at index 3250 is not -1 into dword_7C54F0 (VehiclePtrArray). If fewer than 104 vehicles were collected, zero-fills the unused array tail, then backfills remaining slots with live vehicles not already listed. Finally records the array indices of two reference vehicle pointers as dword_7C54DC (CurrentPlayerIndex) and dword_7C54E4 (CurrentVehicleIndex). Returns the number of active vehicles.",
+      "operations": [
+        {
+          "kind": "loop",
+          "description": "Scan the vehicle array from its base unk_5EC6D8 to byte_7C54D8 (VehicleArrayEnd) in steps of 4656 dwords, the vehicle-struct stride.",
+          "evidence_refs": [
+            "global:0x005EC6D8",
+            "global:0x007C54D8"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Skip the vehicle when its dword at index 3250 equals -1, i.e. the slot is not live.",
+          "evidence_refs": [
+            "global:0x005EC6D8"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Append the active vehicle pointer into dword_7C54F0 (VehiclePtrArray) at index v0 and increment v0.",
+          "evidence_refs": [
+            "global:0x007C54F0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Only when fewer than 104 vehicles were collected, clear the unused tail of VehiclePtrArray.",
+          "evidence_refs": [
+            "global:0x007C5690"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Zero 4 * (104 - v0) bytes starting at 4 * v0 + 8148208, i.e. the empty tail of dword_7C54F0 spanning up to byte_7C5690.",
+          "evidence_refs": [
+            "global:0x007C54F0",
+            "global:0x007C5690"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Backfill: for each empty slot rescan every vehicle from unk_5EC6D8 (stride 18624 bytes) up to byte_7C54D8, and skip any pointer already stored in dword_7C54F0, using byte_7C5690 as the scan bound.",
+          "evidence_refs": [
+            "global:0x005EC6D8",
+            "global:0x007C54D8",
+            "global:0x007C54F0",
+            "global:0x007C5690"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Duplicate guard: a vehicle already present in dword_7C54F0 is not appended again; advance to the next vehicle candidate instead.",
+          "evidence_refs": [
+            "global:0x007C54F0"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the first not-yet-listed vehicle pointer into the empty backfill slot and advance the fill pointer.",
+          "evidence_refs": [
+            "global:0x005EC6D8",
+            "global:0x007C5690"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize dword_7C54DC and dword_7C54E4 to 0 before the index-matching scan, so a reference pointer not found in the array leaves its index at 0.",
+          "evidence_refs": [
+            "global:0x007C54DC",
+            "global:0x007C54E4"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the built array: when entry v5 equals dword_7C54E0 store v5 into dword_7C54DC (CurrentPlayerIndex), and when it equals dword_7C54E8 store v5 into dword_7C54E4 (CurrentVehicleIndex).",
+          "evidence_refs": [
+            "global:0x007C54F0",
+            "global:0x007C54E0",
+            "global:0x007C54DC",
+            "global:0x007C54E8",
+            "global:0x007C54E4"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return v0, the number of active vehicles placed in VehiclePtrArray.",
+          "evidence_refs": [
+            "function:0x0042BC80",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantic names of the two reference pointers dword_7C54E0 and dword_7C54E8, and their outputs dword_7C54DC and dword_7C54E4, come from existing-analysis labels (postProcessInput / PlayerVehiclePtr / CurrentPlayerIndex / CurrentVehicleIndex), not from this function's code; those names are placeholders pending independent evidence.",
+        "byte_7C5690 is used in this function purely as the end-of-array sentinel for dword_7C54F0 (capacity 104), although the corpus label for it is InitStateFlag.",
+        "The backfill loop's `if (v3)` null check appears unreachable in practice within the loop bounds; its intended purpose is uncertain.",
+        "Both 4656-dword and 18624-byte strides appear in the raw source for the same vehicle-struct walk; they are equivalent, not two different strides."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0042F470",
+      "function_ref": "function:0x0042F470",
+      "name": "VehicleSetupValueFormatter",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "caller:0x004673B0",
+          "function:0x0042F470",
+          "source:raw"
+        ]
+      },
+      "summary": "Formats one vehicle-setup parameter value into its display string for a garage/setup menu. The option index a2 selects a 64-byte per-option slot at this + (a2 << 6) + 2992 and dispatches through a large switch (50+ cases) to the correct format specifier, unit conversion (metric vs imperial selected by this+0x4, cm-to-inch 0.3937007874015748, radian-to-degree 57.29577951308232, liter-to-gallon 0.2641720372841846), and optional localized label lookup via BinarySearchInStringTable into byte_5EC4CC. Written output goes to the slot string buffer at +30 (this+3022). Several cases delegate to the sibling helpers SetupValueFormatDS, SetupValueFormat1fS and SetupValueFormatWithOffset. Called only from MenuOptionValueDisplay (0x004673B0).",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Entry: the option index a2 dispatches the format path through a large switch; v4 = (a2 << 6) + this + 2992 addresses the option's 64-byte slot within the setup structure, and the combined value shown by most arms is (int)(slot+20) * (double)(slot+8) + (double)(slot+0).",
+          "evidence_refs": [
+            "abi:lead",
+            "function:0x0042F470",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Case 0 (tire brand/compound): the 'unknown' placeholder string aUnknown is localized via BinarySearchInStringTable into byte_5EC4CC and copied to the slot output buffer (v4+30). The brand is resolved with TireBrandLookup(dword_8AD254, this+112) and the compound with CompoundIndexLookup using the slot index at v4+20; the resolved brand string defaults to byte_5EA438 when empty, is localized into byte_5EC4CC, and written with StringFormatWithBufferOverflowCheck. Returns null when the brand/compound lookup fails.",
+          "evidence_refs": [
+            "callee:0x00423A00",
+            "callee:0x0058815F",
+            "callee:0x004D7570",
+            "callee:0x004D7880",
+            "global:0x008AD254",
+            "global:0x005EA438",
+            "global:0x005C307C",
+            "global:0x005EC4C0",
+            "global:0x005EC4CC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Cases 1, 2, 0x1F: the combined slot value is formatted as '%4.1f:%4.1f' into the slot output buffer (this + (a2 << 6) + 3022), showing 100.0 - combined*100.0 and combined*100.0.",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Case 3: the combined slot value is formatted as '%.2f %s' into v4+30 with the localized 'turns' unit label aTurns (BinarySearchInStringTable into byte_5EC4CC).",
+          "evidence_refs": [
+            "callee:0x00423A00",
+            "callee:0x0058815F",
+            "global:0x005C3828",
+            "global:0x005EC4C0",
+            "global:0x005EC4CC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Cases 4, 0x34, 0x35, 0x36 (fuel/laps): the counter field this+0x1884 gates whether an 'N/A' label replaces the computed value. a2==52 requires this+0x1884 < 1, a2==53 requires < 2, a2==54 requires >= 3 to fall through to the computed value; otherwise the localized 'N/A' label from off_5C3810 is output as '%s'.",
+          "evidence_refs": [
+            "field:this:0x00001884",
+            "guard:1",
+            "guard:2",
+            "guard:3",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Fuel/laps value computation: when the factor field this+0x1994 is 0.0 the value is unavailable and the buffer holds the localized '(%s)' placeholder; otherwise the combined value is scaled by the factor and truncated with CRTFtol. A result of 1 formats as '(1 %s)' using off_5C3804, any other count as '(%d %s)' using the localized aLaps label; the result is built in the temporary v47 buffer.",
+          "evidence_refs": [
+            "field:this:0x00001994",
+            "callee:0x00587BDC",
+            "callee:0x00423A00",
+            "callee:0x0058815F",
+            "global:0x005C37F4",
+            "global:0x005C3804",
+            "global:0x005EC4C0",
+            "global:0x005EC4CC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Final fuel/laps format: when the unit flag this+0x4 == 1 the value is output as '%4.1f %s %s' with the combined value converted by 0.2641720372841846 (US gallons per liter); otherwise as '%d %s %s' with the integer combined value. Unit label comes from this+88 and the lap-count suffix from the v47 buffer.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "guard:0",
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Cases 5, 6 (ride height): if the override byte this+0x1989 is set the value is delegated to SetupValueFormatDS; otherwise the combined value is scaled by 100.0 and the unit flag this+0x4 selects '%3.3f'-style '%.3f %s' with cm-to-inch conversion (0.3937007874015748) versus metric '%.2f %s', using label this+24.",
+          "evidence_refs": [
+            "field:this:0x00001989",
+            "field:this:0x00000004",
+            "guard:0",
+            "callee:0x0042F180",
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Cases 7, 8: the combined value is converted from radians to degrees (multiplied by 57.29577951308232) and formatted as '%.2f %s' with the label at this+40 into the slot output buffer.",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Cases 9, 0xA: the combined value scaled by 100.0; the unit flag this+0x4 selects '%.2f %s' with cm-to-inch conversion (0.3937007874015748) versus metric '%.1f %s', using label this+24.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "guard:0",
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Cases 0xB, 0xC, 0x22: the combined value is converted radians-to-degrees (multiplied by 57.29577951308232) and formatted as '%.1f %s' with the label at this+40.",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Cases 0xD, 0xE, 0xF, 0x15: delegates formatting to SetupValueFormatWithOffset(this, slot buffer, 0.0).",
+          "evidence_refs": [
+            "callee:0x0042F260",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Cases 0x10, 0x16: delegates formatting to SetupValueFormatDS(this, slot buffer).",
+          "evidence_refs": [
+            "callee:0x0042F180",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Cases 0x11, 0x12, 0x13, 0x14, 0x17, 0x18, 0x19, 0x1A: delegates formatting to SetupValueFormat1fS(this, slot buffer).",
+          "evidence_refs": [
+            "callee:0x0042F1E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Cases 0x1B, 0x1C: if bit 0 of the flags byte this+0x198C is set, the output is '%d' of (slot int at +20 + 1); otherwise '%d %s' of the combined value with the label at this+40.",
+          "evidence_refs": [
+            "field:this:0x0000198C",
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Case 0x1D: if bit 1 of this+0x198C is set, the output is '%d' of (slot int at +20 + 1); otherwise '%d%%' of (100.0 - combined value).",
+          "evidence_refs": [
+            "field:this:0x0000198C",
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Cases 0x1E, 0x26, 0x28: output is '%d' of (slot int at +20 + 1).",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Cases 0x20, 0x21, 0x23, 0x24, 0x25: output is '%d%%' of the combined value scaled by 100.0.",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Case 0x27: the combined value scaled by 9.549296585513721 is truncated to the integer v44 and output as '%d%03d' of v44 / 1000 and v44 % 1000 (RPM-style display).",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Cases 0x29, 0x33: output is '%d' of the slot int at +20.",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Case 0x2A (bevel/differential gear): two ratio components are fetched from the array at this+6512 via ArrayElementGetter and BoundedArrayElementAccessor using the slot int at +20, plus the stored gear values this+0x1980 and this+0x1984; the 'bevel' label is localized via BinarySearchInStringTable. If bit 2 of this+0x198C is set the output is '%2d/%2d (%s %2d/%2d)', otherwise the ratio is formatted as '%.2f:1'.",
+          "evidence_refs": [
+            "callee:0x0042DCC0",
+            "callee:0x0042DCE0",
+            "callee:0x00423A00",
+            "callee:0x0058815F",
+            "field:this:0x00001980",
+            "field:this:0x00001984",
+            "field:this:0x0000198C",
+            "global:0x005C36C0",
+            "global:0x005EC4C0",
+            "global:0x005EC4CC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Cases 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32 (gear ratios): if the slot byte at +3020 is set, two gear values are fetched via BoundedArrayAccessor and BoundsCheckedArrayLookup and a ratio computed via RatioCalculator over the this+6512 array using this+0x1644 as the track/gear count; bit 2 of this+0x198C selects '%2d/%2d (%.3f)' versus '%.2f (%.2f)'. Otherwise the localized 'N/A' label from off_5C3810 is output as '%s'.",
+          "evidence_refs": [
+            "callee:0x0042DC80",
+            "callee:0x0042DCA0",
+            "callee:0x0042DD00",
+            "callee:0x00423A00",
+            "callee:0x0058815F",
+            "field:this:0x00001644",
+            "field:this:0x0000198C",
+            "global:0x005C3810",
+            "global:0x005EC4C0",
+            "global:0x005EC4CC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Default arm: returns a2 (the option index) unchanged. All explicit case arms return the output buffer pointer produced by StringFormatWithBufferOverflowCheck (or a delegate helper's result).",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The switch dispatches through the jump-table global jpt_42F49D (0x42FC74); the decompiled text inlines every case so the table itself is never referenced, but it is the compiled backing of the dispatch.",
+        "String globals aS_4, aD_1, a1fS, aDS, a3fS, a2f2f, a2d2d3f, a2f1, a2d2dS2d2d, aD03d, aD, aDSS, a41fSS, aDS_0, a1S, aS, a41f41f, a2fS and byte_42FCC4 are flagged by packet facts but never named in the decompiled text; they most likely back the inline string literals or jump-table data, but their exact contents are unverifiable here.",
+        "Double globals dbl_59E430, dbl_59EA18, dbl_59EA20, dbl_59EA30, dbl_59EA38, dbl_59EA40 are absent from the decompiled text; they may back the inline conversion constants (0.2641720372841846, 0.3937007874015748, 57.29577951308232, 9.549296585513721) but that mapping is unverified.",
+        "The per-option slot layout (64-byte stride; double at +0, double at +8, int at +20, byte at +28, string at +30) is visible only through the raw-source literals 2992/3000/3012/3020/3022; those offsets have no dedicated packet field evidence, so the underlying structure is undocumented.",
+        "Return-value semantics are ambiguous: format arms return the output buffer pointer produced by StringFormatWithBufferOverflowCheck, while the default arm returns a2 (the option index cast to const char**); how MenuOptionValueDisplay consumes the return is not evidenced here."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0042FC74",
+        "global:0x0042FCC4",
+        "global:0x0059E430",
+        "global:0x0059EA18",
+        "global:0x0059EA20",
+        "global:0x0059EA30",
+        "global:0x0059EA38",
+        "global:0x0059EA40",
+        "global:0x005C2C18",
+        "global:0x005C3280",
+        "global:0x005C36F4",
+        "global:0x005C3778",
+        "global:0x005C3780",
+        "global:0x005C3788",
+        "global:0x005C3794",
+        "global:0x005C37A4",
+        "global:0x005C37AC",
+        "global:0x005C37C4",
+        "global:0x005C37CC",
+        "global:0x005C37D4",
+        "global:0x005C37E0",
+        "global:0x005C37EC",
+        "global:0x005C37FC",
+        "global:0x005C3808",
+        "global:0x005C3814",
+        "global:0x005C3820"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00430F00",
+      "function_ref": "function:0x00430F00",
+      "name": "VehicleStatsEstimationDisplay",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00430F00"
+        ]
+      },
+      "summary": "Computes and formats vehicle performance estimates (acceleration, top speed, cornering G) into the setup display buffers on the this object. Uses a small numeric-integration loop over BrakeTemperatureFadeModel for acceleration and top-speed estimates and sub_430750 for cornering, selecting metric (150 km/h bound, km/h units) or imperial (100 mph bound, mph units) presentation from the byte_7D0474 UI flag. Every label string is resolved through BinarySearchInStringTable into the shared byte_5EC4CC scratch buffer before being copied to a local 64-byte label. Called by ValidateVehicleConfigurationFile (00433ED0), ConfigObjectDestructor (00466A70), ShortComputation_6c40 (00466C40), and SubCallVirtualDispatch (0047D060).",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Resolve the vehicle base name: BinarySearchInStringTable(byte_5EC4C0, byte_5C3F6C, byte_5EC4CC); on success copy the byte_5C3F6C string into the shared byte_5EC4CC scratch buffer, then copy it into the local v49 buffer.",
+          "evidence_refs": [
+            "callee:0x00423A00",
+            "global:0x005EC4C0",
+            "global:0x005C3F6C",
+            "global:0x005EC4CC"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Clear the three display slots starting at this+6950: StringFormatWithBufferOverflowCheck is applied to this+6950, +6950+128, +6950+256 with the off_5C3810 format (empty format string) to blank the estimation lines.",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "global:0x005C3810",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Unit-selection guard on byte_7D0474: when set, metric path (bound v8=150, v45=41.6666..., units resolved from off_5C3F68); otherwise imperial path (v8=100, v45=44.704, units from off_5C3F64). Both paths resolve their unit string into byte_5EC4CC via BinarySearchInStringTable and copy it to v48.",
+          "evidence_refs": [
+            "global:0x007D0474",
+            "global:0x005C3F68",
+            "global:0x005C3F64",
+            "callee:0x00423A00",
+            "global:0x005EC4CC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Resolve the aEstAccel label into byte_5EC4CC and copy to v47, then resolve the aS_2 format element into byte_5EC4CC and copy to v50.",
+          "evidence_refs": [
+            "callee:0x00423A00",
+            "global:0x005C3F58",
+            "global:0x005C3758",
+            "global:0x005EC4CC"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Format the header line into this+6566 as \"%s (0-%d %s)%s\" with v47 (label), v8 (speed bound), v48 (units), v49 (vehicle base name).",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Acceleration estimate: iterate velocity v40 in 0.04 m/s steps via BrakeTemperatureFadeModel(this, v40); break when velocity drops to <= 0; use the midpoint value v26 = fade(this, v40 + v25*0.02) to step by v42 = v26*0.04; when v40+v42 exceeds the v45 bound, format this+6950 as \"%.2f %s\" with the interpolated time and break.",
+          "evidence_refs": [
+            "callee:0x00430A50",
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Resolve the aEstTopSpeed label into byte_5EC4CC and copy to v47, then format this+6694 as \"%s%s\" with v47 and v49.",
+          "evidence_refs": [
+            "callee:0x00423A00",
+            "global:0x005C3F38",
+            "global:0x005EC4CC",
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Top-speed estimate: advance the iterator j by 0.135 m/s while BrakeTemperatureFadeModel(this, j) stays above 0.0; j converges to the top speed.",
+          "evidence_refs": [
+            "callee:0x00430A50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Convert top speed to display units: v43 = j * 3.6 (m/s to km/h) when byte_7D0474 is set, otherwise v43 = j * 2.236936292054402 (m/s to mph); format this+7078 as \"%d %s\" with (int)v43 and the v48 units.",
+          "evidence_refs": [
+            "global:0x007D0474",
+            "callee:0x0058815F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Cornering estimate: v44 = sub_430750(this, 75.0) produces the lateral force value for the cornering display.",
+          "evidence_refs": [
+            "callee:0x00430750",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Resolve the aEstCornering label into byte_5EC4CC and copy to v47, then resolve the aG label into byte_5EC4CC and copy to v50.",
+          "evidence_refs": [
+            "callee:0x00423A00",
+            "global:0x005C3F28",
+            "global:0x005C3F24",
+            "global:0x005EC4CC"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Format this+6822 as \"%s%s\" (cornering label + base name) and return the result of formatting this+7206 as \"%.2f %s\" with v44 * 0.1019367991845056 (g-force conversion) and the v50 units.",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "function:0x00430F00",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The read-only globals aSS (0x005BE860), aDS (0x005C3778), a2fS (0x005C3820), aS0DSS (0x005C3F48), and dbl_59E430 / dbl_59EA68 / dbl_59EA88 / dbl_59EA90 / dbl_59EA98 / dbl_59EAA0 / dbl_59EAA8 are recorded as read by this function but do not appear as symbols in the raw decompiled body; they are likely consumed inside the called estimation routines (BrakeTemperatureFadeModel, sub_430750).",
+        "The exact meaning of the bound constant v45 (150 or 100) and the 41.6666/44.704 doubles is DERIVED from the existing analysis (speed bound in display units); the raw source only uses them in the integration comparison.",
+        "The this-relative display offsets (+6566, +6694, +6822, +6950, +7078, +7206) are read from raw source but are not flagged as packet fields; their display roles are DERIVED from the existing analysis."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x005BE860",
+        "global:0x005C3778",
+        "global:0x005C3820",
+        "global:0x005C3F48",
+        "global:0x0059E430",
+        "global:0x0059EA68",
+        "global:0x0059EA88",
+        "global:0x0059EA90",
+        "global:0x0059EA98",
+        "global:0x0059EAA0",
+        "global:0x0059EAA8"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00431BD0",
+      "function_ref": "function:0x00431BD0",
+      "name": "PhysicsStaticDataRegistration",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Trivial thunk: passes the address of sub_431BE0 (cast to int) to BooleanToIntConversion and returns the boolean-to-int result. Acts as a registration adapter that reports the presence of a function pointer rather than executing it.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call BooleanToIntConversion with the address of sub_431BE0 read as an int (function pointer cast to integer).",
+          "evidence_refs": [
+            "callee:0x00587B3E",
+            "global:0x00431BE0"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of BooleanToIntConversion directly.",
+          "evidence_refs": [
+            "function:0x00431BD0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Why the address of sub_431BE0 is coerced to int and converted to boolean is not visible here; sub_431BE0's own behavior is out of packet scope.",
+        "Registration context and caller are unknown (no callers recorded)."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00433090",
+      "function_ref": "function:0x00433090",
+      "name": "PhysicsObjectDestructor",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00433090",
+          "source:raw"
+        ]
+      },
+      "summary": "Teardown for a physics-config style object. First calls SessionConfigDefaultInit on the whole object to reset its configuration fields, then frees up to three heap-allocated pointer fields (offsets 0x14, 0x8, 0x0) via FreeWrapper_7bcf, each guarded by a non-null check, and returns the last FreeWrapper result (or the saved value of field 0x8 when that field was null).",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Invoke SessionConfigDefaultInit(this) to reinitialize/reset the object's configuration fields before any pointers are freed.",
+          "evidence_refs": [
+            "callee:0x00432CC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: only free the pointer at offset 0x14 (this + 20) when it is non-null.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the heap pointer at offset 0x14 via FreeWrapper_7bcf(*(this + 20)).",
+          "evidence_refs": [
+            "callee:0x00587BCF",
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Load result = *(this + 8), the second heap-allocated pointer field, before its null check.",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: only free the pointer at offset 0x8 when result (the loaded value) is non-null.",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the heap pointer at offset 0x8 via FreeWrapper_7bcf(*(this + 8)) and keep its return value as result.",
+          "evidence_refs": [
+            "callee:0x00587BCF",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Load v3 = *(this), the first heap-allocated pointer field at offset 0x0.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: only free the pointer at offset 0x0 when v3 is non-null.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the FreeWrapper_7bcf result for the offset 0x0 pointer when it was freed, otherwise the earlier result (from offset 0x8 or its null fallback).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by AutoLoadEntryListLoader (0x00432E70), which tears this object down as part of loading the auto-load entry list.",
+          "evidence_refs": [
+            "caller:0x00432E70",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The concrete object type is unknown; the destructor-shaped call to SessionConfigDefaultInit before freeing suggests a physics/session config record, but only the three pointer-field offsets are evidenced.",
+        "Exact types of the freed allocations at offsets 0x0, 0x8 and 0x14 are unknown.",
+        "Whether SessionConfigDefaultInit is a plain field reset or performs additional allocation is outside this function's evidence."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00433870",
+      "function_ref": "function:0x00433870",
+      "name": "PhysicsSubsystemStep",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00433870"
+        ]
+      },
+      "summary": "Indexes the read-only global dword_5F0F6C (0x005F0F6C) at element 4656 * a2, then passes this (as const char**) together with the selected element value to LoadAIDriverNamesFromConfig and returns its result. Unconditional; no branches or guards. Reached from the vehicle subsystem via NetCommPlayerSlotSync (0045FC50).",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Computes the element address dword_5F0F6C + 4656 * a2, reading the global array at the slot selected by a2",
+          "evidence_refs": [
+            "global:0x005F0F6C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Calls LoadAIDriverNamesFromConfig(this, dword_5F0F6C[4656 * a2]), passing the object and the selected array element",
+          "evidence_refs": [
+            "global:0x005F0F6C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the result of LoadAIDriverNamesFromConfig",
+          "evidence_refs": [
+            "function:0x00433870",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "LoadAIDriverNamesFromConfig has no address in the packet callee facts; the call is visible only in the raw decompiled source, so its target is unverified",
+        "dword_5F0F6C is indexed with a stride of 4656 elements; the record type behind that stride is not evidenced and is left uninterpreted"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00433E60",
+      "function_ref": "function:0x00433E60",
+      "name": "PhysicsObjectTeardown",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00433E60",
+          "source:raw"
+        ]
+      },
+      "summary": "Session/object teardown helper (__thiscall). Default-initializes the object, then conditionally frees three owned sub-buffers stored at offsets 0, 8 and 20, and finally frees the object itself when the low bit of the flags argument a2 is set. Returns the object pointer. Structural twin of PhysicsObjectDestructor per the packet prelabel.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Default-initialize the object via SessionConfigDefaultInit before any teardown.",
+          "evidence_refs": [
+            "callee:0x00432CC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: free the sub-buffer at this + 20 only when the pointer at this + 20 is non-zero.",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the sub-buffer held at this + 20 via FreeWrapper_7bcf.",
+          "evidence_refs": [
+            "callee:0x00587BCF",
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: free the sub-buffer at this + 8 only when the pointer at this + 8 is non-zero.",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the sub-buffer held at this + 8 via FreeWrapper_7bcf.",
+          "evidence_refs": [
+            "callee:0x00587BCF",
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: free the sub-buffer at offset 0 of this only when the pointer is non-zero.",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the sub-buffer held at offset 0 of this via FreeWrapper_7bcf.",
+          "evidence_refs": [
+            "callee:0x00587BCF",
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: when bit 0 of the flags argument a2 is set, free the object itself.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the object itself via FreeWrapper_7bcf when the flag bit is set.",
+          "evidence_refs": [
+            "callee:0x00587BCF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the object pointer this.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Leading SessionConfigDefaultInit on this is unusual for a teardown path; whether it is a placement reset or a mislabeled initializer is unresolved.",
+        "Semantics of offsets 0, 8 and 20 (which sub-objects they own) are unknown without the owning class layout.",
+        "Caller LinkedListRemovalByName (0x00433D60) uses this helper; the exact destruction context is not visible here."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x00433D60"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00434450",
+      "function_ref": "function:0x00434450",
+      "name": "PhysicsConfigInit",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Thunk attributed as physics-config initialization: forwards its this pointer unchanged to ConstraintSolverParamInit(this) and returns the callee's result. The packet records no field, global, guard, or callee-address evidence; the callee is known only by name from the decompiled source. Called from sub_40DE60.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Forward call ConstraintSolverParamInit(this); the target is named in the decompiled source but the packet carries no callee-address evidence ref for it.",
+          "evidence_refs": [
+            "function:0x00434450",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the callee's result unchanged (tail-call/return thunk).",
+          "evidence_refs": [
+            "function:0x00434450",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "ConstraintSolverParamInit is referenced only by name in the source text; its address and prototype are absent from the packet, so no callee evidence ref can be recorded.",
+        "The parameter object type and the fields ConstraintSolverParamInit initializes are outside this packet's scope.",
+        "The 'PhysicsConfigInit' name is a canonical/legacy ABI label; the object owning the constraint-solver parameters is unknown."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead",
+        "caller:0x0040DE60"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00438130",
+      "function_ref": "function:0x00438130",
+      "name": "VehicleDynamicsForceAccumulatorIntegration",
+      "owner": {
+        "type": "F1CVehicle",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "abi:lead",
+          "caller:0x00441650",
+          "function:0x00438130"
+        ]
+      },
+      "summary": "Per-frame vehicle brake/tire thermal integration and wear simulation, called by the vehicle physics integration step. Converts brake force, slip, and angular velocity into per-wheel heat, integrates temperatures with ambient Kelvin offsets (flt_8AFEF0/flt_8AFEF4 + 273.16), clamps the integrated temperature into a safe range, and computes a wear/degradation term from torque and slip ratio. On extreme slip it triggers a blowout-style transition that scales down the brake/tire force fields and resets degradation, and it dispatches pit-state or AI-phase transitions (AISessionPhaseCounter / PitStateSlotActivation) based on slip classification.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Ambient reference temperatures: v33 = flt_8AFEF4 + 273.16 and v36 = flt_8AFEF0 + 273.16 (Kelvin offsets used as convection targets).",
+          "evidence_refs": [
+            "global:0x008AFEF4",
+            "global:0x008AFEF0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Brake heat source v3 gated by this+0x324 (804): if not positive, heat is 0; otherwise v3 = fabs(this+0xBC) * this+0x3A4 * this+0x324.",
+          "evidence_refs": [
+            "field:this:0x00000324",
+            "field:this:0x000000BC",
+            "field:this:0x000003A4"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Brake thermal input gated by this+0x31C (796): if not positive, v28 and v4 are 0; otherwise v28 = (1.0 - this+0x14C) * this+0x268 * this+0x31C and v4 = v28 * this+0x3AC.",
+          "evidence_refs": [
+            "field:this:0x0000031C",
+            "field:this:0x0000014C",
+            "field:this:0x00000268",
+            "field:this:0x000003AC"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Speed term v5 = this+0x314 (788) * 5.555555555555555, clamped to [-1, 1] as a blend factor.",
+          "evidence_refs": [
+            "field:this:0x00000314"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Slip term v32 = this+0x344 * this+0x31C + this+0x33C; v9 = (v32 - this+0x374) * 0.02777777777777778, clamped to [-1, 1].",
+          "evidence_refs": [
+            "field:this:0x00000344",
+            "field:this:0x0000031C",
+            "field:this:0x0000033C",
+            "field:this:0x00000374"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Angular-velocity magnitude of the sub-object at this+0x15C from doubles at +0x64, +0x6C and +0x74 (sqrt of sum of squares), scaled by this+0x3C4 and offset this+0x3BC, then by v16 = flt_8AFEE4 + this+0x270 + 1.0; v17 = v16 * this+0x3B4.",
+          "evidence_refs": [
+            "field:this:0x0000015C",
+            "field:*(this+0x15C):0x00000064",
+            "field:*(this+0x15C):0x0000006C",
+            "field:*(this+0x15C):0x00000074",
+            "field:this:0x000003C4",
+            "field:this:0x000003BC",
+            "global:0x008AFEE4",
+            "field:this:0x00000270",
+            "field:this:0x000003B4"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Three-element integration loop over the temperature copy sourced from this+0x34C: accumulate the v3/v4 heat terms weighted by the v38/v39 blend factors and frame time a2, add ambient convection toward v33/v36 scaled by v17, and subtract the drain term v20 = (v18 - v40) * a2 * 0.005 from this+0x364 (868).",
+          "evidence_refs": [
+            "field:this:0x0000034C",
+            "field:this:0x00000364"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Clamp the integrated temperature this+0x364 (868): below 273.16 set this+0x368 to 1081152143 and this+0x364 to 1546188227; above 546.3200000000001 set this+0x368 to 1082200719 and repeat the low clamp.",
+          "evidence_refs": [
+            "field:this:0x00000364",
+            "field:this:0x00000368"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Compute force/torque products via TorqueForceProductComputation(this).",
+          "evidence_refs": [
+            "callee:0x00438100"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Average torque v34 = (this+0x35C + this+0x354 + *v21) * 0.3333333333333333; wear term v31 = (fabs(v26) + fabs(v30) + 4.0) * 0.1666666666666667 * this+0x3CC * (v34 / this+0x334)^2 * v28 * a2.",
+          "evidence_refs": [
+            "field:this:0x0000035C",
+            "field:this:0x00000354",
+            "field:this:0x000003CC",
+            "field:this:0x00000334"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Debug/telemetry gate: slip-state classification only runs when dword_7D0308 is set and flt_7CF3C8 is non-zero.",
+          "evidence_refs": [
+            "global:0x007D0308",
+            "global:0x007CF3C8"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Slip classification from this+0x394 (916): v27 = (this+0x394 - 0.75) * 4.0, v29 = (this+0x394 - v31 - 0.75) * 4.0; if v27 equals 1.0 clear dword_5EC3BC[this+0x78]; else if v27 > 0.4 and v29 <= 0.4 call PitStateSlotActivation(dword_5EB978, this+0x78); otherwise AISessionPhaseCounter(dword_5EB978, this+0x78).",
+          "evidence_refs": [
+            "field:this:0x00000394",
+            "field:this:0x00000078",
+            "global:0x005EC3BC",
+            "global:0x005EB978",
+            "callee:0x0041AB30",
+            "callee:0x0041AA10"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Blowout/lock transition: while this+0x394 (916) exceeds 0.75 subtract v31; when it drops to <= 0.75 zero this+0x394, write 1072168960 to this+0x398, scale this+0x384 by 0.18, this+0x234 by 4.0, and this+0x44C/this+0x278/this+0x454/this+0x288 each by 0.7; then this+0x36C = min(this+0x37C * 0.25, 10.0) * 0.002778858444950814.",
+          "evidence_refs": [
+            "field:this:0x00000394",
+            "field:this:0x00000398",
+            "field:this:0x00000384",
+            "field:this:0x00000234",
+            "field:this:0x0000044C",
+            "field:this:0x00000278",
+            "field:this:0x00000454",
+            "field:this:0x00000288",
+            "field:this:0x0000037C",
+            "field:this:0x0000036C"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Load factor v25 = fabs(v34 - this+0x334) / this+0x334 * 0.9 + fabs(this+0x374 - v32) / v32 * 0.6, clamped to [0, 1]; final write this+0x39C = (1.0 - v25*v25*0.5) * this+0x394.",
+          "evidence_refs": [
+            "field:this:0x00000334",
+            "field:this:0x00000374",
+            "field:this:0x0000039C",
+            "field:this:0x00000394"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Void return.",
+          "evidence_refs": [
+            "function:0x00438130",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Twenty-four dbl_59E* globals (0x0059E420-0x0059EB90) are listed as read globals in the packet but do not appear in the rendered decompiled source; their role in this function is unknown.",
+        "Owner proposed as F1CVehicle (DERIVED) from the calling context (VehiclePhysicsIntegrationStep) and vehicle subsystem tag; not independently confirmed.",
+        "The average-torque read *v21 (edx) has no explicit packet field evidence; treated as part of the this+0x354/0x35C averaging."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E420",
+        "global:0x0059E428",
+        "global:0x0059E430",
+        "global:0x0059E440",
+        "global:0x0059E6E8",
+        "global:0x0059E7D8",
+        "global:0x0059E830",
+        "global:0x0059E880",
+        "global:0x0059E8C8",
+        "global:0x0059EA60",
+        "global:0x0059EAC8",
+        "global:0x0059EB30",
+        "global:0x0059EB38",
+        "global:0x0059EB40",
+        "global:0x0059EB48",
+        "global:0x0059EB50",
+        "global:0x0059EB58",
+        "global:0x0059EB60",
+        "global:0x0059EB68",
+        "global:0x0059EB70",
+        "global:0x0059EB78",
+        "global:0x0059EB80",
+        "global:0x0059EB88",
+        "global:0x0059EB90"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00438CA0",
+      "function_ref": "function:0x00438CA0",
+      "name": "PhysicsInitSequence",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00438CA0",
+          "source:raw"
+        ]
+      },
+      "summary": "Physics subsystem initializer (__thiscall). Calls WheelDynamicsInit on the object, dispatches initialization of a physics subsystem object at this + 5548, and returns the result of clearing a physics buffer at this + 492.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Initialize wheel dynamics on the object via WheelDynamicsInit.",
+          "evidence_refs": [
+            "callee:0x0043E230",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Dispatch initialization of the physics subsystem object placed at this + 5548 via PhysicsSubsystemInitDispatcher.",
+          "evidence_refs": [
+            "callee:0x0056D410",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Clear the physics buffer at this + 492; its return value is propagated as the function result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of the buffer clear call.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The buffer-clear callee is not listed among the packet callees; its identity beyond the raw-source name is unverified.",
+        "Layout and purpose of the subsystems at this + 5548 and this + 492 are unknown without the owning class definition."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x00402220",
+    "function:0x00404460",
+    "function:0x0040E990",
+    "function:0x004109D0",
+    "function:0x00412C30",
+    "function:0x004139C0",
+    "function:0x0041B250",
+    "function:0x0042BBD0",
+    "function:0x0042BC40",
+    "function:0x0042BC80",
+    "function:0x0042F470",
+    "function:0x00430F00",
+    "function:0x00431BD0",
+    "function:0x00433090",
+    "function:0x00433870",
+    "function:0x00433E60",
+    "function:0x00434450",
+    "function:0x00438130",
+    "function:0x00438CA0"
+  ],
+  "required_material_refs": [
+    "callee:0x0040E770",
+    "callee:0x0040F300",
+    "callee:0x0040F600",
+    "callee:0x00414180",
+    "callee:0x004144D0",
+    "callee:0x004144F0",
+    "callee:0x00418560",
+    "callee:0x0041AA10",
+    "callee:0x0041AB30",
+    "callee:0x00423A00",
+    "callee:0x0042DC80",
+    "callee:0x0042DCA0",
+    "callee:0x0042DCC0",
+    "callee:0x0042DCE0",
+    "callee:0x0042DD00",
+    "callee:0x0042F180",
+    "callee:0x0042F1E0",
+    "callee:0x0042F260",
+    "callee:0x00430750",
+    "callee:0x00430A50",
+    "callee:0x00432CC0",
+    "callee:0x00438100",
+    "callee:0x0043E230",
+    "callee:0x0044C4C0",
+    "callee:0x00459950",
+    "callee:0x00459990",
+    "callee:0x004D7570",
+    "callee:0x004D7880",
+    "callee:0x004D7C10",
+    "callee:0x004EF180",
+    "callee:0x004F0430",
+    "callee:0x004FAF60",
+    "callee:0x004FB260",
+    "callee:0x004FB2E0",
+    "callee:0x0056D410",
+    "callee:0x00587B3E",
+    "callee:0x00587BCF",
+    "callee:0x00587BDC",
+    "callee:0x0058815F",
+    "field:*(this+0x15C):0x00000064",
+    "field:*(this+0x15C):0x0000006C",
+    "field:*(this+0x15C):0x00000074",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000014",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x0000006C",
+    "field:this:0x00000078",
+    "field:this:0x000000BC",
+    "field:this:0x00000130",
+    "field:this:0x00000134",
+    "field:this:0x0000014C",
+    "field:this:0x0000015C",
+    "field:this:0x0000016C",
+    "field:this:0x00000170",
+    "field:this:0x00000174",
+    "field:this:0x00000234",
+    "field:this:0x00000268",
+    "field:this:0x00000270",
+    "field:this:0x00000278",
+    "field:this:0x00000288",
+    "field:this:0x00000314",
+    "field:this:0x0000031C",
+    "field:this:0x00000324",
+    "field:this:0x00000334",
+    "field:this:0x0000033C",
+    "field:this:0x00000344",
+    "field:this:0x0000034C",
+    "field:this:0x00000354",
+    "field:this:0x0000035C",
+    "field:this:0x00000364",
+    "field:this:0x00000368",
+    "field:this:0x0000036C",
+    "field:this:0x00000374",
+    "field:this:0x0000037C",
+    "field:this:0x00000384",
+    "field:this:0x00000394",
+    "field:this:0x00000398",
+    "field:this:0x0000039C",
+    "field:this:0x000003A4",
+    "field:this:0x000003AC",
+    "field:this:0x000003B4",
+    "field:this:0x000003BC",
+    "field:this:0x000003C4",
+    "field:this:0x000003CC",
+    "field:this:0x0000044C",
+    "field:this:0x00000454",
+    "field:this:0x00001644",
+    "field:this:0x00001884",
+    "field:this:0x00001980",
+    "field:this:0x00001984",
+    "field:this:0x00001989",
+    "field:this:0x0000198C",
+    "field:this:0x00001994",
+    "field:this:0x00004044",
+    "field:this:0x00004068",
+    "field:this:0x00004894",
+    "field:this:0x0000489C",
+    "global:0x00412DC8",
+    "global:0x00412E18",
+    "global:0x0042FC74",
+    "global:0x0042FCC4",
+    "global:0x00431BE0",
+    "global:0x0059E420",
+    "global:0x0059E428",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E454",
+    "global:0x0059E458",
+    "global:0x0059E480",
+    "global:0x0059E6E8",
+    "global:0x0059E788",
+    "global:0x0059E790",
+    "global:0x0059E798",
+    "global:0x0059E7A0",
+    "global:0x0059E7A8",
+    "global:0x0059E7B0",
+    "global:0x0059E7B8",
+    "global:0x0059E7C0",
+    "global:0x0059E7C8",
+    "global:0x0059E7D0",
+    "global:0x0059E7D8",
+    "global:0x0059E7E0",
+    "global:0x0059E830",
+    "global:0x0059E880",
+    "global:0x0059E8C8",
+    "global:0x0059EA18",
+    "global:0x0059EA20",
+    "global:0x0059EA30",
+    "global:0x0059EA38",
+    "global:0x0059EA40",
+    "global:0x0059EA60",
+    "global:0x0059EA68",
+    "global:0x0059EA88",
+    "global:0x0059EA90",
+    "global:0x0059EA98",
+    "global:0x0059EAA0",
+    "global:0x0059EAA8",
+    "global:0x0059EAC8",
+    "global:0x0059EB30",
+    "global:0x0059EB38",
+    "global:0x0059EB40",
+    "global:0x0059EB48",
+    "global:0x0059EB50",
+    "global:0x0059EB58",
+    "global:0x0059EB60",
+    "global:0x0059EB68",
+    "global:0x0059EB70",
+    "global:0x0059EB78",
+    "global:0x0059EB80",
+    "global:0x0059EB88",
+    "global:0x0059EB90",
+    "global:0x005BE860",
+    "global:0x005C2C18",
+    "global:0x005C307C",
+    "global:0x005C3280",
+    "global:0x005C329C",
+    "global:0x005C36C0",
+    "global:0x005C36F4",
+    "global:0x005C3758",
+    "global:0x005C3778",
+    "global:0x005C3780",
+    "global:0x005C3788",
+    "global:0x005C3794",
+    "global:0x005C37A4",
+    "global:0x005C37AC",
+    "global:0x005C37C4",
+    "global:0x005C37CC",
+    "global:0x005C37D4",
+    "global:0x005C37E0",
+    "global:0x005C37EC",
+    "global:0x005C37F4",
+    "global:0x005C37FC",
+    "global:0x005C3804",
+    "global:0x005C3808",
+    "global:0x005C3810",
+    "global:0x005C3814",
+    "global:0x005C3820",
+    "global:0x005C3828",
+    "global:0x005C3F24",
+    "global:0x005C3F28",
+    "global:0x005C3F38",
+    "global:0x005C3F48",
+    "global:0x005C3F58",
+    "global:0x005C3F64",
+    "global:0x005C3F68",
+    "global:0x005C3F6C",
+    "global:0x005EA438",
+    "global:0x005EA618",
+    "global:0x005EB978",
+    "global:0x005EC3BC",
+    "global:0x005EC4C0",
+    "global:0x005EC4CC",
+    "global:0x005EC6D8",
+    "global:0x005F0F6C",
+    "global:0x007C54D8",
+    "global:0x007C54DC",
+    "global:0x007C54E0",
+    "global:0x007C54E4",
+    "global:0x007C54E8",
+    "global:0x007C54F0",
+    "global:0x007C5690",
+    "global:0x007C56A4",
+    "global:0x007C56A8",
+    "global:0x007C9360",
+    "global:0x007CF3C8",
+    "global:0x007D0308",
+    "global:0x007D0410",
+    "global:0x007D0474",
+    "global:0x008AB6E4",
+    "global:0x008AD254",
+    "global:0x008AD264",
+    "global:0x008AFEE4",
+    "global:0x008AFEE8",
+    "global:0x008AFEEC",
+    "global:0x008AFEF0",
+    "global:0x008AFEF4"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x0040E770",
+    "callee:0x0040F300",
+    "callee:0x0040F600",
+    "callee:0x00414180",
+    "callee:0x004144D0",
+    "callee:0x004144F0",
+    "callee:0x00418560",
+    "callee:0x0041AA10",
+    "callee:0x0041AB30",
+    "callee:0x00423A00",
+    "callee:0x0042DC80",
+    "callee:0x0042DCA0",
+    "callee:0x0042DCC0",
+    "callee:0x0042DCE0",
+    "callee:0x0042DD00",
+    "callee:0x0042F180",
+    "callee:0x0042F1E0",
+    "callee:0x0042F260",
+    "callee:0x00430750",
+    "callee:0x00430A50",
+    "callee:0x00432CC0",
+    "callee:0x00438100",
+    "callee:0x0043E230",
+    "callee:0x0044C4C0",
+    "callee:0x00459950",
+    "callee:0x00459990",
+    "callee:0x004D7570",
+    "callee:0x004D7880",
+    "callee:0x004D7C10",
+    "callee:0x004EF180",
+    "callee:0x004F0430",
+    "callee:0x004FAF60",
+    "callee:0x004FB260",
+    "callee:0x004FB2E0",
+    "callee:0x0056D410",
+    "callee:0x00587B3E",
+    "callee:0x00587BCF",
+    "callee:0x00587BDC",
+    "callee:0x0058815F",
+    "caller:0x0040D240",
+    "caller:0x0040DE60",
+    "caller:0x0040FE50",
+    "caller:0x00411E90",
+    "caller:0x0042C1A0",
+    "caller:0x0042D8A0",
+    "caller:0x00432E70",
+    "caller:0x00433D60",
+    "caller:0x00441650",
+    "caller:0x0045FC50",
+    "caller:0x004673B0",
+    "caller:0x004B8AE0",
+    "caller:0x004B9890",
+    "caller:0x004BA1F0",
+    "field:*(this+0x15C):0x00000064",
+    "field:*(this+0x15C):0x0000006C",
+    "field:*(this+0x15C):0x00000074",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000014",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x0000006C",
+    "field:this:0x00000078",
+    "field:this:0x000000BC",
+    "field:this:0x00000130",
+    "field:this:0x00000134",
+    "field:this:0x0000014C",
+    "field:this:0x0000015C",
+    "field:this:0x0000016C",
+    "field:this:0x00000170",
+    "field:this:0x00000174",
+    "field:this:0x00000234",
+    "field:this:0x00000268",
+    "field:this:0x00000270",
+    "field:this:0x00000278",
+    "field:this:0x00000288",
+    "field:this:0x00000314",
+    "field:this:0x0000031C",
+    "field:this:0x00000324",
+    "field:this:0x00000334",
+    "field:this:0x0000033C",
+    "field:this:0x00000344",
+    "field:this:0x0000034C",
+    "field:this:0x00000354",
+    "field:this:0x0000035C",
+    "field:this:0x00000364",
+    "field:this:0x00000368",
+    "field:this:0x0000036C",
+    "field:this:0x00000374",
+    "field:this:0x0000037C",
+    "field:this:0x00000384",
+    "field:this:0x00000394",
+    "field:this:0x00000398",
+    "field:this:0x0000039C",
+    "field:this:0x000003A4",
+    "field:this:0x000003AC",
+    "field:this:0x000003B4",
+    "field:this:0x000003BC",
+    "field:this:0x000003C4",
+    "field:this:0x000003CC",
+    "field:this:0x0000044C",
+    "field:this:0x00000454",
+    "field:this:0x00001644",
+    "field:this:0x00001884",
+    "field:this:0x00001980",
+    "field:this:0x00001984",
+    "field:this:0x00001989",
+    "field:this:0x0000198C",
+    "field:this:0x00001994",
+    "field:this:0x00004044",
+    "field:this:0x00004068",
+    "field:this:0x00004894",
+    "field:this:0x0000489C",
+    "function:0x00402220",
+    "function:0x00404460",
+    "function:0x0040E990",
+    "function:0x004109D0",
+    "function:0x00412C30",
+    "function:0x004139C0",
+    "function:0x0041B250",
+    "function:0x0042BBD0",
+    "function:0x0042BC40",
+    "function:0x0042BC80",
+    "function:0x0042F470",
+    "function:0x00430F00",
+    "function:0x00431BD0",
+    "function:0x00433090",
+    "function:0x00433870",
+    "function:0x00433E60",
+    "function:0x00434450",
+    "function:0x00438130",
+    "function:0x00438CA0",
+    "global:0x00412DC8",
+    "global:0x00412E18",
+    "global:0x0042FC74",
+    "global:0x0042FCC4",
+    "global:0x00431BE0",
+    "global:0x0059E420",
+    "global:0x0059E428",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E454",
+    "global:0x0059E458",
+    "global:0x0059E480",
+    "global:0x0059E6E8",
+    "global:0x0059E788",
+    "global:0x0059E790",
+    "global:0x0059E798",
+    "global:0x0059E7A0",
+    "global:0x0059E7A8",
+    "global:0x0059E7B0",
+    "global:0x0059E7B8",
+    "global:0x0059E7C0",
+    "global:0x0059E7C8",
+    "global:0x0059E7D0",
+    "global:0x0059E7D8",
+    "global:0x0059E7E0",
+    "global:0x0059E830",
+    "global:0x0059E880",
+    "global:0x0059E8C8",
+    "global:0x0059EA18",
+    "global:0x0059EA20",
+    "global:0x0059EA30",
+    "global:0x0059EA38",
+    "global:0x0059EA40",
+    "global:0x0059EA60",
+    "global:0x0059EA68",
+    "global:0x0059EA88",
+    "global:0x0059EA90",
+    "global:0x0059EA98",
+    "global:0x0059EAA0",
+    "global:0x0059EAA8",
+    "global:0x0059EAC8",
+    "global:0x0059EB30",
+    "global:0x0059EB38",
+    "global:0x0059EB40",
+    "global:0x0059EB48",
+    "global:0x0059EB50",
+    "global:0x0059EB58",
+    "global:0x0059EB60",
+    "global:0x0059EB68",
+    "global:0x0059EB70",
+    "global:0x0059EB78",
+    "global:0x0059EB80",
+    "global:0x0059EB88",
+    "global:0x0059EB90",
+    "global:0x005BE860",
+    "global:0x005C2C18",
+    "global:0x005C307C",
+    "global:0x005C3280",
+    "global:0x005C329C",
+    "global:0x005C36C0",
+    "global:0x005C36F4",
+    "global:0x005C3758",
+    "global:0x005C3778",
+    "global:0x005C3780",
+    "global:0x005C3788",
+    "global:0x005C3794",
+    "global:0x005C37A4",
+    "global:0x005C37AC",
+    "global:0x005C37C4",
+    "global:0x005C37CC",
+    "global:0x005C37D4",
+    "global:0x005C37E0",
+    "global:0x005C37EC",
+    "global:0x005C37F4",
+    "global:0x005C37FC",
+    "global:0x005C3804",
+    "global:0x005C3808",
+    "global:0x005C3810",
+    "global:0x005C3814",
+    "global:0x005C3820",
+    "global:0x005C3828",
+    "global:0x005C3F24",
+    "global:0x005C3F28",
+    "global:0x005C3F38",
+    "global:0x005C3F48",
+    "global:0x005C3F58",
+    "global:0x005C3F64",
+    "global:0x005C3F68",
+    "global:0x005C3F6C",
+    "global:0x005EA438",
+    "global:0x005EA618",
+    "global:0x005EB978",
+    "global:0x005EC3BC",
+    "global:0x005EC4C0",
+    "global:0x005EC4CC",
+    "global:0x005EC6D8",
+    "global:0x005F0F6C",
+    "global:0x007C54D8",
+    "global:0x007C54DC",
+    "global:0x007C54E0",
+    "global:0x007C54E4",
+    "global:0x007C54E8",
+    "global:0x007C54F0",
+    "global:0x007C5690",
+    "global:0x007C56A4",
+    "global:0x007C56A8",
+    "global:0x007C9360",
+    "global:0x007CF3C8",
+    "global:0x007D0308",
+    "global:0x007D0410",
+    "global:0x007D0474",
+    "global:0x008AB6E4",
+    "global:0x008AD254",
+    "global:0x008AD264",
+    "global:0x008AFEE4",
+    "global:0x008AFEE8",
+    "global:0x008AFEEC",
+    "global:0x008AFEF0",
+    "global:0x008AFEF4",
+    "guard:0",
+    "guard:1",
+    "guard:2",
+    "guard:3",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/wave_003/wave_003_vehicle_physics_01.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

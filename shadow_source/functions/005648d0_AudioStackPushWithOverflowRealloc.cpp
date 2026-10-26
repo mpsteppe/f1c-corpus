@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005648D0
+// Canonical corpus name: AudioStackPushWithOverflowRealloc
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AudioStackPushWithOverflowRealloc_005648d0.c
+
+void UnknownObject::AudioStackPushWithOverflowRealloc()
+{
+    // __thiscall push of element a2 onto a growable stack buffer. If the element count equals the buffer capacity, the buffer is reallocated first. The count is then incremented. If the insertion index a2 is below the new top (v3 - 1), existing elements from a2 onward are shifted up by one slot using LinearInterpolation for the two byte offsets and sub_58B130 for the memory move. Finally the new element is copied into the buffer at the computed slot via AlignedMemoryCopyFromStructBuffer. this+0x0 is the element count, this+0x4 the capacity, this+0x8 the element stride multiplier.
+    // GUARD: If *this (count) == this[1] (capacity), call AccumulatorWithReallocOnGrowth(this) to grow the buffer before inserting. [source:raw, field:this:0x00000000, field:this:0x00000004, callee:0x00564930]
+    // ASSIGNMENT: Increment the element count: *this = *this + 1. [source:raw, field:this:0x00000000]
+    // GUARD: If a2 < v3 - 1 (insertion point is not the new top), shift the trailing elements to make room. [source:raw, field:this:0x00000000]
+    // CALCULATION: Compute the shift byte count v8 = this[2] * (v3 - a2 - 1), using the element stride multiplier at this+0x8. [source:raw, field:this:0x00000008]
+    // CALL: LinearInterpolation((int)this, a2): compute the destination byte offset for the element currently at index a2. [source:raw, callee:0x005648B0]
+    // CALL: LinearInterpolation(v4, a2 + 1): compute the source byte offset for the element at index a2 + 1. [source:raw, callee:0x005648B0]
+    // CALL: sub_58B130(v5, v7, v8): memory-move/shift of v8 bytes from the a2+1 offset to the a2 offset, moving the trailing block up one slot. [source:raw, callee:0x0058B130]
+    // RETURN: Return AlignedMemoryCopyFromStructBuffer(a2), which copies the new element data into the freed slot. [source:raw, callee:0x00564960]
+
+    // Conservative worker pseudocode:
+    //   int AudioStackPushWithOverflowRealloc(int *this, int a2) {
+    //     if (this[0] == this[1]) AccumulatorWithReallocOnGrowth(this);
+    //     int v3 = this[0] + 1;
+    //     this[0] = v3;
+    //     if (a2 < v3 - 1) {
+    //       int v8 = this[2] * (v3 - a2 - 1);
+    //       int v7 = LinearInterpolation((int)this, a2);
+    //       int v5 = LinearInterpolation(v4, a2 + 1);
+    //       sub_58B130(v5, v7, v8);
+    //     }
+    //     return AlignedMemoryCopyFromStructBuffer(a2);
+    //   }
+    // UNRESOLVED: The first argument v4 to the second LinearInterpolation call is uninitialized in the decompiled text; it is a decompiler artifact whose true source register is unknown.
+    // UNRESOLVED: Owner class is unknown; the this-layout (count/capacity/stride) suggests a dynamic array or audio sample buffer but no type name is evidenced.
+    // UNRESOLVED: The audio subsystem tag and callers (NetworkConnection 0x00563260, DisplayModeQueryWrapper 0x005633D0, SingleFunctionCallWrapper_48c0 0x005648C0) do not establish what kind of audio data is pushed.
+    // UNRESOLVED: Persistence note: this+0x0 is unconditionally incremented each call, so an external poke of the count can be corrupted on the next push.
+}

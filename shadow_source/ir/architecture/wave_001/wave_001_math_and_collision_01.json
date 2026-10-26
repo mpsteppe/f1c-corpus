@@ -1,0 +1,1373 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_001_math_and_collision_01",
+  "scope": "math_and_collision",
+  "subsystem": {
+    "name": "MathAndCollision",
+    "responsibility": "Spatial nearest-neighbor lookups (strut arrays, BVH chains, spatial trees), matrix/vector math helpers, compressed short-int vector codecs, and array initialization used by AI steering, per-frame vehicle physics, and audio parameter paths.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x004038E0",
+      "function:0x004039C0",
+      "function:0x00403AA0",
+      "function:0x00435E00",
+      "function:0x004B2420",
+      "function:0x004B2580",
+      "function:0x004B2800",
+      "function:0x004F17D0",
+      "function:0x004F2B10",
+      "function:0x00566E40",
+      "source:raw"
+    ]
+  },
+  "summary": "Ten validated functions grouped into five proposed classes. Three spatial nearest-neighbor queries (0x004038E0 strut scan, 0x004039C0 BVH chain walk, 0x00403AA0 tree walk) share the node-field concepts (position +148/+152/+156, plane coefficients +164/+172, links +268/+272, identifier +300) and a common fallback path into 0x004038E0. Two pure matrix/vector helpers (0x00435E00 3x3xvector multiply, 0x00566E40 Euler-to-matrix) operate on a 3x3 row-major matrix block. Three compressed short-int vector codecs (0x004B2420, 0x004B2580, 0x004B2800) decode packed int16 records with documented scale factors (1/2048, 0.02, 1/512). One per-frame physics transform setup (0x004F17D0) copies a rotation matrix plus input vector and computes the product into a vehicle-physics frame buffer at base+0x34B0. One zero-init helper (0x004F2B10) clears 16-dword embedded array blocks. All owners are UnknownObject in the packet; every class grouping is a DERIVED proposal, not a confirmed source name.",
+  "function_roles": [
+    {
+      "address": "0x004038E0",
+      "role": "Nearest-strut query over a strut array (count at this+0x130, base this+0x134, stride 316) with strut-type filtering (a3 == -1 or element type at +300) and a plane-side rejection test (+164/+172 coefficients) that selects the linked collision child at +272; returns 0 when the count is 0.",
+      "owner": "SpatialNearestNeighborQuery",
+      "evidence_refs": [
+        "function:0x004038E0",
+        "field:this:0x00000130",
+        "field:this:0x00000134",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004039C0",
+      "role": "Nearest-node traversal over a linked chain of physics nodes walking +272 child links while the accumulated path length (sum of node+60) stays below 200.0 (flt_59E470); descends on strictly smaller squared distance and early-outs otherwise; called by AISteering.",
+      "owner": "SpatialNearestNeighborQuery",
+      "evidence_refs": [
+        "function:0x004039C0",
+        "caller:0x004270A0",
+        "global:0x0059E470",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00403AA0",
+      "role": "Spatial tree nearest-neighbor search walking +268 sibling and +272 child chains with identifier checks (+300); when no candidate survives or the optional plane test (a5) rejects it, falls back to SpatialNearestNeighborQueryWithPlaneTest (0x004038E0); used by AI racing-line/steering callers.",
+      "owner": "SpatialNearestNeighborQuery",
+      "evidence_refs": [
+        "function:0x00403AA0",
+        "callee:0x004038E0",
+        "global:0x0059E440",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00435E00",
+      "role": "Pure 3x3 matrix (nine doubles, row-major, this+0x0..0x40) by 3-vector multiply writing the product into a3; returns the input vector pointer a2; no branches, globals, or callees; used by physics solvers.",
+      "owner": "MatrixVectorHelpers",
+      "evidence_refs": [
+        "function:0x00435E00",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "field:this:0x00000028",
+        "field:this:0x00000030",
+        "field:this:0x00000038",
+        "field:this:0x00000040",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B2420",
+      "role": "Unpack a compact vector record: copy three raw dwords from this+0x0/+0x4/+0x8 into a2, then convert three int16 values at this+0xC/+0xE/+0x10 to floats by 1/2048 (0.00048828125, flt_59E77C) into a3; returns a3; companion to the packing routine sub_4B2310.",
+      "owner": "PackedShortVectorRecord",
+      "evidence_refs": [
+        "function:0x004B2420",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x0000000E",
+        "field:this:0x00000010",
+        "global:0x0059E77C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B2580",
+      "role": "Unpack three int16 values from this[15..17] (offsets 0x1E/0x20/0x22) into floats scaled by 0.02 (1/50, flt_59E6EC) writing to output float array a2; returns a2; inverse of the short-vector packing routine on the per-frame physics/audio path.",
+      "owner": "PackedShortVectorRecord",
+      "evidence_refs": [
+        "function:0x004B2580",
+        "field:this:0x0000001E",
+        "field:this:0x00000020",
+        "field:this:0x00000022",
+        "global:0x0059E6EC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B2800",
+      "role": "thiscall unpack of a compact 2-component int16 vector: zero a2+4 (Y), scale this[20] (offset 0x28) by 1/512 into a2 (X), scale this[21] (offset 0x2A) by 1/512 into a2+8 (Z); returns a2; per-frame decode for VehiclePhysicsTimeStep and AudioParameterInterpolation.",
+      "owner": "PackedShortVectorRecord",
+      "evidence_refs": [
+        "function:0x004B2800",
+        "caller:0x004C73F0",
+        "caller:0x004FF680",
+        "field:this:0x00000028",
+        "field:this:0x0000002A",
+        "global:0x0059E4D8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004F17D0",
+      "role": "Copy a 3x3 rotation matrix (0x24 bytes) from a2 into this+0x34B0, copy a 3-component vector from a3 into this+0x3534..0x353C, compute the matrix-by-vector product into this+0x3540..0x3548 and return a pointer to the stored matrix (this+0x34B0); called per frame from VehiclePhysicsTimeStep.",
+      "owner": "PhysicsFrameTransform",
+      "evidence_refs": [
+        "function:0x004F17D0",
+        "caller:0x004C73F0",
+        "field:this:0x000034B0",
+        "field:this:0x00003534",
+        "field:this:0x00003540",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004F2B10",
+      "role": "Zero-initialize a 16-dword (0x40-byte) array this[0]..this[15] at offsets 0x0..0x3C and return the this pointer; no reads, globals, or callees; called from PhysicsDefaultsInitializer and TireModelDataInit to zero embedded 16-element arrays.",
+      "owner": "EmbeddedArrayBlock",
+      "evidence_refs": [
+        "function:0x004F2B10",
+        "caller:0x004F2B50",
+        "caller:0x004F34E0",
+        "field:this:0x00000000",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00566E40",
+      "role": "Convert three Euler angles in a1[0..2] into a row-major 3x3 rotation matrix written to a2[0..8]; pure trigonometric computation with no side effects and no callees.",
+      "owner": "MatrixVectorHelpers",
+      "evidence_refs": [
+        "function:0x00566E40",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "SpatialNearestNeighborQuery",
+      "responsibility": "Nearest-neighbor lookups over spatial strut arrays, BVH node chains, and spatial trees used by AI steering / racing-line code. Shared node concepts (position, plane coefficients, links, identifier) appear across all three methods, but common ownership of the query fields is not proven.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004038E0",
+        "0x004039C0",
+        "0x00403AA0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "query_position_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004039C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "query_position_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x004039C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "query_position_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x004039C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000130",
+          "name": "strut_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000130",
+            "function:0x004038E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000134",
+          "name": "strut_array_base",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "function:0x004038E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001C8",
+          "name": "field_1C8",
+          "type_guess": "unknown",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001C8",
+            "function:0x004038E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001CC",
+          "name": "field_1CC",
+          "type_guess": "unknown",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001CC",
+            "function:0x004038E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001D0",
+          "name": "field_1D0",
+          "type_guess": "unknown",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001D0",
+            "function:0x004038E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001D8",
+          "name": "field_1D8",
+          "type_guess": "unknown",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001D8",
+            "function:0x004038E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001E0",
+          "name": "field_1E0",
+          "type_guess": "unknown",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001E0",
+            "function:0x004038E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000244",
+          "name": "field_244",
+          "type_guess": "unknown",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000244",
+            "function:0x004038E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000260",
+          "name": "field_260",
+          "type_guess": "unknown",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000260",
+            "function:0x004038E0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004038E0",
+        "function:0x004039C0",
+        "function:0x00403AA0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MatrixVectorHelpers",
+      "responsibility": "Pure matrix/vector math: 3x3 matrix by vector multiply (doubles) and Euler-angle to rotation-matrix conversion (floats). The shared offsets may hold different element widths; grouping is a DERIVED proposal, not proven common storage.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00435E00",
+        "0x00566E40"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "matrix_r0c0",
+          "type_guess": "double (0x00435E00) / float (0x00566E40)",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00435E00",
+            "function:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "matrix_r0c1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "matrix_r0c2",
+          "type_guess": "double (0x00435E00) / float (0x00566E40)",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x00435E00",
+            "function:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "matrix_r1c0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "matrix_r1c1",
+          "type_guess": "double (0x00435E00) / float (0x00566E40)",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x00435E00",
+            "function:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "matrix_r1c2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "matrix_r2c0",
+          "type_guess": "double (0x00435E00) / float (0x00566E40)",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x00435E00",
+            "function:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "matrix_r2c1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "matrix_r2c2",
+          "type_guess": "double (0x00435E00) / float (0x00566E40)",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x00435E00",
+            "function:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "matrix_double_5",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x00435E00",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "matrix_double_6",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "function:0x00435E00",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "matrix_double_7",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "function:0x00435E00",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "matrix_double_8",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "function:0x00435E00",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00435E00",
+        "function:0x00566E40",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PackedShortVectorRecord",
+      "responsibility": "Compressed int16 vector codecs: unpack compact records into floats with documented scales (1/2048, 0.02, 1/512). The three methods read different record layouts; grouping is DERIVED and common ownership of one record struct is unproven.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004B2420",
+        "0x004B2580",
+        "0x004B2800"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "raw_dword_0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004B2420",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "raw_dword_1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x004B2420",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "raw_dword_2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x004B2420",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "short_component_0",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x004B2420",
+            "global:0x0059E77C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000E",
+          "name": "short_component_1",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000E",
+            "function:0x004B2420",
+            "global:0x0059E77C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "short_component_2",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x004B2420",
+            "global:0x0059E77C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001E",
+          "name": "short_15",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001E",
+            "function:0x004B2580",
+            "global:0x0059E6EC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "short_16",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x004B2580",
+            "global:0x0059E6EC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000022",
+          "name": "short_17",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000022",
+            "function:0x004B2580",
+            "global:0x0059E6EC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "short_20",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x004B2800",
+            "global:0x0059E4D8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002A",
+          "name": "short_21",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002A",
+            "function:0x004B2800",
+            "global:0x0059E4D8",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B2420",
+        "function:0x004B2580",
+        "function:0x004B2800",
+        "global:0x0059E4D8",
+        "global:0x0059E6EC",
+        "global:0x0059E77C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PhysicsFrameTransform",
+      "responsibility": "Per-frame vehicle physics transform setup: store a 3x3 rotation matrix, an input vector, and their matrix-by-vector product in a frame buffer at base+0x34B0, returning a pointer to the stored matrix.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004F17D0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000034B0",
+          "name": "rotation_matrix_r0c0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034B0",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034B4",
+          "name": "rotation_matrix_r0c1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034B4",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034B8",
+          "name": "rotation_matrix_r0c2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034B8",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034BC",
+          "name": "rotation_matrix_r1c0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034BC",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034C0",
+          "name": "rotation_matrix_r1c1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034C0",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034C4",
+          "name": "rotation_matrix_r1c2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034C4",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034C8",
+          "name": "rotation_matrix_r2c0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034C8",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034CC",
+          "name": "rotation_matrix_r2c1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034CC",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034D0",
+          "name": "rotation_matrix_r2c2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034D0",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003534",
+          "name": "input_vector_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003534",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003538",
+          "name": "input_vector_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003538",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000353C",
+          "name": "input_vector_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000353C",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003540",
+          "name": "output_vector_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003540",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003544",
+          "name": "output_vector_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003544",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003548",
+          "name": "output_vector_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003548",
+            "function:0x004F17D0",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004F17D0",
+        "caller:0x004C73F0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "EmbeddedArrayBlock",
+      "responsibility": "Zero-initialized 16-dword embedded array block inside larger construction objects (physics defaults, tire model data).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004F2B10"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "dword_0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "dword_1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "dword_2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "dword_3",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "dword_4",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "dword_5",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "dword_6",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "dword_7",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "dword_8",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "dword_9",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "dword_10",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "dword_11",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "dword_12",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "dword_13",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "dword_14",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "dword_15",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "function:0x004F2B10",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004F2B10",
+        "caller:0x004F2B50",
+        "caller:0x004F34E0",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [],
+  "interfaces": [
+    {
+      "name": "ISpatialQuery",
+      "purpose": "Nearest-node / nearest-strut spatial lookup used by AI steering and racing-line code, with optional strut-type filtering and plane-side rejection.",
+      "functions": [
+        "0x004038E0",
+        "0x004039C0",
+        "0x00403AA0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004038E0",
+        "function:0x004039C0",
+        "function:0x00403AA0",
+        "caller:0x004270A0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ICompressedVectorCodec",
+      "purpose": "Decode compact int16-packed position/direction records into float vectors on the per-frame physics and audio paths.",
+      "functions": [
+        "0x004B2420",
+        "0x004B2580",
+        "0x004B2800"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004B2420",
+        "function:0x004B2580",
+        "function:0x004B2800",
+        "caller:0x004C73F0",
+        "caller:0x004FF680",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x00403AA0",
+      "to": "0x004038E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004038E0",
+        "function:0x00403AA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004270A0",
+      "to": "0x004039C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004270A0",
+        "function:0x004039C0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004C73F0",
+      "to": "0x004F17D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C73F0",
+        "function:0x004F17D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004C73F0",
+      "to": "0x004B2800",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C73F0",
+        "function:0x004B2800",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004FF680",
+      "to": "0x004B2800",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004FF680",
+        "function:0x004B2800",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004F2B50",
+      "to": "0x004F2B10",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004F2B50",
+        "function:0x004F2B10",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004F34E0",
+      "to": "0x004F2B10",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004F34E0",
+        "function:0x004F2B10",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004038E0",
+      "to": "0x0059E440",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004038E0",
+        "global:0x0059E440"
+      ]
+    },
+    {
+      "from": "0x004039C0",
+      "to": "0x0059E470",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004039C0",
+        "global:0x0059E470",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00403AA0",
+      "to": "0x0059E440",
+      "kind": "reads_global",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00403AA0",
+        "global:0x0059E440"
+      ]
+    },
+    {
+      "from": "0x004B2420",
+      "to": "0x0059E77C",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B2420",
+        "global:0x0059E77C"
+      ]
+    },
+    {
+      "from": "0x004B2580",
+      "to": "0x0059E6EC",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B2580",
+        "global:0x0059E6EC"
+      ]
+    },
+    {
+      "from": "0x004B2800",
+      "to": "0x0059E4D8",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B2800",
+        "global:0x0059E4D8"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "NearestNeighborQuerySemantics",
+      "category": "behavior",
+      "description": "Nearest-neighbor lookups must preserve the documented selection rules: zero-count early return (strut count at base+0x130 <= 0), strut-type filter (a3 == -1 or equals element type at +300), plane-side rejection selecting the linked +272 child, and the 200.0 accumulated path-length bound for chain traversal.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004038E0",
+        "function:0x004039C0",
+        "function:0x00403AA0",
+        "global:0x0059E470",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ShortVectorPackingScale",
+      "category": "data_format",
+      "description": "Compressed int16 vectors must decode with the packet's documented scale factors: 1/2048 for the 3-dword + 3-int16 record, 0.02 for the this[15..17] record, and 1/512 for the 2-component this[20]/this[21] record with the Y output component zeroed.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B2420",
+        "function:0x004B2580",
+        "function:0x004B2800",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MatrixVectorMultiplyReturnsInput",
+      "category": "abi",
+      "description": "The 3x3-by-vector multiply must return the input vector pointer; the Euler conversion must produce a row-major 3x3 rotation matrix with no side effects; MatrixVectorSetup must return a pointer to the stored matrix.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00435E00",
+        "function:0x00566E40",
+        "function:0x004F17D0",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "Strut/node element layouts (position +148/+152/+156, plane coefficients +164/+172, type +300, linked child +272, sibling link +268, child-select +276, path length +60, stride 316) are DERIVED from the decompilation; the packet carries no field table for these element types and they are not placed as class fields.",
+    "Fields this+0x1C8, +0x1CC, +0x1D0, +0x1D8, +0x1E0, +0x244, +0x260 are listed as read by 0x004038E0 but do not appear in the raw source text; their role is unknown.",
+    "Globals flt_59E440, flt_59E4D8, flt_59E6EC, flt_59E77C are listed as read but do not appear in the raw source text (scale literals are inlined); the globals' own read sites are not visible in this packet.",
+    "Whether node+272 is a child pointer or a sibling link is inferred from existing analysis; not provable from this packet alone.",
+    "The meaning of the 200.0 bound (flt_59E470) as a search radius is DERIVED; the raw source only compares the accumulated path length against it.",
+    "0x00435E00 reads 8-byte doubles at 8-byte stride while 0x00566E40 writes 4-byte floats at 4-byte stride; shared offsets 0x00-0x20 may belong to distinct storage, so the MatrixVectorHelpers grouping is DERIVED and unproven.",
+    "PackedShortVectorRecord groups three distinct record layouts (0x0..0x10, 0x1E..0x22, 0x28..0x2A) under one base; common ownership of a single record struct is unproven.",
+    "SpatialNearestNeighborQuery groups three functions whose common ownership is unproven: query-position fields (+0/4/8) come from 0x004039C0 only, strut fields (+0x130/+0x134) from 0x004038E0 only, and 0x00403AA0's own use of this-fields is not evidenced by packet operations.",
+    "The role of the output vector written by 0x004F17D0 within the per-frame physics step is not described in the packet.",
+    "Callers (AISteering 0x004270A0, VehiclePhysicsTimeStep 0x004C73F0, AudioParameterInterpolation 0x004FF680, PhysicsDefaultsInitializer 0x004F2B50, TireModelDataInit 0x004F34E0) are known only through evidence refs; no caller-side packet data is available.",
+    "Input angles a1[0..2] of 0x00566E40 are read via pointer arithmetic, not through the this-based field evidence list."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

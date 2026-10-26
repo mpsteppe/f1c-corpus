@@ -1,0 +1,70 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0040DE60
+// Canonical corpus name: sub_40DE60
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_40DE60_0040de60.c
+
+void UnknownObject::ProcessSessionEventQueue()
+{
+    // Event-queue processor for a game session state machine running in phase 4. Increments two float timer accumulators by the global dbl_8AFE98, then walks up to 10 entries of the current event queue (this+0x88) and dispatches each on its action type: 2 = probabilistic (random-vs-probability) defer or advance with optional physics init; 3 = execute a per-sub-type action (player-vehicle toggles, session phase dispatch, message display, car-selection handoff, session-phase transition to 5); 4 = settle (engine guard init, timer reset, requeue or delegate, else exit). Returns the current session phase; several paths set it to -1 to terminate.
+    // GUARD: Gate: only run when the session phase *this equals 4 (event-processing phase); otherwise skip the whole body and return the current phase. [field:this:0x00000000, guard:0, source:raw]
+    // ASSIGNMENT: Increment float timer accumulators this+0x9C and this+0x98 by the global double dbl_8AFE98 on every invocation. [field:this:0x0000009C, field:this:0x00000098, global:0x008AFE98]
+    // GUARD: If the current event queue entry pointer this+0x88 is null, set the session phase *this to -1 and return. [field:this:0x00000088, field:this:0x00000000]
+    // LOOP: Iterate over at most 10 event entries (v16 counter from 0, increment-then-test while < 10). Each pass re-reads the current entry pointer this+0x88. [field:this:0x00000088]
+    // GUARD: Dispatch on the current event's action type (this+0xA8, aliasing entry+40) through jump table jpt_40DF5A. Non-2/3/4 action types return the current phase immediately. [field:this:0x000000A8, global:0x0040E130, field:this:0x00000088]
+    // CALCULATION: Action type 2: when the entry timer (entry+24) is greater than 0, draw a value from RandLCGRandomNumberGenerator, multiply it by 0.000030518509 and compare the result against the entry probability float (entry+12). [callee:0x005884ED, field:this:0x00000088]
+    // STATE_TRANSITION: Action type 2 branch: if the scaled random value is >= the probability, set the entry action type to 4 (advance); otherwise, if the entry sub-type equals 10, call PhysicsConfigInit(this+5), then set the entry action type to 3. Either way decrement the entry timer (entry+24), clamping at 0. [callee:0x00434450, field:this:0x00000088, guard:2]
+    // STATE_TRANSITION: Action type 2 fallback: when the entry timer (entry+24) is not > 0, set the entry action type to 4 (advance). This path is also reached from sub-type 9 (alias to the same advance label). [field:this:0x00000088]
+    // GUARD: Action type 3: if the entry delay (entry+16) still exceeds the accumulated timer this+0x9C, return the current phase without progressing this entry. [field:this:0x0000009C, field:this:0x00000088]
+    // GUARD: Action type 3: dispatch on the event sub-type (this+0xAC, aliasing entry+36) through jump table jpt_40E006. [field:this:0x000000AC, global:0x0040E15C, field:this:0x00000088]
+    // STATE_TRANSITION: Sub-type 2: if the session object this+0x4 is null, set the phase to -1 and return; else set the byte at session+36 to 1, set the byte flag this+0xA0 to 1, and advance the entry action type to 4. [field:this:0x00000004, field:this:0x000000A0, field:this:0x00000000, field:this:0x00000088]
+    // STATE_TRANSITION: Sub-type 3: if the session object this+0x4 is null, set the phase to -1 and return; if the flag this+0xA0 is set, clear the byte at session+36 to 0; then clear the flag this+0xA0 and advance the entry action type to 4. [field:this:0x00000004, field:this:0x000000A0, guard:1, field:this:0x00000000, field:this:0x00000088]
+    // CALL: Sub-type 4: if the session object this+0x4 is non-null, call SessionPhaseDispatchWithCascadeChecks(this[1], entry+44, 1); advance the entry action type to 4 and continue the loop. [callee:0x0040D1B0, field:this:0x00000004, field:this:0x00000088]
+    // CALL: Sub-type 5: if the session object this+0x4 is non-null, call SetPlayerVehicleIndex(entry+44); advance the entry action type to 4 and continue the loop. [callee:0x0042BBD0, field:this:0x00000004, field:this:0x00000088]
+    // ASSIGNMENT: Sub-type 6: store the entry payload (entry+44) into this+0x90, advance the entry action type to 4, and continue the loop. [field:this:0x00000090, field:this:0x00000088]
+    // GUARD: Sub-type 7: select a message-display action on the entry payload (entry+44). [field:this:0x00000088]
+    // CALL: Sub-type 7 variants, one per payload value: 0 -> DisplayMessage0x151(&dword_5EB978); 1 -> sub_41C440(&dword_5EB978); 2 -> PositionBasedMessageDisplay(0); 3 -> PitRaceStatusMessageDispatcher(&dword_5EB978); 4 -> DisplayMessage0x202(&dword_5EB978). All variants (and the default) then advance the entry action type to 4. [callee:0x0041C3E0, callee:0x0041C440, callee:0x0041C4C0, callee:0x0041BE60, callee:0x0041C090, global:0x005EB978]
+    // CALL: Sub-type 10 (0xA): call CarSelectionStateMachine(this+5); if it returns zero, return the current phase; otherwise advance the entry action type to 4. [callee:0x00434460, field:this:0x00000088]
+    // STATE_TRANSITION: Sub-type 11 (0xB): advance the entry action type to 4 and return the current phase. [field:this:0x00000088, field:this:0x00000000]
+    // STATE_TRANSITION: Sub-type 12 (0xC): transition the session phase *this to 5 (car selection), advance the entry action type to 4, and continue the loop. [field:this:0x00000000, field:this:0x00000088, guard:0]
+    // RETURN: Default branch of the sub-type dispatch: return the current session phase. [field:this:0x00000000]
+    // STATE_TRANSITION: Action type 4 (settle): if the entry sub-type equals 10, call EngineGuardedInitializer(this+5); if the byte at entry+32 is non-zero, reset the timer this+0x9C to 0; if the entry timer (entry+24) is still > 0, set the entry action type back to 2 (requeue); otherwise call ConditionalDelegation(this) and if it returns false set the phase to -1 and return. [callee:0x004347C0, callee:0x0040DD30, field:this:0x0000009C, field:this:0x00000088, field:this:0x00000000, guard:2]
+    // RETURN: Default branch of the action-type dispatch and the terminal fall-through: return the current session phase. [field:this:0x00000000]
+
+    // Conservative worker pseudocode:
+    //   if (*this != 4) return *this;
+    //   this+0x9C += dbl_8AFE98;
+    //   this+0x98 += dbl_8AFE98;
+    //   if (!this[34]) { *this = -1; return *this; }
+    //   for (i = 0; i < 10; i++) {
+    //     e = this[34];
+    //     switch (*(e+40)) {
+    //       case 2: if (*(e+24) > 0) { if (LCG()*0.000030518509 >= *(e+12)) *(e+40)=4; else { if (*(e+36)==10) PhysicsConfigInit(this+5); *(e+40)=3; } if (--*(e+24) < 0) *(e+24)=0; } else *(e+40)=4; break;
+    //       case 3: if (*(e+16) > this+0x9C) return *this;
+    //         switch (*(e+36)) { 2: this+0x4!=null->*(this+0x4+36)=1; this+0xA0=1; *(e+40)=4; break;
+    //         3: this+0x4!=null->if(this+0xA0)*(this+0x4+36)=0; this+0xA0=0; *(e+40)=4; break;
+    //         4: if(this+0x4) SessionPhaseDispatchWithCascadeChecks(this+0x4, *(e+44), 1); *(e+40)=4; continue;
+    //         5: if(this+0x4) SetPlayerVehicleIndex(*(e+44)); *(e+40)=4; continue;
+    //         6: this+0x90 = *(e+44); *(e+40)=4; continue;
+    //         7: switch(*(e+44)) { 0: DisplayMessage0x151(&dword_5EB978); 1: sub_41C440(&dword_5EB978); 2: PositionBasedMessageDisplay(0); 3: PitRaceStatusMessageDispatcher(&dword_5EB978); 4: DisplayMessage0x202(&dword_5EB978); } *(e+40)=4; continue;
+    //         9: goto advance_to_4;
+    //         0xA: if (!CarSelectionStateMachine(this+5)) return *this; *(e+40)=4; break;
+    //         0xB: *(e+40)=4; return *this;
+    //         0xC: *this = 5; *(e+40)=4; continue;
+    //         default: return *this; } break;
+    //       case 4: if (*(e+36)==10) EngineGuardedInitializer(this+5);
+    //         if (*(e+32)) this+0x9C = 0;
+    //         if (*(e+24) > 0) *(e+40)=2;
+    //         else if (!ConditionalDelegation(this)) { *this = -1; return *this; }
+    //         break;
+    //       default: return *this;
+    //     }
+    //   }
+    //   return *this;
+    // UNRESOLVED: Field this+0x28 (init 0, written) does not appear in the decompiled body; purpose unknown.
+    // UNRESOLVED: Field this+0x94 (read) does not appear in the decompiled body; possibly additional event timing data.
+    // UNRESOLVED: Field this+0xB0 (init 2, written) does not appear in the decompiled body; possibly a next-action transition value.
+    // UNRESOLVED: Field this+0xB4 (read) does not appear in the decompiled body; possibly additional event data.
+    // UNRESOLVED: Global flt_59E6E0 (read) does not appear in the decompiled text; purpose unknown.
+    // UNRESOLVED: Single caller is PitTimer (0x004D2E50); the caller-side invocation context is not analyzed here.
+}

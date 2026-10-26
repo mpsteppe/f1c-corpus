@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "address": "0x0051C653",
+  "proposed_name": "F_2DBlitTextureCopy",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0051C653", "source:raw"]
+  },
+  "summary": "2D texture copy with column-wise output placement. Reads column count (field +0x20) and per-segment byte length (field +0x5C) from the surface object a1, then for each of a5 output rows and each column i in [0, column count) copies the byte segment addressed through a DWORD index table a2 (source pointer = v8 + a2[i], with v8 advancing by 4 per output row) into the output column starting at *a4 + i using a vertical stride of column count. Guarded by output row count a5 being at least 1.",
+  "local_names": {
+    "a1": "surface object; column count at +0x20, segment byte length at +0x5C",
+    "a2": "DWORD table of per-column source offsets",
+    "a3": "base column offset scaled by 4 to form the initial source byte offset v8",
+    "a4": "array of per-output-row base pointers, advanced each row",
+    "a5": "output row count",
+    "v13": "column count, inner loop bound and destination vertical stride",
+    "v5": "segment byte length, number of bytes copied per column"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "load v5 = *(a1 + 92) (segment byte length, field +0x5C) and v13 = *(a1 + 32) (column count / vertical stride, field +0x20); keep a saved copy v11 of v5",
+      "evidence_refs": ["field:this:0x0000005C", "field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "proceed only when the output row count a5 - 1 is >= 0, i.e. a5 >= 1; otherwise return",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "outer loop over a5 output rows; per row recompute the source table byte offset v8 += 4 and advance the output base pointer a4",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "inner loop over i in [0, v13): resolve the source pointer v10 = *(BYTE**)(v8 + *(DWORD*)(a2 + 4*i)) from the index table a2 and compute the output address *a4 + i",
+      "evidence_refs": ["field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "copy the v5-byte segment: repeat *result = *v10; result += v13; ++v10 until the segment byte count is exhausted, writing down the output column with vertical stride v13 while reading the source row contiguously",
+      "evidence_refs": ["field:this:0x0000005C", "field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "return result, which after the final copy points just past the last written byte; the value is a leftover pointer and carries no caller contract",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "BYTE* F_2DBlitTextureCopy(int surf, DWORD* indexTable, int baseCol, DWORD* dstRows, BYTE* rowCount) {",
+    "    int segLen = *(int*)(surf + 0x5C);",
+    "    int cols = *(int*)(surf + 0x20);",
+    "    if ((int)(rowCount - 1) < 0) return rowCount - 1;",
+    "    BYTE* dstRow = rowCount;",
+    "    int off = 4 * baseCol;",
+    "    do {",
+    "        for (int i = 0; i < cols; ++i) {",
+    "            BYTE* src = *(BYTE**)(off + indexTable[i]);",
+    "            BYTE* out = (BYTE*)(*dstRows + i);",
+    "            int n = segLen;",
+    "            if (n) {",
+    "                do {",
+    "                    *out = *src;",
+    "                    out += cols;",
+    "                    ++src;",
+    "                } while (--n);",
+    "            }",
+    "        }",
+    "        off += 4;",
+    "        ++dstRows;",
+    "    } while (--dstRow);",
+    "    return dstRow;",
+    "}"
+  ],
+  "unresolved": [
+    "the role of a3 is DERIVED from its use as 4*a3 initial source byte offset; its exact meaning (e.g. starting column index) is not established",
+    "the index table a2 stores DWORD offsets added to v8; the table contents and object owning it are unknown",
+    "the output placement (column stride = column count, producing a transposed layout) is DERIVED from the address arithmetic",
+    "the returned pointer has no apparent contract; no callers are known in the packet"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

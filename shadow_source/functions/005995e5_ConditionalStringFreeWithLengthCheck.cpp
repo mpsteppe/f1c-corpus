@@ -1,0 +1,31 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005995E5
+// Canonical corpus name: ConditionalStringFreeWithLengthCheck
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ConditionalStringFreeWithLengthCheck_005995e5.c
+
+void UnknownObject::ConditionalStringFreeWithLengthCheck()
+{
+    // Conditionally detaches or frees a string buffer held by an object before it is modified. Reads the buffer pointer from this[1] (byte offset +4) and the metadata byte immediately preceding it; only when that metadata byte is nonzero and not -1 does it call ReferenceCountDecrementWithConditionalFree(this, 1), then re-measure the buffer with Strlen and rewrite it via BufferWriteWithNullTerminate. If the pointer is null or the metadata byte is in the special states 0 or -1 the function does nothing. Marked by the packet as a structural twin of ScriptFrameProcessor (0058895c); only caller found statically is BufferTruncationShrink (00599348).
+    // ASSIGNMENT: Read the buffer pointer from this[1] (byte offset +4 of the object) into v1. [source:raw, field:this:0x00000004]
+    // GUARD: If v1 is null the object holds no buffer; the function does nothing. [source:raw]
+    // ASSIGNMENT: Read the metadata byte immediately before the buffer at v1-1 into v2. [source:raw]
+    // GUARD: If the metadata byte v2 is zero or -1 the buffer is not in the expected reference state; skip the detach/free and rewrite path. [source:raw]
+    // CALL: Call ReferenceCountDecrementWithConditionalFree(this, 1) to decrement the reference count and conditionally free the buffer. [source:raw, callee:0x005993AF]
+    // CALL: Measure the buffer length: v3 = Strlen(v1). [source:raw, callee:0x0058E1B0]
+    // CALL: Call BufferWriteWithNullTerminate(v1, v3) to rewrite the buffer contents with a null terminator. [source:raw, callee:0x00599615]
+
+    // Conservative worker pseudocode:
+    //   void ConditionalStringFreeWithLengthCheck(_DWORD *this) {
+    //     char *buf = (char *)this[1];
+    //     if (!buf) return;
+    //     char meta = buf[-1];
+    //     if (!meta || meta == -1) return;
+    //     ReferenceCountDecrementWithConditionalFree(this, 1);
+    //     size_t len = Strlen(buf);
+    //     BufferWriteWithNullTerminate(buf, len);
+    //   }
+    // UNRESOLVED: Purpose of the metadata byte at v1-1 (reference/type marker) and why 0 and -1 are the skip states is DERIVED from the guard, not independently confirmed.
+    // UNRESOLVED: Relationship between this object and ScriptFrameProcessor (0058895c) as structural twins is DERIVED from the packet prelabel cluster_copy hint.
+    // UNRESOLVED: Whether ReferenceCountDecrementWithConditionalFree can invalidate v1 before BufferWriteWithNullTerminate re-creates it depends on callee behavior not visible here.
+}

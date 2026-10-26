@@ -1,0 +1,144 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004CF070
+// Canonical corpus name: SpecialFX_Init
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SpecialFX_Init_004cf070.c
+
+void UnknownObject::SpecialFX_Init()
+{
+    // One-time initialization of the special-effects / particle / track-surface material subsystem. It copies a track name string into a local buffer, opens and parses the special-effects config file (tokenized by section keywords trackvars / feedback / loose / reaction), building a linked list of name=value variable entries and a per-track include/feedback flag array. It then allocates and fills the two 108-byte-element arrays stored at this+0xC (track feedback effects, count at this+0x8) and this+0x14 (material-reaction effects, count at this+0x10), builds the cmaps.mas search path from the dword_5EC3D8/dword_5EC428 path globals, re-parses the file to instantiate reaction effects per track (MaterialShaderReactionEffectParser + TrackSurfaceMaterialLoader), registers strings, dispatches per-element-type enablement (sub_4CB120) via the switch table, zeroes and then fills the type-slot pointers at this+0x18..0x28, loads the scene track, runs a spatial grid query to seed dry/wet grip floats at this+0x30/0x34 (overridable from config tokens aidrygrip/aiwetgrip), and finally counts and allocates the particle-collision array at this+0x4 (count at this+0x0) populated with matching lptree nodes.
+    // CALL: Log debug entry: if StringSplitLoop(2, aDDevF119992002_25, 2908) returns nonzero, call DebugLogWrite(&dword_8AD25C, aEnteredSpecial_1). [abi:lead, callee:0x004D7A50, global:0x005D3624, callee:0x004D7AA0, global:0x008AD25C, global:0x005D39B4, function:0x004CF070, source:raw]
+    // CALCULATION: Compute the source buffer address 396 * dword_8AC48C + dword_8AC490 + 260 and copy the string there into the local v97 buffer until the NUL terminator. [global:0x008AC48C, global:0x008AC490, source:raw]
+    // CALL: Call sub_4CEEF0(v96, 256) to initialize the local config path buffer. [callee:0x004CEEF0, source:raw]
+    // CALL: Call UtilityFunction_8a60(181, this + 56) to set an internal property on the owner object. [callee:0x00568A60, source:raw]
+    // CALL: Open the config file: v68 = sub_587DB0(v96, aRt) with the .rt format string. [callee:0x00587DB0, global:0x005BE690, source:raw]
+    // GUARD: If the config handle v68 is nonzero, run the parsing/initialization path; first reset this+0x8 (feedback effect count) to 0. [field:this:0x00000008, source:raw]
+    // LOOP: First parse pass: read lines via FileReadUntilNewline(v92, 384, handle), skipping blank/comment lines classified by sub_5651B0 and matching section keywords with sub_587C20, until end of file. [callee:0x00587CA0, callee:0x005651B0, callee:0x00587C20, source:raw]
+    // GUARD: If the current line matches the aTrackvars token, parse the track-variables section. [global:0x005D39A8, callee:0x00587C20, source:raw]
+    // LOOP: Parse name=value pairs: locate '=' with sub_589DB0(v92, 61), allocate a 40-byte node via OperatorNewNhMallocWrapper + TwoFieldSetter_9d10, strcpy the name, parse the value float via sub_58850F, chain the node into the list, and when the value cannot be parsed, fall back to the validated v93 copy via StringCopyWithValidation + sub_58850F. [callee:0x00589DB0, callee:0x00587C03, callee:0x004C9D10, callee:0x0058850F, callee:0x004C58A0, source:raw]
+    // GUARD: If the current line matches the aFeedback token, process the feedback section. [global:0x005D399C, callee:0x00587C20, source:raw]
+    // LOOP: Per feedback line, evaluate the include/exclude track filters (sub_565520 with aIncludetracks / aExcludetracks, matched against the track name via sub_566810) and count aReaction occurrences; append the per-track enabled flag to the v99 flag array. [global:0x005D398C, global:0x005D397C, global:0x005D36D8, callee:0x00565520, callee:0x00566810, source:raw]
+    // ASSIGNMENT: For included tracks, increment the count at this+0x8 and accumulate the reaction count into v73. [field:this:0x00000008, source:raw]
+    // GUARD: If the current line matches the aLoose token, process the loose section and count aReaction entries per track. [global:0x005D3974, callee:0x00587C20, global:0x005D36D8, callee:0x00565520, source:raw]
+    // CALCULATION: Allocate this+0xC track-feedback array: OperatorNewNhMallocWrapper(108 * (count at this+0x8) + 4), store the count in the leading dword, initialize each 108-byte element with ConstructorInitFields, and store the array pointer at this+0xC. [callee:0x00587C03, callee:0x004CDB90, field:this:0x0000000C, field:this:0x00000008, source:raw]
+    // CALCULATION: Allocate this+0x14 material-reaction array: OperatorNewNhMallocWrapper(108 * v73 + 4), initialize each element with ArithmeticComparison_a3e0, and store the array pointer at this+0x14. [callee:0x00587C03, callee:0x004CA3E0, field:this:0x00000014, source:raw]
+    // ASSIGNMENT: Set this+0x10 (material-reaction effect count) to 0. [field:this:0x00000010, guard:0, source:raw]
+    // CALCULATION: Build the cmaps.mas search path: format v95 as "%s%s" via StringFormatWithBufferOverflowCheck from the dword_5EC3D8 / byte_5EA438 default path and the dword_5EC428 / byte_5EA438 override, and format v98 as aCmapsMas. [global:0x005EC3D8, global:0x005EA438, global:0x005EC428, callee:0x0058815F, global:0x005CCEB0, source:raw]
+    // CALL: Rewind/reposition the config stream with sub_587F64(v68, 0, 0). [callee:0x00587F64, source:raw]
+    // LOOP: Second parse pass over the cmaps.mas lines: read lines via FileReadUntilNewline and skip blank/comment lines classified by sub_5651B0. [callee:0x00587CA0, callee:0x005651B0, source:raw]
+    // GUARD: If the current line matches the aFeedback token, parse per-track feedback effects. [global:0x005D399C, callee:0x00587C20, source:raw]
+    // LOOP: For each included track (flag array consumed through v71), parse aReaction lines: MaterialShaderReactionEffectParser instantiates the effect at this+0x14 + 108 * count; dedupe via sub_4CAED0 scan; when new, increment this+0x10 and link the effect pointer into the track's feedback element at [element + 4 * type + 64] and bump its count at [element + 60]; then TrackSurfaceMaterialLoader registers the material per track. [callee:0x004CA480, callee:0x004CAED0, field:this:0x00000010, field:this:0x00000014, field:*(this+0x14):0x00000004, callee:0x004CDD80, source:raw]
+    // GUARD: If the current line matches the aLoose token, parse per-track loose reactions with the same MaterialShaderReactionEffectParser + sub_4CAED0 dedupe pattern, and capture the aSearchpath / aMasfile tokens into v95 / v98. [global:0x005D3974, callee:0x00587C20, global:0x005D3968, global:0x005D3960, callee:0x00565520, source:raw]
+    // CALL: Close the config stream with FileCloseWithLock. [callee:0x00587D02, source:raw]
+    // GUARD: If the track-name list v74 is nonzero, free it with RecursiveTreeFree and FreeWrapper_7bcf. [callee:0x004C9D30, callee:0x00587BCF, source:raw]
+    // LOOP: Assign sequential indices: for each of the this+0x10 material-reaction elements (108-byte stride in this+0x14), write the running index at offset 0 of the element. [field:this:0x00000010, field:this:0x00000014, source:raw]
+    // CALL: Register the search path via StringRegistry(v95) and store the parsed cmaps path into the by-ref v75 via sub_53CBC0. [callee:0x0053C800, callee:0x0053CBC0, source:raw]
+    // LOOP: Per-type enablement pass: for each of the 3 groups, scan the material-reaction array and switch on the element type field (offset 4 of each element, based on *(this+0x14)); types 4/0xB/0xC/0xD apply to group 1, types 6/7/8 to group 0, types 9/0xA get sub_4CB120 unconditional setup when group is 0, and the default case applies to group 2. The switch is dispatched through the jpt_4CF998 jump table (adjacent byte_4CFC78). [callee:0x004CB120, global:0x004CFC68, global:0x004CFC78, field:*(this+0x14):0x00000004, source:raw]
+    // CALL: Finalize string/object registration: StringMatchWithFlagSet(v95) and PhysicsObjectLinkedListRemoval(v75). [callee:0x0053C900, callee:0x0053CE40, source:raw]
+    // CALL: Call sub_4CEF30(this) to finish initializing the owner object. [callee:0x004CEF30, source:raw]
+    // ASSIGNMENT: Zero the five type-slot pointers at this+0x18, this+0x1C, this+0x20, this+0x24 and this+0x28, then scan the material-reaction array and store the element pointer into the slot matching its type: type 12 -> this+0x24, type 13 -> this+0x28, type 1 -> this+0x20, type 3 -> this+0x1C, type 4 -> this+0x18 (element type read at offset 4). [field:this:0x00000018, field:this:0x0000001C, field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, field:*(this+0x14):0x00000004, source:raw]
+    // CALL: Load the scene/track data: SceneTrackFileLoader(dbl_7C9360, 2), AIWaypointPathCheckerRenderer(dword_5EA2C0), and sub_403CD0(dword_5EA2C0, 0, v76, v84). [callee:0x0044C0E0, global:0x007C9360, callee:0x004024F0, global:0x005EA2C0, callee:0x00403CD0, source:raw]
+    // CALL: Run SpatialGridQuery(dbl_7C9360, v77) to locate the collision-geometry node under the camera point; on a hit, store the node pointer at this+0x2C and compute the grip floats at this+0x30 and this+0x34 from the node's fields at +8 and +12. [callee:0x0044C4C0, global:0x007C9360, field:this:0x0000002C, field:this:0x00000030, field:this:0x00000034, source:raw]
+    // CALCULATION: Override the grip floats from config: when StringCopyWithValidation on aAidrygrip succeeds, parse this+0x30 via sub_58850F; when aAiwetgrip succeeds, parse this+0x34 the same way. [global:0x005D3954, global:0x005D3948, callee:0x004C58A0, callee:0x0058850F, field:this:0x00000030, field:this:0x00000034, source:raw]
+    // ASSIGNMENT: Reset this+0x0 (lptree collision-node counter) to 0. [field:this:0x00000000, source:raw]
+    // LOOP: First lptree pass: for each of the AudioNetworkNodeCount(dword_8AFE88) nodes found via LinkedListNodeFinder, when the node byte at +60 has bit 0x10 set and its name copied via SelfRelativeStringCopy matches aLptree in sub_588640(v85, aLptree, 6), increment this+0x0. [callee:0x005452F0, global:0x008AFE88, callee:0x00545340, callee:0x0054BDA0, callee:0x00588640, global:0x005D3940, field:this:0x00000000, source:raw]
+    // CALCULATION: Allocate the particle-collision array: OperatorNewNhMallocWrapper(60 * (count at this+0x0) + 4), store the count in the leading dword, initialize each 60-byte element with sub_4CA280, and store the array pointer at this+0x4. [callee:0x00587C03, callee:0x004CA280, field:this:0x00000000, field:this:0x00000004, source:raw]
+    // LOOP: Second lptree pass: walk the nodes again via LinkedListNodeFinder, and for each node with bit 0x10 at +60 whose name matches aLptree (sub_588640), populate the collision array at this+0x4 with ParticleCollisionSpawn. [callee:0x00545340, callee:0x004C9FB0, callee:0x0054BDA0, callee:0x00588640, global:0x005D3940, field:this:0x00000004, source:raw]
+    // GUARD: Error path: when the config file could not be opened, run StringSplitLoop(1, aDDevF119992002_25, 2928) and, if it returns nonzero, log aCouldNotOpenS via DebugLogWrite(&dword_8AD25C, ...). [callee:0x004D7A50, global:0x005D3624, callee:0x004D7AA0, global:0x008AD25C, global:0x005C6810, source:raw]
+    // RETURN: Return the allocated collision-array pointer (or 0 on allocation failure / failed open). [source:raw]
+    // CALL: Invoked once from Game_Init (0x0042D6B0) during startup. [caller:0x0042D6B0]
+
+    // Conservative worker pseudocode:
+    //   // SpecialFX subsystem initialization + config parsing.
+    //   if (StringSplitLoop(2, "d:\dev\f1_1999_2002\...", 2908)) DebugLogWrite(&dword_8AD25C, entered_msg);
+    //   copy_trackname(396 * dword_8AC48C + dword_8AC490 + 260, local_buf);
+    //   sub_4CEEF0(path_buf, 256);
+    //   UtilityFunction_8a60(181, this + 56);
+    //   handle = sub_587DB0(path_buf, ".rt");
+    //   if (!handle) { if (StringSplitLoop(1, msg, 2928)) return DebugLogWrite(&dword_8AD25C, cannot_open); return 0; }
+    //   this->feedback_count_0x8 = 0;
+    //   vars = 0;
+    //   while (FileReadUntilNewline(line, 384, handle)) {
+    //       if (is_comment(line)) continue;
+    //       if (match(line, "trackvars")) {
+    //           while (FileReadUntilNewline(line, 384, handle)) {
+    //               if (tok == 1 || tok == 4) break;
+    //               eq = find_char(line, '=');
+    //               if (eq) { *eq = 0; node = alloc(40); node->name = line; node->value = atof(eq+1); chain(&vars, node); }
+    //           }
+    //       } else if (match(line, "feedback")) {
+    //           include = 1; reactions = 0;
+    //           while (FileReadUntilNewline(line, 384, handle)) {
+    //               if (tok == 1 || tok == 4) break;
+    //               if (match(token, "includetracks") && !track_match) include = 0;
+    //               if (match(token, "excludetracks") && track_match) include = 0;
+    //               if (match(token, "reaction")) reactions++;
+    //           }
+    //           *flag_ptr++ = include;
+    //           if (include) { this->feedback_count_0x8++; reaction_total += reactions; }
+    //       } else if (match(line, "loose")) {
+    //           while (FileReadUntilNewline(line, 384, handle)) {
+    //               if (tok == 1 || tok == 4) break;
+    //               if (match(token, "reaction")) reaction_total++;
+    //           }
+    //       }
+    //   }
+    //   this->feedback_arr_0xC = alloc_filled(108 * this->feedback_count_0x8 + 4);
+    //   this->reaction_arr_0x14 = alloc_filled(108 * reaction_total + 4);
+    //   this->reaction_count_0x10 = 0;
+    //   build_path(v95, dword_5EC3D8/byte_5EA438, dword_5EC428/byte_5EA438);
+    //   build_path(v98, "cmaps.mas");
+    //   sub_587F64(handle, 0, 0);
+    //   while (FileReadUntilNewline(line, 384, handle)) {
+    //       if (is_comment(line)) continue;
+    //       if (match(line, "feedback")) {
+    //           if (*flag_ptr++) {
+    //               while (FileReadUntilNewline(line, 384, handle)) {
+    //                   if (tok == 1 || tok == 4) break;
+    //                   if (match(token, "reaction")) {
+    //                       MaterialShaderReactionEffectParser(this->reaction_arr_0x14 + 108 * this->reaction_count_0x10, line);
+    //                       if (dedupe_scan(this->reaction_arr_0x14, new_slot)) { this->reaction_count_0x10++; link_effect(track_elem, new_slot); }
+    //                       TrackSurfaceMaterialLoader(feedback_elem, line, flags);
+    //                   }
+    //               }
+    //           } else { while (tok != 1 && FileReadUntilNewline(...)); }
+    //       } else if (match(line, "loose")) {
+    //           while (FileReadUntilNewline(line, 384, handle)) {
+    //               if (tok == 1 || tok == 4) break;
+    //               if (match(token, "reaction")) { MaterialShaderReactionEffectParser(...); dedupe/increment; }
+    //               match(token, "searchpath") -> v95;
+    //               match(token, "masfile") -> v98;
+    //           }
+    //       }
+    //   }
+    //   FileCloseWithLock(handle);
+    //   if (vars) { RecursiveTreeFree(vars); FreeWrapper_7bcf(vars); }
+    //   for (i = 0; i < this->reaction_count_0x10; i++) elem(i)->index_0 = i;
+    //   StringRegistry(v95); sub_53CBC0(&v75, v98);
+    //   for (group = 0; group < 3; group++)
+    //       for (each element) switch (elem->type_4) { enable per group via sub_4CB120; }
+    //   StringMatchWithFlagSet(v95); PhysicsObjectLinkedListRemoval(v75);
+    //   sub_4CEF30(this);
+    //   this->slot_0x18 = this->slot_0x1C = this->slot_0x20 = this->slot_0x24 = this->slot_0x28 = 0;
+    //   for (each element) switch (elem->type_4) { case 12: this->slot_0x18 = elem; case 13: this->slot_0x1C = elem; case 1: this->slot_0x20 = elem; case 3: this->slot_0x24 = elem; case 4: this->slot_0x28 = elem; }
+    //   SceneTrackFileLoader(dbl_7C9360, 2);
+    //   AIWaypointPathCheckerRenderer(dword_5EA2C0); sub_403CD0(dword_5EA2C0, 0, pos, out);
+    //   node = SpatialGridQuery(dbl_7C9360, pos);
+    //   if (node) { this->collision_node_0x2C = *(node+84); this->dry_grip_0x30 = f1; this->wet_grip_0x34 = f2; }
+    //   this->dry_grip_0x30 = config_float(aAidrygrip, this->dry_grip_0x30);
+    //   this->wet_grip_0x34 = config_float(aAiwetgrip, this->wet_grip_0x34);
+    //   this->lptree_count_0x0 = 0;
+    //   total = AudioNetworkNodeCount(dword_8AFE88);
+    //   for (i = 0; i < total; i++)
+    //       if (node_at(i)->flags_60 & 0x10 && strncmp(copy_name(), "lptree", 6) == 0) this->lptree_count_0x0++;
+    //   this->collision_arr_0x4 = alloc_filled(60 * this->lptree_count_0x0 + 4);
+    //   for (i = 0; i < total; i++)
+    //       if (node_at(i)->flags_60 & 0x10 && strncmp(copy_name(), "lptree", 6) == 0) ParticleCollisionSpawn(&this->collision_arr_0x4[slot], node_at(i));
+    //   return this->collision_arr_0x4;
+    // UNRESOLVED: Owner object identity is UNKNOWN; the packet provides no class evidence, only the ABI lead 'SpecialFX_Init'.
+    // UNRESOLVED: The exact semantics of sub_4CEEF0, sub_4CA280, sub_4CAED0, sub_4CEF30, sub_5651B0/565520/566810 and the sub_4CB120 per-group enable are inferred from call-site context only.
+    // UNRESOLVED: The type-to-slot mapping (12->0x18, 13->0x1C, 1->0x20, 3->0x24, 4->0x28) is DERIVED from switch-case assignments in the raw source.
+    // UNRESOLVED: Numeric constants 396, 2908, 2928, 61 and the 108/60 element strides come from the raw source but have no separate field evidence refs.
+    // UNRESOLVED: The float constants at this+0x30/0x34 written after the grid query (and literals 1076101120 / 0x40000000 / 1201543096 in the local query struct) are not individually evidenced.
+    // UNRESOLVED: Global reads flt_59E440, aSS, unk_8AC368 and dword_8AFE64 appear in the evidence set but their exact use site could not be tied to a single source operation; they are treated as read references.
+}

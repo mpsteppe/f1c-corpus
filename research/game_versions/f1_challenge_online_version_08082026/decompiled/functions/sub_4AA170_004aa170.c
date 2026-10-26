@@ -1,0 +1,15 @@
+int __thiscall sub_4AA170(int this)
+{
+  int result; // eax
+  void *v3; // esi
+
+  if ( *(_DWORD *)(this + 20) )
+    sub_587BCF(*(LPVOID *)(this + 20));
+  result = *(_DWORD *)(this + 12);
+  if ( result )
+    result = sub_587BCF(*(LPVOID *)(this + 12));
+  v3 = *(void **)(this + 4);
+  if ( v3 )
+    return sub_587BCF(v3);
+  return result;
+}

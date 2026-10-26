@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "address": "0x0042F2F0",
+  "proposed_name": "SetupValueFormatDispatcher",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Dispatches formatting of a vehicle setup value by value type a3 (0=angle in degrees, 1=pressure with unit system branch on this+4, 2/3/9=length with optional wheel-type offset, 4=DS, 5-8=1fS, 10=integer count). Indexes into a 64-byte-strided per-value row: result = ((a3 + 11*a2) << 6) + this + 176. Formats through StringFormatWithBufferOverflowCheck or the SetupValueFormat* helpers; default returns the row pointer unformatted.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Compute the per-value row pointer: result = ((a3 + 11*a2) << 6) + this + 176, a 64-byte-strided slot indexed by group a2 and value type a3.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "switch on a3 routed through the jump table jpt_42F31A: cases 0, 1, 2, 3, 9, 4, 5-8, 10, and a default.",
+      "evidence_refs": ["global:0x0042F440", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "case 0 (angle): format into row+30 via StringFormatWithBufferOverflowCheck with the '%.1f %s' format string (aD_1), value ((int row+20) * (double row+8) + *row) * 57.29577951308232 rad-to-degrees, unit name at this+40.",
+      "evidence_refs": ["callee:0x0058815F", "global:0x005C3280", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "case 1 (pressure): branch on the unit-system flag at this+4; non-zero selects imperial formatting, zero selects metric.",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "case 1 imperial: compute v5 = (int row+20) * (double row+8) + *row, scale by dbl_59EA28 (0.1450377377387031 PSI conversion), format '%.1f %s' with unit at this+8 into row+206.",
+      "evidence_refs": ["callee:0x0058815F", "global:0x0059EA28", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "case 1 metric: format the truncated integer v5 with '%d %s' and unit at this+8 into row+206.",
+      "evidence_refs": ["callee:0x0058815F", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "case 2 (length): select a wheel-type-dependent double offset from the dbl_59EA30 constants based on a2 (1 or 2); any other a2 passes offset 0.0.",
+      "evidence_refs": ["global:0x0059EA30", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "cases 2, 3, 9: SetupValueFormatWithOffset(this, row, offset) formats the length with the optional offset term.",
+      "evidence_refs": ["callee:0x0042F260", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "case 4: SetupValueFormatDS(this, row) formats the degrees/seconds setup value (aDS string constant).",
+      "evidence_refs": ["callee:0x0042F180", "global:0x005C3778", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "cases 5-8: SetupValueFormat1fS(this, row) formats a single float with unit (a1fS string constant).",
+      "evidence_refs": ["callee:0x0042F1E0", "global:0x005C36F4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "case 10 (integer count): format *row+20 + 1 as '%d' into row+30 via StringFormatWithBufferOverflowCheck.",
+      "evidence_refs": ["callee:0x0058815F", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "default: return the row pointer without formatting.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int SetupValueFormatDispatcher(int this, int group, int type) {",
+    "  int row = ((type + 11*group) << 6) + this + 176;",
+    "  switch (type) {",
+    "    case 0:",
+    "      return StringFormatWithBufferOverflowCheck(row + 30, \"%.1f %s\",",
+    "        (*(int*)(row+20) * *(double*)(row+8) + *(double*)row) * 57.29577951308232, this + 40);",
+    "    case 1: {",
+    "      double v = *(int*)(row+20) * *(double*)(row+8) + *(double*)row;",
+    "      if (*(dword*)(this + 4))",
+    "        return StringFormatWithBufferOverflowCheck(row + 206, \"%.1f %s\", v * 0.1450377377387031, this + 8);",
+    "      else",
+    "        return StringFormatWithBufferOverflowCheck(row + 206, \"%d %s\", (int)v, this + 8);",
+    "    }",
+    "    case 2: {",
+    "      double off = 0.0;",
+    "      if (group == 1) HIDWORD(off) = -1075838976;",
+    "      else if (group == 2) HIDWORD(off) = 1071644672;",
+    "      else return SetupValueFormatWithOffset(this, row, off);",
+    "      LODWORD(off) = 0;",
+    "      return SetupValueFormatWithOffset(this, row, off);",
+    "    }",
+    "    case 3: case 9:",
+    "      return SetupValueFormatWithOffset(this, row, 0.0);",
+    "    case 4:",
+    "      return SetupValueFormatDS(this, row);",
+    "    case 5: case 6: case 7: case 8:",
+    "      return SetupValueFormat1fS(this, row);",
+    "    case 10:",
+    "      return StringFormatWithBufferOverflowCheck(row + 30, \"%d\", *(int*)(row+20) + 1);",
+    "    default:",
+    "      return row;",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The unit strings at this+8 and this+40, the this+4 unit flag, and the row field layout (+0, +8, +20) belong to an unidentified setup/menu object.",
+    "The exact role of the wheel-type offsets (group 1 vs 2) in case 2 is not established beyond selection of a stored double constant.",
+    "String globals aD_1, a1fS and aDS are mapped to format-string constants by naming only, not by runtime confirmation."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,54 @@
+_DWORD *__thiscall sub_54A600(_DWORD *this)
+{
+  GlobalZeroInit_c2a0(this);
+  F_10FloatStructInitializer(this + 27);
+  this[15] = 0;
+  *(_BYTE *)this = 0;
+  this[20] = 6;
+  memset(this + 53, 0, 0x40u);
+  memset(this + 104, 0, 0x40u);
+  this[101] = 1065353216;
+  this[102] = 1065353216;
+  this[103] = 1065353216;
+  this[23] = 0;
+  this[22] = 0;
+  this[21] = 0;
+  this[26] = 0;
+  this[25] = 0;
+  this[24] = 0;
+  this[10] = 0;
+  this[9] = 0;
+  this[8] = 0;
+  this[13] = 0;
+  this[12] = 0;
+  this[11] = 0;
+  this[120] = 0;
+  this[121] = 0;
+  this[123] = 0;
+  this[124] = 0;
+  this[126] = 0;
+  this[128] = 0;
+  this[130] = 0;
+  this[125] = 0;
+  this[127] = 0;
+  this[129] = 0;
+  this[131] = 0;
+  this[132] = 0;
+  this[133] = 0;
+  this[134] = 0;
+  this[135] = 0;
+  this[136] = 0;
+  this[137] = 0;
+  this[138] = 0;
+  this[139] = 0;
+  this[140] = 0;
+  this[14] = 0;
+  this[141] = 0;
+  this[142] = 0;
+  this[16] = 0;
+  this[17] = 0;
+  this[18] = 0;
+  this[19] = 0;
+  return this;
+}
+

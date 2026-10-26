@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "address": "0x00486F30",
+  "proposed_name": "StringListInsertOrReplace",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Manages a linked list of string nodes on a UI string-list object. When a3 <= 0, allocates a new string node and prepends it to the list (allocating an 8-byte string node then a 12-byte list node, linking head/tail and incrementing the count). When a3 > 0, seeks to that index and replaces the string content of the selected node via StringCopyWithBufferRealloc.",
+  "local_names": {
+    "a2": "string_to_insert_or_replace",
+    "a3": "insert_position",
+    "v7": "allocated_string_node",
+    "v8": "string_node_or_null",
+    "v9": "allocated_list_node",
+    "v6": "selected_node"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If a3 <= 0, allocate new nodes and prepend to the list.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate an 8-byte string node via OperatorNewNhMallocWrapper(8).",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "If allocation succeeded, zero the string pointer (*v7 = 0) and set v7[1] = -1 (empty/invalid marker).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Copy the source string a2 into the new node with StringCopyWithBufferRealloc(a2).",
+      "evidence_refs": ["callee:0x00566650", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate a 12-byte list node via OperatorNewNhMallocWrapper(12).",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "If the list node allocated, link it to the string node: *v9 = string_node, *(v9+4) = 0 (next), *(v9+8) = 1 (in-use flag).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "If the list head this[17] is non-null, append via *(this[18]+4) = v9; otherwise set head this[17] = v9 and cursor this[19] = v9.",
+      "evidence_refs": ["field:this:0x00000044", "field:this:0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set tail this[18] = v9 and increment the list count this[20].",
+      "evidence_refs": ["field:this:0x00000048", "field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Else (a3 > 0): if a3 >= this[20] (count), clear the cursor this[19] = 0.",
+      "evidence_refs": ["field:this:0x0000004C", "field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Otherwise walk from the head: set this[19] = this[17], then follow next pointers (offset +4) while decrementing a3 until it reaches 0, leaving this[19] at the selected node.",
+      "evidence_refs": ["field:this:0x00000044", "field:this:0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the selected node v6 = this[19] is non-null and *v6 (its string) is non-null, replace its string with StringCopyWithBufferRealloc(a2).",
+      "evidence_refs": ["callee:0x00566650", "field:this:0x0000004C", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (a3 <= 0) {",
+    "  v8 = OperatorNewNhMallocWrapper(8);",
+    "  if (v8) { *v8 = 0; v8[1] = -1; StringCopyWithBufferRealloc(a2); }",
+    "  if (v8) {",
+    "    v9 = OperatorNewNhMallocWrapper(12);",
+    "    if (v9) { *(DWORD*)v9 = v8; *(DWORD*)(v9+4) = 0; *(BYTE*)(v9+8) = 1; }",
+    "    if (this[17]) *(DWORD*)(this[18]+4) = v9; else { this[17] = v9; this[19] = v9; }",
+    "    this[18] = v9;",
+    "    ++this[20];",
+    "  }",
+    "} else {",
+    "  if (a3 >= this[20]) this[19] = 0;",
+    "  else {",
+    "    this[19] = this[17];",
+    "    while (this[19] && a3-- > 0) this[19] = *(DWORD*)(this[19]+4);",
+    "  }",
+    "  if (this[19] && *(DWORD*)this[19]) StringCopyWithBufferRealloc(a2);",
+    "}"
+  ],
+  "unresolved": [
+    "The node layout (string pointer at +0, next link at +4, flag byte at +8) is inferred from the structural writes in the source; the exact struct shape is not separately evidenced.",
+    "The semantic distinction between the a3 <= 0 prepend path and the a3 > 0 replace path (insert vs replace) is a DERIVED reading of the source, not confirmed by an external source.",
+    "A failed list-node allocation on the prepend path still advances this[18] and increments this[20] even when v9 is 0, which may be a latent bug; not resolved."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,26 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C9D60
+// Canonical corpus name: ParticlePositionSetup
+// Owner: Particle [DERIVED]
+// Raw source: functions/ParticlePositionSetup_004c9d60.c
+
+void Particle::setupParticlePosition()
+{
+    // Initializes a particle's position, direction, color and attributes from noise-perturbed inputs. Consumes successive floats from the weather noise table at 0x008AB274 via the shared counter at 0x008AAE70, applies (noise*0.2+1.0) scaling to the a2-a5 position parameters, stores reciprocal spans, computes a lifetime-derived ARGB color at this+0x60, normalizes a direction vector into this+0x48/0x4C/0x50 (falling back to +Y when degenerate), and stores a random 0..15 index at this+0x54 from RandLCGRandomNumberGenerator.
+    // CALCULATION: Pull successive noise floats from table 0x008AB274 using counter 0x008AAE70 and build the perturbed position: this+0x10 = (noise*0.2+1.0)*a2, this+0x14 = (noise*0.2+1.0)*a3, this+0x18 = this+0x14 + (noise*0.2+1.0)*a4, this+0x1C = this+0x18 + (noise*0.2+1.0)*a5. [global:0x008AB274, global:0x008AAE70, field:this:0x00000010, field:this:0x00000014, field:this:0x00000018, field:this:0x0000001C]
+    // ASSIGNMENT: Store the reciprocal of the y component at this+0x20 and the reciprocal of the span (this+0x1C minus this+0x18) at this+0x24, writing 0 when the denominator is zero. [field:this:0x00000020, field:this:0x00000024]
+    // CALCULATION: Compute lifetime/size value noise*40+214, store it at this+0x28, and pack its integer part into the alpha byte of an ARGB word at this+0x60 via (int<<24) | 0xFFFFFF (white). [global:0x008AB274, global:0x008AAE70, field:this:0x00000028, field:this:0x00000060]
+    // ASSIGNMENT: Store a noise-derived scale factor (noise*0.2+1.0) at this+0x68. [global:0x008AB274, global:0x008AAE70, field:this:0x00000068]
+    // CALCULATION: Store the direction vector from three noise floats at this+0x48, this+0x4C and this+0x50; when the vector is degenerate (FP comparison flags), reset to (0, 1.0, 0), otherwise normalize it by the square-root length. [global:0x008AB274, global:0x008AAE70, field:this:0x00000048, field:this:0x0000004C, field:this:0x00000050]
+    // CALL: Call RandLCGRandomNumberGenerator(0), take the result modulo 16 and store the random index at this+0x54. [callee:0x005884ED, field:this:0x00000054]
+    // RETURN: Return the random index computed above. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   noise = nextNoise(); this->x = (noise*0.2+1.0)*a2;  // then y, z, span
+    //   this->invY = y ? 1/y : 0; this->invSpan = span ? 1/span : 0;
+    //   this->lifetime = noise*40+214; this->color = (int(lifetime)<<24) | 0xFFFFFF;
+    //   setDirection(noise x, noise y, noise z); normalize or default to +Y;
+    //   return this->randomIndex = RandLCGRandomNumberGenerator(0) % 16;
+    // UNRESOLVED: Globals flt_59E43C, flt_59E440, flt_59E7E8, flt_59E86C and flt_5ACE90 are listed as read by this function but do not appear in the decompiled body; their role is unknown.
+    // UNRESOLVED: The lifetime field this+0x28 is also consumed to build the ARGB alpha at this+0x60; whether this+0x28 doubles as a size or a time-to-live value is ambiguous.
+}

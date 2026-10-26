@@ -1,0 +1,47 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00462160
+// Canonical corpus name: NetworkFilterSort
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/NetworkFilterSort_00462160.c
+
+void UnknownObject::NetworkFilterSort()
+{
+    // Server-list sort/filter entry point. Dereferences the server-list object, guards on a non-null network-system pointer, marks the list as changed when the requested sort differs from the current one, clamps the requested sort index into the configured range, then dispatches a sort-key string through SwitchParamStoreGlobalSet and raises a refresh flag when the connection-state query returns non-zero or the caller's refresh flag is set.
+    // ASSIGNMENT: Dereference this to obtain the server-list object: v4 = *this. [field:this:0x00000000, source:raw]
+    // GUARD: Proceed only when the network/system pointer at obj + 112540 is non-null. [field:obj:0x0001B79C, source:raw]
+    // GUARD: When the sort-update flag a3 is set, recompute the changed/refresh-needed flag at obj + 196. [field:obj:0x000000C4, source:raw]
+    // ASSIGNMENT: Set obj + 196 = (a2 != dword_7D1020) || (obj + 196 == 0): mark the sort as changed, or leave the already-pending refresh flag set. [field:obj:0x000000C4, global:0x007D1020, guard:0, source:raw]
+    // ASSIGNMENT: Store the requested sort index a2 into the current-sort global dword_7D1020. [global:0x007D1020, source:raw]
+    // CALCULATION: Clamp the stored sort index into the configured range: below dword_7D1028 is forced up to dword_7D1028, above dword_7D102C is forced down to dword_7D102C. [global:0x007D1020, global:0x007D1028, global:0x007D102C, source:raw]
+    // CALL: Query vehicle/connection state via VehicleStateQueryAtLargeOffset(this); a non-zero result requests a list refresh. [callee:0x00461FC0, source:raw]
+    // CALL: Dispatch on the clamped sort mode and call SwitchParamStoreGlobalSet with a sort-key string and an integer parameter: case 1 -> aPing with 0, case 2 -> aMapname with 3, case 3 -> aNumplayers with 0, default -> aHostname with 3. [callee:0x00563EC0, global:0x005C61EC, global:0x005C5C20, global:0x005C5C14, global:0x005C5C34, source:raw]
+    // ASSIGNMENT: When the query returned non-zero or the caller's force-refresh flag a4 is set, raise the refresh flag byte_7CD2A0 to 1. [global:0x007CD2A0, callee:0x00461FC0, source:raw]
+    // RETURN: Return v4, the query result (with the low byte zeroed on the sort-apply path). [source:raw]
+    // CALL: Invoked by sub_475150 (0x00475150) as the server-list sort/filter entry point. [caller:0x00475150, source:raw]
+
+    // Conservative worker pseudocode:
+    //   char NetworkFilterSort(int *this, int a2, char a3, char a4) {
+    //     int v4 = *this;
+    //     if (*(_DWORD *)(*this + 112540)) {
+    //       if (a3) *(_BYTE *)(v4 + 196) = (a2 != dword_7D1020) || (*(_BYTE *)(v4 + 196) == 0);
+    //       dword_7D1020 = a2;
+    //       if (a2 >= dword_7D1028) { if (a2 > dword_7D102C) dword_7D1020 = dword_7D102C; }
+    //       else dword_7D1020 = dword_7D1028;
+    //       v4 = VehicleStateQueryAtLargeOffset(this);
+    //       if (!v4) {
+    //         switch (dword_7D1020) {
+    //           case 1: SwitchParamStoreGlobalSet(aPing, 0); break;
+    //           case 2: SwitchParamStoreGlobalSet(aMapname, 3); break;
+    //           case 3: SwitchParamStoreGlobalSet(aNumplayers, 0); break;
+    //           default: SwitchParamStoreGlobalSet(aHostname, 3); break;
+    //         }
+    //         LOBYTE(v4) = a4;
+    //       }
+    //       if (a4 || v4) byte_7CD2A0 = 1;
+    //     }
+    //     return v4;
+    //   }
+    // UNRESOLVED: The object type of *this (the server-list object) is unnamed; fields at +196 and +112540 are described by role only.
+    // UNRESOLVED: dword_7D1028 and dword_7D102C bound the valid sort range but their writers and exact meaning are not established here.
+    // UNRESOLVED: The refresh flag byte_7CD2A0 is set but its consumer (likely the list display/refresh path) is not visible in this function.
+}

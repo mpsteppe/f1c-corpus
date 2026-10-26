@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "address": "0x00499F70",
+  "proposed_name": "LookupOrCreateResourceNodeAndLink",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Looks up a named resource via sub_497AD0 using context this+4. On success, allocates a 52-byte node through OperatorNewNhMallocWrapper, initializes it via the sub_499B10 constructor, fills slots with caller arguments a2-a5 and the lookup result, optionally overrides four slots from the resource's indirect data when a7 is set, then links the node either into a named node's child list (when a9 matches an existing list node) or into the main list anchored at this+8, incrementing the counter at this+0xC. On lookup failure with a8 set, formats an error message and shows a MessageBoxA. Returns the new node or 0.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard on the name argument a6 being non-null; a null name returns 0 immediately.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call sub_497AD0 with the context pointer at this+4, the name a6, and a zero flag to look up the resource.",
+      "evidence_refs": ["callee:0x00497AD0", "field:this:0x00000004"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the lookup result being non-null; on failure, if a8 is set the function reports the error and returns 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call OperatorNewNhMallocWrapper with size 52 to allocate the new node.",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "kind": "call",
+      "description": "Call sub_499B10 on the allocated memory to construct/initialize the node; result is null if allocation failed.",
+      "evidence_refs": ["callee:0x00499B10"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Populate node slots from arguments: slot 1 = a5, slot 3 = a3, slot 0 = a4, slot 2 = a2, slot 9 = 0, slot 8 = lookup result.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When a7 is set, override slots 2 and 0 to 0 and copy slots 1 and 3 from the resource's indirect data at (*(v11+12) + 28) and (*(v11+12) + 32).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on a9 being non-null and the main list head at this+8 being non-null: selects the named-sub-list path that walks nodes by their slot 9 pointer to locate a9.",
+      "evidence_refs": ["field:this:0x00000008", "field:*(this+0x8):0x00000024"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When a9 is found in the main list: increment a9 slot 4, copy a9 slot 6 into the new node slot 6, and append the new node to a9's child list via slot 10 pointers (walk to the tail if the child list is non-empty).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Otherwise append the new node to the main list anchored at this+8: walk nodes by their +36-byte next pointer to the tail and set the tail's next pointer at +36, then increment the counter at this+0xC; if the list was empty, make the new node the head and set the count.",
+      "evidence_refs": ["field:*(*(*(this+0x8)+0x24)+0x24):0x00000024", "field:this:0x00000008", "field:this:0x0000000C"]
+    },
+    {
+      "kind": "guard",
+      "description": "Lookup-failure path: when a8 is set, format the message with StringFormatWithBufferOverflowCheck and show a MessageBoxA with the OptionsFrame title string; otherwise fail silently.",
+      "evidence_refs": ["global:0x005CCB30", "callee:0x0058815F", "global:0x0059E2A4", "global:0x005CCB18"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the new node pointer, or 0 when the name was null or the lookup failed.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "Node* LookupOrCreateResourceNodeAndLink(this, a2, a3, a4, a5, name, a7, a8, parent) {",
+    "  if (!name) return 0;",
+    "  res = LookupResource(this->context, name, 0);       // sub_497AD0(this+4)",
+    "  if (res) {",
+    "    node = New(sizeof 52);                            // OperatorNewNhMallocWrapper",
+    "    Construct(node);                                  // sub_499B10",
+    "    node[1] = a5; node[3] = a3; node[0] = a4; node[2] = a2;",
+    "    node[9] = 0; node[8] = res;",
+    "    if (a7) {",
+    "      node[2] = 0; node[0] = 0;",
+    "      node[1] = *(*(res + 12) + 28);",
+    "      node[3] = *(*(res + 12) + 32);",
+    "    }",
+    "    if (parent && this->head) {",
+    "      for (cur = this->head; cur && cur != parent; cur = cur[9]);",
+    "      if (cur == parent) {",
+    "        parent[4] += 1;",
+    "        node[6] = parent[6];",
+    "        append node to parent child list via parent[10]/node[10];",
+    "        return node;",
+    "      }",
+    "    }",
+    "    if (this->head) {",
+    "      tail = last node following next at +36 bytes;",
+    "      tail->next = node;                               // +36 bytes",
+    "    } else {",
+    "      this->head = node;",
+    "    }",
+    "    this->count += 1;                                  // this+0xC",
+    "    return node;",
+    "  }",
+    "  if (a8) {",
+    "    Format(buf, \"Could not load \\\"%s\\\"\", name);     // StringFormatWithBufferOverflowCheck",
+    "    MessageBoxA(0, buf, \"OptionsFrame Advanced\", 0);",
+    "  }",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "The node struct type and the exact meaning of slots 4, 6, 8, 9, 10 (counters, resource handle, parent-list next, child-list next) are inferred from indexing, not a named type.",
+    "The indirect data read for the a7 override ((*(res+12)+28) and (*(res+12)+32)) depends on the layout of the sub_497AD0 lookup result, which is not described here.",
+    "The relationship between the a9 child-list structure and the main list at this+8 (a hierarchy vs two independent lists) is not confirmed.",
+    "Caller sub_493990's expectations for the returned node are outside this function."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

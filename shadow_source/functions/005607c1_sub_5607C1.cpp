@@ -1,0 +1,45 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005607C1
+// Canonical corpus name: sub_5607C1
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_5607C1_005607c1.c
+
+void UnknownObject::sub_5607C1()
+{
+    // Void cdecl function taking eight int arguments. It stores argument-derived setup values into the dword_5DD8xx globals, computes a word-pointer base into an image buffer, then runs two nested do-while loops (outer = a5 rows, inner = a4 columns). Each inner step reads one 16-bit pixel, rebuilds it through rotation (ROR4) and four byte LUT remaps (byte_5DD8CC, byte_5DDCCC, byte_5DECCC, byte_5E0CCC) with offsets derived from a7 and a8, and writes the transformed word back in place. Likely a 16-bit texture/pixel transform kernel.
+    // ASSIGNMENT: Compute and store LUT base offsets: dword_5DD878 = 32 * a8 and dword_5DD898 = a8 << 6, selecting lookup-table rows. [global:0x005DD878, global:0x005DD898, source:raw]
+    // ASSIGNMENT: Store row/column counters and row stride: dword_5DD814 = a4 (columns), dword_5DD818 = a5 (rows), dword_5DD81C = a6 - 2 * a4 (stride delta to the next row). [global:0x005DD814, global:0x005DD818, global:0x005DD81C, source:raw]
+    // ASSIGNMENT: Compute channel LUT index offsets from the packed value a7: dword_5DD828 = 32 * ((uint8)a7 >> 4), dword_5DD824 = BYTE1(a7) >> 3 << 6, dword_5DD820 = 32 * (BYTE2(a7) >> 4). [global:0x005DD820, global:0x005DD824, global:0x005DD828, source:raw]
+    // CALCULATION: Base pixel pointer v8 = (word*)(a1 + 2 * a2 + a6 * a3); iterated per row/column as 16-bit units. [source:raw, function:0x005607C1]
+    // LOOP: Outer row loop: repeats dword_5DD818 (a5) times, after each row advancing v8 by dword_5DD81C bytes. [global:0x005DD818, global:0x005DD81C, source:raw]
+    // LOOP: Inner column loop: repeats dword_5DD814 (a4) times per row, processing one 16-bit pixel per iteration. [global:0x005DD814, source:raw]
+    // CALCULATION: Per-pixel transform: v10 = ROR4(*v8, 5); first channel = byte_5DECCC[dword_5DD878 + byte_5DD8CC[dword_5DD828 + (*v8 & 0x1F)]], then ROR4 by 5; second channel = byte_5E0CCC[dword_5DD898 + byte_5DDCCC[dword_5DD824 + (v10 & 0x3F)]] OR-accumulated; third channel = byte_5DECCC[dword_5DD878 + byte_5DD8CC[dword_5DD820 + (ROR4(v10, 6) & 0x1F)]] OR-accumulated after ROR4 by 6; result ROR4 by 21 written back to *v8++. [global:0x005DD820, global:0x005DD824, global:0x005DD828, global:0x005DD878, global:0x005DD898, global:0x005DD8CC, global:0x005DDCCC, global:0x005DECCC, global:0x005E0CCC, source:raw]
+    // RETURN: Void function; returns after the row loop exhausts its counter (dword_5DD818 <= 1). [global:0x005DD818, source:raw]
+
+    // Conservative worker pseudocode:
+    //   // dword_5DD8xx globals act as scratch setup; LUTs indexed via a7/a8 offsets
+    //   dword_5DD814 = a4;
+    //   dword_5DD818 = a5;
+    //   dword_5DD81C = a6 - 2 * a4;
+    //   dword_5DD878 = 32 * a8;
+    //   dword_5DD898 = a8 << 6;
+    //   dword_5DD828 = 32 * ((uint8)a7 >> 4);
+    //   dword_5DD824 = (BYTE1(a7) >> 3) << 6;
+    //   dword_5DD820 = 32 * (BYTE2(a7) >> 4);
+    //   word* p = (word*)(a1 + 2 * a2 + a6 * a3);
+    //   do {
+    //     int ncol = dword_5DD814;
+    //     do {
+    //       v10 = ROR4(*p, 5);
+    //       v11 = ROR4(lut[ byte_5DD8CC[dword_5DD828 + (*p & 0x1F)] ], 5);
+    //       v11 |= byte_5E0CCC[dword_5DD898 + byte_5DDCCC[dword_5DD824 + (v10 & 0x3F)]];
+    //       v12 = ROR4(v11, 6);
+    //       v12 |= byte_5DECCC[dword_5DD878 + byte_5DD8CC[dword_5DD820 + (ROR4(v10, 6) & 0x1F)]];
+    //       *p++ = ROR4(v12, 21);
+    //     } while (ncol-- > 1);
+    //     p = (word*)((char*)p + dword_5DD81C);
+    //   } while (dword_5DD818-- > 1);
+    // UNRESOLVED: Semantic meaning of the per-channel bit widths (5-bit vs 6-bit) and rotation constants (5/6/21) is not derivable from this packet alone; adjacent kernels (e.g. sub_56068E) may share the LUTs.
+    // UNRESOLVED: Whether dword_5DD8xx scratch globals are thread-safe / shared with other image routines is unknown.
+    // UNRESOLVED: Exact pixel format (RGB555 vs RGB565 vs other 16-bit layout) is unknown.
+}

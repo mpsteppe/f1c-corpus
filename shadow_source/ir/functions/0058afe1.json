@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "address": "0x0058AFE1",
+  "proposed_name": "FileStreamClose",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0058AFE1", "source:raw", "callee:0x0058A05A", "callee:0x0058C1B1", "field:this:0x0000000C"]
+  },
+  "summary": "CRT-style stream close (cdecl on a stream struct). Reads the OS file-handle index a1[4] (field +0x10), locks the stream, flushes buffered writes, clears control bits in the stream flags a1[3] (field +0xC), resets the per-handle buffer descriptor (the default unk_5E7898 when the handle is -1, otherwise a descriptor addressed as dword_8D4920[v1 >> 5] + 36 * (v1 & 0x1F)), clears bit 1 of that descriptor, clears the low two bits of the flags when bit 7 (0x80) is set, closes the OS handle via sub_58C724(v1, 0, 0), and releases the stream through AddressRangeCriticalSectionLeave.",
+  "local_names": {
+    "a1": "stream struct pointer",
+    "v1": "OS file-handle index read from a1[4]; -1 means no handle attached",
+    "v2": "per-handle buffer descriptor pointer",
+    "v3": "stream flags copy used for the 0x80 guard"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Read the file-handle index v1 = a1[4] (field +0x10); -1 means no OS handle is attached.",
+      "evidence_refs": ["field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Lock the stream for exclusive access via StreamBufferLockViaCriticalSection(a1).",
+      "evidence_refs": ["callee:0x0058C1B1", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Flush pending buffered write data via BufferFlushWrite(a1).",
+      "evidence_refs": ["callee:0x0058A05A", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear control bits in the stream flags: a1[3] &= 0xFFFFFFCF (field +0xC).",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v1 == -1 use the default buffer descriptor unk_5E7898; otherwise resolve the per-handle buffer descriptor from dword_8D4920[v1 >> 5] + 36 * (v1 & 0x1F).",
+      "evidence_refs": ["global:0x005E7898", "global:0x008D4920", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear bit 1 of the buffer descriptor flags: v2[4] &= ~2u.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the stream flags have bit 7 set ((a1[3] & 0x80u) != 0), clear the low two bits: a1[3] = a1[3] & 0xFC (field +0xC).",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Close the OS file handle via sub_58C724(v1, 0, 0).",
+      "evidence_refs": ["callee:0x0058C724", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Release the stream and its critical-section slot via AddressRangeCriticalSectionLeave(a1).",
+      "evidence_refs": ["callee:0x0058C203", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called by sub_5354E0 (0x005354E0) as part of its stream teardown path.",
+      "evidence_refs": ["caller:0x005354E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v1 = a1[4];",
+    "StreamBufferLockViaCriticalSection(a1);",
+    "BufferFlushWrite(a1);",
+    "a1[3] &= 0xFFFFFFCF;",
+    "if (v1 == -1)",
+    "    v2 = &unk_5E7898;",
+    "else",
+    "    v2 = (_BYTE*)(dword_8D4920[v1 >> 5] + 36 * (v1 & 0x1F));",
+    "v2[4] &= ~2u;",
+    "if ((a1[3] & 0x80u) != 0)",
+    "    a1[3] = a1[3] & 0xFC;",
+    "sub_58C724(v1, 0, 0);",
+    "return AddressRangeCriticalSectionLeave(a1);"
+  ],
+  "unresolved": [
+    "Semantic interpretation (CRT fclose behavior) is from the corpus fill; the packet does not define what unk_5E7898, the dword_8D4920 descriptor-array layout (36-byte stride, index v1 >> 5 and v1 & 0x1F), the flag bits in a1[3] and v2[4], or the constant arguments (0, 0) to sub_58C724 mean.",
+    "Whether AddressRangeCriticalSectionLeave also frees the stream structure is from the corpus fill, not the packet.",
+    "The 0xFFFFFFCF and 0xFC masks on a1[3] and the ~2u mask on v2[4] clear specific flag bits whose meanings are not defined by the packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

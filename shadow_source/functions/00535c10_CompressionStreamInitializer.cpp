@@ -1,0 +1,55 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00535C10
+// Canonical corpus name: sub_535C10
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_535C10_00535c10.c
+
+void UnknownObject::CompressionStreamInitializer()
+{
+    // Initializes a compression-stream state object a1 (zlib-style deflate/inflate context): validates a version-string check (a7 compared against the magic at off_5DA818 and a8 == 56), installs default allocator and deallocator callbacks when absent, normalizes a2 == -1 to level 6 and takes the absolute value of the window-bits argument a4 (recording the sign), validates the compression parameters (mem level a5 in [1,9], method a3 == 8, window bits in [8,15], level a2 <= 9, strategy a6 <= 2), allocates a main state block of 5809 bytes plus three work buffers through the allocator callback at this+0x20, initializes window-size/mask/block parameters from the window bits and mem level, stores the strategy and level into the state, and on success calls ConditionalMultiFieldReset; on allocation failure it stores the error token from off_5DA834 into this+0x18, calls sub_5361D0 and returns -4.
+    // ASSIGNMENT: Initialize the negation flag v9 = 0 and snapshot the level v22 = a2. [source:raw]
+    // GUARD: Version and size validation: require a7 non-null, *a7 equal to the magic at off_5DA818, and a8 == 56; otherwise the function fails early. [global:0x005DA818, source:raw]
+    // RETURN: Return -6 when the version-string or size check fails. [source:raw]
+    // GUARD: Reject a null stream object a1 with an early -2 return. [source:raw]
+    // ASSIGNMENT: Read the current allocator callback from this+0x20 and reset the context flag at this+0x18 to 0. [field:this:0x00000018, field:this:0x00000020, source:raw]
+    // ASSIGNMENT: Install the default allocator: when this+0x20 is null, set this+0x20 = DelegationWrapper_6fd0 and this+0x28 = 0. [field:this:0x00000020, field:this:0x00000028, global:0x00536FD0, source:raw]
+    // ASSIGNMENT: Install the default deallocator: when this+0x24 is null, set this+0x24 = AllocatorFreeWrapper. [field:this:0x00000024, global:0x00536FF0, source:raw]
+    // CALCULATION: Normalize a2 == -1 to the default level 6. [source:raw]
+    // CALCULATION: Take the absolute value of the window-bits argument a4: when a4 < 0, set the negation flag v9 = 1 and v12 = -a4. [source:raw]
+    // GUARD: Parameter range validation: mem level a5 in [1,9], method a3 == 8, window bits v12 in [8,15], level a2 <= 9, strategy a6 <= 2; any violation returns -2. [source:raw]
+    // CALL: Indirect allocator call this+0x20(this+0x28, 1, 5809) to allocate the main 5809-byte state block. [field:this:0x00000020, field:this:0x00000028, source:raw]
+    // GUARD: Allocation failure (null state block) returns -4. [source:raw]
+    // ASSIGNMENT: Store the allocated state-block pointer at this+0x1C. [field:this:0x0000001C, source:raw]
+    // ASSIGNMENT: Initialize the state block: store the negation flag, the window-bits value, a back-pointer to a1, and the window size 1 << v12 with mask (1 << v12) - 1. [source:raw]
+    // CALCULATION: Derive buffer sizing from the mem level a5: 1 << (a5 + 7), its mask (1 << (a5 + 7)) - 1, and the block count (a5 + 9) / 3. [source:raw]
+    // CALL: Three indirect allocator calls (window-sized and derived sizes) reserve work buffers; results are stored into the state block. [field:this:0x00000020, field:this:0x00000028, source:raw]
+    // CALL: An additional indirect allocator call (size 4) reserves a small buffer; related derived pointers are stored into the state block. [field:this:0x00000020, field:this:0x00000028, source:raw]
+    // GUARD: Verify that all four buffer allocations are non-null before committing the initialization. [source:raw]
+    // ASSIGNMENT: On success: mark the state as initialized (flag byte set to 8), compute the derived output pointers from the small buffer, and store the strategy a6 and level v22 into the state block. [source:raw]
+    // CALL: Call ConditionalMultiFieldReset(a1) to finalize the initialization. [callee:0x00535E10, source:raw]
+    // RETURN: Return the result of ConditionalMultiFieldReset on the success path. [source:raw]
+    // STATE_TRANSITION: On allocation failure: store the error token off_5DA834[0] into this+0x18, call sub_5361D0(a1), and return -4. [field:this:0x00000018, global:0x005DA834, callee:0x005361D0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int CompressionStreamInitializer(_DWORD* a1, unsigned int level, int method, int windowBits, int memLevel, unsigned int strategy, _BYTE* version, int size) {
+    //     if (!version || *version != *off_5DA818[0] || size != 56) return -6;
+    //     if (!a1) return -2;
+    //     a1[6] = 0;
+    //     if (!a1[8]) { a1[8] = DelegationWrapper_6fd0; a1[10] = 0; }
+    //     if (!a1[9]) a1[9] = AllocatorFreeWrapper;
+    //     if (level == -1) level = 6;
+    //     int neg = 0; if (windowBits < 0) { neg = 1; windowBits = -windowBits; }
+    //     if (memLevel < 1 || memLevel > 9 || method != 8 || windowBits < 8 || windowBits > 15 || level > 9 || strategy > 2) return -2;
+    //     _DWORD* st = (a1[8])(a1[10], 1, 5809);
+    //     if (!st) return -4;
+    //     a1[7] = st;
+    //     // initialize window size/mask/block fields, allocate work buffers via a1[8]
+    //     if (allBuffersValid) { markStateReady(st); st[strategyOff] = strategy; st[levelOff] = level; return ConditionalMultiFieldReset(a1); }
+    //     a1[6] = off_5DA834[0];
+    //     sub_5361D0(a1);
+    //     return -4;
+    //   }
+    // UNRESOLVED: The stream object a1 is not identified. The parameter pattern (method 8, window bits 8-15, mem level 1-9, level <= 9, strategy <= 2, 5809-byte state block, version-string check against off_5DA818 with size 56) matches a zlib-style deflate/inflate initialization, but no owner type is confirmed.
+    // UNRESOLVED: The content of the off_5DA834 error pointer is not established; it is stored as the error token on the allocation-failure path.
+    // UNRESOLVED: Indirect calls through this+0x20 (allocator callback with this+0x28 context) are not resolved to concrete functions here.
+}

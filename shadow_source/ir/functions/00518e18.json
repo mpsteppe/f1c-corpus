@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "address": "0x00518E18",
+  "proposed_name": "ParseTrnsChunk",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00518E18", "source:raw"]
+  },
+  "summary": "PNG tRNS (transparency) chunk parser: validates the chunk order relative to IHDR/PLTE/IDAT via the flags word at this+0x58 (bit 0 IHDR, bit 1 PLTE, bit 2 IDAT), then handles palette-indexed (color type 3: one alpha byte per palette entry, buffer allocated by sub_517E92 and stored at this+0x15C) and direct-color transparency (color type 0: single gray value at this+0x168; color type 2: RGB values at this+0x162/0x164/0x166), records the alpha count at this+0x10A, and commits the result through MultiFieldSetterWithFlag.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard: read the flags word at a1+88 (offset 0x58); if bit 0 is clear no IHDR preceded this chunk and GuardedCallWithLongjmp aborts with \"Missing IHDR before tRNS\" using the global at 0x005AFF3C.",
+      "evidence_refs": ["field:this:0x00000058", "callee:0x00511869", "global:0x005AFF3C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: if bit 2 of the flags word at a1+88 is set (IDAT already seen), CallbackDispatch reports \"Invalid tRNS after IDAT\" using the global at 0x005AFEF0, then sub_518828(a1, a3) advances the chunk cursor and the function returns.",
+      "evidence_refs": ["field:this:0x00000058", "callee:0x00511887", "global:0x005AFEF0", "callee:0x00518828", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: duplicate tRNS - if a2 is non-null and the byte at a2+8 has bit 0x10 set, CallbackDispatch reports \"Duplicate tRNS chunk\" using the global at 0x005AFED8, sub_518828(a1, a3) advances, and the function returns.",
+      "evidence_refs": ["callee:0x00511887", "global:0x005AFED8", "callee:0x00518828", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read the color type byte at a1+278 (offset 0x116) and dispatch on it: 3 = palette-indexed, 2 = truecolor, 0 = grayscale, otherwise the color carries its own alpha.",
+      "evidence_refs": ["field:this:0x00000116", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Color type 3: if flag bit 1 of a1+88 is set (PLTE present), reject a3 greater than the palette entry count at a1+264 (offset 0x108) with \"Incorrect tRNS chunk length\" (global 0x005AFEBC); otherwise CallbackDispatch reports \"Missing PLTE before tRNS\" (global 0x005AFF20).",
+      "evidence_refs": ["field:this:0x00000058", "field:this:0x00000108", "callee:0x00511887", "global:0x005AFEBC", "global:0x005AFF20", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Color type 3: a zero-length chunk is rejected via \"Zero length tRNS chunk\" (global 0x005AFF08), then sub_518828(a1, 0) advances and the function returns.",
+      "evidence_refs": ["callee:0x00511887", "global:0x005AFF08", "callee:0x00518828", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Color type 3: v5 = sub_517E92(a1, a3) allocates the per-palette-entry alpha buffer; flag bit 0x20 is set at a1+93 (offset 0x5D); the buffer pointer is stored at a1+348 (offset 0x15C); sub_517F58(a1, v5, a3) fills it; the alpha count is stored at a1+266 (offset 0x10A).",
+      "evidence_refs": ["callee:0x00517E92", "field:this:0x0000005D", "field:this:0x0000015C", "callee:0x00517F58", "field:this:0x0000010A", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Color type 2 (truecolor): chunk length a3 must equal 6, otherwise the \"Incorrect tRNS chunk length\" path (global 0x005AFEBC) runs, sub_518828(a1, a3) advances, and the function returns.",
+      "evidence_refs": ["field:this:0x00000116", "callee:0x00511887", "global:0x005AFEBC", "callee:0x00518828", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Color type 2: sub_517F58(a1, v9, 6) reads six bytes and stores the transparent red at a1+354 (offset 0x162), green at a1+356 (offset 0x164) and blue at a1+358 (offset 0x166), each assembled big-endian as a 16-bit value.",
+      "evidence_refs": ["callee:0x00517F58", "field:this:0x00000162", "field:this:0x00000164", "field:this:0x00000166", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Color type 0 (grayscale): chunk length a3 must equal 2; sub_517F58(a1, v9, 2) reads two bytes and the transparent gray value is stored big-endian at a1+360 (offset 0x168); otherwise the \"Incorrect tRNS chunk length\" path (global 0x005AFEBC) runs.",
+      "evidence_refs": ["field:this:0x00000116", "callee:0x00517F58", "field:this:0x00000168", "callee:0x00511887", "global:0x005AFEBC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Color types 4 and 6 carry their own alpha: CallbackDispatch reports \"tRNS chunk not allowed with alpha channel\" (global 0x005AFE90), then sub_518828(a1, a3) advances and the function returns.",
+      "evidence_refs": ["field:this:0x00000116", "callee:0x00511887", "global:0x005AFE90", "callee:0x00518828", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "After a valid direct-color (grayscale or truecolor) tRNS, the transparency count at a1+266 (offset 0x10A) is set to 1.",
+      "evidence_refs": ["field:this:0x0000010A", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_518828(a1, 0) advances the chunk cursor; if it returns zero, MultiFieldSetterWithFlag(a1, a2, palette-alpha pointer at a1+348 (offset 0x15C), alpha count at a1+266 (offset 0x10A), a1 + 352) commits the transparency data to the caller state.",
+      "evidence_refs": ["callee:0x00518828", "callee:0x00513B8A", "field:this:0x0000015C", "field:this:0x0000010A", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void sub_518E18(int a1, int a2, unsigned int a3) {",
+    "  int flags = *(_DWORD*)(a1 + 88);",
+    "  if (!(flags & 1))",
+    "    GuardedCallWithLongjmp(a1, \"Missing IHDR before tRNS\");",
+    "  if (flags & 4) {",
+    "    CallbackDispatch(a1, \"Invalid tRNS after IDAT\");",
+    "    sub_518828(a1, a3);",
+    "    return;",
+    "  }",
+    "  if (a2 && (*(_BYTE*)(a2 + 8) & 0x10)) {",
+    "    CallbackDispatch(a1, \"Duplicate tRNS chunk\");",
+    "    sub_518828(a1, a3);",
+    "    return;",
+    "  }",
+    "  colorType = *(_BYTE*)(a1 + 278);",
+    "  if (colorType == 3) {",
+    "    if (*(_BYTE*)(a1 + 88) & 2) {",
+    "      if (a3 > *(unsigned __int16*)(a1 + 264)) {",
+    "        CallbackDispatch(a1, \"Incorrect tRNS chunk length\");",
+    "        sub_518828(a1, a3);",
+    "        return;",
+    "      }",
+    "    } else {",
+    "      CallbackDispatch(a1, \"Missing PLTE before tRNS\");",
+    "    }",
+    "    if (!a3) {",
+    "      CallbackDispatch(a1, \"Zero length tRNS chunk\");",
+    "      sub_518828(a1, 0);",
+    "      return;",
+    "    }",
+    "    v5 = sub_517E92(a1, a3);",
+    "    *(_BYTE*)(a1 + 93) |= 0x20;",
+    "    *(_DWORD*)(a1 + 348) = v5;",
+    "    sub_517F58(a1, v5, a3);",
+    "    *(_WORD*)(a1 + 266) = a3;",
+    "    goto commit;",
+    "  }",
+    "  if (colorType != 2) {",
+    "    if (colorType) {",
+    "      CallbackDispatch(a1, \"tRNS chunk not allowed with alpha channel\");",
+    "      sub_518828(a1, a3);",
+    "      return;",
+    "    }",
+    "    if (a3 == 2) {",
+    "      sub_517F58(a1, v9, 2);",
+    "      *(_WORD*)(a1 + 360) = v10 + (v9 << 8);",
+    "      *(_WORD*)(a1 + 266) = 1;",
+    "      goto commit;",
+    "    }",
+    "    CallbackDispatch(a1, \"Incorrect tRNS chunk length\");",
+    "    sub_518828(a1, a3);",
+    "    return;",
+    "  }",
+    "  if (a3 != 6) {",
+    "    CallbackDispatch(a1, \"Incorrect tRNS chunk length\");",
+    "    sub_518828(a1, a3);",
+    "    return;",
+    "  }",
+    "  sub_517F58(a1, v9, 6);",
+    "  *(_WORD*)(a1 + 354) = v10 + (v9 << 8);",
+    "  *(_WORD*)(a1 + 356) = v12 + (v11 << 8);",
+    "  *(_WORD*)(a1 + 358) = v14 + (v13 << 8);",
+    "  *(_WORD*)(a1 + 266) = 1;",
+    "commit:",
+    "  if (!sub_518828(a1, 0))",
+    "    MultiFieldSetterWithFlag(a1, a2, *(_DWORD*)(a1 + 348), *(unsigned __int16*)(a1 + 266), a1 + 352);",
+    "}"
+  ],
+  "unresolved": [
+    "sub_517E92 is the buffer allocator and sub_517F58 the stream reader used here; their contracts beyond this usage are not established from raw source.",
+    "MultiFieldSetterWithFlag commits fields beginning at a1 + 352 to the a2 caller state; the layout of that region and the meaning of the flag it sets are unknown.",
+    "a2 appears to be a caller-supplied chunk-state/target object (the byte at a2+8 flags a duplicate tRNS); its type is unknown.",
+    "String contents behind the message globals are inferred from the raw-source literals; the addresses themselves were not dereferenced in this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

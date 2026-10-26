@@ -1,0 +1,57 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004D7660
+// Canonical corpus name: TireBrandLoader
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TireBrandLoader_004d7660.c
+
+void UnknownObject::TireBrandLoader()
+{
+    // Loads tire brand (.tbc) entries into an array owned by 'this'. Releases prior texture surfaces, saves the FPU control word (default 512), builds the season directory path from dword_5EC3D8 + dword_5EC428 (each falling back to byte_5EA438), searches that directory for '.tbc' files, allocates a 36-byte-per-entry array prefixed by the entry count, initializes each entry with sentinels, parses every file via TireBrandFileParser, logs a 'No tire brands .tbc' warning when empty, and restores the FPU control word (via EmptyStub_7780 when it differs from 512). Called by GameFileLoader.
+    // CALL: TextureSurfaceDestroyer(this) releases previously loaded texture surfaces. [callee:0x004D7800, source:raw]
+    // CALL: v2 = FPUControlWordMaskExtract(512) saves the FPU control word; v4/v17 retain it for later restoration. [callee:0x00567740, source:raw]
+    // CALL: StringFormatWithBufferOverflowCheck(v18, "%s%s" (aSS), dword_5EC3D8|byte_5EA438, dword_5EC428|byte_5EA438) builds the season directory path. [callee:0x0058815F, global:0x005BE860, global:0x005EC3D8, global:0x005EC428, global:0x005EA438, source:raw]
+    // CALL: sub_565F80(aTbc, 1, v18, 1) enumerates files with the '.tbc' extension in the season directory. [callee:0x00565F80, global:0x005D49DC, source:raw]
+    // CALL: v6 = ShortComputation_5f70(&unk_8AD3B0) counts the matching entries; *this = v6 stores the count. [callee:0x00565F70, global:0x008AD3B0, field:this:0x00000000, source:raw]
+    // CALL: v7 = OperatorNewNhMallocWrapper(36 * v6 + 4) allocates the entry array; on success store count at *v7 and point v8 at the entries. [callee:0x00587C03, source:raw]
+    // LOOP: Initialize each 36-byte entry (stride of 9 dwords) with StructInitWithSentinels. [callee:0x004D7020, source:raw]
+    // ASSIGNMENT: this[1] = v8 stores the allocated entry array pointer (null when allocation failed). [field:this:0x00000004, source:raw]
+    // GUARD: If (count == 0 or entry array null) and StringSplitLoop(1, aDDevF119992002_4, 1025), call DebugLogWrite(&dword_8AD25C, aNoTireBrandsTb) to log the missing-brands warning. [guard:0, callee:0x004D7A50, callee:0x004D7AA0, global:0x005D45E4, global:0x005D49A4, global:0x008AD25C, field:this:0x00000000, source:raw]
+    // CALL: LinkedListPopFront_5f50(&unk_8AD3B0) removes the front search-list node. [callee:0x00565F50, global:0x008AD3B0, source:raw]
+    // LOOP: Iterate directory entries via DirectoryEntryIterator(&unk_8AD3B0); for each entry build the full "%s%s%s" (aSSS_0) path from dir, season and name via StringFormatWithBufferOverflowCheck, then TireBrandFileParser(entry, v18) parses it. [callee:0x005662D0, callee:0x0058815F, callee:0x004D7150, global:0x005C6784, global:0x005EC3D8, global:0x005EC428, global:0x005EA438, global:0x008AD3B0, field:this:0x00000004, source:raw]
+    // LOOP: Break the per-file loop when LinkedListNodePeek(&unk_8AD3B0) returns null (no further nodes). [callee:0x00565F20, global:0x008AD3B0, source:raw]
+    // RETURN: result = sub_565EB0(&unk_8AD3B0); if the saved FPU word v4 != 512, restore it via EmptyStub_7780(v4); otherwise return result. [callee:0x00565EB0, callee:0x00567780, global:0x008AD3B0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   TextureSurfaceDestroyer(this);
+    //   saved = FPUControlWordMaskExtract(512);
+    //   dir = dword_5EC3D8 ?: byte_5EA438; season = dword_5EC428 ?: byte_5EA438;
+    //   StringFormatWithBufferOverflowCheck(v18, "%s%s", dir, season);
+    //   sub_565F80(".tbc", 1, v18, 1);
+    //   count = ShortComputation_5f70(&unk_8AD3B0);
+    //   *this = count;
+    //   array = OperatorNewNhMallocWrapper(36 * count + 4);
+    //   if (array) {
+    //       array[0] = count;
+    //       for (i = 0; i < count; i++) StructInitWithSentinels(array + 1 + 9*i);
+    //       this[1] = array + 1;
+    //   } else {
+    //       this[1] = 0;
+    //   }
+    //   if ((count == 0 || this[1] == 0) && StringSplitLoop(1, aDDevF119992002_4, 1025))
+    //       DebugLogWrite(&dword_8AD25C, aNoTireBrandsTb);
+    //   LinkedListPopFront_5f50(&unk_8AD3B0);
+    //   name = DirectoryEntryIterator(&unk_8AD3B0);
+    //   while (name) {
+    //       StringFormatWithBufferOverflowCheck(v18, "%s%s%s", dir, season, name);
+    //       TireBrandFileParser((char*)this[1] + off, v18);
+    //       off += 36;
+    //       if (!LinkedListNodePeek(&unk_8AD3B0)) break;
+    //       name = DirectoryEntryIterator(&unk_8AD3B0);
+    //   }
+    //   result = sub_565EB0(&unk_8AD3B0);
+    //   return (saved != 512) ? EmptyStub_7780(saved) : result;
+    // UNRESOLVED: The format-string globals aSS (0x005BE860, "%s%s") and aSSS_0 (0x005C6784, "%s%s%s") are described from the literals visible in source; the globals themselves are read as strings.
+    // UNRESOLVED: The guard combining StringSplitLoop with aDDevF119992002_4 (a hardcoded source path string) is transcribed but its trigger semantics are not proven.
+    // UNRESOLVED: The unk_8AD3B0 search-context structure and its exact layout shared with the directory helpers are unknown.
+    // UNRESOLVED: The 36-byte entry layout filled by StructInitWithSentinels and consumed by TireBrandFileParser is unknown.
+}

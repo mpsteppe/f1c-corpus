@@ -1,0 +1,55 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00489FD0
+// Canonical corpus name: UICustomRenderDispatch
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/UICustomRenderDispatch_00489fd0.c
+
+void UnknownObject::UICustomRenderDispatch()
+{
+    // Dispatches custom UI render elements. Walks a linked list of render nodes, resolves each node's driver/path name string through DriverNameStringHandler and StringArrayMatchSearch against a name array (with a global fallback name), then renders each node through vtable calls while accumulating output viewport bounds into the caller's out-parameters. Early-returns -1 when the row/column counts are invalid and 0 when the list is exhausted.
+    // ASSIGNMENT: Initialize the walk: count v7 = *(this+0x14C), list head v8 = *(this+0x90), counters v9 and v24 start at 0 [field:this:0x0000014C, field:this:0x00000090, source:raw]
+    // LOOP: Walk the linked list while the count v7 > 0 and the node is non-null: advance v8 = *(v8+0x8C), decrement v7, increment v9; afterwards v24 = v9 [field:this:0x0000014C, field:*(*(this+0x90)+0x8C):0x0000008C, field:*(*(*(this+0x90)+0x8C)+0x8C):0x0000008C, source:raw]
+    // CALL: sub_489D00((int*)a1) runs before the dispatch pass [callee:0x00489D00, source:raw]
+    // GUARD: When *(this+0x158) < 1 or *(this+0x16C) < 1 the function returns -1; the pass is gated on both counts being valid [field:this:0x00000158, field:this:0x0000016C, guard:0, guard:1, source:raw]
+    // ASSIGNMENT: Remaining node budget v27 = *(this+0x164) [field:this:0x00000164, source:raw]
+    // LOOP: Per-node dispatch loop runs while the current node v8 is non-null and the budget v27 > 0 [field:this:0x00000164, source:raw]
+    // CALCULATION: Row position v10 = *(this+0x4) + *(this+0x134) + *(this+0x13C) + v25 * *(this+0x158), kept in v26 [field:this:0x00000004, field:this:0x00000134, field:this:0x0000013C, field:this:0x00000158, source:raw]
+    // CALL: Virtual dispatch through the container vtable slot 24 (offset 0x18): if the slot-24 result is <= 0 then v29 = *(this+0x10), otherwise v29 is the slot result [field:this:0x00000000, field:obj:0x00000018, field:this:0x00000010, source:raw]
+    // GUARD: When v9 == *(this+0x168) the fallback item path is used: v12 = *(*(this+0xC8)+0x48); otherwise the per-node name path is used [field:this:0x00000168, field:this:0x000000C8, field:*(this+0xC8):0x00000048, source:raw]
+    // CALL: Node name path: name = *(node+0xA0) defaulting to byte_5EA438; when non-empty, DriverNameStringHandler(*(this+0x40), name) and StringArrayMatchSearch(*(this+0x40), name) decide whether the node name is accepted as v12 [field:*(*(this+0x90)+0x8C):0x000000A0, field:this:0x00000040, global:0x005EA438, callee:0x00497EC0, callee:0x00497F90, source:raw]
+    // CALCULATION: Fallback resolution: v12 = *(*(this+0xC8)+0x40); if it is still null it defaults to byte_5EA438 [field:*(this+0xC8):0x00000040, field:this:0x000000C8, global:0x005EA438, source:raw]
+    // CALL: sub_498560(*(this+0x40), v12) applies the resolved name/path string [callee:0x00498560, field:this:0x00000040, source:raw]
+    // ASSIGNMENT: Compute render geometry: v17 = *(this+0x140), v18 = v10 + *(this+0x158), v19 = v17 + *(this+0xC); mirror the byte flag *(this+0x131) into the node byte field at node+0xE4 [field:this:0x00000140, field:this:0x00000158, field:this:0x0000000C, field:this:0x00000131, field:*(*(this+0x90)+0x8C):0x000000E4, source:raw]
+    // CALL: ShortComputation_a9c0(node, v27, v18, v19, v29 - v17) computes the per-node render dimensions [callee:0x0049A9C0, source:raw]
+    // CALL: Node render dispatch through the node vtable slot 52 (offset 0x34): (*(node+0)+0x34)(node, &retaddr, &v32, &v31) [field:*(*(*(this+0x90)+0x8C)+0x0):0x00000034, field:*(*(this+0x90)+0x8C):0x00000000, source:raw]
+    // ASSIGNMENT: Accumulate output bounds into out-parameters a3/a4/a5/a6: a3 = min(v26), a4 = max(v18), a5 = min(v19), a6 = max(v28), with the accumulation gated on v25 [source:raw]
+    // LOOP: Advance to the next node v8 = *(v8+0x8C), decrement v27, increment v24 and v25; when v8 is null return 0, otherwise v9 = v24 and the dispatch loop repeats [field:*(*(this+0x90)+0x8C):0x0000008C, field:this:0x00000164, source:raw]
+    // RETURN: Return 0 when the list or budget is exhausted; the single recorded caller is F_2DSurfaceBlitWithViewportClipping (0048A240) [function:0x00489FD0, caller:0x0048A240, source:raw]
+
+    // Conservative worker pseudocode:
+    //   count = this[0x14C/4]; node = this[0x90/4]; depth = 0;
+    //   while (count > 0 && node) { node = node[0x8C/4]; --count; ++depth; }
+    //   sub_489D00(this);
+    //   if (this[0x158/4] < 1 || this[0x16C/4] < 1) return -1;
+    //   budget = this[0x164/4];
+    //   if (!node) return 0;
+    //   for (iter = 0; node && budget > 0; ++iter) {
+    //     row = this[0x4/4] + this[0x134/4] + this[0x13C/4] + iter * this[0x158/4];
+    //     if (vtable[24](this, arg) <= 0) d = this[0x10/4]; else d = vtable[24](this);
+    //     if (depth == this[0x168/4]) name = *(this[0xC8/4] + 0x48);
+    //     else { name = node[0xA0/4] || byte_5EA438;
+    //            if (strlen(name)) { DriverNameStringHandler(this[0x40/4], name);
+    //                                name = StringArrayMatchSearch(this[0x40/4], name) ? node[0xA0/4] : *(this[0xC8/4] + 0x40); } }
+    //     if (!name) name = byte_5EA438;
+    //     sub_498560(this[0x40/4], name);
+    //     node[0xE4/4] = this[0x131/4];
+    //     ShortComputation_a9c0(node, budget, row + this[0x158/4], this[0x140/4] + this[0xC/4], d - this[0x140/4]);
+    //     node_vtable[52](node, ...);
+    //     update a3/a4/a5/a6 bounds;
+    //     node = node[0x8C/4]; --budget;
+    //   }
+    //   return 0;
+    // UNRESOLVED: The exact meaning of the initial list-depth walk (v9) relative to the dispatch loop counter (v24/v25) is not documented in this function
+    // UNRESOLVED: The byte flag mirrored from this+0x131 into node+0xE4 has an unknown semantic role
+    // UNRESOLVED: Field evidence references use chained dereference bases (this+0x90 -> node -> node fields) that Hex-Rays renders as flat offsets in the raw source; the node-struct layout is reconstructed only at the DERIVED level
+}

@@ -1,0 +1,203 @@
+{
+  "schema_version": 1,
+  "address": "0x0059797B",
+  "proposed_name": "FileTruncateOrExtend",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "File-size fix-up routine (ftruncate-style): saves the current file position, seeks to the end to obtain the file size, then either truncates the file to lDistanceToMove via SetEndOfFile (shrink path) or extends it to that size by writing zero-filled 4096-byte chunks (grow path). Restores the original file position before returning. Uses TLS errno slots for failure codes and a bitfield save/restore around the grow path.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize return value v2 to 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FileSeekViaSetFilePointer(a1, 0, 1u): query and save the current file position into v12.",
+      "evidence_refs": ["callee:0x0058C789"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the position query returned -1, return -1 immediately.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FileSeekViaSetFilePointer(a1, 0, 2u): seek to end-of-file to read the file size.",
+      "evidence_refs": ["callee:0x0058C789"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the end seek returned -1, return -1 immediately.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the size delta v4 = lDistanceToMove - endFileSize.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If delta is <= 0 the file is not growing; branch into the shrink/equal path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If delta is < 0 the file is strictly shrinking; seek to target and truncate.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FileSeekViaSetFilePointer(a1, lDistanceToMove, 0): seek to the target size position.",
+      "evidence_refs": ["callee:0x0058C789"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_595A1F(a1): obtain the raw OS file handle for the descriptor.",
+      "evidence_refs": ["callee:0x00595A1F"]
+    },
+    {
+      "kind": "call",
+      "description": "SetEndOfFile(handle): truncate the file at the current position.",
+      "evidence_refs": ["global:0x0059E078"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Convert BOOL result v8 to v2 = v8 - 1 (0 on success, -1 on failure).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If SetEndOfFile failed (v8 == 0), record the failure in TLS error slots.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "TLSOffsetGetter(): store error code 13 into the primary TLS error slot.",
+      "evidence_refs": ["callee:0x0058AFCF"]
+    },
+    {
+      "kind": "call",
+      "description": "GetLastError(): retrieve the OS error code.",
+      "evidence_refs": ["global:0x0059E188"]
+    },
+    {
+      "kind": "call",
+      "description": "TLSOffsetGetter_afd8(): store the GetLastError result into the secondary TLS error slot.",
+      "evidence_refs": ["callee:0x0058AFD8"]
+    },
+    {
+      "kind": "calculation",
+      "description": "__alloca_probe: compiler stack probe that reserves and validates the 4096-byte extension buffer on the stack.",
+      "evidence_refs": ["callee:0x005881C0"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_58BB10(Buffer, 0, 0x1000): zero-fill the 4096-byte extension buffer.",
+      "evidence_refs": ["callee:0x0058BB10"]
+    },
+    {
+      "kind": "call",
+      "description": "BitfieldManager(a1, 0x8000): save the current bitfield flags (flag 0x8000) around the grow loop.",
+      "evidence_refs": ["callee:0x0059801A"]
+    },
+    {
+      "kind": "loop",
+      "description": "Loop until all v4 remaining bytes are written: emit 4096-byte (or fewer) zero chunks.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute chunk size v5 = min(v4, 4096).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_58E290(a1, Buffer, v5): write one zero chunk to extend the file.",
+      "evidence_refs": ["callee:0x0058E290"]
+    },
+    {
+      "kind": "guard",
+      "description": "If a write returned -1, break out of the loop as a failure.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Decrement the remaining delta: v4 -= bytesWritten.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the TLS secondary error slot equals 5 (access denied), promote to primary error code 13.",
+      "evidence_refs": ["callee:0x0058AFD8"]
+    },
+    {
+      "kind": "call",
+      "description": "TLSOffsetGetter(): store error code 13 into the primary TLS error slot.",
+      "evidence_refs": ["callee:0x0058AFCF"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Mark failure: v2 = -1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BitfieldManager(a1, savedFlags): restore the previously saved bitfield flags.",
+      "evidence_refs": ["callee:0x0059801A"]
+    },
+    {
+      "kind": "call",
+      "description": "FileSeekViaSetFilePointer(a1, v12, 0): restore the original file position.",
+      "evidence_refs": ["callee:0x0058C789"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v2: 0 on success, -1 on failure.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_59797B(int fd, LONG targetSize) {",
+    "  int ret = 0;",
+    "  LONG cur = FileSeekViaSetFilePointer(fd, 0, SEEK_CUR);",
+    "  if (cur == -1) return -1;",
+    "  LONG end = FileSeekViaSetFilePointer(fd, 0, SEEK_END);",
+    "  if (end == -1) return -1;",
+    "  int delta = targetSize - end;",
+    "  if (delta < 0) {",
+    "    FileSeekViaSetFilePointer(fd, targetSize, SEEK_SET);",
+    "    if (!SetEndOfFile((HANDLE)sub_595A1F(fd))) {",
+    "      *TLSOffsetGetter() = 13; *TLSOffsetGetter_afd8() = GetLastError(); ret = -1; }",
+    "  } else if (delta > 0) {",
+    "    sub_58BB10(buf, 0, 0x1000);",
+    "    LONG savedFlags = BitfieldManager(fd, 0x8000);",
+    "    while (delta > 0) {",
+    "      int n = delta < 4096 ? delta : 4096;",
+    "      int w = sub_58E290(fd, buf, n);",
+    "      if (w == -1) break;",
+    "      delta -= w;",
+    "    }",
+    "    if (delta > 0) { if (*TLSOffsetGetter_afd8() == 5) *TLSOffsetGetter() = 13; ret = -1; }",
+    "    BitfieldManager(fd, savedFlags);",
+    "  }",
+    "  FileSeekViaSetFilePointer(fd, cur, SEEK_SET);",
+    "  return ret;",
+    "}"
+  ],
+  "unresolved": [
+    "BitfieldManager flag 0x8000 semantics and why the flag state is saved/restored around the grow path are unknown.",
+    "The distinction between the two TLS error slots (TLSOffsetGetter vs TLSOffsetGetter_afd8) and the error-code-13 meaning are asserted by prior analysis only.",
+    "sub_58E290's exact write semantics (raw WriteFile vs buffered) are not established here.",
+    "sub_595A1F's handle derivation from the descriptor is not inspected."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

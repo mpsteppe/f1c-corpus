@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "address": "0x0049F870",
+  "proposed_name": "VehicleLabel2DRenderer",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0049F870"]
+  },
+  "summary": "Gather-and-draw 2D overlay labels for vehicles. Gated by byte_7CE254 (feature enabled); when labels are suppressed (this+0x8 toggle) or the session is active, it computes screen-space scaling and view bounds from global timing/scaling values, sweeps the active vehicle array at dword_5EF9A0 (stride 4656) up to dword_7C87A0, keeps vehicles whose projected position passes a ray/sphere intersection test and screen bounds, builds a distance-sorted linked list (MergeSort), and renders up to three text labels (name, position, timing gap) via F_2DTextRenderingWithScissorRectangle. Frees the gathered nodes afterwards. Called by ShortComputation_f070 (0049F070).",
+  "local_names": {
+    "this": "renderer state holding the label-enable toggle at +0x8",
+    "v34": "head of the gathered-vehicle linked list",
+    "v35": "tail pointer of the gathered-vehicle linked list",
+    "v37": "count of gathered visible vehicles",
+    "v33": "view distance / fade threshold (175.0 or 350.0 by session phase)",
+    "v45": "screen-space position of the projected vehicle",
+    "v18": "label-surface object found via WideStringLinkedListSearch",
+    "v46": "label text buffer"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Skip the whole render pass when byte_7CE254 is non-zero (feature disabled flag).",
+      "evidence_refs": ["global:0x007CE254", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Toggle the label-enable flag: when dword_7CC49C is set, flip this+0x8 between 0 and 1.",
+      "evidence_refs": ["global:0x007CC49C", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Render only when labels are enabled (this+0x8 non-zero) or when SessionStateCheck(dword_7CD25C) reports an active session.",
+      "evidence_refs": ["guard:0", "field:this:0x00000008", "callee:0x00461CD0", "global:0x007CD25C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute scale factors: v33 from ShortComputation_8490(&flt_5EA4E8) times dword_5D6D64 when positive, else 0.0; screen-space anchor from CollisionPenaltyScaler(&dword_7CD204, 4) times dword_5D6D64; view bounds from dword_5D6D60 and CRTFtol(dword_5D6D64), with a 0.05-fraction inner margin.",
+      "evidence_refs": ["callee:0x00408490", "callee:0x0045BE00", "callee:0x00587BDC", "global:0x005EA4E8", "global:0x007CD204", "global:0x005D6D60", "global:0x005D6D64", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Pick the view-distance threshold from session phase: SessionPhaseDecode(&dword_5EA510); phases 5-6 give 350.0, anything else 175.0; extra scale from ShortComputation_c910(&dword_5EA510).",
+      "evidence_refs": ["callee:0x0040CD60", "callee:0x0040C910", "global:0x005EA510", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Gather visible vehicles: iterate the active-vehicle array at dword_5EF9A0 (stride 4656 dwords, stopping at dword_7C87A0); for slots whose flag word (v6[1405]) has the render bit set, project the vehicle position from the offset fields (v6-2785/-2784/-2783), test it with RaySphereIntersectionTest against the view anchor and distance, and when it passes the screen bounds and depth > 3.0, allocate a 16-byte record plus a 12-byte list node (OperatorNewNhMallocWrapper) and append it to the gather list, counting in v37.",
+      "evidence_refs": ["callee:0x004DC960", "callee:0x00587C03", "global:0x005EF9A0", "global:0x007C87A0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If no vehicle was gathered (v37 == 0), free the (empty) list via LinkedListFree and skip rendering.",
+      "evidence_refs": ["callee:0x0049AF30", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Sort the gathered list by distance with MergeSort, then walk to its tail.",
+      "evidence_refs": ["callee:0x0049FEB0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Look up the reusable label-surface object via WideStringLinkedListSearch(off_5CCC10); when absent, free the list and return.",
+      "evidence_refs": ["callee:0x0053D1F0", "global:0x005CCC10", "callee:0x0049AF30", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Draw up to 3 labels over the sorted nodes: stop when the count or the per-frame time budget (derived from dword_5D6D64) is exhausted; per vehicle, when labels are forced (this+0x8) or TerrainHeightComparison(dword_7CD25C, vehicle+18580, -1.0) passes, compute the label size scale from normalized depth, build the text (name/position/flags via \"%d %s (%d)\" or plain \"%s\" depending on dword_7C56A4 == 7 and dword_7D0398, plus a \" [%d ms]\" timing gap appended when SessionStateCheck and the vehicle's +13000 field equals 2), then F_2DTextRenderingWithScissorRectangle.",
+      "evidence_refs": ["guard:0", "callee:0x004624E0", "callee:0x0058815F", "callee:0x00461CD0", "callee:0x00462530", "callee:0x00587BDC", "callee:0x0049B370", "global:0x005C2C18", "global:0x005CCFCC", "global:0x005CCFD8", "global:0x007C56A4", "global:0x007D0398", "global:0x007CD25C", "global:0x005D6D60", "global:0x005D6D64", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Restore the label surface's saved size fields (object+92/+96) and free the gather list, releasing the 16-byte record payloads via FreeWrapper_7bcf when the node flag requests it.",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the last status byte v1 (0 on the suppressed/empty paths, otherwise the value left by the final free).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char sub_49F870(byte* this) {",
+    "  if (byte_7CE254) return ...;",
+    "  if (dword_7CC49C) this[8] = (this[8] == 0);",
+    "  if (!this[8] && !SessionStateCheck(dword_7CD25C)) return ...;",
+    "  ... compute scale v33, view bounds v31/v38/v39/v40/v41 from dword_5D6D60/dword_5D6D64 ...",
+    "  v33 = (phase >= 5 && phase <= 6) ? 350.0 : 175.0;",
+    "  for (v6 = dword_5EF9A0; v6 < dword_7C87A0; v6 += 4656) {",
+    "    if (slot active && (v6[1405] & 2) && RaySphereIntersectionTest(project(v6), &anchor, v33))",
+    "      if (inside screen bounds && depth > 3.0) append node to gather list;",
+    "  }",
+    "  if (!count) { LinkedListFree(&list); return; }",
+    "  MergeSort(list); surface = WideStringLinkedListSearch(off_5CCC10);",
+    "  if (!surface) { LinkedListFree(&list); return; }",
+    "  for (node in sorted list, up to 3, within time budget) {",
+    "    if (this[8] || TerrainHeightComparison(dword_7CD25C, vehicle+18580, -1.0)) {",
+    "      build label text (name / name+position / name+ms gap);",
+    "      F_2DTextRenderingWithScissorRectangle(node, text, &scale, surface, depth, !this[8]);",
+    "    }",
+    "  }",
+    "  restore surface size; free gather list;",
+    "}"
+  ],
+  "unresolved": [
+    "Ten read-only float globals (flt_59E440, flt_59E444, flt_59E448, flt_59E478, flt_59E874, flt_59E970, flt_59F0C0, flt_59F124, flt_5A68E8, dbl_5ACB18) are flagged by packet facts but never appear in the raw decompiled source; their roles cannot be verified from this packet.",
+    "dword_8AFE64 is flagged as read by packet facts but absent from the raw source.",
+    "The vehicle array stride (4656) and the offset fields used for projection (+11140/+11136 area) are reached by relative pointer arithmetic; the underlying struct layout is not defined here.",
+    "Return value semantics of the final byte are unclear on paths that end in a free rather than an assignment.",
+    "off_5CCC10 label-surface object type and the meaning of its +92/+96 fields are unknown."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E448",
+    "global:0x0059E478",
+    "global:0x0059E874",
+    "global:0x0059E970",
+    "global:0x0059F0C0",
+    "global:0x0059F124",
+    "global:0x005A68E8",
+    "global:0x005ACB18",
+    "global:0x008AFE64"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

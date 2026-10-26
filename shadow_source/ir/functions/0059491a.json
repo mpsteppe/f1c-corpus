@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "address": "0x0059491A",
+  "proposed_name": "initializeSlabBuddyAllocator",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Initializes a slab/buddy-style allocator. If dword_5E7978 == -1 the allocator context v0 is the static pool &off_5E7968; otherwise v0 = HeapAlloc(hHeap, 0, 0x2020). On allocation failure returns 0. Reserves a 0x400000-byte region with VirtualAlloc(0, 0x400000, 0x2000, 4); on failure frees the heap context and returns 0. Commits 0x10000 bytes with VirtualAlloc(v1, 0x10000, 0x1000, 4); on failure calls VirtualFree(v2, 0, 0x8000), frees the context, and returns 0. Links the context into a free list: static-pool case self-links off_5E7968/off_5E796C, heap case inserts v0 between off_5E7968 and off_5E796C. Initializes context header fields (v0[2..5]), fills a 1024-entry x 2-word free-list table, zeroes the committed region via sub_58BB10, and walks 1024-byte slabs setting header words. Returns the context pointer v0.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If dword_5E7978 == -1, use the static pool; otherwise heap-allocate the allocator context",
+      "evidence_refs": ["global:0x005E7978", "abi:lead", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v0 = &off_5E7968 (static pool context)",
+      "evidence_refs": ["global:0x005E7968"]
+    },
+    {
+      "kind": "call",
+      "description": "v0 = HeapAlloc(hHeap, 0, 0x2020) — allocate 0x2020-byte allocator context from the private heap",
+      "evidence_refs": ["global:0x0059E1C0", "global:0x008D4904"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v0 == 0 (HeapAlloc failed), return 0",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "v1 = VirtualAlloc(0, 0x400000, 0x2000, 4) — reserve 0x400000-byte virtual address region",
+      "evidence_refs": ["global:0x0059E0A0"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v1 == 0, free heap context (if not static pool) and return 0",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "VirtualAlloc(v1, 0x10000, 0x1000, 4) — commit initial 0x10000 bytes of the reservation",
+      "evidence_refs": ["global:0x0059E0A0"]
+    },
+    {
+      "kind": "call",
+      "description": "On commit failure: VirtualFree(v2, 0, 0x8000) — release the reservation",
+      "evidence_refs": ["global:0x0059E0A4"]
+    },
+    {
+      "kind": "call",
+      "description": "On failure cleanup: HeapFree(hHeap, 0, v0) — free heap-allocated context when not the static pool",
+      "evidence_refs": ["global:0x0059E1BC", "global:0x008D4904"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Static-pool case: if off_5E7968 is 0 set it to &off_5E7968; if off_5E796C is 0 set it to &off_5E7968 (self-linked list head)",
+      "evidence_refs": ["global:0x005E7968", "global:0x005E796C"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Heap case: insert v0 into the list — v0[0] = &off_5E7968, v0[1] = off_5E796C, off_5E796C = v0, *(v0[1]) = v0",
+      "evidence_refs": ["global:0x005E7968", "global:0x005E796C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v0[5] = v2 + 0x100000 (end/limit pointer of the arena)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v0[3] = v0 + 38 (pointer into the context's own embedded table)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v0[4] = v2 (base pointer of the committed arena)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v0[2] = v0 + 6 (start of the free-list table)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Fill the 1024-entry x 2-word free-list table (v3 starting at v0+6): entry value is 240 while index < 16 else -1; second word always 241; advance 2 words per iteration",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_58BB10(v2, 0, 0x10000) — zero-initialize the committed 0x10000-byte region",
+      "evidence_refs": ["callee:0x0058BB10"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk 1024-byte slabs from v2 while v2 < v0[4] + 0x10000: set slab header byte at +248 to -1, word at +0 to next-slab pointer (v2 + 2), word at +4 to 240; advance by 1024 bytes",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v0 (allocator context pointer)",
+      "evidence_refs": ["function:0x0059491A", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int* initializeSlabBuddyAllocator() {",
+    "    int* ctx;",
+    "    if (dword_5E7978 == -1) ctx = &off_5E7968;",
+    "    else {",
+    "        ctx = HeapAlloc(hHeap, 0, 0x2020);",
+    "        if (!ctx) return 0;",
+    "    }",
+    "    int* arena = VirtualAlloc(0, 0x400000, 0x2000, 4);",
+    "    if (!arena) { if (ctx != &off_5E7968) HeapFree(hHeap, 0, ctx); return 0; }",
+    "    if (!VirtualAlloc(arena, 0x10000, 0x1000, 4)) {",
+    "        VirtualFree(arena, 0, 0x8000);",
+    "        if (ctx != &off_5E7968) HeapFree(hHeap, 0, ctx);",
+    "        return 0;",
+    "    }",
+    "    if (ctx == &off_5E7968) {",
+    "        if (!off_5E7968) off_5E7968 = &off_5E7968;",
+    "        if (!off_5E796C) off_5E796C = &off_5E7968;",
+    "    } else {",
+    "        ctx[0] = &off_5E7968; ctx[1] = off_5E796C; off_5E796C = ctx; *(int*)ctx[1] = ctx;",
+    "    }",
+    "    ctx[5] = arena + 0x100000; ctx[3] = ctx + 38; ctx[4] = arena; ctx[2] = ctx + 6;",
+    "    int* e = ctx + 6;",
+    "    for (int i = 0; i < 1024; i++) { e[0] = (i < 16) ? 240 : -1; e[1] = 241; e += 2; }",
+    "    sub_58BB10(arena, 0, 0x10000);",
+    "    for (char* p = arena; p < (char*)ctx[4] + 0x10000; p += 1024) {",
+    "        *(p + 248) = -1; *(int*)p = p + 8; *(int*)(p + 4) = 240;",
+    "    }",
+    "    return ctx;",
+    "}"
+  ],
+  "unresolved": [
+    "Exact semantics of dword_5E7978 marker and the static pool off_5E7968/off_5E796C list role are DERIVED-level; not independently verified.",
+    "sub_58BB10 is treated as a zero-fill routine here per the raw source call signature; its implementation is not analyzed in this packet.",
+    "Allocator owner class unknown; the free-list table layout (which entry maps to which block size) is not established."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x0059325D",
+    "caller:0x00594C12"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

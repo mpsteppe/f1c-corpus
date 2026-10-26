@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0040F130
+// Canonical corpus name: StateDependentUpdateDispatch
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/StateDependentUpdateDispatch_0040f130.c
+
+void UnknownObject::StateDependentUpdateDispatch()
+{
+    // State-ranged dispatch on a UI/input-style object. Reads the state selector at this+0x1C and only proceeds through the update path for states 0-5; any other state returns immediately with the unmodified selector value. On the update path it transforms coordinate data, then branches on a sentinel check of the first DWORD: when this+0x0 equals -1 it runs the nested-loop path, otherwise it runs two arithmetic/processing helpers, and it always finishes with a final processing call whose result is returned.
+    // ASSIGNMENT: Read the state selector from this+0x1C; this value drives the switch dispatch. [field:this:0x0000001C, source:raw]
+    // GUARD: Switch on the state selector via the jump table at jpt_40F13B: only states 0-5 continue to the update path; the default path returns immediately with the raw selector value. [global:0x0040F19C, field:this:0x0000001C, source:raw]
+    // CALL: On the update path, transform coordinate data at this+0xC (this + 3 DWORDs) via FloatDoubleCoordinateTransform. [callee:0x00459830, source:raw]
+    // GUARD: Sentinel check: if the first DWORD of this equals -1 (0xFFFFFFFF), take the nested-loop path instead of the normal processing path. [guard:0, field:this:0x00000000, source:raw]
+    // CALL: When in the sentinel state (this+0x0 == -1), run NestedLoopCall on this. [callee:0x004BE180, source:raw]
+    // CALL: When not in the sentinel state, run sub_410AF0 on this. [callee:0x00410AF0, source:raw]
+    // CALL: When not in the sentinel state, run ArithmeticComparison_df90 on this. [callee:0x004BDF90, source:raw]
+    // CALL: Final processing step sub_4BE010 runs on this after either branch; its result becomes the function result. [callee:0x004BE010, source:raw]
+    // RETURN: Return the result of the final processing call, or the unmodified state selector when the state guard rejected the dispatch. [field:this:0x0000001C, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_40F130(_DWORD *this) {
+    //     int state = this[7]; /* this + 0x1C * /
+    //     switch (state) {
+    //     case 0: case 1: case 2: case 3: case 4: case 5:
+    //       FloatDoubleCoordinateTransform(this + 3);
+    //       if (*this == -1) NestedLoopCall(this);
+    //       else { sub_410AF0(this); ArithmeticComparison_df90(this); }
+    //       return sub_4BE010(this);
+    //     default:
+    //       return state;
+    //     }
+    //   }
+    // UNRESOLVED: The semantics of the state selector values at this+0x1C beyond the 0-5 range are unknown.
+    // UNRESOLVED: The meaning of the sentinel state this+0x0 == -1 (and how the object gets into it) is not established.
+    // UNRESOLVED: Read globals dword_5EA560 and dword_8AB710 do not appear in the raw body; they are likely forwarded to one of the callees.
+}

@@ -1,0 +1,33 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0042DD80
+// Canonical corpus name: WeightedDataLookup
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/WeightedDataLookup_0042dd80.c
+
+void UnknownObject::WeightedDataLookup()
+{
+    // Looks up a weighted ratio from a 1D data table indexed by a2. Returns 0.0 when the index is negative, >= the data count at this+0x8, the indexed base value is non-positive, or the divisor at this+0x10 is non-positive. Otherwise returns (scale * weight) / (base * divisor), where scale is at this+0x14 and each table entry at this+0xC holds a base value and a weight 8 bytes apart. Called by AIPathNodeDelegate (0x0042ED30).
+    // GUARD: Reject a negative index: return the 0.0 sentinel (constant at dbl_59E430) when a2 < 0. [global:0x0059E430, source:raw]
+    // GUARD: Reject an out-of-range index: return the 0.0 sentinel when a2 >= this[0x8] (the data count). [field:this:0x00000008, global:0x0059E430, source:raw]
+    // ASSIGNMENT: Load the data-array pointer v2 = this[0xC] and the indexed entry's base value v3 = *(v2 + 8*a2); the 8*a2 stride implies 8-byte entries with the base value at offset 0. [field:this:0x0000000C, source:raw]
+    // GUARD: Reject a non-positive base value: return the 0.0 sentinel when v3 <= 0. [global:0x0059E430, source:raw]
+    // GUARD: Reject a non-positive divisor: return the 0.0 sentinel when this[0x10] <= 0. [field:this:0x00000010, global:0x0059E430, source:raw]
+    // CALCULATION: Compute and return (double)(this[0x14] * *(v4 + 4)) / (double)(v3 * this[0x10]): scale factor times the entry's weight value, divided by base value times divisor. [field:this:0x00000014, source:raw]
+
+    // Conservative worker pseudocode:
+    //   double WeightedDataLookup(int* this, int index) {
+    //     if (index < 0) return 0.0;
+    //     if (index >= this[2]) return 0.0;             /* 0x08 data count * /
+    //     int* entry = (int*)this[3];                  /* 0x0C data array * /
+    //     int base = entry[2 * index];
+    //     if (base <= 0) return 0.0;
+    //     int divisor = this[4];                       /* 0x10 divisor * /
+    //     if (divisor <= 0) return 0.0;
+    //     int weight = entry[2 * index + 1];
+    //     return (double)(this[5] * weight) / (double)(base * divisor);  /* 0x14 scale * /
+    //   }
+    // UNRESOLVED: The roles of the entry fields as base/weight and of this+0x10/0x14 as divisor/scale are DERIVED from the arithmetic shape; the packet does not name them.
+    // UNRESOLVED: The 8-byte entry layout (base at +0, weight at +4) is DERIVED from the 8*a2 stride and the +4 read.
+    // UNRESOLVED: dbl_59E430 is read as the 0.0 return sentinel per existing analysis (ZeroSentinel); its identity is otherwise unexplained.
+    // UNRESOLVED: The relationship of the caller AIPathNodeDelegate (0x0042ED30) to this lookup table is unknown.
+}

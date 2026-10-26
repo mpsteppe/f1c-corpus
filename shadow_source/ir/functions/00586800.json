@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "address": "0x00586800",
+  "proposed_name": "MultiBlockBitfieldEncoder",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00586800"]
+  },
+  "summary": "Encodes up to four bitfield blocks (j, a3, a5, a6) into a bitmap byte array. Each block reads a bit count and start index from a metadata table (this+0x1C) using per-block table indices (this+0x34, +0x38, +0x40, +0x44), builds a full bitmask from the count, intersects it with the incoming value, and then set/clears the bitmap bits via IndexToBitmaskConversion (first block) or BitSetClearOperation (blocks 2-4); block four's bitmask is produced by ComputeBitmaskFromBitmapEntryCount. Returns the result of BitfieldEncoder for this+0x3C with the a4 flag.",
+  "local_names": {
+    "this": "bitmap-encoder object; this+0x14 is the bitmap byte array base, this+0x1C the metadata table",
+    "j": "first block value, reused as the per-bit scratch register throughout",
+    "a3": "second block value",
+    "a5": "third block value",
+    "a6": "fourth block value",
+    "a4": "boolean flag forwarded to BitfieldEncoder",
+    "v40": "alias of this held across the bitfield writes",
+    "v9": "this+5 (DWORD*), base for the bitmap byte-array pointer at *v9"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "First block: read metadata entry at this+0x1C + 4*this+0x34; the 16-bit word at +2 is the bit count v10 and the word at +0 is the start index",
+      "evidence_refs": ["field:this:0x0000001C", "field:this:0x00000034", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "First block: build bitmask v12 = (1 << v10) - 1 over the count, then intersect with parameter j into v43 = j & v12",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "First block: for each of the v10 bits, call IndexToBitmaskConversion to translate the array index into a byte offset written through &v41, read the bitmap byte at this+0x14 base + v41, and OR the incoming bit when ((1<<v14) & v43) else AND with its complement, then write the byte back",
+      "evidence_refs": ["field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "IndexToBitmaskConversion(i - v14, &v41, &j) maps each first-block array index to its bitmap byte offset",
+      "evidence_refs": ["callee:0x00585E80", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Second block: read metadata entry at this+0x1C + 4*this+0x38 for bit count v20 and start index, and build the mask v22 = (1 << v20) - 1 intersected with a3",
+      "evidence_refs": ["field:this:0x0000001C", "field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Second block: for each bit, BitSetClearOperation(index, ((1<<v23) & v24) != 0) sets or clears the bit at the decoded index",
+      "evidence_refs": ["callee:0x00586F70", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Third block: read metadata entry at this+0x1C + 4*this+0x40 (bit count v27, start index) and build the mask v29 = (1 << v27) - 1 intersected with a5",
+      "evidence_refs": ["field:this:0x0000001C", "field:this:0x00000040", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Third block: for each bit, BitSetClearOperation(index, ((1<<v31) & v32) != 0) sets or clears the bit",
+      "evidence_refs": ["callee:0x00586F70", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Fourth block: ComputeBitmaskFromBitmapEntryCount(this+0x44, &j) derives the bitmask from the bitmap entry count for parameter a6",
+      "evidence_refs": ["callee:0x00586F40", "field:this:0x00000044", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Fourth block: iterate the v37 bits decoded from the entry at this+0x1C + 4*this+0x44, calling BitSetClearOperation(v38 - v35, (j & (1 << v35)) != 0) for each",
+      "evidence_refs": ["field:this:0x0000001C", "field:this:0x00000044", "callee:0x00586F70", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "BitfieldEncoder(this+0x3C, a4 != 0) produces the returned result; callers include AnimationTimingUpdateWithParamSet (0x0057A5A0), NetworkSendDispatch (0x0057A6A0), NetworkSessionStart (0x0057F2B0) and six other network/vtable-dispatch paths",
+      "evidence_refs": ["callee:0x00586FA0", "field:this:0x0000003C", "caller:0x0057A5A0", "caller:0x0057A6A0", "caller:0x0057BF00", "caller:0x0057DBB0", "caller:0x0057F2B0", "caller:0x00580DE0", "caller:0x00584230", "caller:0x00585870", "caller:0x005878A0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "enc(idx) { return ((uint16)tab[idx*4+2], (uint16)tab[idx*4]); }",
+    "cnt,base = enc(this[13]); mask = cnt ? ((1<<cnt)-1) : 0; sel = j & mask;",
+    "for (k = 0; k < cnt; k++) {",
+    "  IndexToBitmaskConversion(base + cnt - 1 - k, &off, &j);",
+    "  p = bitmap + off;",
+    "  *p = ((1<<k) & sel) ? (j | *p) : (~(uint8)j & *p);",
+    "}",
+    "cnt,base = enc(this[14]); mask = cnt ? ((1<<cnt)-1) : 0; sel = a3 & mask;",
+    "for (k = 0; k < cnt; k++) BitSetClearOperation(base + cnt - 1 - k, ((1<<k) & sel) != 0);",
+    "cnt,base = enc(this[16]); mask = cnt ? ((1<<cnt)-1) : 0; sel = a5 & mask;",
+    "for (k = 0; k < cnt; k++) BitSetClearOperation(base + cnt - 1 - k, ((1<<k) & sel) != 0);",
+    "j = a6;",
+    "ComputeBitmaskFromBitmapEntryCount(this[17], &j);",
+    "cnt,base = enc(this[17]);",
+    "for (k = 0; k < cnt; k++) BitSetClearOperation(base + cnt - 1 - k, (j & (1<<k)) != 0);",
+    "return BitfieldEncoder(this[15], a4 != 0);"
+  ],
+  "unresolved": [
+    "No packet guard evidence exists for this function; all control flow is loop/mask driven",
+    "The exact semantics of the metadata table entry layout (bit count at +2, start index at +0 per 4-byte entry) is DERIVED from usage, not stated by packet facts",
+    "The meaning of the BitfieldEncoder result (this+0x3C) is opaque from this packet; the a4 flag role is unconfirmed"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

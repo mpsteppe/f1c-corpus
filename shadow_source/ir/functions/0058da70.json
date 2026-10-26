@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "address": "0x0058DA70",
+  "proposed_name": "FloatDisplayControlWordAndDispatch",
+  "owner": {
+    "type": "MSVCRTInternal",
+    "trust": "DERIVED",
+    "evidence_refs": ["abi:lead", "function:0x0058DA70"]
+  },
+  "summary": "Legacy MSVC CRT float-display control-word and dispatch helper (ABI lead name 'trandisp1'). Selects an x87 FPU control word based on the format-mode byte at a1+14 (mode 5 selects control word 63, otherwise 4927), points EBX at the unk_5E6C6C translation table, examines ST0 with fxam, records caller state into a caller-provided buffer (a3), then builds a dispatch byte via ROL1((2 * byte(a3-159)) >> 1, 1) & 0xF and calls through the virtual table at a1+16 with argument a2 & 0x404. Part of CRT float-formatting infrastructure rather than game logic.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Test the format-mode byte at this+0xE (a1+14) for equality with 5; the branch selects which FPU control word is installed.",
+      "evidence_refs": ["guard:0", "field:this:0x0000000E", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the FPU control word to the caller buffer at (a3-162): when mode is 5, high byte is HIBYTE(*(a3-164)) & 0xFC | 2 with low byte 63; otherwise the word is 4927.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set EBX to &unk_5E6C6C, the base of the xlat translation table used to map the dispatch byte to a vtable slot index.",
+      "evidence_refs": ["global:0x005E6C6C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store caller state into the buffer: a1 into (a3-148), FPU status word a4 into (a3-160), and byte 0 into (a3-144).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the dispatch byte as ROL1((char)(2 * *(a3-159)) >> 1, 1) then mask to the low nibble with a2 & 0xF; feed it to xlat using the unk_5E6C6C table.",
+      "evidence_refs": ["global:0x005E6C6C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Indirect __thiscall through the virtual table at (a1+16), slot selected by the translated dispatch byte, with argument a2 & 0x404; return its result.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the value produced by the vtable dispatch call.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called by Cintrindisp1 (0x0059067E) and Ctrandisp1CRTFloatDisplayFormat (0x0059083B) as part of the CRT float-display path.",
+      "evidence_refs": ["caller:0x0059067E", "caller:0x0059083B"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int FloatDisplayControlWordAndDispatch(int a1, __int16 a2, int a3, __int16 fpcw, double st0) {",
+    "  __int16 cw;",
+    "  if (*(char*)(a1 + 14) == 5) {",
+    "    cw = (HIBYTE(*(short*)(a3 - 164)) & 0xFC | 2) << 8 | 63;",
+    "  } else {",
+    "    cw = 4927;",
+    "  }",
+    "  *(short*)(a3 - 162) = cw;",
+    "  EBX = &unk_5E6C6C;",
+    "  fxam;",
+    "  *(int*)(a3 - 148) = a1;",
+    "  *(short*)(a3 - 160) = fpcw;",
+    "  *(char*)(a3 - 144) = 0;",
+    "  unsigned char idx = ROL1((char)(2 * *(char*)(a3 - 159)) >> 1, 1) & 0xF;",
+    "  xlat idx via unk_5E6C6C;",
+    "  return (*(void (__thiscall **)(int))(idx + a1 + 16))(a2 & 0x404);",
+    "}"
+  ],
+  "unresolved": [
+    "unk_5E6C6C is treated as an xlat translation table [DERIVED]; its layout and the meaning of translated slot indices are not established.",
+    "Semantics of the virtual dispatch at (a1+16) and of the argument a2 & 0x404 are unknown; this is CRT float-formatting machinery.",
+    "The exact role of the fxam on ST0 and how it interacts with the caller-provided buffer is not captured by the raw source snippet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

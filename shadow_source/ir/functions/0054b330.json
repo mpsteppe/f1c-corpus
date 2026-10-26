@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "address": "0x0054B330",
+  "proposed_name": "ClearBitmaskRecursive",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Recursive bitmask clear over a scene-graph-like node chain. Each pass clears the current node's own flag mask (this[15] &= ~a2), then, when a3 is non-zero, clears a3's bits from the mask of every node in the child chain rooted at this[129] (offset 0x204): the head node's mask at +0x14 and each following node's mask at +0x14, walking via the +0x10 link. If the recursion flag this[17] (offset 0x44) is set it recurses into the current node with BitmaskClear(a2, a3, 1); it then follows the sibling pointer this[19] (offset 0x4C) while the depth argument a4 keeps the outer loop alive.",
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Outer iteration over the current node and then its sibling chain: continue while a4 is non-zero and a next sibling exists at this[19] (offset 0x4C); each sibling pass forces a4 to 1.",
+      "evidence_refs": ["field:this:0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the current node's own flag bits: this[15] &= ~a2 at offset 0x3C.",
+      "evidence_refs": ["field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Only touch the child chain when the child-mask argument a3 is non-zero.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read the child chain head pointer at this[129] (offset 0x204); if non-null, clear a3's bits from the head node's mask at offset 0x14.",
+      "evidence_refs": ["field:this:0x00000204", "field:*(*(this+0x214)+0x10):0x00000014", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the child chain: start from the link at offset 0x10 of the head, and for each node clear its mask at offset 0x14, advancing through the link stored at offset 0x10 until null.",
+      "evidence_refs": ["field:*(*(this+0x214)+0x10):0x00000010", "field:*(*(this+0x214)+0x10):0x00000014", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the recursion flag this[17] (offset 0x44) is non-zero, recurse into the current node.",
+      "evidence_refs": ["field:this:0x00000044", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Tail-recursive self-call BitmaskClear(a2, a3, 1) to clear the current node's children.",
+      "evidence_refs": ["callee:0x0054B330", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Stop the outer loop when the depth argument a4 is zero, and stop after a sibling pass when the next pointer this[19] (offset 0x4C) is null.",
+      "evidence_refs": ["field:this:0x0000004C", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void ClearBitmaskRecursive(DWORD* this, int mask, int childMask, int depth) {",
+    "  for (;;) {",
+    "    this[15] &= ~mask;               // offset 0x3C",
+    "    if (childMask) {",
+    "      DWORD* head = this[129];       // offset 0x204",
+    "      if (head) {",
+    "        *(DWORD*)((BYTE*)head + 20) &= ~childMask;              // offset 0x14",
+    "        for (DWORD* n = *(DWORD*)((BYTE*)head + 16); n; n = *(DWORD*)((BYTE*)n + 16))  // link at 0x10",
+    "          *(DWORD*)((BYTE*)n + 20) &= ~childMask;              // mask at 0x14",
+    "      }",
+    "    }",
+    "    if (this[17]) ClearBitmaskRecursive(this, mask, childMask, 1);  // offset 0x44",
+    "    if (!depth) break;",
+    "    this = this[19];                 // offset 0x4C",
+    "    if (!this) break;",
+    "    depth = 1;",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The two read fields at this+0x214 and this+0x218 are listed by the deterministic field extraction but do not appear in the visible decompiled body; their role is unresolved.",
+    "The base expression *(*(this+0x214)+0x10) attached to the child-chain 0x10/0x14 field refs does not literally match the source's this[129] (offset 0x204) head dereference; whether they describe the same structure or a second one is unresolved.",
+    "Semantic meaning of the masks a2 and a3 (likely scene-graph visibility / render flags) is not established by this function."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000214",
+    "field:this:0x00000218"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

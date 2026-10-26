@@ -1,0 +1,1679 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_001_generic_runtime_objects_05",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Per-frame and lifecycle management of runtime objects: per-vehicle scene render update, starting-grid slot allocation and grid-data dispatch, telemetry session output, steward post-race cleanup, render/UI-widget state control, subsystem-slot lifecycle, vibration/force-feedback, brake-thermal and aerodynamic physics helpers, position tracking, race-start countdown, and shared level-gated debug logging.",
+    "trust": "GUESS",
+    "evidence_refs": [
+      "function:0x004C6D90",
+      "function:0x004C6F10",
+      "function:0x004D10E0",
+      "function:0x004D1100",
+      "function:0x004D1140",
+      "function:0x004D1CF0",
+      "function:0x004D4600",
+      "function:0x004D4A80",
+      "function:0x004D7570",
+      "function:0x004D7A50",
+      "function:0x004D7AA0",
+      "function:0x004DD7C0",
+      "function:0x004E0ED0",
+      "function:0x004E17C0",
+      "function:0x004E2230",
+      "function:0x004E87E0",
+      "function:0x004E8B80",
+      "function:0x004E9630",
+      "function:0x004EF930",
+      "function:0x004EFAC0"
+    ]
+  },
+  "summary": "DERIVED-source architecture proposal for a grab-bag of generic runtime objects. SceneRenderUpdate (0x004C6D90, VehicleObject, DERIVED) is the per-frame entry point; it drives a starting-grid data-dispatch chain (0x004D10E0/0x004D1100/0x004D1140) backed by the grid-slot allocator 0x004C6F10, all reading the setup-scene array dword_5EA2C0. TelemetrySession (0x004D4A80, DERIVED) writes a CSV-style session file with a fixed header, checksums and XOR-decoded driver data. Steward_Post (0x004D4600) tears down audio/comparison/camera state and resets every vehicle substate. UpdateRenderState (0x004E0ED0, VehicleRenderStateController, DERIVED) drives HUD widget visibility by render mode 0-3. A cluster of physics helpers (0x004E87E0, 0x004E8B80, 0x004E9630) reads a shared this+0x34xx..0x3Dxx region. VibrationStateMachine (0x004E2230) is an OFF/LOW/HIGH magnitude-gated force-feedback machine. SplitPathAndWriteDebugLog + DebugLogWrite (0x004D7A50/0x004D7AA0) form a level-gated debug log service. Most owners are UNKNOWN in the packet and are grouped into GUESS classes on shared-field evidence only.",
+  "function_roles": [
+    {
+      "address": "0x004C6D90",
+      "role": "Per-vehicle scene render update on the frame path: resets respawn state, applies large physics-config constants, delegates to a global-instance callback, dispatches grid-position and render data through the grid dispatch chain, initializes the AI driver struct, runs the vehicle frame update, clears render-flag bit 23 at +0x48B4, updates force feedback on the global base, and runs a collision wrapper when the session-time threshold is not positive.",
+      "owner": "VehicleObject",
+      "evidence_refs": [
+        "function:0x004C6D90",
+        "source:raw",
+        "field:this:0x000048B4",
+        "callee:0x004E0800",
+        "callee:0x004E45B0",
+        "callee:0x00410B60",
+        "global:0x005EA560",
+        "callee:0x004BB810",
+        "callee:0x004D10E0",
+        "callee:0x004D1100",
+        "callee:0x004D1140",
+        "callee:0x004D1180",
+        "callee:0x004EF7C0",
+        "callee:0x00424790",
+        "callee:0x004C6B60",
+        "callee:0x004D1670",
+        "global:0x008ACEE0",
+        "global:0x005EA408",
+        "callee:0x004E4910"
+      ]
+    },
+    {
+      "address": "0x004C6F10",
+      "role": "Starting-grid slot allocator: seeds the slot index from this+0x48A4 = this+0x4894 modulo 52, scans up to 52 slots for an unoccupied one, derives a column-order permutation from this+0x4710, copies the slot position from the setup scene, checks the live vehicle array for a peer occupant of the same slot/column pair, falls back to a rescan, and writes -1 to both indices on failure.",
+      "owner": "VehicleGridPositionManager",
+      "evidence_refs": [
+        "function:0x004C6F10",
+        "field:this:0x00004894",
+        "field:this:0x000048A4",
+        "callee:0x004D1410",
+        "callee:0x00588410",
+        "field:this:0x00004710",
+        "global:0x007D0B40",
+        "callee:0x00403F70",
+        "global:0x005EA2C0",
+        "callee:0x00404030",
+        "field:this:0x000048A8",
+        "global:0x005C329C",
+        "global:0x007C54F0",
+        "callee:0x00403FC0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004D10E0",
+      "role": "Thin grid-data dispatch: reads the dword at this+0x4058, decrements it by 1, and forwards it as the index argument to the setup-scene array accessor along with dword_5EA2C0 and two passthrough pointers; returns that callee's result unchanged.",
+      "owner": "VehicleGridPositionManager",
+      "evidence_refs": [
+        "function:0x004D10E0",
+        "field:this:0x00004058",
+        "global:0x005EA2C0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004D1100",
+      "role": "Conditional grid-position sync: when the signed grid index at this+0x48A4 is negative (unallocated) it recalculates via 0x004C6F10, then copies grid-slot data from the setup-scene array via ArrayOfStructIndexedFieldCopy and returns that copy's result.",
+      "owner": "VehicleGridPositionManager",
+      "evidence_refs": [
+        "function:0x004D1100",
+        "guard:0",
+        "field:this:0x000048A4",
+        "callee:0x004C6F10",
+        "callee:0x00403F70",
+        "global:0x005EA2C0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004D1140",
+      "role": "Guarded render-data read: when the grid index at this+0x48A4 is negative it allocates a grid position via 0x004C6F10, then reads indexed struct data from the setup scene via IndexedStructDataRead(dword_5EA2C0, this+0x48A4, this+0x48A8, a2, a3) and returns its result.",
+      "owner": "VehicleGridPositionManager",
+      "evidence_refs": [
+        "function:0x004D1140",
+        "guard:0",
+        "field:this:0x000048A4",
+        "callee:0x004C6F10",
+        "callee:0x00403FC0",
+        "global:0x005EA2C0",
+        "field:this:0x000048A8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004D1CF0",
+      "role": "Ring-buffer element accessor: truncates a float index scaled by this+0x108, wraps a negative index by adding the buffer size at this+0x10C, clamps into [0, size-1], and returns the first DWORD of the 8-byte-stride element at this+0x110.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x004D1CF0",
+        "callee:0x00587BDC",
+        "field:this:0x00000108",
+        "field:this:0x0000010C",
+        "field:this:0x00000110",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004D4600",
+      "role": "Steward post-race cleanup: logs entry, frees the D3D audio state pointer at +0xA8, resets comparison/camera-director state, frees state arrays at +0x110/+0x114, conditionally refreshes season scoring, resets every vehicle substate, frees the counted array at +0x1AC, and zeroes 52 dword-pairs at +0x1B0/+0x280.",
+      "owner": "Steward",
+      "evidence_refs": [
+        "function:0x004D4600",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "global:0x005D3B6C",
+        "global:0x005D43AC",
+        "global:0x008AD25C",
+        "field:this:0x000000A8",
+        "callee:0x004482D0",
+        "callee:0x00587BCF",
+        "callee:0x004D2E20",
+        "callee:0x004D24D0",
+        "callee:0x0040DA30",
+        "field:this:0x0000010C",
+        "field:this:0x00000110",
+        "field:this:0x00000114",
+        "global:0x007D0410",
+        "global:0x007D2DB0",
+        "callee:0x004C2A80",
+        "global:0x005C329C",
+        "global:0x007C54F0",
+        "callee:0x004BB950",
+        "field:this:0x000001A8",
+        "field:this:0x000001AC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004D4A80",
+      "role": "Telemetry session start and header write: tears down previous telemetry state, gates on the scoring check, scans the live vehicle array for the player slot, opens the output stream, computes a 1-40 Hz sampling rate, writes the CSV-style column headers (base, per-wheel and tail channels), embeds XML scene config and integrity checksums, XOR-decodes driver data, and frees scratch allocations.",
+      "owner": "TelemetrySession",
+      "evidence_refs": [
+        "function:0x004D4A80",
+        "abi:lead",
+        "source:raw",
+        "callee:0x004D5840",
+        "callee:0x0042BC10",
+        "global:0x007C54F0",
+        "global:0x005C329C",
+        "global:0x007CEA34",
+        "global:0x005EA438",
+        "global:0x007CE9D0",
+        "global:0x007C56A4",
+        "global:0x007CE9F4",
+        "callee:0x00587DB0",
+        "global:0x005C2AB0",
+        "field:this:0x00000000",
+        "callee:0x00587BDC",
+        "field:this:0x00000004",
+        "callee:0x00588678",
+        "callee:0x005884ED",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "callee:0x004D5BE0",
+        "global:0x007CE5EC",
+        "callee:0x004CEEF0",
+        "callee:0x00587DD0",
+        "global:0x007CE5D0",
+        "global:0x005C5D24",
+        "global:0x005C5D28",
+        "callee:0x004F34E0",
+        "callee:0x0042E320",
+        "callee:0x004F4270",
+        "callee:0x004B3C60",
+        "callee:0x00568A60",
+        "global:0x008AAE70",
+        "global:0x007C935C",
+        "global:0x008ACED8",
+        "global:0x007C56B8",
+        "callee:0x00566650",
+        "callee:0x00588410",
+        "global:0x008AC488",
+        "global:0x008AC490",
+        "callee:0x004D5AF0",
+        "callee:0x00587BCF",
+        "callee:0x0042DDD0",
+        "global:0x008AC394",
+        "global:0x005D45A4",
+        "global:0x005D4598",
+        "global:0x005D458C",
+        "global:0x005D4580",
+        "global:0x005D4574",
+        "global:0x005D4564",
+        "global:0x005D4550",
+        "global:0x005D453C",
+        "global:0x005D4530",
+        "global:0x005D4524",
+        "global:0x005D4510",
+        "global:0x005C6F6C",
+        "global:0x005D44FC",
+        "global:0x005C565C",
+        "global:0x005D44E8",
+        "global:0x005C6F30",
+        "global:0x005D44D4",
+        "global:0x005C55CC",
+        "global:0x005D44D0",
+        "global:0x005D44CC",
+        "global:0x005D44C8",
+        "global:0x005D44C4",
+        "global:0x005D44B0",
+        "global:0x005D4494",
+        "global:0x005D4478",
+        "global:0x005D4464",
+        "global:0x005D444C",
+        "global:0x005D4438",
+        "global:0x005D4424",
+        "global:0x005D4418",
+        "global:0x005D4408",
+        "global:0x005D4400",
+        "global:0x005D43EC",
+        "global:0x005D43DC"
+      ]
+    },
+    {
+      "address": "0x004D7570",
+      "role": "Compound index lookup: validates a2 against the range [0, this+0x10), returns a pointer to the a2-th compound entry at this+0x14 + 680*a2, and on out-of-range index conditionally logs a tire-brand error and returns 0.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x004D7570",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "callee:0x004D7A50",
+        "global:0x005D45E4",
+        "callee:0x004D7AA0",
+        "global:0x008AD25C",
+        "global:0x005D4950",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004D7A50",
+      "role": "Level-gated debug log helper: returns 0 when the severity dword at this+0x0 is below the a2 threshold; otherwise walks a backslash-delimited path via sub_587C20 and emits a formatted debug log entry via DebugLogWrite, returning 1.",
+      "owner": "DebugLogWriter",
+      "evidence_refs": [
+        "function:0x004D7A50",
+        "field:this:0x00000000",
+        "callee:0x00587C20",
+        "global:0x005C2AAC",
+        "callee:0x004D7AA0",
+        "global:0x005D4A38",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004D7AA0",
+      "role": "Formatted debug log writer: writes the message through the file handle at this+0x4 via FileWriteWrapperWithLock, then flushes/synchronizes via LockCallUnlockWrapper on the same handle and returns its result.",
+      "owner": "DebugLogWriter",
+      "evidence_refs": [
+        "function:0x004D7AA0",
+        "field:this:0x00000004",
+        "callee:0x0058A163",
+        "callee:0x00589FFD",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004DD7C0",
+      "role": "Scene-graph vertex finder: computes a LOD threshold, iterates the node's children, filters each child by its LOD level, scans the child's packed vertex array, keeps the vertex whose dot product with the direction vector is maximal, writes its coordinates to a3, and returns the child count.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x004DD7C0",
+        "callee:0x004DD4E0",
+        "callee:0x0054C210",
+        "callee:0x0054C230",
+        "callee:0x0054E100",
+        "callee:0x0054E120",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E0ED0",
+      "role": "Per-car render/UI-widget visibility update: resolves the effective render mode (default 3, overridden by a2 when the obj+0x48BC flags word has bit 1 set) and stores it to this+0x964; computes a HUD gate from byte_7CE254/dword_7D0410; switches on the mode to show or hide a large widget-flag set, performs player-only session-phase audio transitions, and runs an 8-entry per-widget loop.",
+      "owner": "VehicleRenderStateController",
+      "evidence_refs": [
+        "function:0x004E0ED0",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x00000964",
+        "field:obj:0x000048BC",
+        "field:this:0x00000000",
+        "global:0x007CE254",
+        "global:0x007D0410",
+        "global:0x004E16AC",
+        "global:0x004E16B4",
+        "callee:0x0054C030",
+        "field:this:0x00000004",
+        "field:this:0x0000088C",
+        "field:obj:0x00004894",
+        "global:0x007C54F0",
+        "global:0x007C54E4",
+        "global:0x007CF860",
+        "field:this:0x0000096C",
+        "field:this:0x00000144",
+        "field:this:0x0000026C",
+        "field:this:0x00000394",
+        "field:this:0x000004BC",
+        "global:0x007C54E0",
+        "field:obj:0x000000C4",
+        "callee:0x0040CD60",
+        "global:0x005EA510",
+        "global:0x004E169C",
+        "callee:0x004F7010",
+        "global:0x005EA518",
+        "global:0x005EA528",
+        "global:0x007CF710",
+        "field:this:0x00000628",
+        "field:this:0x00000668",
+        "field:this:0x0000096D",
+        "field:this:0x00000894",
+        "field:this:0x0000089C",
+        "field:this:0x00000898",
+        "field:this:0x0000066C",
+        "field:this:0x000006AC",
+        "field:this:0x000006AD",
+        "callee:0x0054C1B0",
+        "field:this:0x000005E4",
+        "field:this:0x00000624",
+        "field:this:0x000003D4",
+        "field:this:0x000004FC",
+        "global:0x007CFCEC",
+        "field:this:0x00000184",
+        "field:this:0x00000188",
+        "field:this:0x000001C8",
+        "field:this:0x000002AC",
+        "field:this:0x000002B0",
+        "field:this:0x000002F0",
+        "field:this:0x00000890",
+        "field:this:0x000008A0"
+      ]
+    },
+    {
+      "address": "0x004E17C0",
+      "role": "Subsystem slot lifecycle dispatcher: switches on slot id a2 (0-13); array-backed slots 0-3 route to SubslotCleanup on activation or ArrayEntryCleanup on deactivation, while pointer-backed slots 4-13 route to LazyInitCallback on activation or ConditionalResourceRelease on deactivation.",
+      "owner": "SubsystemSlotLifecycle",
+      "evidence_refs": [
+        "function:0x004E17C0",
+        "abi:lead",
+        "global:0x004E18A0",
+        "global:0x004E18B0",
+        "callee:0x004E0E70",
+        "callee:0x004E0E20",
+        "callee:0x004E0D00",
+        "callee:0x004E0D70",
+        "field:this:0x00000628",
+        "field:this:0x00000668",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E2230",
+      "role": "Vibration/force-feedback state machine: maps |a3| below 16.0 to OFF (0), 16.0-64.0 to LOW (1), and 64.0+ to HIGH (2); on a state change stores the new state at this[74*a2+123], updates the primary slot via sub_5506A0, and iterates the sound-effect slot array applying sub_5506A0 to each non-zero entry.",
+      "owner": "ForceFeedbackController",
+      "evidence_refs": [
+        "function:0x004E2230",
+        "abi:lead",
+        "callee:0x005506A0",
+        "field:this:0x00000B6C",
+        "global:0x008AD3EC",
+        "global:0x008AD3F8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E87E0",
+      "role": "Brake thermal model: computes a normalized brake thermal factor clamped to [0,1] from a squared suspension-displacement residual, two thermal conversion factors, a heat-capacity term, an offset and a range denominator; returns 0.0 when either divisor is zero.",
+      "owner": "VehiclePhysicsState",
+      "evidence_refs": [
+        "function:0x004E87E0",
+        "abi:lead",
+        "field:this:0x000039C8",
+        "field:this:0x000039AC",
+        "field:this:0x000034B8",
+        "field:this:0x000034C4",
+        "field:this:0x000034D0",
+        "field:this:0x00003A58",
+        "field:this:0x00003A5C",
+        "field:this:0x00003A60",
+        "field:this:0x00003500",
+        "field:this:0x00003D44",
+        "field:this:0x00003D40",
+        "field:this:0x000039A8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E8B80",
+      "role": "Aerodynamic force calculation: computes a force from squared speed with a gravity weight-compensation term, a 14-entry linearly-interpolated table lookup, a drag cross-term, and a quadratic-form correction branch; invokes sub_5895A2 on the intermediate force with the result discarded.",
+      "owner": "VehiclePhysicsState",
+      "evidence_refs": [
+        "function:0x004E8B80",
+        "abi:lead",
+        "field:this:0x00003A70",
+        "field:this:0x00003514",
+        "field:this:0x00003BFC",
+        "callee:0x005895A2",
+        "field:this:0x00003C00",
+        "field:this:0x00003518",
+        "field:this:0x00003D3C",
+        "field:this:0x00003D44",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E9630",
+      "role": "Position-change monitor: conditionally registers the current position triplet (this+0x34D4..0x34DC) with the tracking service via sub_403640, saves the previous position into the history slots this+0x3AA0..0x3AA8, and returns the tracking handle at this+0x3A9C.",
+      "owner": "VehiclePhysicsState",
+      "evidence_refs": [
+        "function:0x004E9630",
+        "field:this:0x00003A9C",
+        "callee:0x00403640",
+        "global:0x005EA2C0",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "field:this:0x00003AA0",
+        "field:this:0x00003AA4",
+        "field:this:0x00003AA8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004EF930",
+      "role": "Race-start countdown advance: clears the in-progress flag each frame, resets phase/timer/step when a2 is zero, otherwise triggers the countdown sound effect, reloads the timer from step-interval fields, records telemetry on the green-light step, and performs the final-step phase transition.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x004EF930",
+        "field:this:0x000039EC",
+        "field:this:0x000039EE",
+        "field:this:0x00003A08",
+        "field:this:0x00003A04",
+        "field:this:0x000039F0",
+        "callee:0x004F89A0",
+        "field:this:0x00003A00",
+        "field:this:0x00003578",
+        "field:this:0x00003978",
+        "field:this:0x00003994",
+        "field:this:0x00003998",
+        "callee:0x004EF4F0",
+        "callee:0x004F88A0",
+        "field:this:0x000039FC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004EFAC0",
+      "role": "Conditional reset: when the value at this+0x32BC is non-zero, clears the field at this+0x3994; otherwise writes 0 to the global byte_7C9081; returns the read value. On the per-frame AI path.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x004EFAC0",
+        "abi:lead",
+        "field:this:0x000032BC",
+        "field:this:0x00003994",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "VehicleObject",
+      "responsibility": "Per-vehicle per-frame scene/render orchestration: respawn reset, physics-config application, grid-data dispatch, AI driver init, vehicle frame update, render-flag maintenance, force-feedback and collision wrapper invocation.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004C6D90"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000048B4",
+          "name": "renderFlagBitmask",
+          "type_guess": "dword bitmask",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000048B4",
+            "function:0x004C6D90"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C6D90",
+        "field:this:0x000048B4",
+        "callee:0x00424790",
+        "callee:0x004C6B60",
+        "callee:0x004EF7C0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleGridPositionManager",
+      "responsibility": "Starting-grid slot allocation and dispatch of grid-slot data from the setup-scene array dword_5EA2C0; tracks each vehicle's grid slot index, team-column index and column-order permutation.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C6F10",
+        "0x004D10E0",
+        "0x004D1100",
+        "0x004D1140"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000048A4",
+          "name": "gridSlotIndex",
+          "type_guess": "signed dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000048A4",
+            "function:0x004C6F10",
+            "function:0x004D1100",
+            "function:0x004D1140"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000048A8",
+          "name": "gridColumnIndex",
+          "type_guess": "signed dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000048A8",
+            "function:0x004C6F10",
+            "function:0x004D1140"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004894",
+          "name": "gridSeedValue",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004894",
+            "function:0x004C6F10"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004058",
+          "name": "gridArrayIndexMinusOne",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004058",
+            "function:0x004D10E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004710",
+          "name": "columnOrderPermutation",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004710",
+            "function:0x004C6F10"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C6F10",
+        "function:0x004D10E0",
+        "function:0x004D1100",
+        "function:0x004D1140",
+        "global:0x005EA2C0",
+        "global:0x007D0B40",
+        "global:0x005C329C",
+        "global:0x007C54F0",
+        "callee:0x00403F70",
+        "callee:0x00403FC0"
+      ]
+    },
+    {
+      "name": "TelemetrySession",
+      "responsibility": "Telemetry output session: opens and owns the output stream, computes the sampling rate, writes the CSV-style header, integrity checksums and XOR-decoded driver data, and frees its scratch state.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004D4A80"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "outputHandle",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004D4A80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "samplingRateHz",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x004D4A80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "headerByteOffsetA",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x004D4A80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "headerByteOffsetB",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x004D4A80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "headerByteOffsetC",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x004D4A80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "headerByteOffsetD",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x004D4A80"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004D4A80",
+        "abi:lead",
+        "source:raw",
+        "callee:0x004D5BE0",
+        "callee:0x00587DB0",
+        "global:0x005C2AB0",
+        "global:0x005EA438"
+      ]
+    },
+    {
+      "name": "Steward",
+      "responsibility": "Steward post-race cleanup: release audio/comparison/camera-director state, refresh season scoring, reset every vehicle substate, and free counted containers.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004D4600"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000000A8",
+          "name": "audioStatePtr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000A8",
+            "function:0x004D4600"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000010C",
+          "name": "resetCounterField",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000010C",
+            "function:0x004D4600"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000110",
+          "name": "stateArrayPtr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000110",
+            "function:0x004D4600"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000114",
+          "name": "stateArrayPtr2",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000114",
+            "function:0x004D4600"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001A8",
+          "name": "countedArrayCount",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000001A8",
+            "function:0x004D4600"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001AC",
+          "name": "countedArrayPtr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001AC",
+            "function:0x004D4600"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004D4600",
+        "callee:0x004BB950",
+        "global:0x007C54F0",
+        "global:0x005C329C",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleRenderStateController",
+      "responsibility": "Per-car render/UI-widget visibility: resolves the render mode, toggles the HUD widget flag set, and manages player-only session-phase audio state on the frame path.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004E0ED0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000964",
+          "name": "renderMode",
+          "type_guess": "dword enum",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000964",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000096C",
+          "name": "hudMasterFlag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000096C",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000096D",
+          "name": "driverModelVisibleFlag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000096D",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "activeWidgetFlag",
+          "type_guess": "dword flag",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000088C",
+          "name": "cockpitWidgetFlag",
+          "type_guess": "dword flag",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000088C",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000890",
+          "name": "suspensionWidgetFlag",
+          "type_guess": "dword flag",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000890",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000894",
+          "name": "helmetWidgetFlag",
+          "type_guess": "dword flag",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000894",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000898",
+          "name": "armsWidgetFlag",
+          "type_guess": "dword flag",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000898",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000089C",
+          "name": "bodyWidgetFlag",
+          "type_guess": "dword flag",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000089C",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000008A0",
+          "name": "wheelWidgetFlag",
+          "type_guess": "dword flag",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000008A0",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000066C",
+          "name": "widgetEntryArray",
+          "type_guess": "array[8] of 17-dword entries",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000066C",
+            "field:this:0x000006AC",
+            "field:this:0x000006AD",
+            "function:0x004E0ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000144",
+          "name": "widgetGroupFlags",
+          "type_guess": "dword flags (0x144/0x188/0x26C/0x2B0/0x394/0x4BC/0x5E4/0x628)",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000144",
+            "field:this:0x00000188",
+            "field:this:0x0000026C",
+            "field:this:0x000002B0",
+            "field:this:0x00000394",
+            "field:this:0x000004BC",
+            "field:this:0x000005E4",
+            "field:this:0x00000628",
+            "function:0x004E0ED0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004E0ED0",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x00000964",
+        "field:this:0x0000096D",
+        "callee:0x0054C030",
+        "callee:0x0054C1B0",
+        "global:0x004E16AC",
+        "global:0x004E169C"
+      ]
+    },
+    {
+      "name": "SubsystemSlotLifecycle",
+      "responsibility": "Lifecycle dispatch over 14 subsystem slots: array-backed slots 0-3 and pointer-backed slots 4-13 with lazy-init and conditional-release transitions.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004E17C0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000628",
+          "name": "slotPointerOrInitFlag",
+          "type_guess": "pointer or dword flag",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000628",
+            "function:0x004E17C0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000668",
+          "name": "slotInitFlagByte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000668",
+            "function:0x004E17C0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004E17C0",
+        "callee:0x004E0E70",
+        "callee:0x004E0E20",
+        "callee:0x004E0D00",
+        "callee:0x004E0D70",
+        "global:0x004E18A0",
+        "global:0x004E18B0"
+      ]
+    },
+    {
+      "name": "ForceFeedbackController",
+      "responsibility": "Vibration/force-feedback magnitude state machine and per-slot vibration application.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004E2230"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000B6C",
+          "name": "vibrationIntensity",
+          "type_guess": "dword/float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000B6C",
+            "function:0x004E2230"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004E2230",
+        "callee:0x005506A0",
+        "global:0x008AD3EC",
+        "global:0x008AD3F8"
+      ]
+    },
+    {
+      "name": "DebugLogWriter",
+      "responsibility": "Level-gated formatted debug log emission: severity gate, backslash path walk, formatted write and handle flush.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004D7A50",
+        "0x004D7AA0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "severityLevel",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004D7A50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "logFileHandle",
+          "type_guess": "handle/pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x004D7AA0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004D7A50",
+        "function:0x004D7AA0",
+        "callee:0x0058A163",
+        "callee:0x00589FFD",
+        "global:0x008AD25C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehiclePhysicsState",
+      "responsibility": "Shared vehicle physics/suspension substruct region: brake thermal, aerodynamic force and position-tracking helpers reading the this+0x34xx..0x3Dxx offset range.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004E87E0",
+        "0x004E8B80",
+        "0x004E9630"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000039C8",
+          "name": "thermalCapacityDivisor",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000039C8",
+            "function:0x004E87E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000039AC",
+          "name": "thermalRangeDenominator",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000039AC",
+            "function:0x004E87E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000039A8",
+          "name": "thermalOffset",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000039A8",
+            "function:0x004E87E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D40",
+          "name": "thermalConversionFactorA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D40",
+            "function:0x004E87E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D44",
+          "name": "thermalConversionFactorB",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D44",
+            "function:0x004E87E0",
+            "function:0x004E8B80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003500",
+          "name": "suspensionDisplacement",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003500",
+            "function:0x004E87E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034B8",
+          "name": "rotationMatrixRow",
+          "type_guess": "float triplet (0x34B8/0x34C4/0x34D0)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034B8",
+            "field:this:0x000034C4",
+            "field:this:0x000034D0",
+            "function:0x004E87E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003A58",
+          "name": "localAnchorPoint",
+          "type_guess": "float triplet (0x3A58/0x3A5C/0x3A60)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003A58",
+            "field:this:0x00003A5C",
+            "field:this:0x00003A60",
+            "function:0x004E87E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003A70",
+          "name": "aeroCoefficient",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003A70",
+            "function:0x004E8B80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003514",
+          "name": "sprungMassFactor",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003514",
+            "function:0x004E8B80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003518",
+          "name": "forceFactor",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003518",
+            "function:0x004E8B80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003BFC",
+          "name": "forceScaleFactor",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003BFC",
+            "function:0x004E8B80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C00",
+          "name": "aeroLookupTable",
+          "type_guess": "float[14]",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C00",
+            "function:0x004E8B80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D3C",
+          "name": "maxForceCap",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D3C",
+            "function:0x004E8B80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034D4",
+          "name": "currentPosition",
+          "type_guess": "float triplet (0x34D4/0x34D8/0x34DC)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034D4",
+            "field:this:0x000034D8",
+            "field:this:0x000034DC",
+            "function:0x004E9630"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003A9C",
+          "name": "trackingHandle",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00003A9C",
+            "function:0x004E9630"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003AA0",
+          "name": "previousPosition",
+          "type_guess": "float triplet (0x3AA0/0x3AA4/0x3AA8)",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003AA0",
+            "field:this:0x00003AA4",
+            "field:this:0x00003AA8",
+            "function:0x004E9630"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004E87E0",
+        "function:0x004E8B80",
+        "function:0x004E9630",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "VibrationStateMachine",
+      "owner": "ForceFeedbackController",
+      "states": [
+        "OFF (0): |a3| < 16.0",
+        "LOW (1): 16.0 <= |a3| < 64.0",
+        "HIGH (2): |a3| >= 64.0"
+      ],
+      "transitions": [
+        "On any change: store the new state at this[74*a2+123], call sub_5506A0(state, 0, 0) to update the primary slot, then apply sub_5506A0 to each non-zero entry of the sound-effect slot array (dword_8AD3EC .. unk_8AD3F8)"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004E2230",
+        "callee:0x005506A0",
+        "global:0x008AD3EC",
+        "global:0x008AD3F8"
+      ]
+    },
+    {
+      "name": "RenderModeDispatch",
+      "owner": "VehicleRenderStateController",
+      "states": [
+        "mode 0 (external/spectator camera layout)",
+        "mode 1",
+        "mode 2",
+        "mode 3 (default cockpit/onboard layout)"
+      ],
+      "transitions": [
+        "Resolve effective mode: default 3; when bit 1 of the mode-selection flags word at obj+0x48BC is set, use argument a2 instead; store to this+0x964",
+        "Dispatch on the stored mode via jump table 0x004E16AC (fallback byte 0x004E16B4); cases 0-3 handled, default returns unchanged"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0ED0",
+        "global:0x004E16AC",
+        "global:0x004E16B4",
+        "field:this:0x00000964"
+      ]
+    },
+    {
+      "name": "SubsystemSlotLifecycle",
+      "owner": "SubsystemSlotLifecycle",
+      "states": [
+        "inactive/uninitialized (slot pointer or init flag zero)",
+        "active/initialized (slot pointer and init flag non-zero)"
+      ],
+      "transitions": [
+        "Activate (a3): slots 0-3 with pointer+init flag non-zero call SubslotCleanup (0x004E0E70); slots 4-13 with pointer non-zero and init byte zero call LazyInitCallback (0x004E0D00)",
+        "Deactivate: slots 0-3 call ArrayEntryCleanup (0x004E0E20); slots 4-13 call ConditionalResourceRelease (0x004E0D70)"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004E17C0",
+        "callee:0x004E0E70",
+        "callee:0x004E0E20",
+        "callee:0x004E0D00",
+        "callee:0x004E0D70",
+        "global:0x004E18A0"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "GridPositionDataDispatch",
+      "purpose": "Uniform access to starting-grid slot data from the setup-scene array: recalculate when unallocated, then read slot position or indexed struct data into caller buffers.",
+      "functions": [
+        "0x004D10E0",
+        "0x004D1100",
+        "0x004D1140"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004D10E0",
+        "function:0x004D1100",
+        "function:0x004D1140",
+        "callee:0x00403F70",
+        "callee:0x00403FC0",
+        "global:0x005EA2C0"
+      ]
+    },
+    {
+      "name": "DebugLogging",
+      "purpose": "Level-gated formatted debug log emission shared across virtually every subsystem: severity gate, backslash path walk, formatted write and handle flush.",
+      "functions": [
+        "0x004D7A50",
+        "0x004D7AA0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004D7A50",
+        "function:0x004D7AA0",
+        "callee:0x0058A163",
+        "callee:0x00589FFD",
+        "global:0x008AD25C"
+      ]
+    },
+    {
+      "name": "TelemetryOutput",
+      "purpose": "Session telemetry file writer: opens the output stream, writes the CSV-style column header, integrity checksums and XOR-decoded driver data, and closes/frees its state.",
+      "functions": [
+        "0x004D4A80"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004D4A80",
+        "callee:0x004D5BE0",
+        "callee:0x00587DB0",
+        "callee:0x004D5840"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "VehicleObject",
+      "to": "VehicleGridPositionManager",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C6D90",
+        "callee:0x004D10E0",
+        "callee:0x004D1100",
+        "callee:0x004D1140"
+      ]
+    },
+    {
+      "from": "VehicleGridPositionManager",
+      "to": "VehicleGridPositionManager",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004D1100",
+        "function:0x004D1140",
+        "callee:0x004C6F10",
+        "guard:0"
+      ]
+    },
+    {
+      "from": "VehicleGridPositionManager",
+      "to": "SetupSceneArray",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C6F10",
+        "function:0x004D1100",
+        "function:0x004D1140",
+        "global:0x005EA2C0"
+      ]
+    },
+    {
+      "from": "VehicleObject",
+      "to": "ForceFeedbackController",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004C6D90",
+        "callee:0x004D1670",
+        "global:0x008ACEE0"
+      ]
+    },
+    {
+      "from": "Steward",
+      "to": "VehicleObject",
+      "kind": "data",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004D4600",
+        "callee:0x004BB950",
+        "global:0x007C54F0",
+        "global:0x005C329C"
+      ]
+    },
+    {
+      "from": "Steward",
+      "to": "DebugLogWriter",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004D4600",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0"
+      ]
+    },
+    {
+      "from": "TelemetrySession",
+      "to": "VehicleObject",
+      "kind": "data",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004D4A80",
+        "global:0x007C54F0",
+        "global:0x005C329C"
+      ]
+    },
+    {
+      "from": "DebugLogWriter",
+      "to": "DebugLogWriter",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004D7A50",
+        "callee:0x004D7AA0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsState",
+      "to": "SetupSceneArray",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E9630",
+        "callee:0x00403640",
+        "global:0x005EA2C0"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "TelemetryFileFormat",
+      "category": "data_format",
+      "description": "Telemetry session output file layout: stream opened via sub_587DB0; 4 random seed bytes written first; header byte offsets derived from the seed bytes at this+0xC/+0x10/+0x14/+0x18; magic header integer 1028443341 written via sub_4D5BE0; player vehicle name/description strings and scene path; field-delimiter byte 4; NUL-terminated column-name headers (ElapsedTime, PosX, PosY, PosZ, Yaw, LatAccel, VertAccel, LongAccel, EngineRPM, ClutchRPM, UnfilteredThrottle, Throttle, UnfilteredBrake, Brake, UnfilteredSteering, Steering, UnfilteredClutch, Clutch; per-wheel WheelspinRadsS, SuspensionDefl, UndertrayRideH, TyreLeftTempK, TyreCenterTemp, TyreRightTempK, TyrePressureKpa, TyreWear, CornerWeight; then Gear, WaterTemperatu, OilTemperature); embedded XML scene configuration; integrity checksums (deterministic pseudo-random values, XOR/arithmetic-obfuscated vehicle/tyre/session values); XOR-decoded driver telemetry data appended. Sampling rate computed as 10 * trunc(40.0 / dword_7CE9D0 + 0.5) then clamped to 1..40.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004D4A80",
+        "callee:0x004D5BE0",
+        "callee:0x00587DB0",
+        "callee:0x005884ED",
+        "global:0x005D45A4",
+        "callee:0x004D5AF0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "GridSlotAllocationContract",
+      "category": "internal_contract",
+      "description": "Each vehicle's starting-grid slot is identified by a signed index at +0x48A4 and a team-column index at +0x48A8; a negative +0x48A4 means unallocated and triggers recalculation via 0x004C6F10; the grid has 52 slots (index seeded as this+0x48A4 = this+0x4894 modulo 52); slot occupancy is determined by copying the slot position from the setup-scene array (dword_5EA2C0) and testing for a near-zero vector; allocation failure is signalled by writing -1 to both +0x48A4 and +0x48A8.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004C6F10",
+        "function:0x004D1100",
+        "function:0x004D1140",
+        "field:this:0x000048A4",
+        "field:this:0x000048A8",
+        "global:0x005EA2C0",
+        "callee:0x00404030"
+      ]
+    },
+    {
+      "name": "VehicleArrayLayout",
+      "category": "memory_layout",
+      "description": "Live vehicle pointer array dword_7C54F0 holds dword_5C329C entries; the player slot is identified by scanning for the first entry whose int32 at +13000 equals 0; each vehicle carries a substruct at +0x4034 (16436) that is reset via 0x004BB950; peer slot/column fields are read at +18596 and +18600.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004D4600",
+        "function:0x004D4A80",
+        "global:0x007C54F0",
+        "global:0x005C329C",
+        "callee:0x004BB950",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DebugLogHandleProtocol",
+      "category": "internal_contract",
+      "description": "Debug log context object holds a severity level at +0x0 and a file handle at +0x4; the level-gated path walker (0x004D7A50) emits entries only when the severity is at or above the caller threshold; formatted writes go through FileWriteWrapperWithLock (0x0058A163) followed by LockCallUnlockWrapper (0x00589FFD) on the same handle; the shared log context global is dword_8AD25C.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004D7A50",
+        "function:0x004D7AA0",
+        "field:this:0x00000004",
+        "callee:0x0058A163",
+        "callee:0x00589FFD",
+        "global:0x008AD25C"
+      ]
+    }
+  ],
+  "unresolved": [
+    "Exact meaning of the a2 flag (SLOBYTE in the respawn reset, LOBYTE in the two guards) in SceneRenderUpdate is not confirmed by the packet.",
+    "Purposes of sub_4BB810, sub_4C6B60, sub_4D1180, sub_4D1670, LargeConfigFunctionWithPhysicsConstants (0x004E45B0) and CollisionWrapperWithLock (0x004E4910) are described from the corpus fill; the packet does not define their behavior.",
+    "Layout of the 12-byte v4/v3 buffers consumed by the SingleFunctionDispatch_10e0 / ConditionalDelegateDispatch / RenderCallWithGuard chain is unknown.",
+    "The this+3 (byte offset 12) and this+4109 (byte offset 16436 = 0x4034) substructs used by SceneRenderUpdate have no packet evidence refs of their own; their contents are not described.",
+    "The owner of the grid-position functions (0x004C6F10, 0x004D10E0, 0x004D1100, 0x004D1140) is UNKNOWN in the packet; the shared base+offsets 0x48A4/0x48A8 across 0x004C6F10/0x004D1100/0x004D1140 make a common owner likely but unproven, so VehicleGridPositionManager is only a GUESS.",
+    "The parity test ((v4 & 1) != v4 < 13) on this+0x4710 is a grid-layout heuristic whose exact semantics (DERIVED forward/reverse column order) are unproven.",
+    "abi:lead LEGACY name AssignDriverGridPosition conflicts with the GridPositionAllocation interpretation; owner remains UnknownObject.",
+    "Vehicle slot/column fields on peer vehicles at +18596 and +18600 are read as raw offsets, not packet field references.",
+    "Purpose and semantics of the unnamed callee of 0x004D10E0 (forwarding the decremented this+0x4058 index into dword_5EA2C0) are unknown; why the index is decremented by 1 is not fully understood.",
+    "The a2/a3 output parameters of IndexedStructDataRead (0x00403FC0) are not documented in the packet evidence.",
+    "Ring buffer (0x004D1CF0): elements are 8-byte stride but only the first DWORD at +0 is returned; the second word at +4 is ignored. this+0x108 scaling and this+0x10C size semantics are inferred from the ring-buffer role; no structural confirmation.",
+    "Steward_Post frees this+0x110 twice (two identical guard/free blocks); may be dead code or an intentional second pass.",
+    "The counted-array header layout (count at ptr-4, elements at 8-byte stride) in Steward_Post is inferred from indexing, not from a named struct.",
+    "Telemetry (0x004D4A80): globals flt_59E450, flt_59E86C, unk_5EC6D0, dword_8ACEA0 and callee 0x005881C0 are listed as read but absent from the decompiled body; their roles are unconfirmed. The final return path returns FreeWrapper_7bcf(v55[0]) directly, so its meaning as a success/failure indicator is ambiguous. Owner identity is DERIVED from the canonical name TelemetryDataDump and the LEGACY ABI lead; no confirmed class symbol is present in the packet.",
+    "CompoundIndexLookup (0x004D7570): meanings of this[4] (compound count) and this[5] (base pointer, 680-byte stride) are DERIVED from existing-analysis prose; the raw source shows only the arithmetic. The purpose of the 954 source-line argument to the gating check is not confirmed.",
+    "SplitPathAndWriteDebugLog (0x004D7A50): exact semantics of sub_587C20's return value and the identity of the walked string (a3) are DERIVED; the raw source does not name the string type. The format-string content a1212s5d (0x005D4A38) is not available in the packet.",
+    "DebugLogWrite (0x004D7AA0): owner object type holding the file handle at +0x4 is unknown; the destination file is not evidenced.",
+    "SceneGraphMaxDotProductFinder (0x004DD7C0): semantics of the child-node LOD flags (0x2000000, 0x40) and of the zero-compare at child+244 are unknown; values are preserved from raw source only.",
+    "UpdateRenderState (0x004E0ED0): exact HUD-widget identities behind the numeric widget-flag slots are DERIVED from usage; the packet does not name them. dword_7CF860 is treated as a same-team/AI-team-count threshold but its precise semantics are unconfirmed. The audio playback byte obj+0xC4 and the audio-device state at dword_5EA528+52 are referenced through dereferenced globals whose owning structures are not evidenced. The LEGACY ABI name Audio_Sound_Effect_Controller is contradicted by the live-corrected analysis.",
+    "subsystemSlotLifecycleDispatch (0x004E17C0): exact role of the byte data at 0x004E18B0 in the dispatch is unknown; the a3 activate/deactivate semantics rest on the existing-analysis label; the meaning of the returned value (slot id vs computed slot pointer) is unknown.",
+    "VibrationStateMachine (0x004E2230): the pairing of threshold literals 16.0/64.0 with globals flt_59E708 / flt_59EED0 is not proven; the state slot this[74*a2+123] is an indexed array slot (stride 74 entries) whose meaning is unverified; unk_8AD3F8 as the iteration end bound has unknown type; sub_5506A0 semantics are DERIVED from existing analysis, not proven here.",
+    "BrakeThermalModel (0x004E87E0): globals flt_59E43C / flt_59E440 are referenced in existing analysis as physics constants but have no usage site in the raw source; the rotation-row read order and anchor-point pairing are inferred from the skeleton; the exact meaning of the thermal factors 0x3D40/0x3D44 and the offset/denominator pair is unconfirmed.",
+    "AerodynamicForceCalc (0x004E8B80): physics globals flt_59E43C, flt_59E440, flt_59E46C, flt_59E99C, flt_5ACEB8 have no usage site grounded in the raw source; sub_5895A2 semantics are unknown (argument is the intermediate force, return discarded); the physical meaning of the quadratic branch is unconfirmed.",
+    "PositionChangeMonitor (0x004E9630): flt_59E9E0 appears in the packet globals but is not referenced by the raw source; the guard reads decompiler condition-code flags v4 (c0) and v5 (c3), whose original flag source is not recoverable; sub_403640 registration semantics and the returned handle meaning are outside this packet.",
+    "RaceStartCountdownStateUpdate (0x004EF930): sound-trigger calls pass the object base this+8 as their argument, but no evidence_ref exists for field:this:0x00000008 in the packet; globals flt_59E440 and flt_59E450 appear in the globals list but are absent from the raw source text.",
+    "ConditionalGate (0x004EFAC0): global dbl_7C7428 is listed as read but does not appear in the raw source; global byte_7C9081 (written on the false branch) has no packet field/global entry; the interpretation of this+0x32BC as a rigid-body constraint pointer and the reset as vehicle state management is DERIVED from existing analysis, not proven by the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "callee:0x005881C0",
+    "caller:0x00409440",
+    "caller:0x0040C7A0",
+    "caller:0x0040CDE0",
+    "caller:0x004441F0",
+    "caller:0x0045FC50",
+    "caller:0x004A2A90",
+    "caller:0x004A5D10",
+    "caller:0x004A6340",
+    "caller:0x004B3DC0",
+    "caller:0x004B8940",
+    "caller:0x004BBFC0",
+    "caller:0x004C73F0",
+    "caller:0x004C7AA0",
+    "caller:0x004C6D90",
+    "caller:0x004E0800",
+    "caller:0x004E0D00",
+    "caller:0x004F1FE0",
+    "caller:0x00429FD0",
+    "caller:0x0042F470",
+    "caller:0x00430750",
+    "caller:0x00430A50",
+    "caller:0x00431850",
+    "caller:0x00439210",
+    "caller:0x0043DA10",
+    "caller:0x004A5330",
+    "caller:0x004A5820",
+    "caller:0x004E5F60",
+    "caller:0x004F1630",
+    "caller:0x004F18C0",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E46C",
+    "global:0x0059E708",
+    "global:0x0059E86C",
+    "global:0x0059E99C",
+    "global:0x0059E9E0",
+    "global:0x0059EED0",
+    "global:0x005ACEB8",
+    "global:0x005EC6D0",
+    "global:0x007C7428",
+    "global:0x008ACEA0",
+    "global:0x008ACEE0"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "LOW"
+  }
+}

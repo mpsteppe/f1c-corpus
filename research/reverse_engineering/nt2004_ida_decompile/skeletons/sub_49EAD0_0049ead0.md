@@ -1,0 +1,27 @@
+## sub_49EAD0_0049ead0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| obj | 0x4 | R | — | [LLM] |
+| obj | 0xC | R | — | [LLM] |
+| this | 0x0 | R | — | [LLM] |
+| this | 0x10C | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 005d54e0 | flt_5D54E0 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

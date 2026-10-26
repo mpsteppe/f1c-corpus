@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "address": "0x004122C0",
+  "proposed_name": "SessionStringNameLookup",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Looks up a string plus three metadata fields from a session list node indexed by a3, writing them into the output buffer a1 (string pointer at this+0, fields at this+8, this+12, this+16). Two paths: when the free-camera flag dword_7D0398 is clear and the node marks an active championship entry (byte at node+12, or dword_7D0410 == 5), it computes a vehicle-data pointer as dword_8AC394 + 1060 * (node+8) and uses offset +124; otherwise it selects one of eight string-field offsets inside the node from the selectors (a2, a4, a5): +16/+36, +56/+76, +96/+116 or +136/+156, with a byte_5EA438 fallback for null strings. Returns 1 when the output still equals the empty sentinel, -1 when the early path was not taken, otherwise delegates to LinkedListIndexScannerWithValidation and TextAttributeLookup_34d0. Called by RaceEventMessageDispatcher (00411bf0) and SoundEventDispatcher (00411e90).",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Seed the fallback result v14 = -1 and clear the loop/flag state v6 = 0 and v15 = 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Fetch the session list node by index a3 via LinkedListIndexedAccessor.",
+      "evidence_refs": ["callee:0x00415650", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When a node exists, and the free-camera flag dword_7D0398 is clear and (the byte at node+12 is set or championship mode dword_7D0410 == 5), compute dword_8AC394 + 1060 * (node+8) and, when non-null, select that data at +124 and mark the early path flag v15.",
+      "evidence_refs": ["global:0x007D0398", "global:0x007D0410", "global:0x008AC394", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Otherwise select one of eight string-field offsets inside the node from the selectors (a2, a4, a5): when a2 is 1 use +96 or +116 (by a5) else +136 or +156; when a2 is 0 use +16 or +36 (by a5) else +56 or +76; read the string pointer at the selected offset with a byte_5EA438 fallback for a null pointer.",
+      "evidence_refs": ["global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Copy the selected string via StringCopyWithBufferRealloc and copy the three metadata fields to the output buffer: a1+8 = node+8, a1+12 = node+12 and a1+16 = node+16 (fields this+8, this+12, this+16).",
+      "evidence_refs": ["callee:0x00566650", "field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Release the previous output string via StringCopyWithBufferRealloc on byte_5EA438, then read the output string pointer at this+0, falling back to byte_5EA438 when it is null.",
+      "evidence_refs": ["callee:0x00566650", "global:0x005EA438", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 when the lookup left the output unpopulated: string equals the byte_5EA438 sentinel, a1+8 equals -1 (guard:0), a1+12 equals -1 (guard:1) and a1+16 is zero.",
+      "evidence_refs": ["guard:0", "guard:1", "global:0x005EA438", "field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "When the early vehicle-data path (v15) was taken, scan the node with LinkedListIndexScannerWithValidation on v6 and delegate the final resolution to TextAttributeLookup_34d0(a1, a2, index, a4); otherwise return the -1 sentinel.",
+      "evidence_refs": ["callee:0x00415550", "callee:0x004134D0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by RaceEventMessageDispatcher (00411bf0) and SoundEventDispatcher (00411e90) for event-string resolution.",
+      "evidence_refs": ["caller:0x00411BF0", "caller:0x00411E90", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_4122C0(int out, int selector, int index, char a4, char a5) {",
+    "  int result = -1;",
+    "  int node = LinkedListIndexedAccessor(index);",
+    "  int early = 0; int v6 = 0;",
+    "  if (node) {",
+    "    if (!dword_7D0398 && (*(char*)(node + 12) || dword_7D0410 == 5)) {",
+    "      int base = dword_8AC394 + 1060 * *(int*)(node + 8);",
+    "      if (base) { v6 = base + 124; early = 1; goto done; }",
+    "    }",
+    "    int off;",
+    "    if (selector) {",
+    "      if (selector != 1) goto done;",
+    "      off = a5 ? (a4 ? 96 : 116) : (a4 ? 136 : 156);",
+    "    } else {",
+    "      off = a5 ? (a4 ? 16 : 36) : (a4 ? 56 : 76);",
+    "    }",
+    "    char* src = *(char**)(node + off);",
+    "    if (!*(int*)(node + off)) src = &byte_5EA438;",
+    "    StringCopyWithBufferRealloc(src);",
+    "    *(int*)(out + 8) = *(int*)(node + off + 8);",
+    "    *(int*)(out + 12) = *(int*)(node + off + 12);",
+    "    *(char*)(out + 16) = *(char*)(node + off + 16);",
+    "  }",
+    "done:",
+    "  StringCopyWithBufferRealloc(&byte_5EA438);",
+    "  const char* s = *(const char**)out;",
+    "  if (!*(int*)out) s = &byte_5EA438;",
+    "  if (strcmp(s, &byte_5EA438) || *(int*)(out + 8) != -1 || *(int*)(out + 12) != -1 || *(char*)(out + 16))",
+    "    return 1;",
+    "  if (!early) return result;",
+    "  int found = LinkedListIndexScannerWithValidation(v6);",
+    "  return TextAttributeLookup_34d0(out, selector, found, a4);",
+    "}"
+  ],
+  "unresolved": [
+    "Global dword_5EA5E8 is extracted as a read but does not appear in the decompiled body; role unknown.",
+    "FreeWrapper_7bcf (0x587BCF) is listed as a callee but is absent from the decompiled body; likely reached through StringCopyWithBufferRealloc or a path the decompiler omitted.",
+    "The mapping of selectors (a2, a4, a5) to concrete string kinds (driver, track, vehicle, etc.) is unconfirmed.",
+    "Semantics of the early-path index arithmetic dword_8AC394 + 1060 * (node+8) (vehicle data base) are unconfirmed."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005EA5E8",
+    "callee:0x00587BCF"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

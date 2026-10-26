@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "address": "0x0046C74C",
+  "proposed_name": "KeyBindingArrayRemoveShift",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Key-binding array removal with shift-down. Selects one of two key-binding arrays (dword_7CD2B8 or dword_7CD470) based on bit 2 of a1, ORs a2 into the dword at (a3 + 1149960185), reads the binding slot v5[a5], then removes it: when a5 >= 103 the slot is just reset to -1, otherwise the tail of the array is shifted down one slot (qmemcpy) and the last slot v5[103] is reset to -1. Returns the previously stored binding value.",
+  "local_names": {
+    "a1": "flag byte whose bit 2 (0x4) selects which key-binding array base to use",
+    "a2": "value ORed into the dword at (a3 + 1149960185)",
+    "a3": "base pointer for the OR target dword",
+    "a4": "unused parameter",
+    "a5": "binding slot index to remove from the selected array",
+    "v5": "selected key-binding array base (dword_7CD2B8 or dword_7CD470)",
+    "result": "binding value read from v5[a5] before removal, returned to the caller"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "OR a2 into the dword at (a3 + 1149960185) and store the result back.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Default the array base v5 to &dword_7CD2B8.",
+      "evidence_refs": ["global:0x007CD2B8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When (a1 & 4) == 0, re-select the alternate array base v5 = &dword_7CD470; otherwise keep dword_7CD2B8.",
+      "evidence_refs": ["global:0x007CD470", "abi:lead", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read result = v5[a5], the binding value currently stored at the slot being removed.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When a5 >= 103, clear the slot directly: v5[a5] = -1, with no shift.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Otherwise shift the array tail down: qmemcpy(&v5[a5], &v5[a5 + 1], 4 * (103 - a5)) moves the trailing slots toward the head to close the removed slot.",
+      "evidence_refs": ["function:0x0046C74C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "After the shift, reset the last array slot to the empty sentinel: v5[103] = -1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return result, the binding value that was removed from slot a5.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_46C74C(char a1, int a2, int a3, int a4, int a5) {",
+    "  *(int*)(a3 + 1149960185) |= a2;",
+    "  int* v5 = &dword_7CD2B8;",
+    "  if ((a1 & 4) == 0) v5 = &dword_7CD470;",
+    "  int result = v5[a5];",
+    "  if (a5 >= 103) {",
+    "    v5[a5] = -1;",
+    "  } else {",
+    "    qmemcpy(&v5[a5], &v5[a5 + 1], 4 * (103 - a5));",
+    "    v5[103] = -1;",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The OR target offset literal 1149960185 (0x448AFFF9 as a u32) is unusually large for a struct dword offset; it may be a decompiler artifact of a negative offset, but no alternate spelling is evidenced in the packet.",
+    "Semantics of a1 bit 2 and which binding set each global array (dword_7CD2B8 / dword_7CD470) represents are not evidenced.",
+    "Meaning of the value ORed in via a2 is not evidenced.",
+    "The packet tags both globals as read-only (rw R) while the raw source writes array slots through v5; the write classification is left to static/runtime review."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

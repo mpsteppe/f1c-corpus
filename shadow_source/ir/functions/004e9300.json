@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "address": "0x004E9300",
+  "proposed_name": "TireGripLateralForceCalculation",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004E9300"]
+  },
+  "summary": "Computes lateral tire grip force with a friction-circle model. Builds squared-slip and friction terms from a2/a3/a4/a5 and fields +0x3A70/+0x3514, selects a 14-entry force table (positive base +0x3C40 or negative base +0x3C80, scaled by +0x3C3C/+0x3C7C) via an FP-flag branch, interpolates, then iterates wheel contact patches (count +0x39F8, array base +0x39D0, wheel base this+0x3580 or this+0x3770 selected by the +0x39B4 guard) with an 8-byte-entry interpolation table (+0x39A4) to accumulate a contact capacity v40, looks up an aerodynamic table (+0x3CC0 scaled by +0x3CBC), and returns the force minus the +0x3D44 x +0x3518 slip term and a4[2]. Uses sub_5895A2 as the float-to-table-index conversion helper. Called from PhysicsNodePropagationWithDistanceFalloff (00401C90).",
+  "local_names": {
+    "a2": "squared-slip related input (v5 = a2*a2)",
+    "a3": "lateral slip input combined with a4[1]",
+    "a4": "slip/force vector; a4[0] and a4[2] used, a4[1] in the friction term",
+    "a5": "input combined with a4[0] inside the absolute friction term",
+    "v37": "a2*a2 (squared slip)",
+    "v38": "force difference term feeding the force tables",
+    "v42": "friction magnitude term",
+    "v35": "lerped table force before squaring",
+    "v48": "v35*v35 - v42*v42, gate for the contact iteration",
+    "v40": "accumulated contact patch capacity (final cap on v17)",
+    "v19": "contact patch loop index",
+    "v21": "selected wheel-contact struct base (this+0x3580 or this+0x3770)",
+    "v20": "walking pointer over per-patch parameters (base this+0x39D0)"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Base terms: v5 = a2*a2; v37 = v5; v38 = v5 * this+0x3A70 - (v37*a3 + a4[1]) * this+0x3514; v42 = fabs(v37*a5 - a4[0]) * this+0x3514",
+      "evidence_refs": ["field:this:0x00003A70", "field:this:0x00003514", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "FP condition-flag branch (v9|v10 from an elided comparison) selects the positive force table (scale this+0x3C3C, entries at this+0x3C40) versus the negative force table (scale this+0x3C7C, entries at this+0x3C80)",
+      "evidence_refs": ["field:this:0x00003C3C", "field:this:0x00003C40", "field:this:0x00003C7C", "field:this:0x00003C80", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_5895A2 converts the scaled force (v11/v15) to a table index; the truncated index is clamped to [0,13] and the force is lerped between adjacent 14-entry table rows (base this+0x3C40 or this+0x3C80)",
+      "evidence_refs": ["callee:0x005895A2", "field:this:0x00003C40", "field:this:0x00003C80", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v35 = (v14 - v13)*(v34 - index) + v13 is the lerped table force; then v48 = v35*v35 - v42*v42; the contact-patch iteration runs only when v48 > 0.0",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Contact-patch iteration: v19 runs from 1 to the count at this+0x39F8 while a walking pointer v20 advances from the array base this+0x39D0; per patch the wheel-contact base v21 is this+0x3580 when this+0x39B4 == 2 (packet guard) else this+0x3770, v22 = a2/(v21+144)*v20[0], and the loop breaks when v22 < this+0x3998; the pointer jumps by 918 dwords at the 8th element",
+      "evidence_refs": ["guard:0", "field:this:0x000039F8", "field:this:0x000039D0", "field:this:0x000039B4", "field:this:0x00003998", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_5895A2 converts v23 (v22 * 0.03125) to an integer index into the 8-byte-entry interpolation table at this+0x39A4; the fractional part v24 is retained for lerping two adjacent components",
+      "evidence_refs": ["callee:0x005895A2", "field:this:0x000039A4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per-patch capacity accumulation: the lerped-sum v27 is scaled by a gain selected from this+0x4*19+14796 (this+0x39CC) for patches up to 7 else from this+0x4820, and v40 = v27*gain / ((v21+144) * this+0x3514)",
+      "evidence_refs": ["field:this:0x00003514", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_5895A2 converts v28 (v38 * this+0x3CBC) into an index for the aerodynamic force table at this+0x3CC0; the index is clamped to [0,13] with lerp, or the first entry is used when negative",
+      "evidence_refs": ["callee:0x005895A2", "field:this:0x00003CBC", "field:this:0x00003CC0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Final force: v17 = lerped_table_value * this+0x3518 * (sqrt(v48)/v35), then capped to the accumulated contact capacity v40 (v17 = min(v17, v40))",
+      "evidence_refs": ["field:this:0x00003518", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns v17 - this+0x3D44 * this+0x3518 * v37 - a4[2]; invoked from PhysicsNodePropagationWithDistanceFalloff (00401C90)",
+      "evidence_refs": ["field:this:0x00003D44", "field:this:0x00003518", "function:0x004E9300", "caller:0x00401C90", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v37 = a2*a2;",
+    "v38 = v37*this[0x3A70/4] - (v37*a3 + a4[1])*this[0x3514/4];",
+    "v42 = fabs(v37*a5 - a4[0]) * this[0x3514/4];",
+    "if (fp_flags) v35 = lerp(table_pos, this[0x3C3C/4]*v38, base this[0x3C40/4]);",
+    "else        v35 = lerp(table_neg, this[0x3C7C/4]*v38, base this[0x3C80/4]);",
+    "v48 = v35*v35 - v42*v42;",
+    "if (v48 > 0.0) {",
+    "  for (v19 = 1; v19 <= this[0x39F8/4]; ++v19) {",
+    "    base = (this[0x39B4/4] == 2) ? this + 0x3580 : this + 0x3770;",
+    "    v22 = a2 / *(base + 0x90) * *ptr;",
+    "    if (v22 < this[0x3998/4]) break;",
+    "    v40 = lerp8(this[0x39A4/4], v22*0.03125) * gain / (*(base + 0x90) * this[0x3514/4]);",
+    "  }",
+    "  v17 = lerp14(this[0x3CC0/4], v38*this[0x3CBC/4]) * this[0x3518/4] * (sqrt(v48)/v35);",
+    "  if (v17 > v40) v17 = v40;",
+    "}",
+    "return v17 - this[0x3D44/4]*this[0x3518/4]*v37 - a4[2];"
+  ],
+  "unresolved": [
+    "Field +0x3800 is flagged by packet facts as an alternative struct base but never appears in the raw decompiled source; the wheel-contact bases are computed directly as this+0x3580 / this+0x3770",
+    "Read-only globals flt_59E440 and flt_59ED18 are flagged by packet facts but absent from the raw decompiled source",
+    "The comparison behind the v9|v10 FP condition-flag branch is not visible in the decompiled code; Hex-Rays elided the deciding comparison"
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00003800",
+    "global:0x0059E440",
+    "global:0x0059ED18"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

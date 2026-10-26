@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00558990
+// Canonical corpus name: ResourceTeardownWithStateArrayReset
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ResourceTeardownWithStateArrayReset_00558990.c
+
+void UnknownObject::ResourceTeardownWithStateArrayReset()
+{
+    // Render resource teardown (__thiscall, returns 0). If the sub-context at this+0x50 holds a non-zero object pointer at +28 (offset 0x6C), it is reset via ObjectResetWithVirtualRelease (passing dword_8B78A0) and freed with FreeWrapper_7bcf, then the +36 pointer (offset 0x74) is drained via DrainingLoopFinalizer and freed likewise; both pointers are zeroed and flag bit 8 at this+0x20 is cleared. Unconditionally, it walks the state-struct array at this+0x34 (this[13]) over this[11] (count at 0x2C) elements with stride 32 dwords (128 bytes), clearing bit 6 of each element's first dword and zeroing dword fields 30 and 31 (offsets 0xAC and 0xB0), then zeroes counters at this+0x30 and this+0x38.
+    // GUARD: Guard the audio sub-resource teardown on *(this+0x50+28) (object pointer at offset 0x6C) being non-zero. [field:this:0x00000050, field:this:0x0000006C]
+    // CALL: Reset the audio object: ObjectResetWithVirtualRelease(dword_8B78A0, *(this+0x50+28)). [callee:0x00540EB0, global:0x008B78A0, field:this:0x0000006C]
+    // GUARD: If the object pointer at this+0x50+28 is still non-zero after reset, proceed to free it. [field:this:0x0000006C]
+    // CALL: Free the audio object via FreeWrapper_7bcf on *(this+0x50+28). [callee:0x00587BCF, field:this:0x0000006C]
+    // ASSIGNMENT: Zero the object pointer at this+0x50+28 (offset 0x6C). [field:this:0x0000006C]
+    // CALL: Finalize the drain object: DrainingLoopFinalizer(dword_8B78A0, *(this+0x50+36)). [callee:0x00541040, global:0x008B78A0, field:this:0x00000074]
+    // GUARD: If the drain pointer at this+0x50+36 is non-zero after finalization, proceed to free it. [field:this:0x00000074]
+    // CALL: Free the drain object via FreeWrapper_7bcf on *(this+0x50+36). [callee:0x00587BCF, field:this:0x00000074]
+    // ASSIGNMENT: Zero the drain pointer at this+0x50+36 (offset 0x74). [field:this:0x00000074]
+    // ASSIGNMENT: Clear flag bit 0x100 (bit 8) of the flags dword at this+0x20. [field:this:0x00000020]
+    // ASSIGNMENT: Set v4 to the base of the state-struct array at this[13] (offset 0x34). [field:this:0x00000034]
+    // LOOP: Iterate i from 0 to this[11] (element count at offset 0x2C), advancing the element pointer by 32 dwords (128 bytes) per step. [field:this:0x0000002C, field:this:0x00000034]
+    // ASSIGNMENT: Per element, clear bit 6 of the first dword: *v4 &= 0xFFFFFFBF. [source:raw, field:this:0x00000034]
+    // ASSIGNMENT: Per element, zero dword field 30 of the element (element base + 120 = offset 0xAC relative to this). [field:this:0x000000AC]
+    // ASSIGNMENT: Per element, zero dword field 31 of the element (element base + 124 = offset 0xB0 relative to this). [field:this:0x000000B0]
+    // ASSIGNMENT: Zero the counter at this[12] (offset 0x30) after the array pass. [field:this:0x00000030]
+    // ASSIGNMENT: Zero the counter at this[14] (offset 0x38) after the array pass. [field:this:0x00000038]
+    // RETURN: Return 0. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int ResourceTeardownWithStateArrayReset(_DWORD* this) {
+    //     if (*(this[20] + 28)) {
+    //       ObjectResetWithVirtualRelease(dword_8B78A0, *(this[20] + 28));
+    //       if (*(this[20] + 28)) FreeWrapper_7bcf(*(void**)(this[20] + 28));
+    //       *(this[20] + 28) = 0;
+    //       DrainingLoopFinalizer(dword_8B78A0, *(this[20] + 36));
+    //       if (*(this[20] + 36)) FreeWrapper_7bcf(*(void**)(this[20] + 36));
+    //       *(this[20] + 36) = 0;
+    //       this[8] &= ~0x100u;
+    //     }
+    //     for (unsigned int* v4 = this[13], i = 0; i < this[11]; ++i, v4 += 32) {
+    //       *v4 &= 0xFFFFFFBF;
+    //       v4[30] = 0;
+    //       v4[31] = 0;
+    //     }
+    //     this[12] = 0;
+    //     this[14] = 0;
+    //     return 0;
+    //   }
+    // UNRESOLVED: Nature of the object at this+0x50 (sub-context with object and drain pointers) and its owner class.
+    // UNRESOLVED: Semantics of the state-struct array at this+0x34: element layout beyond stride 128 bytes and the meaning of bit 6 in each element header are unknown.
+    // UNRESOLVED: Role of dword_8B78A0 passed to both reset and drain finalizer is unresolved.
+    // UNRESOLVED: Why flag bit 8 at this+0x20 is cleared only when the audio sub-resources existed is unclear.
+}

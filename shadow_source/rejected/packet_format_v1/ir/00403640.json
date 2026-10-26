@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "address": "0x00403640",
+  "proposed_name": "NearestNeighborPlaneQuery",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Finds the closest physics strut or collision node to a query point a2 using Euclidean squared distance plus a signed-distance plane test. When start node a3 is provided, walks its linked geometry lists (next pointers at +268/+272); otherwise initializes from a full-array scan. Global scan iterates this->strut array (0x134 base, 316-byte stride) while this->strutCount (0x130) > 0. Candidates passing the plane distance test sub_4FB6D0 are selected; called by VehicleMainPhysicsUpdate, Camera, PositionChangeMonitor, AIRacingLinePathFollowing and sub_4F1FE0 on the per-frame path.",
+  "local_names": {
+    "a2": "queryPoint",
+    "a3": "startNode",
+    "v8": "nearestNode",
+    "v28": "planeQualifiedCandidate",
+    "v11": "bestSquaredDistance",
+    "v40": "bestPlaneDistance"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If start node a3 is non-null, initialize the linked-list nearest-neighbor walk from node at a3 (seed distance via offsets +0/+8) instead of the full-array scan path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk linked geometry nodes via next pointers at +272 (and +268 on the second list) computing squared XZ distance to query point; retain the nearest node while the walk distance improves.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "this->strutCount (0x130) > 0 enables the strut-array scan loop over all active struts; count <= 0 skips the scan.",
+      "evidence_refs": ["guard:0", "field:this:0x00000304"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate strut entries at base this->strutData (0x134) with 316-byte stride; read entry type word at +300 and when type <= 1 compute squared distance to the query point with Y component weighted by 4.0, keeping the nearest candidate.",
+      "evidence_refs": ["field:this:0x00000304", "field:this:0x00000308", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call sub_4FB6D0(a2) to obtain the signed distance from the query point to the reference plane/surface; negative distance disqualifies early and returns the nearest node.",
+      "evidence_refs": ["callee:0x004FB6D0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Plane-proximity scoring: for scan candidates when best plane distance is positive, re-call sub_4FB6D0 and accept the candidate if its distance improves bestPlaneDistance and its squared (distance+30) window is within bestSquaredDistance.",
+      "evidence_refs": ["callee:0x004FB6D0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Final signed plane distance: if >= 0.0 return the plane-qualified candidate (v28), otherwise return the nearest raw node (v8).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (a3) { v8 = nearest of linked lists; best = dist^2(a2, v8); if (PlaneDist(a2) < 0.0) return v8; }",
+    "for each strut entry (base this[0x134/4], stride 316, type word at +300):",
+    "    if type <= 1: d = dist^2(a2, entry) with Y*4.0; track nearest (v8) and plane-qualified candidate (v28);",
+    "return PlaneDist(a2) >= 0.0 ? v28 : v8;"
+  ],
+  "unresolved": [
+    "flt_59E440 / flt_59E468 / flt_59E46C are read by this function but do not appear in the extracted pseudocode; likely thresholds or transforms consumed by sub_4FB6D0 path, exact use unconfirmed.",
+    "The stride-316 strut entry layout (type word at +300, position at +0/+4/+8) is inferred from pseudocode only; struct definition not confirmed."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440",
+    "global:0x0059E468",
+    "global:0x0059E46C"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

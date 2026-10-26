@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "address": "0x00510975",
+  "proposed_name": "ParseBytePairCommandStream",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00510975"]
+  },
+  "summary": "Stream decoder for a byte-pair command list. Reads a big-endian length from two stream bytes, then iterates (length - 2)/2 command pairs. Each pair is an ID byte and a value byte that are reported through the state dispatcher: state 78 with a parameterized dispatch, state 26 when the ID is >= 32, and state 27 when the low nibble of the value exceeds the high nibble. Values are stored nibble-split into the this+0xCA / this+0xDA byte arrays for IDs below 16, and as a full byte at this+0xDA+ID for IDs 16..31. The byte stream is transparently refilled through the stream object's refill function whenever its remaining count reaches zero.",
+  "local_names": {
+    "a1": "command decoder object (this)",
+    "v1": "byte stream read-state struct pointer (this+0x14)",
+    "v2": "current read pointer inside the stream buffer",
+    "v16": "remaining byte count in the stream buffer",
+    "v13": "first stream byte promoted to a big-endian high byte (byte << 8)",
+    "v14": "16-bit length field assembled from the two stream bytes",
+    "v15": "remaining pair bytes to consume (length - 2)",
+    "v12": "pair ID byte (index of the target command field)",
+    "v11": "pair value byte (payload stored into the field arrays)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If the stream's remaining byte count is zero, call the refill function stored at stream+0xC; abort with return 0 when the refill fails",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Assemble a big-endian 16-bit length from the first two stream bytes (first byte shifted into the high byte, second byte added low); the pair-consumption loop runs while length - 2 stays positive",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Consume (ID, value) byte pairs while the remaining length is positive, decrementing by 2 per pair and refilling the stream through stream+0xC whenever the remaining count hits zero",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Report the pair through the dispatcher: write state 78 to obj+0x14, the ID byte to obj+0x18 and the value byte to obj+0x1C",
+      "evidence_refs": ["field:obj:0x00000014", "field:obj:0x00000018", "field:obj:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Parameterized dispatch of the pair through the second vtable entry (obj+0x4) with argument 1",
+      "evidence_refs": ["field:obj:0x00000004", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "IDs >= 32 re-dispatch the value through the state-dispatcher vtable (obj+0x0) with state 26 instead of the storage path",
+      "evidence_refs": ["field:obj:0x00000000", "field:obj:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "IDs below 16 store the value as separate nibbles in the two field arrays (low nibble at this+0xCA+ID, high nibble at this+0xDA+ID); IDs 16..31 store the full byte at this+0xDA+ID",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the low nibble is greater than the high nibble, re-dispatch through the state-dispatcher vtable (obj+0x0) with state 27 to resolve the nibble ordering",
+      "evidence_refs": ["field:obj:0x00000000", "field:obj:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "After the loop, write the final consumed read pointer and remaining count back into the stream read-state struct at this+0x14",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 on a successful parse; return 0 when a stream refill fails mid-parse; invoked by CommandDispatchStateMachine (0x0051126A)",
+      "evidence_refs": ["caller:0x0051126A", "function:0x00510975", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "stream = this[0x14/4];",
+    "refill_buffer_if_empty(stream);           /* stream[3] refill function, fail -> return 0 */",
+    "len = (read_byte(stream) << 8) | read_byte(stream);",
+    "remaining = len - 2;",
+    "while (remaining > 0) {",
+    "  refill_buffer_if_empty(stream);",
+    "  id = read_byte(stream);  value = read_byte(stream);  remaining -= 2;",
+    "  obj[0x14/4] = 78;  obj[0x18/4] = id;  obj[0x1C/4] = value;",
+    "  dispatch_param(obj, 1);                  /* obj[4] vfunc */",
+    "  if (id >= 32) { obj[0x14/4] = 26; dispatch_state(obj); continue; }",
+    "  if (id < 16) {",
+    "    this[0xCA + id] = value & 0xF;",
+    "    this[0xDA + id] = value >> 4;",
+    "    if ((value & 0xF) > (value >> 4)) { obj[0x14/4] = 27; dispatch_state(obj); }",
+    "  } else {",
+    "    this[0xDA + id] = value;",
+    "  }",
+    "}",
+    "stream[0] = read_ptr;  stream[1] = remaining;",
+    "return 1;"
+  ],
+  "unresolved": [
+    "The read of table entry count this+0x20 appears in the packet field list but the raw source never touches it",
+    "Field this+0x18 is listed in the packet as a cached buffer pointer but no raw source access to this+0x18 exists in this function",
+    "The exact meaning of the two field arrays (this+0xCA low-nibble store, this+0xDA full/high-nibble store) relative to the command IDs is only inferable from the skeleton prose, not from this packet's numeric evidence"
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000018",
+    "field:this:0x00000020"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,74 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00546AA0
+// Canonical corpus name: sub_546AA0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_546AA0_00546aa0.c
+
+void UnknownObject::acquireOrCreateResource()
+{
+    // Resource/texture manager thiscall: select one of 8 array slots (this+0xA8, 148-byte stride) by bitmask a2, then acquire a named resource object. If the slot already holds a resource object, decrement its refcount, destruct elements and unlink/free it when the refcount drops to zero. If a name template a3 is given, build per-element name strings (basename + optional 2-digit index + extension literal from global 0x5CC79C) and format them via StringFormatWithBufferOverflowCheck. Search the shared linked list for an existing object by name (StringSearchInLinkedList) and reuse it when found and slot flag 0x100 is clear; otherwise allocate a new object (96-byte stride elements, header element count) and create one D3D texture per element via D3DTextureCreation with flag bits derived from the slot state and globals. On successful completion append the object to the linked list (sub_547860), bump its refcount, refresh this+0xB0 linked-list membership into this+0xB4, clear this+0x9C bit 1, and return 0. On texture-creation failure tear down created elements, free the allocation, detach slot+140, and return -1.
+    // GUARD: Decode a2 bitmask into slot index v4 (0..7): if bit 0x01 set, slot 0; otherwise cascade bit 0x02->1, 0x04->2, 0x08->3, 0x10->4, 0x20->5, 0x40->6, high bit 0x80->7. [source:raw]
+    // ASSIGNMENT: Read array base pointer this+0xA8 into v5, compute slot base v8 = v5 + 148*slot_index, and read the existing resource object pointer at slot+140 into v7. [field:this:0x000000A8, source:raw]
+    // GUARD: If slot+140 (existing resource object) is nonzero, enter the replace-old-object path. [source:raw]
+    // LOOP: If the existing object's element count at slot+72 is positive, copy each 96-byte-stride element's name string (offset +4) into the local 32-byte-stride name table v53 for slot+72 iterations. [source:raw]
+    // STATE_TRANSITION: Decrement the object refcount stored at [slot+140]; when it drops from 1 to 0, run DestructorWithConditionalFreeFlagClear over the object's 96-byte-stride elements (count at object+0x4C), remove the object from the linked list via DoublyLinkedListNodeRemovalWithArrayCleanup, then detach slot+140 = 0. [callee:0x005502C0, callee:0x005478B0, source:raw]
+    // GUARD: If name template a3 is provided, build the resource name strings in local buffers. [source:raw]
+    // CALL: Copy a3 into v52, copy the null-terminated extension literal from global dword_5CC79C into v51, truncate v52 at the last '.' moving its tail into v51, then for each element call StringFormatWithBufferOverflowCheck with the '%s%s' (single element) or '%s%.2d%s' (indexed) format strings from globals aSS/aS2dS to fill the name table. [callee:0x0058815F, global:0x005CC79C, global:0x005BE860, global:0x005DBE54, source:raw]
+    // CALL: Call SelfRelativeCopyNormalize with the slot base and a3, copying/deriving the path string into the slot's leading buffer. [callee:0x0054FC10, source:raw]
+    // GUARD: If the name buffer v52 is empty (no name template), skip the linked-list lookup and jump to the LABEL_75 completion path. [source:raw]
+    // CALL: Look up an existing resource by name with StringSearchInLinkedList(a3); when a match is returned and slot+64 flag 0x100 is clear, reuse it: slot+140 = match, increment its refcount, jump to completion (reached from caller StringCompareCopy 0x4DC450). [callee:0x00547920, caller:0x004DC450, source:raw]
+    // ASSIGNMENT: Allocate a new object with OperatorNewNhMallocWrapper(96*count + 4): header dword stores element count, elements zero-initialized via StructInitWithZeroFill; install it at slot+140, set the object's element-count field with StructFieldSetterAt0x4c, and set this+0x9C flag bit 0x400 when count > 1. [callee:0x00587C03, callee:0x0054FE10, callee:0x00550300, field:this:0x0000009C, source:raw]
+    // GUARD: If element count slot+72 is zero or less, skip texture creation and jump to LABEL_73 (append to linked list and return success). [source:raw]
+    // LOOP: Per element: copy the formatted name into element+4, build texture_flags (base bit 4; bit 0x800 when slot+64 has bit 0x80; when global dword_8B8E24 is set and slot+64 has bit 0x0C, set element+80 = slot+68+1 and add bit 0x2000/0x4000 by slot bit 8/4, otherwise clear slot+64 bits 0x0C and set element+80 = 1; set element+68 bit 1 when slot+64 has bit 1; OR the global unk_800000 address constant into the flags when slot+96 has bit 0x400000). [global:0x008B8E24, global:0x00800000, source:raw]
+    // CALL: Call D3DTextureCreation(element name at +4, slot+128 parameter, texture_flags) for each element; a nonzero return aborts the creation loop and enters the rollback path. [callee:0x00550080, source:raw]
+    // RETURN: Rollback on texture failure: run DestructorWithConditionalFreeFlagClear over the already-created elements, invoke EmptyStub_7470 on each element and FreeWrapper_7bcf on the allocation header to free the object, detach slot+140 = 0, and return -1. [callee:0x005502C0, callee:0x00557470, callee:0x00587BCF, source:raw]
+    // CALL: Success path: append the object to the linked list via sub_547860(slot+140) and increment the object refcount. [callee:0x00547860, source:raw]
+    // STATE_TRANSITION: Completion path: when this+0x9C has bit 0x40 set, search this+0xB0 with LinkedListFloatSearch and store the result at this+0xB4, appending a node with LinkedListNodeAppend_89a0(this+0xB0) and re-searching when no result; then clear this+0x9C bit 1. [field:this:0x0000009C, field:this:0x000000B0, field:this:0x000000B4, callee:0x00548A00, callee:0x005489A0]
+    // RETURN: Return 0 on the success paths (reuse of an existing object, new object creation with all textures created, or zero-element object). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int acquireOrCreateResource(this, mask, name) {
+    //     slot = this[0xA8] + 148 * decodeSlotIndex(mask);
+    //     if (slot[140] != 0) {
+    //       copyElementNamesToLocalTable(slot);
+    //       if (--slot[140]->refcount == 0) {
+    //         destructElements(slot[140]);
+    //         linkedListRemove(slot[140]);
+    //       }
+    //       slot[140] = 0;
+    //     }
+    //     if (name) {
+    //       buildNames(name, extensionLiteral, slot[72]);
+    //       normalizePath(slot, name);
+    //       if (found = searchByName(name))
+    //         if (!(slot[64] & 0x100)) { slot[140] = found; found->refcount++; return 0; }
+    //     } else normalizePath(slot, name);
+    //     obj = allocate(96 * slot[72] + 4);
+    //     initElements(obj, slot[72]);
+    //     slot[140] = obj;
+    //     if (slot[72] == 0) goto success;
+    //     for (i = 0; i < slot[72]; i++) {
+    //       setElementName(obj, i, nameTable[i]);
+    //       flags = buildTextureFlags(slot, globalFlags);
+    //       if (createD3DTexture(obj[i].name, slot[128], flags)) goto rollback;
+    //     }
+    //   success:
+    //     linkedListAppend(obj);
+    //     obj->refcount++;
+    //     refreshListMembership(this);
+    //     this[0x9C] &= ~2;
+    //     return 0;
+    //   rollback:
+    //     destructCreatedElements(obj);
+    //     freeObject(obj);
+    //     slot[140] = 0;
+    //     return -1;
+    //   }
+    // UNRESOLVED: Semantic meaning of slot+64/+68/+96/+128 fields and the individual D3DTextureCreation flag bits is inferred from usage only (DERIVED), not confirmed by any independent source.
+    // UNRESOLVED: The per-element destructor loop rendered as 'for (i = v50; i > 0; ++i)' cannot terminate as shown; presumed a decompiler sign artifact for a decreasing counter.
+    // UNRESOLVED: Element count is stored in two places (allocation header dword at obj-4 and object+0x4C set by StructFieldSetterAt0x4c); the relationship between the two layouts and the reuse of obj+0 as refcount/element-0 field is unresolved.
+    // UNRESOLVED: Whether unk_800000 is a genuine global read or IDA's rendering of a literal 0x800000 constant ORed into the texture flags is ambiguous.
+    // UNRESOLVED: D3DTextureCreation return convention (nonzero=failure) is inferred from the surrounding rollback path, not verified.
+    // UNRESOLVED: Meaning of a2 flag bit 0 versus the high-bit cascade (slot index selection) and why bit 0 bypasses the cascade is not confirmed.
+    // UNRESOLVED: Role of the aSS/aS2dS globals as the exact '%s%s'/'%s%.2d%s' literals is inferred from their read references and the adjacent format calls.
+}

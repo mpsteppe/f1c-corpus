@@ -1,0 +1,49 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004CE3E0
+// Canonical corpus name: CollisionEffectDispatch
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/CollisionEffectDispatch_004ce3e0.c
+
+void UnknownObject::CollisionEffectDispatch()
+{
+    // Dispatches collision contact effects (spark and trail particles) per frame. Gated by ArithmeticComparison_9fb0 on the dword_8AB6E4 scoring/effects gate, iterates the effect slot array at this+0x40 over this+0x3C slots, and switches on each slot's type id (slot+4). Type id 5 (raw id 4) spawns collision sparks via ParticleCollisionSpark; trail-type slots spawn particles via ParticleTrailEmitter with jittered positions sampled from the flt_8AB274 noise table through the dword_8AAE70 ring counter. Emission is throttled on dword_7CF8A8 / dword_8AB6E4 / dword_7C5698 (every 20 ticks), deduplicated by remembering the last contact position (a2+56..64) and speed (a2+68), and the byte_7CF9D4 / byte_7CF9EC weather-render flags select the trail magnitude/persistence variant.
+    // GUARD: Enter the dispatch only when ArithmeticComparison_9fb0(&dword_8AB6E4) returns true (effects/scoring gate). [callee:0x004B9FB0, global:0x008AB6E4, source:raw]
+    // GUARD: Proceed only when the effect slot count at this+0x3C (this[15]) is greater than zero. [field:this:0x0000003C, source:raw]
+    // LOOP: Walk the effect slot array at this+0x40, reading each slot's effect type id from the dword at slot+4. [field:this:0x00000040, field:*(this+0x40):0x00000004, source:raw]
+    // GUARD: Skip a slot when its type id is not one of the handled types; the spark branch (raw id 4) additionally requires *(a2+48) != 0.0. [source:raw]
+    // CALCULATION: Compute jittered spawn positions as flt_8AB274[(byte)dword_8AAE70++] * 0.25 added to the contact position components. [global:0x008AB274, global:0x008AAE70, source:raw]
+    // GUARD: Throttle emission when dword_7CF8A8 <= threshold and dword_8AB6E4 != 2: emit only every 20th tick of the dword_7C5698 session tick counter. [global:0x007CF8A8, global:0x008AB6E4, global:0x007C5698, source:raw]
+    // CALL: Spawn collision spark particles via ParticleCollisionSpark for the spark effect type id. [callee:0x004CB620, source:raw]
+    // STATE_TRANSITION: Persist the last contact position (a2+56, +60, +64) and speed value (a2+68) so re-emission is suppressed within a 0.15 speed-difference and 1.0 squared-distance window. [source:raw]
+    // CALL: Emit trail particles via ParticleTrailEmitter using the jittered contact position and the velocity vector (a5[0..2]) scaled by 0.1. [callee:0x004CBC50, source:raw]
+    // GUARD: The weather/render flags byte_7CF9D4 and byte_7CF9EC select the trail emitter magnitude/persistence variant (1, -1, or 104). [global:0x007CF9D4, global:0x007CF9EC, source:raw]
+    // LOOP: Advance the slot pointer and index until the index reaches the this+0x3C slot count. [field:this:0x0000003C, source:raw]
+    // RETURN: Return the slot-iteration flag value v8. [function:0x004CE3E0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (!ArithmeticComparison_9fb0(&dword_8AB6E4)) return;
+    //   for (int i = 0; i < this->slot_count; ++i) {
+    //     int* slot = this->slots + i;
+    //     int type = *((int*)*slot + 1);  // type id at slot+4
+    //     switch (type) {
+    //       case 5:
+    //         if (contact_z == 0.0f) continue;
+    //         if (throttled(dword_7CF8A8, dword_8AB6E4, dword_7C5698)) continue;
+    //         pos = jitter(contact_pos, flt_8AB274, dword_8AAE70);
+    //         ParticleCollisionSpark(slot, speed, &pos, velocity, magnitude, a6, a7);
+    //         break;
+    //       default:
+    //         if (trail_magnitude == 0.0f) continue;
+    //         if (moved_past_dedupe(a2, contact_pos, speed)) continue;
+    //         remember_contact(a2, contact_pos, speed);
+    //         pos = jitter(contact_pos, flt_8AB274, dword_8AAE70);
+    //         vel = scale(velocity, 0.1f);
+    //         int persist = pick_persist(byte_7CF9D4, byte_7CF9EC, a7);
+    //         ParticleTrailEmitter(slot, speed, &pos, &vel, trail_magnitude, a6, 1, persist);
+    //     }
+    //   }
+    // UNRESOLVED: The flt_59E43C, flt_59E440, flt_59E7F8, flt_59E84C and flt_59E868 globals are listed in the packet's global table but never referenced in the raw source text; their role is unknown.
+    // UNRESOLVED: Owner object, parameter semantics (a2 contact, a4 position, a5 velocity, a6, a7), and the exact type-id enumeration are not evidenced.
+    // UNRESOLVED: The precise mapping of the byte_7CF9D4/byte_7CF9EC truth table to the emitter persistence constants (1, -1, 104) is reconstructed, not confirmed.
+    // UNRESOLVED: Meaning of the returned slot-iteration flag v8 to callers is unresolved.
+}

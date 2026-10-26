@@ -1,0 +1,29 @@
+## sub_4AFF20_004aff20 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_49CB80 (0049cb80), sub_49CD60 (0049cd60), sub_49D330 (0049d330), sub_4AF4C0 (004af4c0)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0x0 | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 005d6598 | flt_5D6598 | R | [LLM] |
+| 005d659c | flt_5D659C | R | [LLM] |
+| 006152e8 | dword_6152E8 | R | [LLM] |
+| 006152ec | dword_6152EC | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 005a16e0 | sub_5A16E0 | [LLM] |
+| 005a17a0 | sub_5A17A0 | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

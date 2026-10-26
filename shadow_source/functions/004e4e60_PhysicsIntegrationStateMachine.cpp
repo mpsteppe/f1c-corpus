@@ -1,0 +1,54 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004E4E60
+// Canonical corpus name: PhysicsIntegrationStateMachine
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/PhysicsIntegrationStateMachine_004e4e60.c
+
+void UnknownObject::PhysicsIntegrationStateMachine()
+{
+    // Vehicle physics time-integration driver. Selects an integration sub-step size from wheel speed squared against a threshold, stores the selected step into 4 wheel slots (62-DWORD stride) starting at this+0x35F0, then runs the integration sub-step count (this+0x3498) iterations of a suspension/tire physics chain (spring-damper reset, suspension update, force/torque computation). Stores a time argument (a2) at this+0x34AC after the loop. Invoked from VehiclePhysicsModeDispatcher.
+    // CALCULATION: Read wheel speed float v3 from this+0x3508 and the integration sub-step count v4 from this+0x3498. [function:0x004E4E60, source:raw, field:this:0x00003508, field:this:0x00003498]
+    // GUARD: Guard comparing v3 squared (wheel speed squared) against the threshold float at this+0x349C to select the integration step size. [source:raw, field:this:0x00003508, field:this:0x0000349C]
+    // ASSIGNMENT: Select step size: when speed squared is not greater than the threshold take the small step value at this+0x34A0; otherwise take the large step value at this+0x34A4 and increment the count v4. Store the selected value into this+0x34A8. [source:raw, field:this:0x000034A0, field:this:0x000034A4, field:this:0x000034A8]
+    // LOOP: Write the selected step value (this+0x34A8) into 4 wheel slots starting at this+0x35F0, advancing by 62 DWORDs per slot. [source:raw, field:this:0x000034A8, field:this:0x000035F0]
+    // GUARD: Guard on v4 <= 0: when the sub-step count is zero or negative, skip the integration loop and jump directly to storing the time argument. [source:raw]
+    // LOOP: Run v4 iterations of the suspension/tire physics chain (v11 countdown from v4). [source:raw]
+    // CALL: Call SuspensionSpringDampingRateReset(this) to reset spring/damper forces and recompute damping rates. [source:raw, callee:0x004E4F40]
+    // CALL: Call sub_4E58D0(this) to update suspension state. [source:raw, callee:0x004E58D0]
+    // CALL: Call sub_4E51A0(this) to compute suspension displacement and force. [source:raw, callee:0x004E51A0]
+    // CALL: Call WheelForceCalculationSpringDamperTorque(this) to calculate wheel contact forces and spring/damper torques. [source:raw, callee:0x004E5470]
+    // CALL: Call sub_4E5AE0(this) and capture its return value as the result. [source:raw, callee:0x004E5AE0]
+    // ASSIGNMENT: Store the time argument a2 into this+0x34AC after the integration loop. [source:raw, field:this:0x000034AC]
+    // RETURN: Return the value produced by the last sub_4E5AE0 call (or the pointer to the step arrays when the loop was skipped). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   void* sub_4E4E60(int this, int a2) {
+    //     float speed = *(float*)(this + 0x3508);
+    //     int count = *(int*)(this + 0x3498);
+    //     if (speed * speed > *(float*)(this + 0x349C)) {
+    //       *(int*)(this + 0x34A8) = *(int*)(this + 0x34A4);
+    //       ++count;
+    //     } else if (speed * speed <= *(float*)(this + 0x349C)) {
+    //       *(int*)(this + 0x34A8) = *(int*)(this + 0x34A0);
+    //     } else {
+    //       ++count;
+    //       *(int*)(this + 0x34A8) = *(int*)(this + 0x34A4);
+    //     }
+    //     for (int i = 0; i < 4; ++i)
+    //       *(int*)(this + 0x35F0 + i * 62 * 4) = *(int*)(this + 0x34A8);
+    //     if (count > 0) {
+    //       for (int n = count; n > 0; --n) {
+    //         SuspensionSpringDampingRateReset(this);
+    //         sub_4E58D0(this);
+    //         sub_4E51A0(this);
+    //         WheelForceCalculationSpringDamperTorque(this);
+    //         sub_4E5AE0(this);
+    //       }
+    //     }
+    //     *(int*)(this + 0x34AC) = a2;
+    //     return this + 0x35F0;
+    //   }
+    // UNRESOLVED: The FPU-flag path (v7|v8) in the decompiler output is ambiguous: whether the small-step branch covers 'less than' only or 'less than or equal' is not settled from the raw source alone.
+    // UNRESOLVED: Identity of the 4 step arrays at this+0x35F0 (per-wheel storage) is inferred from the 62-DWORD stride and slot count.
+    // UNRESOLVED: Exact meaning of the threshold (this+0x349C) and step values (this+0x34A0/0x34A4) requires corroboration from the config schema.
+}

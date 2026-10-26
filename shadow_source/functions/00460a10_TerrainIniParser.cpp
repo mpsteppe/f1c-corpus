@@ -1,0 +1,40 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00460A10
+// Canonical corpus name: TerrainIniParser
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TerrainIniParser_00460a10.c
+
+void UnknownObject::TerrainIniParser()
+{
+    // Terrain INI configuration validator called from the net-comm session dispatcher. Resets five flag bytes at this+0x1B76A..0x1B76E to zero, then evaluates five match criteria against the session descriptor a2 using the season/race index bytes at this+0x1B754/0x1B755: (1) a hash checksum over the two index bytes equals the word at a2+8; (2) the caller-supplied scene name matches via SceneFileMatchByName and equals the pointer at a2+12; (3) the terrain.ini filename matches and its CRC-adjusted pointer equals the pointer at a2+16; (4) a season-path derived filename (track path minus extension plus a suffix built from dword_5C5D24/byte_5C5D28) matches and equals the pointer at a2+20; (5) a formatted season-directory path matches and equals the pointer at a2+24. Each match sets the corresponding flag to 1. Returns the logical AND of all five flags.
+    // ASSIGNMENT: Read the season/race index bytes at this+0x1B754 (v5) and this+0x1B755 (v4), then reset all five flag bytes this+0x1B76A through this+0x1B76E to 0. [field:this:0x0001B754, field:this:0x0001B755, field:this:0x0001B76A, field:this:0x0001B76B, field:this:0x0001B76C, field:this:0x0001B76D, field:this:0x0001B76E, source:raw]
+    // CALCULATION: Compute HashChecksumComputation over the two index bytes and compare the low word against the word at a2+8; on equality set flag this+0x1B76A to 1. [callee:0x00460770, field:this:0x0001B76A, source:raw]
+    // GUARD: When the caller-supplied scene name a3 is non-null, match it via SceneFileMatchByName and require the returned pointer to equal the pointer at a2+12; if both hold set flag this+0x1B76B to 1. [callee:0x0045C320, field:this:0x0001B76B, source:raw]
+    // GUARD: Match the terrain.ini constant against the scene-name list via SceneFileMatchByName; if the match holds, advance the returned pointer by (dword_8ACED8 - 1413405834) and set flag this+0x1B76C to 1 when it equals the pointer at a2+16. [callee:0x0045C320, global:0x005C5B88, global:0x008ACED8, field:this:0x0001B76C, source:raw]
+    // CALCULATION: Build a season-path candidate filename: take the track path (dword_7CE5D0, falling back to byte_5EA438), trim to the last backslash, copy via sub_587DD0 into a local buffer of size 79, strip from the last dot, then append a 5-byte suffix built from dword_5C5D24 and byte_5C5D28. [global:0x007CE5D0, global:0x005EA438, callee:0x00587DD0, global:0x005C5D24, global:0x005C5D28, source:raw]
+    // GUARD: Match the built season-path filename via SceneFileMatchByName and require the returned pointer to equal the pointer at a2+20; if both hold set flag this+0x1B76D to 1. [callee:0x0045C320, field:this:0x0001B76D, source:raw]
+    // CALL: Build the full season-directory path with StringFormatProcessingWithNullTerm into the local buffer (max 80), formatting season directory (dword_5EC3D8, falling back to byte_5EA438) and season path (dword_7D0434, falling back to byte_5EA438) with the aSS percent-s-percent-s format string. [callee:0x0058969D, global:0x005EC3D8, global:0x007D0434, global:0x005EA438, global:0x005BE860, source:raw]
+    // GUARD: Match the formatted season-directory path via SceneFileMatchByName and require the returned pointer to equal the pointer at a2+24; if both hold set flag this+0x1B76E to 1. [callee:0x0045C320, field:this:0x0001B76E, source:raw]
+    // RETURN: Return the logical AND of all five flags at this+0x1B76A through this+0x1B76E. [field:this:0x0001B76A, field:this:0x0001B76B, field:this:0x0001B76C, field:this:0x0001B76D, field:this:0x0001B76E, source:raw]
+
+    // Conservative worker pseudocode:
+    //   BOOL sub_460A10(this, a2, a3) {
+    //     v5 = this->u8(0x1B754); v4 = this->u8(0x1B755);
+    //     this->u8(0x1B76A) = this->u8(0x1B76B) = this->u8(0x1B76C) = this->u8(0x1B76D) = this->u8(0x1B76E) = 0;
+    //     if ((WORD)HashChecksumComputation(v5, v4) == WORD(a2 + 8))  this->u8(0x1B76A) = 1;
+    //     if (a3 && SceneFileMatchByName(this + 0x1B754, a3, &a3) && a3 == *(a2 + 12))  this->u8(0x1B76B) = 1;
+    //     if (SceneFileMatchByName(this + 0x1B754, aTerrainIni, &a3)) {
+    //       a3 += (dword_8ACED8 - 1413405834);
+    //       if (a3 == *(a2 + 16))  this->u8(0x1B76C) = 1;
+    //     }
+    //     path = trackPathOrFallback(); trimLastBackslashAndDot(); appendSuffix(dword_5C5D24, byte_5C5D28);
+    //     if (SceneFileMatchByName(this + 0x1B754, path, &a3) && a3 == *(a2 + 20))  this->u8(0x1B76D) = 1;
+    //     StringFormatProcessingWithNullTerm(buf, 80, aSS, dword_5EC3D8 || byte_5EA438, dword_7D0434 || byte_5EA438);
+    //     if (SceneFileMatchByName(this + 0x1B754, buf, &a3) && a3 == *(a2 + 24))  this->u8(0x1B76E) = 1;
+    //     return this->u8(0x1B76A) && this->u8(0x1B76B) && this->u8(0x1B76C) && this->u8(0x1B76D) && this->u8(0x1B76E);
+    //   }
+    // UNRESOLVED: The base pointer passed to SceneFileMatchByName is (_DWORD*)this + 28117, which is the same byte region as the index bytes at this+0x1B754; whether it is a string table or a coincident alias is unclear.
+    // UNRESOLVED: The CRC adjustment expression dword_8ACED8 - 1413405834 offsets the matched terrain.ini pointer; the meaning of the subtracted constant is unknown.
+    // UNRESOLVED: The 5-byte suffix built from dword_5C5D24 and byte_5C5D28 (appended to the track filename) has an unknown textual content.
+    // UNRESOLVED: The exact field at a2+8/+12/+16/+20/+24 of the session descriptor (which strings it holds) is unknown.
+}

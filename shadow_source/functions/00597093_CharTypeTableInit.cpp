@@ -1,0 +1,47 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00597093
+// Canonical corpus name: sub_597093
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_597093_00597093.c
+
+void UnknownObject::CharTypeTableInit()
+{
+    // CRT locale character-type / case-mapping table initializer. When GetCPInfo(dword_8D46BC, &CPInfo) succeeds, builds a 256-byte source string filled with its own indices, blanks out the code-page lead-byte gaps with space (0x20), then fills the CharType classification array via sub_595DC8 and two case-mapped strings via sub_591FA1 (offset 0x100 and 0x200); a final loop classifies each character into byte_8D47E1 (bits 0x10 / 0x20) and stores the mapped byte into byte_8D46E0. On GetCPInfo failure it falls back to a hardcoded ASCII-only pass that classifies 'A'-'Z' and 'a'-'z' and produces the case-swap mapping.
+    // GUARD: Branch on GetCPInfo(dword_8D46BC, &CPInfo): non-zero takes the code-page path, zero takes the ASCII fallback path. [global:0x0059E148, global:0x008D46BC, source:raw]
+    // LOOP: Fill SrcStr[i] = i for i in 0..0x100-1, then force SrcStr[0] = 0x20 (space). [source:raw]
+    // LOOP: For each lead-byte pair in CPInfo.LeadByte, memset the SrcStr range v1..v3 to 0x20 (space), walking until a zero lead byte. [source:raw]
+    // CALL: sub_595DC8(1, SrcStr, 256, CharType, dword_8D46BC, dword_8D48E4, 0) fills the CharType classification array. [callee:0x00595DC8, global:0x008D46BC, global:0x008D48E4, source:raw]
+    // CALL: sub_591FA1(dword_8D48E4, 0x100, SrcStr, 256, DestStr, 256, dword_8D46BC, 0) fills the first case-mapped string DestStr. [callee:0x00591FA1, global:0x008D48E4, global:0x008D46BC, source:raw]
+    // CALL: sub_591FA1(dword_8D48E4, 0x200, SrcStr, 256, v9, 256, dword_8D46BC, 0) fills the second case-mapped string v9. [callee:0x00591FA1, global:0x008D48E4, global:0x008D46BC, source:raw]
+    // LOOP: Walk CharType[0..255]: when (entry & 1) set class bit 0x10 in byte_8D47E1 and copy DestStr into byte_8D46E0; else when (entry & 2) set class bit 0x20 and copy v9 into byte_8D46E0; else store 0 into byte_8D46E0. [global:0x008D47E1, global:0x008D46E0, source:raw]
+    // LOOP: ASCII fallback pass for result in 0..0x100-1: 'A'-'Z' (0x41..0x5A) get class bit 0x10 and byte_8D46E0 = result + 0x20; 'a'-'z' (0x61..0x7A) get class bit 0x20 and byte_8D46E0 = result - 0x20; otherwise byte_8D46E0 = 0. [global:0x008D47E1, global:0x008D46E0, source:raw]
+    // RETURN: Return 0x100 on the code-page path (loop counter result after the classification walk), or result after the ASCII fallback loop. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   unsigned int sub_597093() {
+    //     CPINFO CPInfo;
+    //     if (GetCPInfo(dword_8D46BC, &CPInfo)) {
+    //       for (int i = 0; i < 0x100; i++) SrcStr[i] = i;
+    //       SrcStr[0] = 0x20;
+    //       for (lead-byte pair ranges) memset(&SrcStr[v1], 0x20, v3 - v1 + 1);
+    //       sub_595DC8(1, SrcStr, 256, CharType, dword_8D46BC, dword_8D48E4, 0);
+    //       sub_591FA1(dword_8D48E4, 0x100, SrcStr, 256, DestStr, 256, dword_8D46BC, 0);
+    //       sub_591FA1(dword_8D48E4, 0x200, SrcStr, 256, v9, 256, dword_8D46BC, 0);
+    //       for (int r = 0; r < 0x100; r++) {
+    //         if (CharType[r] & 1) { byte_8D47E1[r] |= 0x10; byte_8D46E0[r] = DestStr[r]; }
+    //         else if (CharType[r] & 2) { byte_8D47E1[r] |= 0x20; byte_8D46E0[r] = v9[r]; }
+    //         else byte_8D46E0[r] = 0;
+    //       }
+    //       return 0x100;
+    //     }
+    //     for (int r = 0; r < 0x100; r++) {
+    //       if (r >= 0x41 && r <= 0x5A) { byte_8D47E1[r] |= 0x10; byte_8D46E0[r] = r + 0x20; }
+    //       else if (r >= 0x61 && r <= 0x7A) { byte_8D47E1[r] |= 0x20; byte_8D46E0[r] = r - 0x20; }
+    //       else byte_8D46E0[r] = 0;
+    //     }
+    //     return 0x100;
+    //   }
+    // UNRESOLVED: byte_FF0000000000547C is flagged as a read global but does not appear in the decompiled body; role unknown.
+    // UNRESOLVED: Caller sub_596E40 is recorded; frame-path membership is NOT_FOUND.
+    // UNRESOLVED: The exact roles of sub_595DC8 (character-type retrieval) and sub_591FA1 (case mapping) and of the offsets 0x100/0x200 passed to sub_591FA1 are inferred from the existing analysis, not independently verified.
+}

@@ -1,0 +1,97 @@
+int __thiscall sub_456ED0(int this, int a2)
+{
+  int v3; // edx
+  int v4; // edx
+  int v5; // edx
+  int v6; // edx
+  int result; // eax
+
+  *(double *)(this + 8560) = *(double *)a2;
+  *(double *)(this + 8616) = *(double *)(a2 + 8);
+  *(double *)(this + 8584) = *(double *)(a2 + 16);
+  *(double *)(this + 8392) = *(double *)(a2 + 24);
+  *(double *)(this + 9008) = *(double *)(a2 + 32);
+  *(_BYTE *)(this + 8650) = *(_BYTE *)(a2 + 40);
+  *(double *)(this + 9056) = *(double *)(a2 + 48);
+  *(double *)(this + 9064) = *(double *)(a2 + 56);
+  *(double *)(this + 9072) = *(double *)(a2 + 64);
+  *(double *)(this + 9184) = *(double *)(a2 + 88);
+  *(double *)(this + 8904) = *(double *)(a2 + 96);
+  *(double *)(this + 8944) = *(double *)(a2 + 104);
+  *(double *)(this + 8968) = *(double *)(a2 + 112);
+  *(double *)(this + 8992) = *(double *)(a2 + 120);
+  *(double *)(this + 456) = *(double *)(a2 + 136);
+  sub_4474F0((_DWORD *)this, 0);
+  sub_4474F0((_DWORD *)this, 1);
+  sub_4474F0((_DWORD *)this, 2);
+  sub_4474F0((_DWORD *)this, 3);
+  *(_DWORD *)(this + 5900) = *(_DWORD *)(a2 + 728);
+  sub_4427C0(this, v3, 0);
+  *(_DWORD *)(this + 5900) = *(_DWORD *)(a2 + 728);
+  sub_4427C0(this, v4, 1u);
+  *(_DWORD *)(this + 5904) = *(_DWORD *)(a2 + 732);
+  sub_4427C0(this, v5, 2u);
+  v6 = *(_DWORD *)(a2 + 732);
+  *(_DWORD *)(this + 5904) = v6;
+  sub_4427C0(this, v6, 3u);
+  sub_439970(this + 712, a2 + 152);
+  sub_439970(this + 1992, a2 + 296);
+  sub_439970(this + 3272, a2 + 440);
+  sub_439970(this + 4552, a2 + 584);
+  if ( *(_BYTE *)(this + 1168) )
+    sub_4434D0();
+  if ( *(_BYTE *)(this + 2448) )
+    sub_4434D0();
+  if ( *(_BYTE *)(this + 3728) )
+    sub_4434D0();
+  if ( *(_BYTE *)(this + 5008) )
+    sub_4434D0();
+  *(_BYTE *)(this + 8649) = *(_BYTE *)(a2 + 72);
+  *(_DWORD *)(this + 6196) = *(_DWORD *)(a2 + 144);
+  *(double *)(this + 8840) = *(float *)(a2 + 76);
+  *(double *)(this + 8864) = *(float *)(a2 + 80);
+  sub_44A5B0();
+  *(_BYTE *)(this + 352) = *(_BYTE *)(a2 + 736);
+  *(_DWORD *)(this + 9460) = *(_DWORD *)(a2 + 740);
+  *(_BYTE *)(this + 9464) = *(_BYTE *)(a2 + 744);
+  *(_BYTE *)(this + 9465) = *(_BYTE *)(a2 + 745);
+  *(_BYTE *)(this + 9466) = *(_BYTE *)(a2 + 746);
+  *(_DWORD *)(this + 9468) = *(_DWORD *)(a2 + 748);
+  *(_DWORD *)(this + 9472) = *(_DWORD *)(a2 + 752);
+  *(_DWORD *)(this + 9476) = *(_DWORD *)(a2 + 756);
+  *(_DWORD *)(this + 9480) = *(_DWORD *)(a2 + 760);
+  *(_DWORD *)(this + 9484) = *(_DWORD *)(a2 + 764);
+  *(_DWORD *)(this + 9488) = *(_DWORD *)(a2 + 768);
+  *(_DWORD *)(this + 9528) = *(_DWORD *)(a2 + 816);
+  *(_DWORD *)(this + 9532) = *(_DWORD *)(a2 + 820);
+  *(_DWORD *)(this + 9536) = *(_DWORD *)(a2 + 824);
+  *(_DWORD *)(this + 9492) = *(_DWORD *)(a2 + 772);
+  *(_DWORD *)(this + 9496) = *(_DWORD *)(a2 + 776);
+  *(_DWORD *)(this + 9500) = *(_DWORD *)(a2 + 780);
+  *(_DWORD *)(this + 9540) = *(_DWORD *)(a2 + 828);
+  *(_DWORD *)(this + 9544) = *(_DWORD *)(a2 + 832);
+  *(_DWORD *)(this + 9548) = *(_DWORD *)(a2 + 836);
+  *(_DWORD *)(this + 9504) = *(_DWORD *)(a2 + 784);
+  *(_DWORD *)(this + 9508) = *(_DWORD *)(a2 + 788);
+  *(_DWORD *)(this + 9512) = *(_DWORD *)(a2 + 792);
+  *(_DWORD *)(this + 9552) = *(_DWORD *)(a2 + 840);
+  *(_DWORD *)(this + 9556) = *(_DWORD *)(a2 + 844);
+  *(_DWORD *)(this + 9560) = *(_DWORD *)(a2 + 848);
+  *(_DWORD *)(this + 9516) = *(_DWORD *)(a2 + 796);
+  *(_DWORD *)(this + 9520) = *(_DWORD *)(a2 + 800);
+  *(_DWORD *)(this + 9524) = *(_DWORD *)(a2 + 804);
+  *(_DWORD *)(this + 9564) = *(_DWORD *)(a2 + 852);
+  *(_DWORD *)(this + 9568) = *(_DWORD *)(a2 + 856);
+  *(_DWORD *)(this + 9572) = *(_DWORD *)(a2 + 860);
+  *(_DWORD *)(this + 9576) = *(_DWORD *)(a2 + 808);
+  *(_DWORD *)(this + 9580) = *(_DWORD *)(a2 + 864);
+  *(_DWORD *)(this + 9584) = *(_DWORD *)(a2 + 812);
+  *(_DWORD *)(this + 9588) = *(_DWORD *)(a2 + 868);
+  *(_DWORD *)(this + 9592) = *(_DWORD *)(a2 + 872);
+  *(_DWORD *)(this + 9596) = *(_DWORD *)(a2 + 876);
+  *(_DWORD *)(this + 9600) = *(_DWORD *)(a2 + 880);
+  *(_DWORD *)(this + 9604) = *(_DWORD *)(a2 + 884);
+  result = *(_DWORD *)(a2 + 888);
+  *(_DWORD *)(this + 9608) = result;
+  return result;
+}

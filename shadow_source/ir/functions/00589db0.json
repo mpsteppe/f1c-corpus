@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "address": "0x00589DB0",
+  "proposed_name": "FindByteInString",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": [
+      "source:raw"
+    ]
+  },
+  "summary": "strchr-like scan: searches the byte string a1 for the byte value a2, returning a pointer to the first match or NULL. Uses an unaligned byte-wise head scan, then an aligned DWORD scan with a 0x81010100 zero-byte detection trick and a per-byte tail check. The template prelabel ('getter, field 0x0 of this') is contradicted by the raw source, which is cdecl with (a1, a2) string/byte arguments and no `this`; the raw source wins.",
+  "local_names": {},
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If the low two bits of a1 are nonzero (pointer not 4-byte aligned), take the unaligned byte-scan path.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Unaligned head scan: reads one byte at a time, advancing v2, until a byte equals a2, a NUL byte is found, or the pointer becomes 4-byte aligned.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If the scanned byte equals a2, return a pointer one position back (v2 - 1).",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If the scanned byte is zero (end of string), return NULL.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Builds a 32-bit pattern with a2 replicated in all four bytes: v4 = ((a2 << 8) | a2 | (((a2 << 8) | a2) << 16)) XOR *(DWORD*)v2, and computes v5 = *(DWORD*)v2 + 2130640639 and v6 = v5 XOR ~*(DWORD*)v2 for the zero-byte test.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Aligned scan: reads one DWORD per iteration (v2 += 4); breaks when the hasless test (((v4 + 2130640639) XOR ~v4) & 0x81010100) != 0 signals a zero byte in the word, or returns NULL when v6's 0x81010100 bits indicate an early NUL.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Low byte of the DWORD equals a2: match found, breaks to the tail check.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Low byte is zero: return NULL.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Second byte of the DWORD equals a2: return v2 - 3 (pointer to that byte).",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Second byte is zero: return NULL.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Third byte of the DWORD equals a2: return v2 - 2.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Third byte is zero: return NULL.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Fourth byte equals a2: return v2 - 1.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Fourth byte is zero: return NULL.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "Returns v2 - 4 when the aligned loop exits without a match or NUL, and NULL on any NUL byte.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "for (p = a1; (int)p & 3; p++) { if (*p == a2) return p; if (*p == 0) return NULL; }",
+    "pattern = a2 replicated across 4 bytes;",
+    "while (1) { w = *(DWORD*)p; if (hasnullbyte(w ^ pattern)) break; if (nullbyte_detected_early(w)) return NULL; p += 4; }",
+    "return byte-level scan of final DWORD (offsets v2-4, v2-3, v2-2, v2-1)."
+  ],
+  "unresolved": [
+    "Constant 2130640639 in the aligned word test is preserved verbatim from the raw source; its derivation is not asserted.",
+    "Template prelabel claimed a getter over field this+0x0 with no side effects; the raw source is a cdecl byte-scan (a1, a2), so that reading is rejected and the field evidence is parked."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000000"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

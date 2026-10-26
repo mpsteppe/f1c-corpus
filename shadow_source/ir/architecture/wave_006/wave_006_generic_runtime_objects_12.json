@@ -1,0 +1,2144 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_006_generic_runtime_objects_12",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Shared generic runtime machinery: singly-linked list containers with remove-by-value (head/tail/current/count bookkeeping, conditional data ownership release), recursive merge sorts on linked lists keyed by float, a fixed sentinel-slot array, small owner-pointer structs cleaned through shared helpers, an 8x8 spatial object grid with per-cell dynamic arrays, a dynamic int array, a filter-property list tied to a resource-list cleanup helper, a scene-index/random-scene-entry registry over global scene globals, a guarded singleton initializer, vtable-based sub-object holders with triple dispatch/release/destructor patterns, and ambient-sound/render status updaters operating through the global manager pointer dword_8AC4C4.",
+    "trust": "GUESS",
+    "evidence_refs": [
+      "function:0x004BA7A0",
+      "function:0x004BA820",
+      "function:0x004BAB20",
+      "function:0x004BAE20",
+      "function:0x004BB2E0",
+      "function:0x004BD760",
+      "function:0x004BD7D0",
+      "function:0x004BD7F0",
+      "function:0x004BD860",
+      "function:0x004BDDE0",
+      "function:0x004BDE20",
+      "function:0x004BDF90",
+      "function:0x004BE180",
+      "function:0x004BE6F0",
+      "function:0x004BE9E0",
+      "function:0x004C5830",
+      "function:0x004C5DB0",
+      "function:0x004C5DE0",
+      "function:0x004C6780",
+      "function:0x004C7F28",
+      "function:0x004C8EE0",
+      "function:0x004C91D0",
+      "function:0x004C9280",
+      "function:0x004C9310",
+      "function:0x004C9360",
+      "function:0x004C9790",
+      "function:0x004C9840",
+      "function:0x004C9980",
+      "function:0x004C99D0",
+      "function:0x004C9A50",
+      "source:raw"
+    ]
+  },
+  "summary": "Proposal for the generic_runtime_objects scope: 30 functions clustered by shared this-field usage, shared callees and shared callers. Two remove-by-value list functions (0x004BA7A0, 0x004BAE20) share the {head +0, tail/current +4/+8, count +0xC} container layout and 12-byte {value +0, next +4, free-flag +8} node layout and both feed NetworkMessageDispatch (0x004B54E0), forming ValueNodeList. Two recursive merge sorts (0x004BAB20, 0x004BB2E0) form MergeSortListSorter. Four functions sweep an 8x8 grid at a 9-dword cell stride with a trailing cell at +576 (0x004BDDE0 cleanup via StructCleanup 0x004BD800, 0x004BDE20 cell-index push via DynamicArrayPush 0x004BD860, 0x004BDF90 per-cell comparison 0x004BD8C0, 0x004BE180 per-cell remove 0x004BD970) and share grid origin/scale fields at 0x924-0x930, forming ObjectGrid8x8; the per-cell dynamic array is the single-function DynamicIntArray (0x004BD860). Two StructCleanup wrappers (0x004BD7D0, 0x004BD7F0) form OwnerPointerStruct; two resource-list-using functions (0x004C5DB0, 0x004C5DE0) form FilterPropertyList; three vtable-slot functions over this+0x20/0x24/0x28 (0x004C91D0, 0x004C9310, 0x004C9790) form TripleSubObjectHolder. The remaining 13 functions are single-method classes with UNKNOWN owners in the IR. All class boundaries are GUESS synthesis; every named field is a DERIVED reading of an evidenced offset.",
+  "function_roles": [
+    {
+      "address": "0x004BA7A0",
+      "role": "Remove-by-value from a list container {head +0x0, tracked nodes +0x4/+0x8, count +0xC}: guards on null value and empty head, walks next pointers (+0x4) comparing node value (+0x0) against a2, unlinks the match (repointing predecessor next or head), repoints the tracked node slots when they referenced the removed node, decrements count, clears the free-data flag byte (+0x8) unless a3 is set, conditionally frees the node data via EmptyStub_0170 then FreeWrapper_7bcf, always frees the node, returns 1 (0 on all failure guards). Called by NetworkMessageDispatch (0x004B54E0).",
+      "owner": "ValueNodeList",
+      "evidence_refs": [
+        "function:0x004BA7A0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "callee:0x004B0170",
+        "callee:0x00587BCF",
+        "caller:0x004B54E0",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BA820",
+      "role": "Constructor-style initializer zeroing the first four DWORD fields (this+0x0, +0x4, +0x8, +0xC) and returning this. Structural twin of sub_4A1F60. Called by CarPhysicsStateInitializer (0x004B57F0) and sub_5837F0.",
+      "owner": "QuadZeroInitializer",
+      "evidence_refs": [
+        "function:0x004BA820",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BAB20",
+      "role": "Recursive merge sort (stdcall) of a singly linked list keyed by the float at each node's payload record +4: counts nodes, splits at the midpoint by severing the middle next-link, recurses on both halves, merges ascending by the float key, returns the new head (or the original head for null/singleton lists). Structural twin of MergeSortOnLinkedList (00465c70) per cluster evidence. Feeds a collision-object list via CollisionObjectListManagement (0x004B4B50).",
+      "owner": "MergeSortListSorter",
+      "evidence_refs": [
+        "function:0x004BAB20",
+        "field:this:0x00000004",
+        "field:*(this+0x8):0x00000004",
+        "field:obj:0x00000004",
+        "callee:0x004BAB20",
+        "caller:0x004B4B50",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BAE20",
+      "role": "Singly-linked-list remove-by-value on a container {head +0, tail +4, current +8, count +0xC}: captures the head node's data, clears the head node's free-flag byte (+8), walks next (+4) for the node whose data (+0) equals the captured value, unlinks it, updates head/tail/current/count, conditionally frees data (path normally suppressed) and always frees the node via FreeWrapper_7bcf, returns the removed node's data pointer (0 on empty/not-found). Called by NetworkMessageDispatch (0x004B54E0).",
+      "owner": "ValueNodeList",
+      "evidence_refs": [
+        "function:0x004BAE20",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "callee:0x004B0170",
+        "callee:0x00587BCF",
+        "caller:0x004B54E0",
+        "guard:0",
+        "guard:1",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BB2E0",
+      "role": "Recursive merge sort of a singly linked list by a float key (descending, >= keeps the right half's node on ties) read at the node's data pointer (+0): counts via next (+4), splits at the midpoint, recurses on both halves, merges by relinking next pointers, returns the new head. Returns input unchanged for null/singleton lists. Caller: SortedLinkedListInsert (0x004B81A0).",
+      "owner": "MergeSortListSorter",
+      "evidence_refs": [
+        "function:0x004BB2E0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:*(this+0x4):0x00000004",
+        "field:*(*(this+0x4)+0x4):0x00000000",
+        "field:*(*(this+0x4)+0x4):0x00000004",
+        "field:*(*(*(this+0x4)+0x4)+0x0):0x00000000",
+        "callee:0x004BB2E0",
+        "caller:0x004B81A0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BD760",
+      "role": "Scans the fixed 10-dword slot array at this+0xE0 for the first slot holding sentinel -1, stores the value read from this+0x8 into it, returns the slot index (or 10 when the array is full). Called per-frame by PostPitCleanup (0x0042A6F0).",
+      "owner": "SentinelSlotBuffer",
+      "evidence_refs": [
+        "function:0x004BD760",
+        "field:this:0x00000008",
+        "field:this:0x000000E0",
+        "caller:0x0042A6F0",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BD7D0",
+      "role": "Init/teardown helper: zeros three fields at 0x8, 0x14 and 0x20, then invokes StructCleanup (0x004BD800) which frees the owned pointers formerly held at this[2]/this[5]/this[8] and clears the surrounding pointer fields, then returns this. Unconditional sequence; called from AudioMixerChannelInit (0x004BDB90).",
+      "owner": "OwnerPointerStruct",
+      "evidence_refs": [
+        "function:0x004BD7D0",
+        "field:this:0x00000008",
+        "field:this:0x00000014",
+        "field:this:0x00000020",
+        "callee:0x004BD800",
+        "caller:0x004BDB90",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BD7F0",
+      "role": "Thunk wrapper (__thiscall) forwarding the `this` pointer unchanged to StructCleanup and returning its result. No own logic, fields, globals or guards; the delegated StructCleanup target is not evidenced in this packet.",
+      "owner": "OwnerPointerStruct",
+      "evidence_refs": [
+        "function:0x004BD7F0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BD860",
+      "role": "Dynamic int-array push-back: when count (+0x4) equals capacity (+0x0) grows capacity by 8 (allocate 4-byte-per-element buffer via OperatorNewNhMallocWrapper 0x00587C03, copy existing elements, free old buffer via FreeWrapper_7bcf), appends a2 at data[count] (+0x8), increments count, returns the previous count.",
+      "owner": "DynamicIntArray",
+      "evidence_refs": [
+        "function:0x004BD860",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "callee:0x00587C03",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BDDE0",
+      "role": "Runs StructCleanup (0x004BD800) over an 8x8 grid of element pointers with a 9-slot stride, then a final StructCleanup on the base advanced by 576 slots; both loop counters hardcoded to 8. Caller Game_Post (0x0042DA30) supplies the grid base.",
+      "owner": "ObjectGrid8x8",
+      "evidence_refs": [
+        "function:0x004BDDE0",
+        "callee:0x004BD800",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BDE20",
+      "role": "Computes four clamped 0..7 cell indices from the extents of float argument a2 using grid origin/scale fields at this+0x924/0x928/0x92C/0x930 (via CRTFtol 0x00587BDC), pushes a2 into every overlapping cell's object list via DynamicArrayPush (0x004BD860); the sentinel flag set unconditionally after coordinate computation also routes a2 into the aggregate list at this+576, whose push result is returned.",
+      "owner": "ObjectGrid8x8",
+      "evidence_refs": [
+        "function:0x004BDE20",
+        "field:this:0x00000924",
+        "field:this:0x00000928",
+        "field:this:0x0000092C",
+        "field:this:0x00000930",
+        "callee:0x00587BDC",
+        "callee:0x004BD860",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BDF90",
+      "role": "Iterates the 8x8 grid of 9-dword records calling ArithmeticComparison_d8c0 (0x004BD8C0) on every element, then a final call on this+576, returning its result. Called by ConditionalCleanupChain (0x0040F100) and StateDependentUpdateDispatch (0x0040F130).",
+      "owner": "ObjectGrid8x8",
+      "evidence_refs": [
+        "function:0x004BDF90",
+        "callee:0x004BD8C0",
+        "caller:0x0040F100",
+        "caller:0x0040F130",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BE180",
+      "role": "Sweeps the 8x8 grid (9-dword stride) calling ArrayRemoveByValue (0x004BD970) on each cell for value a2, then a final ArrayRemoveByValue(this + 576, a2) just past the grid, returning its result. Invoked on the frame path by ShortComputation_f0d0 (0x0040F0D0) and StateDependentUpdateDispatch (0x0040F130).",
+      "owner": "ObjectGrid8x8",
+      "evidence_refs": [
+        "function:0x004BE180",
+        "callee:0x004BD970",
+        "caller:0x0040F0D0",
+        "caller:0x0040F130",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BE6F0",
+      "role": "Thin __thiscall delegation: invokes PerformanceSetupStructInitializer (0x004BE700) with no explicit arguments and returns the `this` pointer unchanged; the callee performs the actual initialization.",
+      "owner": "PerformanceSetupDelegate",
+      "evidence_refs": [
+        "function:0x004BE6F0",
+        "callee:0x004BE700",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BE9E0",
+      "role": "Animation/behavior parameter setter: writes two byte flags (this+0x340, this+0x341) and two DWORDs (this+0x344, this+0x350) from arguments, returning the third argument a4 unchanged. Called by AIBehaviorInitialization (0x004BF0A0) during behavior setup.",
+      "owner": "AnimationParameterSetter",
+      "evidence_refs": [
+        "function:0x004BE9E0",
+        "field:this:0x00000340",
+        "field:this:0x00000341",
+        "field:this:0x00000344",
+        "field:this:0x00000350",
+        "caller:0x004BF0A0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C5830",
+      "role": "Stores its argument into the global scene-index dword dword_8AC48C and returns the argument unchanged.",
+      "owner": "SceneIndexSetter",
+      "evidence_refs": [
+        "function:0x004C5830",
+        "global:0x008AC48C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C5DB0",
+      "role": "Object initializer reached from the season database factory: writes literals 0, -1, 0, 0, 0, 0 into the first six dword fields (this+0x0..+0x14), then invokes ResourceListCleanup_62c0 (0x004C62C0) on this and returns the this pointer.",
+      "owner": "FilterPropertyList",
+      "evidence_refs": [
+        "function:0x004C5DB0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "callee:0x004C62C0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C5DE0",
+      "role": "Full teardown of a filter-property structure: cleans the inner resource list via ResourceListCleanup (0x004C62C0), walks the linked list of nodes (head at this+0x8, next at node+4) freeing each node's data block (secondary pointer at data+4 first, then data at +0) when the ownership flag byte at node+8 is set, frees the node, zeroes the four list fields (0x8/0xC/0x10/0x14), then frees the base structure pointer at this+0x0 when present. Called by sub_47FB10 (0x0047FB10).",
+      "owner": "FilterPropertyList",
+      "evidence_refs": [
+        "function:0x004C5DE0",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:*(this+0x8):0x00000004",
+        "field:obj:0x00000000",
+        "field:obj:0x00000008",
+        "callee:0x004C62C0",
+        "callee:0x00587BCF",
+        "caller:0x0047FB10",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C6780",
+      "role": "Random scene-entry selection: generates a random index from the 64-bit random state at this+0x14 (via ReadFieldAtOffset0x14 0x005871F0), bounds-checks the candidate via BoundsCheckedIndexSetter_6760 (0x004C6760) against the list count at this+20, walks the linked list from this+8, and returns the scene entry at dword_8AC490 + 396*index when the node's scene index lies in [0, dword_8AC488); returns 0 on any guard failure.",
+      "owner": "RandomSceneEntryPicker",
+      "evidence_refs": [
+        "function:0x004C6780",
+        "field:this:0x00000008",
+        "field:this:0x00000014",
+        "callee:0x005871F0",
+        "callee:0x004C6760",
+        "global:0x008AC488",
+        "global:0x008AC490",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C7F28",
+      "role": "Trivial __thiscall initializer writing 0 into the member at this+0x4 (this[1]). Structural twin of FieldZero4 per the cluster_copy prelabel (cluster_rep 004c7dd0).",
+      "owner": "FieldZeroInitializer",
+      "evidence_refs": [
+        "function:0x004C7F28",
+        "field:this:0x00000004",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C8EE0",
+      "role": "Singleton initializer guarded by flag byte_8AC4DC bit 0: on the already-initialized fast path increments the reference counter dword_8AC4D8 and returns 1; otherwise sets the flag, calls RandLCGRandomNumberGenerator (0x005884ED) to seed the generator, resets the counter to 1, and returns 1.",
+      "owner": "SingletonRNGGuard",
+      "evidence_refs": [
+        "function:0x004C8EE0",
+        "global:0x008AC4DC",
+        "global:0x008AC4D8",
+        "callee:0x005884ED",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C91D0",
+      "role": "Releases up to three vtable-based sub-objects at this+0x20, this+0x24 and this+0x28: for each non-null slot calls vtable[0] with flag 1 (final release) then nulls the slot; returns the result of the last executed release (never written when all three slots are null). Called by sub_4C9060 (0x004C9060).",
+      "owner": "TripleSubObjectHolder",
+      "evidence_refs": [
+        "function:0x004C91D0",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:*(this+0x20):0x00000000",
+        "field:*(this+0x24):0x00000000",
+        "field:*(this+0x28):0x00000000",
+        "caller:0x004C9060",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C9280",
+      "role": "State-equality check: returns 0 unless a2 equals the state index at this+0x1C; on match calls StateIndexedFieldGetter (0x004C9260) to obtain an indexed field object, returns 0 if it is null or its vtable+28 virtual call returns 2, otherwise 1.",
+      "owner": "StateIndexEqualityCheck",
+      "evidence_refs": [
+        "function:0x004C9280",
+        "field:this:0x0000001C",
+        "callee:0x004C9260",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C9310",
+      "role": "Dispatches the vtable+8 (third-slot) method on up to three sub-objects at this+0x20, this+0x24 and this+0x28 in order; the third dispatch's result is returned directly, otherwise the last executed result. Unlike a destructor it never nulls or frees the slot pointers.",
+      "owner": "TripleSubObjectHolder",
+      "evidence_refs": [
+        "function:0x004C9310",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:*(this+0x20):0x00000008",
+        "field:*(this+0x24):0x00000008",
+        "field:*(this+0x28):0x00000008",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C9360",
+      "role": "Deleting-style destructor with vtable switching: writes the destructor-phase vtable off_5ACE4C into this[0], calls the destructor body sub_4C94D0 (0x004C94D0), restores the base vtable off_5ACE2C, and when a2 & 1 is set (deleting flag) frees the object's own heap block via FreeWrapper_7bcf (0x00587BCF). Returns this unchanged.",
+      "owner": "VTableSwitchDestructor",
+      "evidence_refs": [
+        "function:0x004C9360",
+        "field:this:0x00000000",
+        "global:0x005ACE4C",
+        "global:0x005ACE2C",
+        "callee:0x004C94D0",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C9790",
+      "role": "Releases a single sub-object at this+0x20 by dispatching its vtable slot 0 with final flag 1, then nulls the slot (skip when already null); returns the call's result. Minimal destructor body; called by VTableSwitchDtor (0x004C9600).",
+      "owner": "TripleSubObjectHolder",
+      "evidence_refs": [
+        "function:0x004C9790",
+        "field:this:0x00000020",
+        "field:*(this+0x20):0x00000000",
+        "caller:0x004C9600",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C9840",
+      "role": "Loads and starts the ambient sound 'ambient\\pithorn.wav' through the global sound manager dword_8AC4C4: builds the full path via StringFormatWithBufferOverflowCheck (0x0058815F) and StringCopyWithBufferRealloc (0x00566650), creates a stream via the manager's vtable offset 92, stores the handle at this+0x1C; if already playing it stops and clears the handle, otherwise writes volume/pan/fade parameters at this+0x38/0x3C/0x40; frees the path buffer and returns 0.",
+      "owner": "AmbientSoundLoader",
+      "evidence_refs": [
+        "function:0x004C9840",
+        "global:0x008AC4C4",
+        "global:0x005C6784",
+        "global:0x005D3448",
+        "global:0x005D347C",
+        "global:0x005EA438",
+        "global:0x005EC3E0",
+        "global:0x007CF530",
+        "global:0x007CF554",
+        "global:0x007CF578",
+        "field:this:0x0000001C",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000040",
+        "field:*(this+0x1C):0x00000000",
+        "callee:0x0058815F",
+        "callee:0x00566650",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C9980",
+      "role": "Positions a render object: loads the render-object pointer this[7] (this+0x1C) and, when non-null, zeroes a 12-byte local buffer and makes a virtual call through the object's vtable slot +4 with arguments (v1, 2, this+2, zeroed buffer, LODWORD(flt_7CF2CC), 1065353216 as float 1.0, 1). Always returns 0.",
+      "owner": "RenderObjectPositioner",
+      "evidence_refs": [
+        "function:0x004C9980",
+        "field:this:0x0000001C",
+        "field:*(this+0x1C):0x00000000",
+        "field:*(this+0x1C):0x00000004",
+        "global:0x007CF2CC",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C99D0",
+      "role": "Gated per-frame update on the global init-status object dword_8AC4C4: when non-null invokes its vtable slot 36 as a __thiscall status query with three out-buffers, and when the sampled carry/parity flags indicate a pending state invokes vtable slot 40 with arguments 1, 1065353216, 1051931443. Always returns 0.",
+      "owner": "RenderStatusUpdateDispatch",
+      "evidence_refs": [
+        "function:0x004C99D0",
+        "global:0x008AC4C4",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C9A50",
+      "role": "Particle-emitter factory selected by the integer type id in `this`: types 1, 2, 5, 6, 7 each allocate a distinct heap block (44/40/28/36/32 bytes) via OperatorNewNhMallocWrapper (0x00587C03), initialize it through ParticleEmitterInit (0x004C8F10) with a per-type lifetime parameter, install a type-specific vtable pointer, and return the emitter; types 3, 4 and the default return null. Every allocation is null-checked. Called by NetworkMessageReceiveAndDispatch (0x004C7CA0).",
+      "owner": "ParticleEmitterFactory",
+      "evidence_refs": [
+        "function:0x004C9A50",
+        "callee:0x00587C03",
+        "callee:0x004C8F10",
+        "global:0x004C9AF4",
+        "global:0x005ACE18",
+        "global:0x005ACE6C",
+        "global:0x005ACE7C",
+        "caller:0x004C7CA0",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "ValueNodeList",
+      "responsibility": "Singly-linked list container {head +0, tail/current +4/+8, count +0xC} holding 12-byte nodes {value/data +0, next +4, free-data flag byte +8}; removes a node by value, repointing head/tail/current as needed, decrementing the count, conditionally freeing node data (EmptyStub_0170 then FreeWrapper_7bcf) when the flag is set, and always freeing the node. Both methods are reachable from NetworkMessageDispatch (0x004B54E0).",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BA7A0",
+        "0x004BAE20"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "tail",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "current",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "nodeValue",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000004",
+          "name": "nodeNext",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000008",
+          "name": "nodeFreeDataFlag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BA7A0",
+        "function:0x004BAE20",
+        "caller:0x004B54E0",
+        "callee:0x004B0170",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MergeSortListSorter",
+      "responsibility": "Recursive merge sorts of singly linked lists by float sort keys. 0x004BAB20 keys on the float at the node payload record +4 (ascending) for the collision-object list; 0x004BB2E0 keys on the float at the node's data pointer +0 (descending, >= tie-break) for a sorted-insert list. Node next links live at +4 in both variants; the key conventions differ between the two methods.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BAB20",
+        "0x004BB2E0"
+      ],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x00000004",
+          "name": "nodeNext",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "nodeKeyReference",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000000",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BAB20",
+        "function:0x004BB2E0",
+        "callee:0x004BAB20",
+        "callee:0x004BB2E0",
+        "caller:0x004B4B50",
+        "caller:0x004B81A0",
+        "field:*(this+0x4):0x00000004",
+        "field:*(*(this+0x4)+0x4):0x00000000",
+        "field:*(*(this+0x4)+0x4):0x00000004",
+        "field:*(*(*(this+0x4)+0x4)+0x0):0x00000000",
+        "field:*(this+0x8):0x00000004",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ObjectGrid8x8",
+      "responsibility": "Spatial object grid: 8x8 cells at a 9-dword stride with a trailing element just past the grid (this + 576 dwords). Grid origin/scale-inverse fields at this+0x924/0x928 (X) and this+0x92C/0x930 (Y) map extents to clamped 0..7 cell indices. Insert pushes into every overlapping cell (DynamicArrayPush 0x004BD860), removal sweeps all cells (ArrayRemoveByValue 0x004BD970), per-frame comparison visits all cells (ArithmeticComparison_d8c0 0x004BD8C0), teardown runs StructCleanup (0x004BD800) per element.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BDDE0",
+        "0x004BDE20",
+        "0x004BDF90",
+        "0x004BE180"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000924",
+          "name": "gridOriginX",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000924",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000928",
+          "name": "gridScaleInvX",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000928",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000092C",
+          "name": "gridOriginY",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000092C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000930",
+          "name": "gridScaleInvY",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000930",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BDDE0",
+        "function:0x004BDE20",
+        "function:0x004BDF90",
+        "function:0x004BE180",
+        "callee:0x004BD800",
+        "callee:0x004BD860",
+        "callee:0x004BD8C0",
+        "callee:0x004BD970",
+        "callee:0x00587BDC",
+        "caller:0x0040F100",
+        "caller:0x0040F130",
+        "caller:0x0040F0D0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DynamicIntArray",
+      "responsibility": "Growable array of 4-byte elements: capacity at +0x0, element count at +0x4, data buffer pointer at +0x8. pushBack appends a value, growing capacity by 8 (allocate/copy/free-old) when full, and returns the previous count. Also serves as the per-cell object list of ObjectGrid8x8.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BD860"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "capacity",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "data",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BD860",
+        "callee:0x00587C03",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "OwnerPointerStruct",
+      "responsibility": "Small struct cleaned through the shared StructCleanup helper (0x004BD800, which frees owned pointers at this[2]/this[5]/this[8] and clears the pointer fields). 0x004BD7D0 zeroes those three slots then runs the cleanup; 0x004BD7F0 is a __thiscall thunk forwarding this to the same cleanup.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BD7D0",
+        "0x004BD7F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "ownedPtrA",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "ownedPtrB",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "ownedPtrC",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BD7D0",
+        "function:0x004BD7F0",
+        "callee:0x004BD800",
+        "caller:0x004BDB90",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FilterPropertyList",
+      "responsibility": "Filter-property structure: base pointer at +0x0, literal -1 at +0x4, and a linked node list with head/tail/iterator/count at 0x8/0xC/0x10/0x14. 0x004C5DB0 is the constructor-style initializer (writes 0,-1,0,0,0,0 and cleans the inner resource list); 0x004C5DE0 is the full teardown (resource-list cleanup, per-node data+secondary-pointer free via FreeWrapper when the owned-flag byte at node+8 is set, node free, list fields zeroed, base pointer freed).",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C5DB0",
+        "0x004C5DE0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "baseStructPtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "sentinelMinusOne",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "listHead",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "listTail",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "listIterator",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "listCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "nodeData",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000008",
+          "name": "nodeOwnedFlag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C5DB0",
+        "function:0x004C5DE0",
+        "callee:0x004C62C0",
+        "callee:0x00587BCF",
+        "caller:0x0047FB10",
+        "field:*(this+0x8):0x00000004",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TripleSubObjectHolder",
+      "responsibility": "Holder of up to three vtable-based sub-objects at this+0x20/0x24/0x28. 0x004C91D0 is a release-style destructor dispatching vtable[0] with flag 1 then nulling each slot; 0x004C9310 dispatches the vtable+8 (third-slot) method on each without nulling; 0x004C9790 releases a single sub-object at this+0x20 (vtable[0] flag 1, then nulls the slot).",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C91D0",
+        "0x004C9310",
+        "0x004C9790"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "subObjectA",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "subObjectB",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "subObjectC",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C91D0",
+        "function:0x004C9310",
+        "function:0x004C9790",
+        "field:*(this+0x20):0x00000000",
+        "field:*(this+0x20):0x00000008",
+        "field:*(this+0x24):0x00000000",
+        "field:*(this+0x24):0x00000008",
+        "field:*(this+0x28):0x00000000",
+        "field:*(this+0x28):0x00000008",
+        "caller:0x004C9060",
+        "caller:0x004C9600",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SentinelSlotBuffer",
+      "responsibility": "Fixed 10-slot dword array at this+0xE0 holding sentinel -1 slots; inserts the value at this+0x8 into the first free slot and returns its index (10 when full). Called per-frame by PostPitCleanup.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BD760"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "storedValue",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E0",
+          "name": "slotArray",
+          "type_guess": "int[10]",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000E0",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BD760",
+        "caller:0x0042A6F0",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PerformanceSetupDelegate",
+      "responsibility": "Thin __thiscall delegation that invokes PerformanceSetupStructInitializer (0x004BE700) with no explicit arguments and returns this unchanged; the callee does the actual initialization.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BE6F0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004BE6F0",
+        "callee:0x004BE700",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AnimationParameterSetter",
+      "responsibility": "Behavior/animation parameter setter writing two byte flags (this+0x340/+0x341) and two DWORDs (this+0x344/+0x350) from arguments and returning the third argument. Called by AIBehaviorInitialization during behavior setup.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BE9E0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000340",
+          "name": "flagByteA",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000340",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000341",
+          "name": "flagByteB",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000341",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000344",
+          "name": "valueDwordA",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000344",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000350",
+          "name": "valueDwordB",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000350",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BE9E0",
+        "caller:0x004BF0A0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SceneIndexSetter",
+      "responsibility": "Writes its argument into the global scene-index dword dword_8AC48C and returns the argument unchanged.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C5830"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004C5830",
+        "global:0x008AC48C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RandomSceneEntryPicker",
+      "responsibility": "Randomly selects a scene entry: reads the 64-bit random state at this+0x14, bounds-checks a derived candidate against the list count, walks the linked list from this+8, and returns the entry at dword_8AC490 + 396*index when the node's scene index is within [0, dword_8AC488).",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C6780"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "listHead",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "randomState",
+          "type_guess": "uint64",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C6780",
+        "callee:0x005871F0",
+        "callee:0x004C6760",
+        "global:0x008AC488",
+        "global:0x008AC490",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FieldZeroInitializer",
+      "responsibility": "Trivial initializer writing 0 into the member at this+0x4.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C7F28"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "zeroedField",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C7F28",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SingletonRNGGuard",
+      "responsibility": "Singleton initializer guarded by the global flag byte_8AC4DC bit 0 with a reference counter at dword_8AC4D8: already-initialized calls increment the counter, first calls set the flag, seed the RNG via RandLCGRandomNumberGenerator and reset the counter to 1.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C8EE0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004C8EE0",
+        "global:0x008AC4DC",
+        "global:0x008AC4D8",
+        "callee:0x005884ED",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "StateIndexEqualityCheck",
+      "responsibility": "State-equality predicate: matches argument a2 against the state index at this+0x1C, fetches an indexed field object via StateIndexedFieldGetter (0x004C9260), and returns 1 only when the object is present and its vtable+28 call does not return 2.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C9280"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "stateIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C9280",
+        "callee:0x004C9260",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VTableSwitchDestructor",
+      "responsibility": "Deleting-style destructor with vtable switching: this[0] is switched to the destructor-phase vtable off_5ACE4C while the destructor body sub_4C94D0 runs, then restored to the base vtable off_5ACE2C; the object's heap block is freed via FreeWrapper when the a2 & 1 deleting flag is set. Returns this.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C9360"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtablePtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C9360",
+        "global:0x005ACE2C",
+        "global:0x005ACE4C",
+        "callee:0x004C94D0",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AmbientSoundLoader",
+      "responsibility": "Loads and starts the ambient sound file 'ambient\\pithorn.wav' through the global sound manager dword_8AC4C4, storing the sound handle at this+0x1C and writing volume/pan/fade parameters at this+0x38/0x3C/0x40; already-playing sounds are stopped and the handle cleared. Always returns 0.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C9840"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "soundHandle",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "volumeParam",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "panParam",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "fadeParam",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C9840",
+        "global:0x008AC4C4",
+        "global:0x005C6784",
+        "global:0x005D3448",
+        "global:0x005D347C",
+        "global:0x005EA438",
+        "global:0x005EC3E0",
+        "global:0x007CF530",
+        "global:0x007CF554",
+        "global:0x007CF578",
+        "field:*(this+0x1C):0x00000000",
+        "callee:0x0058815F",
+        "callee:0x00566650",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RenderObjectPositioner",
+      "responsibility": "Sets a render object's transform/position: reads the render-object pointer at this+0x1C and, when non-null, makes a virtual call through its vtable slot +4 with position/parameter arguments. Always returns 0.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C9980"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "renderObjectPtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C9980",
+        "field:*(this+0x1C):0x00000000",
+        "field:*(this+0x1C):0x00000004",
+        "global:0x007CF2CC",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RenderStatusUpdateDispatch",
+      "responsibility": "Gated per-frame update on the global init-status object dword_8AC4C4: queries its vtable slot 36 with three out-buffers and, when the sampled flags indicate a pending state, triggers vtable slot 40 with constant arguments. Always returns 0.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C99D0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004C99D0",
+        "global:0x008AC4C4",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ParticleEmitterFactory",
+      "responsibility": "Factory that allocates and initializes a particle emitter selected by the integer type id in `this`: types 1/2/5/6/7 allocate per-type heap blocks, initialize via ParticleEmitterInit with per-type lifetime, and install type-specific vtable pointers; types 3/4/default return null. Allocations are null-checked.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004C9A50"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004C9A50",
+        "callee:0x00587C03",
+        "callee:0x004C8F10",
+        "global:0x004C9AF4",
+        "global:0x005ACE18",
+        "global:0x005ACE6C",
+        "global:0x005ACE7C",
+        "caller:0x004C7CA0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "QuadZeroInitializer",
+      "responsibility": "Constructor-style initializer zeroing the first four DWORD fields (offsets 0x0, 0x4, 0x8, 0xC) and returning the object pointer. Structural twin of sub_4A1F60; called by CarPhysicsStateInitializer (0x004B57F0) and sub_5837F0.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BA820"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "fieldA",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "fieldB",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "fieldC",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "fieldD",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BA820",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "SingletonLifecycle",
+      "owner": "SingletonRNGGuard",
+      "states": [
+        "uninitialized",
+        "initialized"
+      ],
+      "transitions": [
+        "Guard on (byte_8AC4DC & 1): when set the singleton is already initialized and the reference counter dword_8AC4D8 is incremented (fast path); when clear the flag is set, RandLCGRandomNumberGenerator seeds the generator, and the counter is reset to 1. Both paths return 1."
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004C8EE0",
+        "global:0x008AC4DC",
+        "global:0x008AC4D8",
+        "callee:0x005884ED"
+      ]
+    },
+    {
+      "name": "GridCellInsertionFlow",
+      "owner": "ObjectGrid8x8",
+      "states": [
+        "coordinates_computed",
+        "x_range_empty",
+        "x_range_valid",
+        "y_range_empty",
+        "y_range_valid",
+        "cells_pushed",
+        "aggregate_pushed"
+      ],
+      "transitions": [
+        "0x004BDE20 computes four clamped 0..7 cell indices from the argument extents using the origin/scale fields; if either X (v5<=v7) or Y (v9<=v11) range is empty the corresponding loop is skipped; otherwise the argument is pushed into every overlapping cell via DynamicArrayPush. The sentinel flag set unconditionally after coordinate computation routes the argument into the aggregate list at this+576, whose push result is returned."
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004BDE20",
+        "field:this:0x00000924",
+        "field:this:0x00000928",
+        "field:this:0x0000092C",
+        "field:this:0x00000930",
+        "callee:0x004BD860"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "IValueListNode",
+      "purpose": "Contract for the 12-byte nodes of ValueNodeList: value/data pointer at +0, next link at +4, free-data flag byte at +8; the flag controls whether the node's data is released (via EmptyStub_0170 + FreeWrapper_7bcf) during removal.",
+      "functions": [
+        "0x004BA7A0",
+        "0x004BAE20"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "function:0x004BA7A0",
+        "function:0x004BAE20",
+        "callee:0x004B0170",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "ISubObjectVTableSlot",
+      "purpose": "Contract for the vtable-based sub-objects held by TripleSubObjectHolder: vtable slot 0 takes a final-release flag (called with 1 before the slot is nulled) and vtable slot +8 is a dispatch entry (called without nulling the slot). Both targets are indirect and resolved at runtime.",
+      "functions": [
+        "0x004C91D0",
+        "0x004C9310",
+        "0x004C9790"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:*(this+0x20):0x00000000",
+        "field:*(this+0x20):0x00000008",
+        "field:*(this+0x24):0x00000000",
+        "field:*(this+0x24):0x00000008",
+        "field:*(this+0x28):0x00000000",
+        "field:*(this+0x28):0x00000008",
+        "function:0x004C91D0",
+        "function:0x004C9310",
+        "function:0x004C9790"
+      ]
+    },
+    {
+      "name": "IGridCellContainer",
+      "purpose": "Contract for the ObjectGrid8x8 cells: each cell is a per-object dynamic array accepting DynamicArrayPush (0x004BD860) and ArrayRemoveByValue (0x004BD970) and driven by the 8x8 layout at a 9-dword stride with a trailing element at this+576 dwords.",
+      "functions": [
+        "0x004BDE20",
+        "0x004BE180"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x004BD860",
+        "callee:0x004BD970",
+        "function:0x004BDE20",
+        "function:0x004BE180",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "ValueNodeList",
+      "to": "EmptyStubService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BA7A0",
+        "function:0x004BAE20",
+        "callee:0x004B0170"
+      ]
+    },
+    {
+      "from": "ValueNodeList",
+      "to": "FreeService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BA7A0",
+        "function:0x004BAE20",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "ValueNodeList",
+      "to": "NetworkMessageDispatch",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BA7A0",
+        "function:0x004BAE20",
+        "caller:0x004B54E0"
+      ]
+    },
+    {
+      "from": "MergeSortListSorter",
+      "to": "CollisionObjectListManagement",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BAB20",
+        "caller:0x004B4B50"
+      ]
+    },
+    {
+      "from": "MergeSortListSorter",
+      "to": "SortedLinkedListInsert",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BB2E0",
+        "caller:0x004B81A0"
+      ]
+    },
+    {
+      "from": "ObjectGrid8x8",
+      "to": "DynamicIntArray",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BDE20",
+        "callee:0x004BD860"
+      ]
+    },
+    {
+      "from": "ObjectGrid8x8",
+      "to": "ArrayRemoveByValueService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BE180",
+        "callee:0x004BD970"
+      ]
+    },
+    {
+      "from": "ObjectGrid8x8",
+      "to": "ArithmeticComparisonService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BDF90",
+        "callee:0x004BD8C0"
+      ]
+    },
+    {
+      "from": "ObjectGrid8x8",
+      "to": "StructCleanupService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BDDE0",
+        "callee:0x004BD800"
+      ]
+    },
+    {
+      "from": "ObjectGrid8x8",
+      "to": "StateDependentUpdateDispatch",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BDF90",
+        "function:0x004BE180",
+        "caller:0x0040F130"
+      ]
+    },
+    {
+      "from": "ObjectGrid8x8",
+      "to": "ConditionalCleanupChain",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BDF90",
+        "caller:0x0040F100"
+      ]
+    },
+    {
+      "from": "ObjectGrid8x8",
+      "to": "ShortComputation",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BE180",
+        "caller:0x0040F0D0"
+      ]
+    },
+    {
+      "from": "OwnerPointerStruct",
+      "to": "StructCleanupService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BD7D0",
+        "function:0x004BD7F0",
+        "callee:0x004BD800"
+      ]
+    },
+    {
+      "from": "OwnerPointerStruct",
+      "to": "AudioMixerChannelInit",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BD7D0",
+        "caller:0x004BDB90"
+      ]
+    },
+    {
+      "from": "FilterPropertyList",
+      "to": "ResourceListCleanupService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C5DB0",
+        "function:0x004C5DE0",
+        "callee:0x004C62C0"
+      ]
+    },
+    {
+      "from": "FilterPropertyList",
+      "to": "FreeService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C5DE0",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "FilterPropertyList",
+      "to": "sub_47FB10",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C5DE0",
+        "caller:0x0047FB10"
+      ]
+    },
+    {
+      "from": "TripleSubObjectHolder",
+      "to": "sub_4C9060",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C91D0",
+        "caller:0x004C9060"
+      ]
+    },
+    {
+      "from": "TripleSubObjectHolder",
+      "to": "VTableSwitchDtor",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9790",
+        "caller:0x004C9600"
+      ]
+    },
+    {
+      "from": "SceneIndexSetter",
+      "to": "SceneIndexGlobal",
+      "kind": "writes",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C5830",
+        "global:0x008AC48C"
+      ]
+    },
+    {
+      "from": "RandomSceneEntryPicker",
+      "to": "SceneCountGlobal",
+      "kind": "reads",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C6780",
+        "global:0x008AC488"
+      ]
+    },
+    {
+      "from": "RandomSceneEntryPicker",
+      "to": "SceneArrayGlobal",
+      "kind": "reads",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C6780",
+        "global:0x008AC490"
+      ]
+    },
+    {
+      "from": "RandomSceneEntryPicker",
+      "to": "RandomStateReader",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C6780",
+        "callee:0x005871F0"
+      ]
+    },
+    {
+      "from": "RandomSceneEntryPicker",
+      "to": "BoundsCheckedIndexSetter",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C6780",
+        "callee:0x004C6760"
+      ]
+    },
+    {
+      "from": "SingletonRNGGuard",
+      "to": "RNGSeederService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C8EE0",
+        "callee:0x005884ED"
+      ]
+    },
+    {
+      "from": "StateIndexEqualityCheck",
+      "to": "StateIndexedFieldGetterService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9280",
+        "callee:0x004C9260"
+      ]
+    },
+    {
+      "from": "VTableSwitchDestructor",
+      "to": "DestructorBodyService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9360",
+        "callee:0x004C94D0"
+      ]
+    },
+    {
+      "from": "VTableSwitchDestructor",
+      "to": "FreeService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9360",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "AmbientSoundLoader",
+      "to": "SoundManagerStore",
+      "kind": "reads",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9840",
+        "global:0x008AC4C4"
+      ]
+    },
+    {
+      "from": "AmbientSoundLoader",
+      "to": "StringFormatService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9840",
+        "callee:0x0058815F"
+      ]
+    },
+    {
+      "from": "AmbientSoundLoader",
+      "to": "StringCopyService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9840",
+        "callee:0x00566650"
+      ]
+    },
+    {
+      "from": "AmbientSoundLoader",
+      "to": "FreeService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9840",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "RenderObjectPositioner",
+      "to": "RenderTransformDispatcher",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004C9980",
+        "field:*(this+0x1C):0x00000004"
+      ]
+    },
+    {
+      "from": "RenderStatusUpdateDispatch",
+      "to": "InitStatusObjectStore",
+      "kind": "reads",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C99D0",
+        "global:0x008AC4C4"
+      ]
+    },
+    {
+      "from": "ParticleEmitterFactory",
+      "to": "ParticleEmitterInitService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9A50",
+        "callee:0x004C8F10"
+      ]
+    },
+    {
+      "from": "ParticleEmitterFactory",
+      "to": "AllocatorService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9A50",
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "ParticleEmitterFactory",
+      "to": "NetworkMessageReceiveAndDispatch",
+      "kind": "used_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9A50",
+        "caller:0x004C7CA0"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "ValueNodeListLayout",
+      "category": "list container layout",
+      "description": "The remove-by-value list container keeps head at +0x0, tail at +0x4, current at +0x8 and count at +0xC; nodes are 12 bytes {value +0, next +4, free-data flag byte +8}. Removal unlinks the matched node, repoints head/tail/current, decrements the count, releases the node data only when the flag is set (EmptyStub_0170 then FreeWrapper_7bcf), always frees the node, and returns the removed data pointer (or 1/0 by variant).",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BA7A0",
+        "function:0x004BAE20",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "ObjectGrid8x8Layout",
+      "category": "spatial grid layout",
+      "description": "The spatial grid is 8x8 cells at a 9-dword stride with a trailing element at this + 576 dwords (64 cells * 9). Grid origin/scale-inverse fields sit at this+0x924/0x928 (X) and this+0x92C/0x930 (Y) and map argument extents to clamped 0..7 cell indices. Cells accept push (DynamicArrayPush 0x004BD860), remove-by-value (ArrayRemoveByValue 0x004BD970) and per-element comparison (ArithmeticComparison_d8c0 0x004BD8C0); teardown runs StructCleanup (0x004BD800) on every element.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BDDE0",
+        "function:0x004BDE20",
+        "function:0x004BDF90",
+        "function:0x004BE180",
+        "field:this:0x00000924",
+        "field:this:0x00000928",
+        "field:this:0x0000092C",
+        "field:this:0x00000930",
+        "callee:0x004BD860",
+        "callee:0x004BD970",
+        "callee:0x004BD8C0",
+        "callee:0x004BD800"
+      ]
+    },
+    {
+      "name": "DynamicIntArrayLayout",
+      "category": "dynamic array layout",
+      "description": "The dynamic int array stores capacity at +0x0, element count at +0x4 and the data buffer pointer at +0x8; pushBack grows capacity by 8 when full (allocate 4-byte-per-element buffer, copy, free old), appends at data[count], increments the count and returns the previous count.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BD860",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "callee:0x00587C03",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "FilterPropertyListLayout",
+      "category": "filter property structure layout",
+      "description": "The filter-property structure holds a base pointer at +0x0, a literal -1 at +0x4, and a linked node list with head/tail/iterator/count at 0x8/0xC/0x10/0x14. Nodes are {data pointer +0, next +4, owned-flag byte +8}; the data block holds a primary pointer at +0 and an optional secondary pointer at +4. The constructor writes 0,-1,0,0,0,0 and cleans the inner resource list (0x004C62C0); teardown frees each node's data and secondary pointer when the owned flag is set, frees the node, zeroes the four list fields, and frees the base pointer.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C5DB0",
+        "function:0x004C5DE0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:*(this+0x8):0x00000004",
+        "field:obj:0x00000000",
+        "field:obj:0x00000008",
+        "callee:0x004C62C0",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "TripleSubObjectSlots",
+      "category": "sub-object slot layout",
+      "description": "The holder stores up to three vtable-based sub-object pointers at this+0x20, this+0x24 and this+0x28. Release dispatch calls vtable slot 0 with flag 1 (final release) and nulls the slot afterwards; the vtable+8 (third-slot) entry is dispatched without nulling. Both slots are indirect calls resolved at runtime.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C91D0",
+        "function:0x004C9310",
+        "function:0x004C9790",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:*(this+0x20):0x00000000",
+        "field:*(this+0x20):0x00000008",
+        "field:*(this+0x24):0x00000000",
+        "field:*(this+0x24):0x00000008",
+        "field:*(this+0x28):0x00000000",
+        "field:*(this+0x28):0x00000008"
+      ]
+    },
+    {
+      "name": "SceneGlobalsContract",
+      "category": "scene registry globals",
+      "description": "The scene registry is exposed through globals: dword_8AC48C is the current scene index (written by 0x004C5830), dword_8AC488 is the scene-count bound, and dword_8AC490 is the base of a scene-entry array with a 396-byte stride, indexed by the node's scene index when it lies in [0, dword_8AC488).",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C5830",
+        "function:0x004C6780",
+        "global:0x008AC48C",
+        "global:0x008AC488",
+        "global:0x008AC490"
+      ]
+    },
+    {
+      "name": "SingletonGuardGlobals",
+      "category": "singleton guard",
+      "description": "The singleton guard uses flag byte_8AC4DC bit 0 and reference counter dword_8AC4D8: already-initialized calls increment the counter; first calls set the flag, seed the RNG via RandLCGRandomNumberGenerator (0x005884ED) and reset the counter to 1.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C8EE0",
+        "global:0x008AC4DC",
+        "global:0x008AC4D8",
+        "callee:0x005884ED"
+      ]
+    },
+    {
+      "name": "VTableSwitchDestructorContract",
+      "category": "destructor vtable switching",
+      "description": "The deleting destructor switches this[0] to the destructor-phase vtable off_5ACE4C before running the body sub_4C94D0 and restores the base vtable off_5ACE2C afterwards; the object's heap block is freed via FreeWrapper_7bcf when the a2 & 1 deleting flag is set. Returns this unchanged.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C9360",
+        "global:0x005ACE2C",
+        "global:0x005ACE4C",
+        "callee:0x004C94D0",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "AmbientSoundParameterSlots",
+      "category": "ambient sound object layout",
+      "description": "The ambient sound object stores its sound handle at this+0x1C and volume/pan/fade parameters at this+0x38/0x3C/0x40; the sound is created through the global manager dword_8AC4C4's vtable offset 92, and an already-playing sound is stopped and its handle cleared before the parameters are written. Returns 0.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004C9840",
+        "field:this:0x0000001C",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000040",
+        "global:0x008AC4C4"
+      ]
+    }
+  ],
+  "unresolved": [
+    "All function owners are UnknownObject in the validated IR; every class boundary, method-to-class assignment and class name in this proposal is GUESS synthesis over shared this-field usage, shared callees and shared callers.",
+    "Merging 0x004BA7A0 and 0x004BAE20 into ValueNodeList relies on the identical {head +0, tail +4, current +8, count +0xC} container layout and identical 12-byte node layout; for 0x004BA7A0 the roles of the two tracked node pointers (+0x4/+0x8) are not independently distinguishable, and only forward links appear in its source (the 'doubly linked' part of the canonical name is unsupported).",
+    "The node field obj+0xC is referenced by packet facts (init literal 0) but never appears in the decompiled logic of 0x004BA7A0, 0x004BAB20 or 0x004BAE20; its meaning is unknown and it is carried here only as an unresolved evidence ref.",
+    "The two MergeSortListSorter methods use different key conventions (float at payload+4 for 0x004BAB20 vs float at the node data pointer +0 for 0x004BB2E0) and different sort directions (ascending vs descending with >= tie-break); treating them as one class is a deliberate simplification.",
+    "The 0x004BAB20 sort-key field annotations are inconsistent in the packet (field obj+0x4 and field *(this+0x8)+0x4); the base-pointer convention for the payload record is not settled.",
+    "The grid cell array base within ObjectGrid8x8 is not evidenced by any this-offset field; the cell stride (9 dwords/9 slots) and the trailing element at +576 are the only structural facts, and whether the grid is an array of structs or of pointers is not resolvable from these functions alone.",
+    "Grid origin/scale semantics for this+0x924..0x930 are DERIVED from the coordinate arithmetic in 0x004BDE20, not named by the packet.",
+    "The sentinel flag v16 in 0x004BDE20 is assigned 1 unconditionally after each coordinate computation, so the this+576 aggregate push effectively always runs; the earlier claim that it flags out-of-range clamping is not supported by the raw source.",
+    "0x004BD7F0 is a thunk forwarding this to StructCleanup, but the packet carries no callee evidence for it; the actual cleanup target (assumed to be the shared 0x004BD800) is unresolved.",
+    "The four zeroed/freed fields of OwnerPointerStruct (0x8/0x14/0x20) are owned-pointer slots per StructCleanup's own IR (DERIVED), but the struct type and the meaning of the fields are unknown.",
+    "The purpose of the -1 literal at FilterPropertyList this+0x4 is unknown; the resource-list cleanup helper 0x004C62C0 is not in this packet.",
+    "The exact layout of the per-node filter-property data block (primary pointer +0, secondary +4) and the meaning of the owned-flag byte at node+8 are inferred from the guard/free pattern, not proven.",
+    "The singleton identity, the purpose of the reference counter dword_8AC4D8, and whether RandLCGRandomNumberGenerator receives a meaningful seed through `this` are unresolved; no static callers of 0x004C8EE0 are known.",
+    "The 396-byte scene-array stride and the names dword_8AC488/dword_8AC48C/dword_8AC490 are DERIVED labels, not proven field names.",
+    "The concrete vtable[0]/vtable+8 targets of TripleSubObjectHolder sub-objects are indirect calls resolved at runtime; the flag-1 release semantics and the 'result read uninitialized when all slots are null' path are inferred from the destructor context.",
+    "The vtable+28 result == 2 check in 0x004C9280 is treated as an equality-marker test only; its semantic meaning is unknown.",
+    "The exact per-type emitter classes behind ParticleEmitterFactory's vtable pointers are unresolved; RandLCGRandomNumberGenerator appears in the raw source of type 6 but has no packet callee entry; the flt_5ACE18 to type-5 lifetime linkage is DERIVED from existing analysis only.",
+    "The this parameter of 0x004C9A50 doubles as the type selector, which is unusual for a factory; types 3 and 4 return null with no allocation.",
+    "0x004C9840 and 0x004C9980 both use this+0x1C but interpret it differently (sound object handle vs render-object pointer); whether this is the same object type or a conflict is unresolved.",
+    "Global dword_8AC4C4 is used as a sound manager by 0x004C9840 and as an init-status object by 0x004C99D0; the two roles may be the same system manager or distinct globals sharing an address in the reading.",
+    "Globals flt_59E43C/flt_59E440 (0x0059E43C/0x0059E440) and flt_5ACE20/dword_5ACE24/dword_5ACE28 (0x005ACE20/0x005ACE24/0x005ACE28) are flagged by packet facts but absent from the raw decompiled bodies of 0x004C9840 and 0x004C99D0 respectively; likely inlined constants, carried as unresolved evidence.",
+    "The sound/render vtable offsets (20 = is-playing test, 0 = stop/release, 4 = transform, 36/40 = status/trigger, 92 = stream-create) are inferred from call shapes, not named members; the flag argument 1 to vtable[0] is assumed to be a final-release flag.",
+    "Whether `this` is passed implicitly to 0x004BE700 by 0x004BE6F0 through a shared global or a member pointer is unknown.",
+    "The purpose of the 10-slot sentinel array (0x004BD760) and its stored value at this+0x8 are caller-dependent; PostPitCleanup (0x0042A6F0) is the only known caller.",
+    "0x004BA820 zeroes four DWORDs whose semantic meaning is unknown; callers indicate a car-physics-related context."
+  ],
+  "unresolved_evidence_refs": [
+    "field:obj:0x0000000C",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x005ACE20",
+    "global:0x005ACE24",
+    "global:0x005ACE28"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

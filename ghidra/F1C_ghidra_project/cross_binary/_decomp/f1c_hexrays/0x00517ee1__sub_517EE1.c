@@ -1,0 +1,6 @@
+// f1c  0x00517ee1  size=35
+void *__cdecl sub_517EE1(int a1, void *a2, const void *a3, unsigned int a4)
+{
+  qmemcpy(a2, a3, a4);
+  return a2;
+}

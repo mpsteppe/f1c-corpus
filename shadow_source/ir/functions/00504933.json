@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "address": "0x00504933",
+  "proposed_name": "Direct3DTextureResampling",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Resamples a 3D texture from source to destination dimensions using fixed-point coordinate scaling ((dimension<<16)/dimension). Guards on an object type byte (v1[8] != 2 rejects with -2147467259), allocates two 16-byte staging buffers, samples rows through the source vtable, copies 16-byte texel blocks through an intermediate scanline buffer, and writes through the destination vtable. Frees both staging buffers and returns 0 on success; a failed second allocation frees the first buffer and returns -2147024882.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "SEHHandlerInit installs the structured exception handler frame for the function.",
+      "evidence_refs": ["callee:0x0058A5D8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on object type byte v1[8] != 2; when it is not 2 the function returns -2147467259.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read source element count from object v1 + 4184 and store it as the allocation size factor.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the first staging buffer via OperatorNewNhMallocWrapper(16 * elementCount).",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Initialize the first staging buffer elements through sub_5008C2 using element constructor sub_5007EC.",
+      "evidence_refs": ["callee:0x005008C2", "global:0x005007EC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the first allocation result; when null the function returns -2147024882.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read destination element count from object v2[1] + 4184 for the second allocation.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate and initialize the second staging buffer with the same operator/constructor pair.",
+      "evidence_refs": ["callee:0x00587C03", "callee:0x005008C2", "global:0x005007EC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute fixed-point X scale (sourceDimX << 16) / destDimX; similarly scale Y and Z from source dims 4184/4188/4192 over destination dims v9[1046..1048].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer loop over destination Z rows and inner loop over destination X/Y scanlines, accumulating scaled coordinates for source sampling.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Indirect vtable call on the source object (method at vtable offset +4) to fetch a source scanline into the first staging buffer.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner copy loop that advances a fixed-point X accumulator and copies 16-byte texel blocks from the source buffer into the destination scanline buffer.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Indirect vtable call on the destination object (method at vtable offset +8) to write the assembled scanline.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Free both staging buffers with FreeWrapper_7bcf after the nested loops complete.",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 on success; the failure branch frees the first buffer and returns -2147024882.",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int Direct3DTextureResampling(void* src, void* dst) {",
+    "  if (src->typeByte != 2) return -2147467259;",
+    "  srcBuf = allocAndInit(16 * src->xDim, ctor_5007EC);",
+    "  if (!srcBuf) return -2147024882;",
+    "  dstBuf = allocAndInit(16 * dst->xDim, ctor_5007EC);",
+    "  if (!dstBuf) { free(srcBuf); return -2147024882; }",
+    "  scaleX = (src->xDim << 16) / dst->xDim;",
+    "  scaleY = (src->yDim << 16) / dst->yDim;",
+    "  scaleZ = (src->zDim << 16) / dst->zDim;",
+    "  for (z = 0; z < dst->zDim; z++) {",
+    "    for (y = 0; y < dst->yDim; y++) {",
+    "      src->sampleScanline(x, y, srcBuf);",
+    "      for (i = 0; i < dst->xDim; i++) copy16(dstBuf + i*16, srcBuf + HIWORD(x)*16);",
+    "      dst->writeScanline(x, y, dstBuf);",
+    "    }",
+    "  }",
+    "  free(srcBuf); free(dstBuf);",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "The two vtable methods invoked at source-vtable +4 and destination-vtable +8 are indirect calls; their exact interface (scanline fetch / write) is inferred from the data flow.",
+    "Stack-slot scratch locations (a1 - 16, -20, -40, -44, etc.) hold intermediate buffer pointers and loop counters; their concrete struct layout is not established.",
+    "The objects behind v1[0] and v1[1] are not identified beyond the type guard on v1[8].",
+    "global:0x0059C46E is the SEH label referenced by the exception frame; it is not executed on the success path."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059C46E"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

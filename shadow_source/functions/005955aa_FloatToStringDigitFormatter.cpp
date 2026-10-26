@@ -1,0 +1,50 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005955AA
+// Canonical corpus name: sub_5955AA
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_5955AA_005955aa.c
+
+void UnknownObject::FloatToStringDigitFormatter()
+{
+    // Digit-string formatter used by CRT-style number-to-string conversion. Writes a leading '0' (48) at a1[0], copies a2 digit characters from the stream at a3+12 into the buffer (substituting '0' for a zero byte), NUL-terminates the result, applies round-up with carry propagation when the next unconsumed digit is 5 or greater, then skips a leading '0' via sub_58B130 when the leading digit did not round up; on carry overflow into the leading digit it increments the counter at a3+4.
+    // ASSIGNMENT: Initialize the first buffer byte a1[0] to '0' (48) and start the result pointer at a1+1. [source:raw, field:this:0x00000000]
+    // ASSIGNMENT: Load the digit source pointer from a3+12 and initialize the second output byte position (a1+1). [source:raw, field:this:0x00000001]
+    // GUARD: Guard on a2 > 0 to decide whether the digit-copy loop runs at all. [source:raw]
+    // LOOP: Loop a2 times copying each byte from the source stream into the buffer; a zero byte in the stream is substituted with '0' (48). [source:raw]
+    // ASSIGNMENT: NUL-terminate the formatted string at the final result position. [source:raw]
+    // GUARD: Guard combining the consumed-count sign (v4 >= 0) with the next unconsumed digit being >= '5' (53) to trigger rounding. [source:raw]
+    // LOOP: Round-up carry propagation: walk back replacing '9' (57) digits with '0' (48) until a non-9 digit is found, then increment it. [source:raw]
+    // GUARD: Guard on a1[0] == '1' (49) after rounding, indicating the carry overflowed into the leading digit. [source:raw, field:this:0x00000000, guard:0]
+    // ASSIGNMENT: On leading-carry, increment the counter at a3+4 and return the pointer past the leading digit. [source:raw]
+    // CALL: Otherwise measure the digit-string length with Strlen and shift the buffer left by one byte via sub_58B130, discarding the leading '0'. [source:raw, callee:0x0058E1B0, callee:0x0058B130]
+    // RETURN: Return the shifted buffer pointer produced by sub_58B130 in the leading-zero-skip path. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char *sub_5955AA(_BYTE *a1, int a2, int a3) {
+    //     char *src = *(char **)(a3 + 12);
+    //     char *out = a1 + 1;
+    //     *a1 = '0';
+    //     if (a2 > 0) {
+    //       int n = a2;
+    //       do {
+    //         char c = *src;
+    //         if (c) ++src; else c = '0';
+    //         *out++ = c;
+    //       } while (--n);
+    //     }
+    //     *out = 0;
+    //     if (/* digits consumed * / && *src >= '5') {
+    //       while (*--out == '9') *out = '0';
+    //       ++*out;
+    //     }
+    //     if (*a1 == '1') {
+    //       ++*(_DWORD *)(a3 + 4);
+    //     } else {
+    //       return (char *)sub_58B130((unsigned int)a1, (unsigned int)(a1 + 1), Strlen(a1 + 1) + 1);
+    //     }
+    //     return out;
+    //   }
+    // UNRESOLVED: Exact type of the source object at a3 (stream at +12, counter at +4) is unknown.
+    // UNRESOLVED: The rounding guard's sign condition v4 >= 0 couples digit count with sign handling; exact semantics not fully recovered.
+    // UNRESOLVED: Known callers: FloatToStringWithSignWidth (0x0058BDCD), IntToStringWithSignPositionDraw (0x0058BEF0), UtilityFunction_bfec (0x0058BFEC).
+}

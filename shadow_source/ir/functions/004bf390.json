@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "address": "0x004BF390",
+  "proposed_name": "AIDriverSorting",
+  "owner": {
+    "type": "Vehicle",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "field:this:0x0000403C",
+      "field:this:0x00004060",
+      "field:this:0x00004098",
+      "field:this:0x0000409C",
+      "global:0x007C54F0"
+    ]
+  },
+  "summary": "AI driver position sorting. Iterates position slots 1..VehicleCount over the vehicle pointer array and, for each slot, finds the vehicle whose position field (+0x4060) matches the slot. For the driver a1, decides whether it should be placed ahead of the slot-holder: in a race session (session type 7) by lap count (+0x403C) then total time on finish line (+0x4098), otherwise by best lap (+0x409C). When a pass is warranted it swaps the two drivers' position values through ConditionalFieldSetter (a1 takes the other's position, the other driver's position is incremented) and stops further swaps for this call. Returns the session type.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Capture session type dword_7C56A4 (also as v11) and vehicle count dword_5C329C (also as v3); read a1's own position at +16480 into v12; initialize swap flag v10=0, swap partner v4=0, and outer slot counter v13=1.",
+      "evidence_refs": ["global:0x007C56A4", "global:0x005C329C", "field:this:0x00004060"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: if vehicle count dword_5C329C < 1, return immediately with result = session type (nothing to sort).",
+      "evidence_refs": ["global:0x005C329C", "global:0x007C56A4"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer loop: advance the target position slot v13 (result = ++v13) from 1 through vehicle count v3; when v13 exceeds v3, return result (session type).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner loop: for v5 from 0 while v5 < v3, read the candidate vehicle v6 = dword_7C54F0[v5] from the vehicle pointer array.",
+      "evidence_refs": ["global:0x007C54F0", "global:0x005C329C"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: read candidate position v7 at v6+16480; continue only when v7 equals the target slot v13.",
+      "evidence_refs": ["field:this:0x00004060"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: if the candidate v6 is a1 itself, skip to the next outer slot.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard (race session): when session type == 7 and no swap has occurred yet (v10 == 0), compare lap counts at v6+16444 and a1+16444; if a1's lap count is greater, or equal with a1's total time at +16536 not below v6's +16536, a1 should pass the candidate.",
+      "evidence_refs": ["global:0x007C56A4", "field:this:0x0000403C", "field:this:0x00004098"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard (non-race session): otherwise, when a1's best lap at +16540 is not below v6's best lap at +16540 and v6's best lap is >= 0.0, a1 should pass the candidate.",
+      "evidence_refs": ["field:this:0x0000409C"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "When a1 passes the candidate: mark swap performed (v10=1), remember the partner v4=v6, force the outer loop to end if a1's own position minus 1 equals v7, then write the swapped position values: ConditionalFieldSetter(a1+16436, v7) and ConditionalFieldSetter(v6+16436, oldPosition+1).",
+      "evidence_refs": ["callee:0x004BC2F0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When a swap was already performed (v10==1) and the candidate differs from the remembered partner v4: update v4, call ConditionalFieldSetter(v6+16436, v7+1), and if a1's own position v12 equals the candidate's position, skip to the next outer slot.",
+      "evidence_refs": ["callee:0x004BC2F0", "field:this:0x00004060", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return result (session type dword_7C56A4) once the outer slot loop completes.",
+      "evidence_refs": ["global:0x007C56A4"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int AIDriverSorting(int a1) {",
+    "  int sessionType = dword_7C56A4;",
+    "  int count = dword_5C329C;",
+    "  int ownPosition = *(int*)(a1 + 16480);",
+    "  if (count < 1) return sessionType;",
+    "  int slot = 1;",
+    "  while (slot <= count) {",
+    "    for (int i = 0; i < count; ++i) {",
+    "      int other = dword_7C54F0[i];",
+    "      int otherPos = *(int*)(other + 16480);",
+    "      if (otherPos != slot) continue;",
+    "      if (other == a1) break;  // skip self slot",
+    "      if (!swapped) {",
+    "        bool passes = (sessionType == 7)",
+    "          ? (lap(other) >= lap(a1) && (lap(other) != lap(a1) || time(a1) >= time(other)))",
+    "          : (bestLap(a1) >= bestLap(other) && bestLap(other) >= 0.0f);",
+    "        if (passes) {",
+    "          swapped = true; partner = other;",
+    "          if (ownPosition - 1 == otherPos) slot = count + 1;",
+    "          ConditionalFieldSetter(a1 + 16436, otherPos);",
+    "          ConditionalFieldSetter(other + 16436, otherPos + 1);",
+    "        }",
+    "      } else if (partner != other) {",
+    "        partner = other;",
+    "        ConditionalFieldSetter(other + 16436, otherPos + 1);",
+    "        if (ownPosition == otherPos) slot = count + 1;",
+    "      }",
+    "      if (++i >= count) break;",
+    "    }",
+    "    result = ++slot;",
+    "  }",
+    "  return sessionType;",
+    "}"
+  ],
+  "unresolved": [
+    "The position value written via ConditionalFieldSetter goes to +16436 (0x4034), while the position read for comparisons is at +16480 (0x4060); the relation between these two fields is not established.",
+    "The exact semantics of the multi-label control flow (LABEL_18 / LABEL_19 skipping the inner loop) could not be fully linearized.",
+    "global:0x0059E440 (flt_59E440) does not appear in the shown source text."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "MEDIUM",
+    "control_flow": "MEDIUM"
+  }
+}

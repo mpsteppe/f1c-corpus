@@ -1,0 +1,4112 @@
+{
+  "schema_version": 1,
+  "packet_id": "vehicle_physics_01",
+  "scope": "vehicle_physics",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x00401340",
+      "function_ref": "function:0x00401340",
+      "name": "VehicleSuspensionForceCalculation",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00401340"
+        ]
+      },
+      "summary": "Per-strut suspension contact solver. Iterates the vehicle suspension strut array (this+0x134, stride 316) for a count derived from this+0x130 (all struts) or 1 (single-strut mode when a2 is non-zero). For each strut with a live linked node (+268) and contact feature (+272), queries the spatial grid, extracts the collision normal, builds a contact frame, applies gravity compensation, and runs ray-sphere intersection tests to write penetration depth and contact force at strut offsets +112/+116/+120/+124/+128.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Iteration count = (a2 != 0) ? 1 : this+0x130; the whole loop body only runs while the count is greater than 0",
+          "evidence_refs": [
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the suspension strut array whose base is this+0x134, stepping 316 bytes per strut; in single-strut mode the selector a2 supplies the strut pointer directly",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Reset per-strut contact state: strut+112 and +116 set to 0, strut+120 set to 0, strut+124 set to a negative literal, strut+128 set to 0",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Per-strut processing only proceeds when both the linked node at strut+268 and the contact feature pointer at strut+272 are non-zero",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "SpatialGridQuery on the feature position read at node+148/+152/+156, filling the query struct that drives contact lookup",
+          "evidence_refs": [
+            "callee:0x0044C4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "CollisionNormalFromFeature extracts the collision surface normal into the v33 buffer when the grid query hits",
+          "evidence_refs": [
+            "callee:0x0044C550",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Second SpatialGridQuery on the strut wheel position (strut+148/+152/+156) to locate the strut-side contact feature",
+          "evidence_refs": [
+            "callee:0x0044C4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Displacement vector between the strut wheel position and the feature position; the frame construction is guarded on its norm being non-zero",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Cross products of the normal axis pairs and normalization build the contact frame axes (basis constants 0, 1, 2 encoded in the query struct)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Gravity compensation: dot products of the contact frame axes with the gravity vector (-9.8100004) are folded into the three contact force components",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "RaySphereQuadraticIntersectionTest run twice with the frame-projected parameters; results become the penetration depths written to strut+112 and strut+116, with sign corrections applied after",
+          "evidence_refs": [
+            "callee:0x00401180",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the gravity-compensated contact force components back to the strut at +120/+124/+128 and the penetration depths to +112/+116",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Decrement the remaining count and advance the byte stride by 316 for the next strut, continuing until the count reaches zero",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the final loop counter value; the function is invoked per strut by SweptSuspensionCollisionDetection (00401910) and PhysicsNodePropagationWithDistanceFalloff (00401C90)",
+          "evidence_refs": [
+            "function:0x00401340",
+            "caller:0x00401910",
+            "caller:0x00401C90",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The purpose of the a2 single-strut selector relative to the full-grid callers is not documented in this function",
+        "Four read-only globals (flt_59E438, flt_59E43C, flt_59E440, dbl_7C9360) are flagged by packet facts but appear nowhere in the raw decompiled source; the skeleton fill labels them NormalizationHalf, a physics constant, a zero threshold and an unknown struct, all unverifiable from this packet"
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E438",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x007C9360"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x00401910",
+      "function_ref": "function:0x00401910",
+      "name": "SweptSuspensionCollisionDetection",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00401910"
+        ]
+      },
+      "summary": "Swept-strut contact solver on the vehicle physics node. First advances each strut position (strut+148/+152/+156) with a velocity-scaled Euler step over the strut array (this+0x134, stride 316, count this+0x130). Then, for struts with both a linked node (+268) and a contact feature (+272), sweeps the travel axis over a small window, calling VehicleSuspensionForceCalculation and TireForceSolver at the strut, its linked node and its feature, and commits the sample position that maximizes contact force. Called by PhysicsNodePropagationWithDistanceFalloff (00401C90).",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Both per-strut loops are gated on the strut count this+0x130 being greater than 0 (packet guard)",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "First loop walks the strut array at base this+0x134 with byte stride 316, once per strut in this+0x130",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Euler position advance: reads the travel scale at strut+24 and per-strut velocity terms, then writes the new position to strut+148/+152/+156 as scaled sums",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Second loop walks the same strut array; each strut is processed only when its linked node (strut+268) and contact feature (strut+272) pointers are both non-zero",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "VehicleSuspensionForceCalculation run for the strut, its linked node and its contact feature, each followed by TireForceSolver on the contact state at +112/+116/+120",
+          "evidence_refs": [
+            "callee:0x00401340",
+            "callee:0x004E8CE0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Sweep loop: steps the travel position from strut+24 minus 0.045000002 upward by 0.0099999998 while strut+24 plus 0.050000001 is still above it, re-running the suspension and tire solvers at every sample",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Tracks the minimum and maximum contact force across sweep samples and keeps the travel value that produced the maximum force",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Commits the chosen sweep position by writing the final sample position to strut+148/+152/+156",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by PhysicsNodePropagationWithDistanceFalloff (00401C90) as the first stage of the per-frame collision pass",
+          "evidence_refs": [
+            "caller:0x00401C90",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The velocity and travel terms read from the strut are reached by relative offsets only; the strut element layout (stride 316) is not defined here",
+        "Three read-only globals (flt_59E444, flt_59E448, flt_59E44C) are flagged by packet facts but appear nowhere in the raw decompiled source; the skeleton fill labels them FrameDelta, TileSteppingMultiplier and a collision tolerance, all unverifiable from this packet",
+        "Field this+0x138 is flagged as read/written by packet facts but never appears in the raw decompiled source"
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E444",
+        "global:0x0059E448",
+        "global:0x0059E44C",
+        "field:this:0x00000138"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x00401C90",
+      "function_ref": "function:0x00401C90",
+      "name": "PhysicsNodePropagationWithDistanceFalloff",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00401C90"
+        ]
+      },
+      "summary": "Per-frame force propagation over the vehicle physics node. Runs SweptSuspensionCollisionDetection then VehicleSuspensionForceCalculation, applies TireForceSolver per strut, propagates tire and grip forces along each strut's linked node chain (+268) with distance-based falloff into +136/+140, computes a maximum propagated force into this+0x148, then applies a grip-multiplier pass (sub_4FB260) and a per-strut finalization pass (sub_4FAF60). All loops iterate this+0x130 struts over the array base this+0x134 with stride 316. Called by CollisionWrapperWithLock (004E4910).",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "First stage: SweptSuspensionCollisionDetection(a1, a2, a3) advances struts and resolves swept contacts",
+          "evidence_refs": [
+            "callee:0x00401910",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "VehicleSuspensionForceCalculation(a1, 0) runs the full-grid suspension solver across all struts",
+          "evidence_refs": [
+            "callee:0x00401340",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Every loop in the function is gated on the strut count this+0x130 being greater than 0 (packet guard)",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Per-strut loop over the array base this+0x134 with byte stride 316: TireForceSolver on the strut contact state (+112/+116/+120) and stores the resulting force at strut+136",
+          "evidence_refs": [
+            "field:this:0x00000130",
+            "field:this:0x00000134",
+            "callee:0x004E8CE0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Tire-force propagation: follows the linked chain from strut+268 while each link points back at the current node (link+272 == strut), applying TireForce per link",
+          "evidence_refs": [
+            "callee:0x004E9100",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Distance falloff: distance between the strut center (+148/+152/+156) and the link feature (+148/+152/+156 relative to the link), then attenuation a2 = a2 * (distance / i[34]) * 0.5 + i[34]; the attenuated force is written to link+136 and the walk continues while it stays positive and below the link's stored force",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Copy pass: for each strut, store strut+136 into strut+140",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Grip-force propagation: walks the same linked chain with TireGripLateralForceCalculation, applying the same distance-falloff attenuation and writing the result to link+140",
+          "evidence_refs": [
+            "callee:0x004E9300",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialization pass: each strut's +144 slot is set to the literal -1082130432 (bit pattern for -1.0f)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Maximum-force accumulation: this+0x148 is reset to 0.0, then for each chain link a candidate force at link+144 is computed (falloff-scaled or travel-scaled depending on the strut+72 versus link+18 comparison) and this+0x148 is raised when the link force exceeds it and the link's +300 guard is clear",
+          "evidence_refs": [
+            "field:this:0x00000148",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Grip multiplier: v53 = 1.0 - (flt_8AFEE8 + flt_8AFEEC) * 0.5",
+          "evidence_refs": [
+            "global:0x008AFEE8",
+            "global:0x008AFEEC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Grip-multiplier pass: sub_4FB260(v53) called once per strut with the computed multiplier",
+          "evidence_refs": [
+            "callee:0x004FB260",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Finalization pass: sub_4FAF60(strut base) called once per strut",
+          "evidence_refs": [
+            "callee:0x004FAF60",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the strut count (this+0x130); the function is invoked by CollisionWrapperWithLock (004E4910)",
+          "evidence_refs": [
+            "field:this:0x00000130",
+            "function:0x00401C90",
+            "caller:0x004E4910",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The strut element layout (stride 316, offsets +72/+136/+140/+144/+148/+300 relative to a strut) is accessed by raw offsets and is not defined in this function",
+        "Three read-only globals (flt_59E43C, flt_59E440, flt_59E450) are flagged by packet facts but appear nowhere in the raw decompiled source; the skeleton fill labels them a physics constant, a zero threshold and a degrees-to-radians value, all unverifiable from this packet",
+        "The role of the a3 argument beyond being forwarded to SweptSuspensionCollisionDetection is unknown"
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E450"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x004358F0",
+      "function_ref": "function:0x004358F0",
+      "name": "PhysicsBufferClear",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Clears a 40-dword physics buffer (dword indices 0..38 zeroed, all on the this object) and, if the pointer stored at dword index 39 (+0x9C) is non-null, frees it through FreeWrapper_7bcf and nulls the slot. Returned value is the previous buffer pointer (or 0).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Zero dword fields +0x00 through +0x90 (indices 0..36) of the buffer object; afterwards zero +0x94 (index 37) and +0x98 (index 38).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000014",
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "field:this:0x00000020",
+            "field:this:0x00000024",
+            "field:this:0x00000028",
+            "field:this:0x0000002C",
+            "field:this:0x00000030",
+            "field:this:0x00000034",
+            "field:this:0x00000038",
+            "field:this:0x0000003C",
+            "field:this:0x00000040",
+            "field:this:0x00000044",
+            "field:this:0x00000048",
+            "field:this:0x0000004C",
+            "field:this:0x00000050",
+            "field:this:0x00000054",
+            "field:this:0x00000058",
+            "field:this:0x0000005C",
+            "field:this:0x00000060",
+            "field:this:0x00000064",
+            "field:this:0x00000068",
+            "field:this:0x0000006C",
+            "field:this:0x00000070",
+            "field:this:0x00000074",
+            "field:this:0x00000078",
+            "field:this:0x0000007C",
+            "field:this:0x00000080",
+            "field:this:0x00000084",
+            "field:this:0x00000088",
+            "field:this:0x0000008C",
+            "field:this:0x00000090",
+            "field:this:0x00000094",
+            "field:this:0x00000098",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Capture the pointer at +0x9C; if non-null, call FreeWrapper_7bcf on it and clear +0x9C to 0.",
+          "evidence_refs": [
+            "field:this:0x0000009C",
+            "callee:0x00587BCF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the prior buffer pointer (or 0 when the pointer was already null).",
+          "evidence_refs": [
+            "function:0x004358F0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Exact semantic role of the 40-dword buffer is unknown (no existing analysis); called from ConstructorStub, SuspensionSetupSectionReader and WheelDynamicsInit, so it resets a physics/suspension-related buffer."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead",
+        "caller:0x004353F0",
+        "caller:0x00435410",
+        "caller:0x0043E230"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0043C250",
+      "function_ref": "function:0x0043C250",
+      "name": "TireModelFullInitialize",
+      "owner": {
+        "type": "VehicleTireModel",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "caller:0x0043E050",
+          "abi:lead",
+          "function:0x0043C250",
+          "source:raw"
+        ]
+      },
+      "summary": "Full per-wheel tire physics initialization for a vehicle. Runs a 4-iteration loop building each wheel's compliance matrix and stiffness/damper/thermal state from the setup descriptor (a2 low word) and tire-data block (a2 high word), looks up the tire brand with conditional dev-log, applies the tire compound per wheel, computes front/rear suspension compliance and attach-point geometry, copies the session setup envelope with unit clamping, allocates and pre-fills an interpolated tire-curve lookup table, seeds the wear/thermal session tables (with a wear-mode switch on dword_7CEA5C), pulls session-state values via SessionStateIndexedLookup, propagates traction thresholds, and finishes by zeroing the run state and setting init markers (this+0x30=-2, this+0x34=3).",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Load floating-point constants from the .rdata constant pool; Hex-Rays inlined their values into the pseudocode (3.14159, 273.16 K offset, 0.5, 0.825, 0.975, 0.0955, 0.03125, 0.75 scale factors).",
+          "evidence_refs": [
+            "global:0x0059E420",
+            "global:0x0059E430",
+            "global:0x0059E7E0",
+            "global:0x0059E880",
+            "global:0x0059E890",
+            "global:0x0059EA60",
+            "global:0x0059EAC8",
+            "global:0x0059EB20",
+            "global:0x0059EC20",
+            "global:0x0059EC28",
+            "global:0x0059EC30",
+            "global:0x0059EC38",
+            "global:0x0059EC40",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: interpolated curve-table entry count at this+0x1D08 must be > 0 for the ParameterizedCurveInterpolation pre-fill loop to execute; when 0 or negative the table fill is skipped entirely.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x00001D08"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Per-wheel initialization loop, 4 iterations over wheel blocks (base this+0x340, stride 0x464): zero wheel state fields, write session sentinels -1 / ~0xFFEFFFFF at this+0x388/0x38C and this+0x3A8/0x3AC, set compliance scale constants 1.875f at this+0x3D4/0x3DC and this+0x4F8, copy suspension/geometry data into this+0x668..0x6D0, seed thermal/force fields with RandomNoiseValueGenerator noise (this+0x6D0) plus ambient offset flt_8AFEF0+273.16 (this+0x690), clamp the noise response into [1%,99%] of the reference, build the wheel compliance matrix via ConstraintComplianceMatrixBuild, and normalize the response via StructCopyWithReciprocalDivision. Reads the wheel compliance-block pointer at this+0x3E8 for the copy source.",
+          "evidence_refs": [
+            "callee:0x004364A0",
+            "callee:0x005697A0",
+            "callee:0x004B3CE0",
+            "global:0x008AAE70",
+            "field:this:0x00000340",
+            "field:this:0x00000344",
+            "field:this:0x00000348",
+            "field:this:0x0000034C",
+            "field:this:0x00000350",
+            "field:this:0x00000354",
+            "field:this:0x00000358",
+            "field:this:0x0000035C",
+            "field:this:0x00000360",
+            "field:this:0x00000368",
+            "field:this:0x0000036C",
+            "field:this:0x00000388",
+            "field:this:0x0000038C",
+            "field:this:0x000003A8",
+            "field:this:0x000003AC",
+            "field:this:0x000003D0",
+            "field:this:0x000003D4",
+            "field:this:0x000003D8",
+            "field:this:0x000003DC",
+            "field:this:0x000003E8",
+            "field:this:0x00000450",
+            "field:this:0x0000048C",
+            "field:this:0x000004F0",
+            "field:this:0x000004F4",
+            "field:this:0x000004F8",
+            "field:this:0x000004FC",
+            "field:this:0x00000500",
+            "field:this:0x00000608",
+            "field:this:0x00000668",
+            "field:this:0x0000066C",
+            "field:this:0x00000670",
+            "field:this:0x00000674",
+            "field:this:0x00000678",
+            "field:this:0x0000067C",
+            "field:this:0x00000680",
+            "field:this:0x00000688",
+            "field:this:0x00000690",
+            "field:this:0x00000698",
+            "field:this:0x0000069C",
+            "field:this:0x000006A0",
+            "field:this:0x000006A8",
+            "field:this:0x000006B0",
+            "field:this:0x000006B8",
+            "field:this:0x000006C0",
+            "field:this:0x000006C8",
+            "field:this:0x000006D0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Tire brand lookup: store TireBrandLookup(HIDWORD(a2)+136) into this+0x1458; when the lookup fails, session type is not 5 (dword_7C569C), and StringSplitLoop validates the source path string aDDevF119992002 (line 3301), write a dev-log warning via DebugLogWrite with the aHdvFileReferen message into the dword_8AD25C buffer.",
+          "evidence_refs": [
+            "callee:0x004D7880",
+            "callee:0x004D7A50",
+            "callee:0x004D7AA0",
+            "global:0x007C569C",
+            "global:0x005C421C",
+            "global:0x005C42F4",
+            "global:0x008AD25C",
+            "field:this:0x00001458"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the tire-compound identifier from the setup descriptor (LODWORD(a2)+3012) into this+0x145C.",
+          "evidence_refs": [
+            "field:this:0x0000145C"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Apply the tire compound's physical properties per wheel: loop i = 0..3 calling TireCompoundPerWheelPhysicsApplication(i) for each of the four wheels.",
+          "evidence_refs": [
+            "callee:0x0043DA10"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Front suspension compliance: build the harmonic-mean compliance factor v90 from the front wheel rates (0.5/front + 0.5/other when multi-rate, else 1.0), pre-compute the spring-force offset via RandomOffsetCalculator and the bias via BiasValueComputation, and build the front axle compliance matrix with ConstraintComplianceMatrixBuild; store the scaled results to this+0x1438 and this+0x1440.",
+          "evidence_refs": [
+            "callee:0x004F6850",
+            "callee:0x004F6880",
+            "field:this:0x00001438",
+            "field:this:0x00001440",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the OR of the front/rear compliance-matrix build results as a flag byte at this+0x1460, and set this+0x70 = (byte_7CE254 == 0) from the global HUD-disable flag.",
+          "evidence_refs": [
+            "field:this:0x00001460",
+            "field:this:0x00000070",
+            "global:0x007CE254"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Front suspension attach-point midpoint geometry: read the front attach structs through the pointers at this+0x3E8, this+0x84C, this+0xCB0 and this+0x1114 (components +0x4/+0xC/+0x14), compute the axle midpoints as (front+rear)*0.5 into scratch vectors, write the scaled axle attach data to this+0x1554, this+0x155C, this+0x1564, set this+0xD0 = 1, read back the this+0x156C/0x1574/0x1580 reference rates for the spring/damper model, and zero the this+0x1658/0x165C axle-balance fields.",
+          "evidence_refs": [
+            "field:*(this+0x3E8):0x00000004",
+            "field:*(this+0x3E8):0x0000000C",
+            "field:*(this+0x3E8):0x00000014",
+            "field:*(this+0x84C):0x00000004",
+            "field:*(this+0x84C):0x0000000C",
+            "field:*(this+0x84C):0x00000014",
+            "field:*(this+0xCB0):0x00000004",
+            "field:*(this+0xCB0):0x0000000C",
+            "field:*(this+0xCB0):0x00000014",
+            "field:*(this+0x1114):0x00000004",
+            "field:*(this+0x1114):0x0000000C",
+            "field:*(this+0x1114):0x00000014",
+            "field:this:0x0000084C",
+            "field:this:0x00000CB0",
+            "field:this:0x00001114",
+            "field:this:0x00001554",
+            "field:this:0x0000155C",
+            "field:this:0x00001564",
+            "field:this:0x0000156C",
+            "field:this:0x00001574",
+            "field:this:0x00001580",
+            "field:this:0x00001658",
+            "field:this:0x0000165C",
+            "field:this:0x000000D0"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Per-wheel axle attach-point loop, 4 iterations: pick the front or rear midpoint vector (this+0x... v102/v100 scratch) by wheel index, add the wheel's setup attach offset from the tire-data block, and store the 24-byte attach vector into the this+5736 axle-geometry table plus the derived spring base into this+5872; wheel index also steps the geometry cursor by 704 bytes.",
+          "evidence_refs": [
+            "function:0x0043C250",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Suspension travel delta: read current suspension travel (this+0x1670) minus the reference (this+0x16A0), store its magnitude via fabs into this+0x1710, and zero the travel bookkeeping bytes at this+0x1718, this+0x171C and this+0x1720.",
+          "evidence_refs": [
+            "field:this:0x00001670",
+            "field:this:0x000016A0",
+            "field:this:0x00001710",
+            "field:this:0x00001718",
+            "field:this:0x0000171C",
+            "field:this:0x00001720"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copy the session setup envelope: move a run of QWORD doubles from the tire-data block (HIDWORD(a2)+1568..+1644) into this+0x140..0x198 and clamp each entry to the unit interval [0,1]; values above 1 are reset to 1.0 and negatives to 0.0, plus copy the this+0x178 byte and zero this+0x170/0x174.",
+          "evidence_refs": [
+            "field:this:0x00000140",
+            "field:this:0x00000148",
+            "field:this:0x00000150",
+            "field:this:0x00000158",
+            "field:this:0x00000160",
+            "field:this:0x00000164",
+            "field:this:0x00000168",
+            "field:this:0x0000016C",
+            "field:this:0x00000170",
+            "field:this:0x00000174",
+            "field:this:0x00000178",
+            "field:this:0x0000017C",
+            "field:this:0x00000184",
+            "field:this:0x0000018C",
+            "field:this:0x00000190",
+            "field:this:0x00000194",
+            "field:this:0x00000198"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Front spring model + rotation tensor: compute the front spring base from the setup descriptor into this+0x19C, this+0x1A4, this+0x1AC and this+0x1B4 (this+0x1B4 also scaled by dword_7D0B64 * this+0x68), write the spring response into the compliance block behind this+0x1D4 at offsets +0xAC and its reciprocal at +0xB4, build the front rotation tensor through F_3x3RotationTensorMatrixTransform and Copy6DwordsToStructCall on a 24-byte work buffer copied into *(this+0x1D4)+4 and +100, copy the this+0x1D8 and this+0x1E0 QWORDs, zero this+0x1724, then call the sub-initializer sub_43BC20(this, a2, ...).",
+          "evidence_refs": [
+            "field:this:0x00000068",
+            "field:this:0x0000019C",
+            "field:this:0x000001A4",
+            "field:this:0x000001AC",
+            "field:this:0x000001B4",
+            "field:this:0x000001D4",
+            "field:this:0x000001D8",
+            "field:this:0x000001E0",
+            "field:this:0x00001724",
+            "field:*(this+0x1D4):0x000000AC",
+            "field:*(this+0x1D4):0x000000B4",
+            "callee:0x005691D0",
+            "callee:0x00569280",
+            "callee:0x0043BC20",
+            "global:0x007D0B64"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Per-wheel attach-point vectors: for each of six wheel attachment references, add the front/rear midpoint scratch vector to the corresponding setup offset from the tire-data block and qmemcpy the 24-byte result into the wheel attach array (this+0x1884, this+0x18E8, this+0x1948, this+0x1A1C, this+0x1AFC, this+0x1BE8).",
+          "evidence_refs": [
+            "function:0x0043C250",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Suspension travel-rate init and interpolation table allocation: combine setup rates into this+0x1C50 scaled by 0.0955, store the reciprocal rate at this+0x1C6C/0x1C74, the rate window at this+0x1CDC/0x1CE4/0x1CEC, the 0.975-scaled reference at this+0x1CF4, the rate sample at this+0x1D08... wait, compute entry count = 2 - CRTFtol(sampled_rate * -0.03125), zero the this+0x1D10/0x1D14 table-pointer slots, and allocate the float-pair buffer with OperatorNewNhMallocWrapper(8 * count); the zeroed suspension-flag bytes at this+0x1C58/0x1C59 and this+0x1C5C..0x1C68 are reset here.",
+          "evidence_refs": [
+            "field:this:0x00001C50",
+            "field:this:0x00001C58",
+            "field:this:0x00001C59",
+            "field:this:0x00001C5C",
+            "field:this:0x00001C60",
+            "field:this:0x00001C64",
+            "field:this:0x00001C68",
+            "field:this:0x00001C6C",
+            "field:this:0x00001C74",
+            "field:this:0x00001C7C",
+            "field:this:0x00001C84",
+            "field:this:0x00001CDC",
+            "field:this:0x00001CE4",
+            "field:this:0x00001CEC",
+            "field:this:0x00001CF4",
+            "field:this:0x00001D10",
+            "field:this:0x00001D14",
+            "callee:0x00587BDC",
+            "callee:0x00587C03"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Interpolated curve-table pre-fill: when the entry count (this+0x1D08) is positive, loop each entry calling ParameterizedCurveInterpolation at 32.0-sample steps and write each float pair (value + delta) into the buffer pointed to by this+0x1CFC.",
+          "evidence_refs": [
+            "callee:0x004F6720",
+            "field:this:0x00001CFC"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Thermal and limit-session table init: QWORD-copy the session thermal/wear references from the tire-data block into this+0x1D54..0x1D94, compute the half-ambient temperature at this+0x1D4C and the absolute temperature references at this+0x1D8C from flt_8AFEF0 + 273.16, zero this+0x1D74/0x1D78 and this+0x1DA4/0x1DA8, seed this+0x1DB4 with noise-scaled wear from RandomNoiseValueGenerator (floored at the raw setup value), using the global noise counter dword_8AAE70.",
+          "evidence_refs": [
+            "global:0x008AFEF0",
+            "field:this:0x00001D4C",
+            "field:this:0x00001D54",
+            "field:this:0x00001D5C",
+            "field:this:0x00001D64",
+            "field:this:0x00001D6C",
+            "field:this:0x00001D74",
+            "field:this:0x00001D78",
+            "field:this:0x00001D7C",
+            "field:this:0x00001D84",
+            "field:this:0x00001D8C",
+            "field:this:0x00001D94",
+            "field:this:0x00001DA4",
+            "field:this:0x00001DA8",
+            "field:this:0x00001DB4"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Wear-mode switch on the global dword_7CEA5C. Zero: store the NaN-boxed max double (-1 / 0x7FEFFFFF) into this+0x1DB8 and zero the four wheel wear blocks (this+0x6CC region, stride 0x464). Modes 1..3: when session type (dword_7C56A4) is 7 divide this+0x1DB4 by flt_8ACF9C, and scale each wheel wear block by flt_8ACF9C across 4 iterations.",
+          "evidence_refs": [
+            "global:0x007CEA5C",
+            "global:0x007C56A4",
+            "global:0x008ACF9C",
+            "field:this:0x00001DB8",
+            "field:this:0x000006CC"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Traction and session parameter tables: zero the this+0x1DAC/0x1DB0 counters, QWORD-copy the session traction references into this+0x1DBC/0x1DC4/0x1DCC, store the reciprocal at this+0x1DD4 and the 3.0/v68-coupled term at this+0x1DDC, zero this+0x1DE4..0x1DF8, copy the byte at this+0x1D0C and the QWORDs at this+0x1D18/0x1D20/0x1D28, zero this+0x1D30, and store the rate value at this+0x1D34 clamped to >= 0.75 when the global tire-model flag byte_7CE97C is set, plus this+0x1D3C/0x1D44 QWORD copies.",
+          "evidence_refs": [
+            "global:0x007CE97C",
+            "field:this:0x00001DAC",
+            "field:this:0x00001DB0",
+            "field:this:0x00001DBC",
+            "field:this:0x00001DC4",
+            "field:this:0x00001DCC",
+            "field:this:0x00001DD4",
+            "field:this:0x00001DDC",
+            "field:this:0x00001DE4",
+            "field:this:0x00001DE8",
+            "field:this:0x00001DEC",
+            "field:this:0x00001DF0",
+            "field:this:0x00001DF4",
+            "field:this:0x00001DF8",
+            "field:this:0x00001D0C",
+            "field:this:0x00001D18",
+            "field:this:0x00001D20",
+            "field:this:0x00001D28",
+            "field:this:0x00001D30",
+            "field:this:0x00001D34",
+            "field:this:0x00001D3C",
+            "field:this:0x00001D44"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Tire force scale factors: combine the per-wheel tire/brake setup terms into this+0x1E14..0x1E30 (including the scaled compound term at this+0x1E18), zero this+0x1E38..0x1E44, store the reference and its reciprocal at this+0x1E48/0x1E50, QWORD-copy the thermal references into this+0x1E58..0x1E70, copy the flags into this+0x71 and this+0x1E78, QWORD-copy into this+0x1E84 and this+0x1E94, and store negated setup values into this+0x1E8C and this+0x1E9C.",
+          "evidence_refs": [
+            "field:this:0x00000071",
+            "field:this:0x00001E14",
+            "field:this:0x00001E18",
+            "field:this:0x00001E20",
+            "field:this:0x00001E28",
+            "field:this:0x00001E30",
+            "field:this:0x00001E38",
+            "field:this:0x00001E3C",
+            "field:this:0x00001E40",
+            "field:this:0x00001E44",
+            "field:this:0x00001E48",
+            "field:this:0x00001E50",
+            "field:this:0x00001E58",
+            "field:this:0x00001E60",
+            "field:this:0x00001E68",
+            "field:this:0x00001E70",
+            "field:this:0x00001E78",
+            "field:this:0x00001E84",
+            "field:this:0x00001E8C",
+            "field:this:0x00001E94",
+            "field:this:0x00001E9C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Session-state lookup table fill: store the slot count (HIDWORD(a2)+5060) into this+0x1EAC, then for each index v73 = 0..count call SessionStateIndexedLookup(a2, v73+43) and write the returned double into the this+0x1EB0 array (slot 8 redirects into the global data struct behind dword_5C7530+64).",
+          "evidence_refs": [
+            "callee:0x0042ED00",
+            "global:0x005C7530",
+            "field:this:0x00001EAC",
+            "field:this:0x00001EB0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Delegate to the AI path-node handler with the setup descriptor: AIPathNodeDelegate(LODWORD(a2)) computes path-node-dependent values consumed by the tire model.",
+          "evidence_refs": [
+            "callee:0x0042ED30"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Store the reciprocal of the last looked-up session value: when it is 0.0 zero this+0x1EA4 and this+0x1EA8, otherwise write 1.0/value into this+0x1EA4.",
+          "evidence_refs": [
+            "field:this:0x00001EA4",
+            "field:this:0x00001EA8"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Traction threshold propagation: copy the base threshold from this+0x1C8C into this+0x1C9C and this+0x1CA4, then for each ratio slot v77 = 2..count compute v = slot[this+0x1EC0] / previous slot (or the global-struct ratio when v77 == 8), scale by this+0x1C94 * 0.825, clamp to the base threshold, and write the result back at this+0x1EC0-based entries.",
+          "evidence_refs": [
+            "field:this:0x00001C8C",
+            "field:this:0x00001C9C",
+            "field:this:0x00001CA4",
+            "field:this:0x00001C94",
+            "field:this:0x00001EC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Zero the run-state tail: this+0x1EF0..0x1EFC, this+0x1F04..0x1F30, and the per-wheel accumulator banks this+0xB4..0xCC and this+0xEC..0x13C; then set the session init markers this+0x30 = -2 and this+0x34 = 3 with this+0x38/0x3C = 0, and return the session lookup count value.",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "field:this:0x00000034",
+            "field:this:0x00000038",
+            "field:this:0x0000003C",
+            "field:this:0x000000B4",
+            "field:this:0x000000B8",
+            "field:this:0x000000BC",
+            "field:this:0x000000C0",
+            "field:this:0x000000C4",
+            "field:this:0x000000C8",
+            "field:this:0x000000CC",
+            "field:this:0x000000EC",
+            "field:this:0x000000F0",
+            "field:this:0x000000F4",
+            "field:this:0x000000F8",
+            "field:this:0x000000FC",
+            "field:this:0x00000100",
+            "field:this:0x00000104",
+            "field:this:0x00000108",
+            "field:this:0x0000010C",
+            "field:this:0x00000110",
+            "field:this:0x00000114",
+            "field:this:0x00000118",
+            "field:this:0x0000011C",
+            "field:this:0x00000120",
+            "field:this:0x00000124",
+            "field:this:0x00000128",
+            "field:this:0x0000012C",
+            "field:this:0x00000130",
+            "field:this:0x00000134",
+            "field:this:0x00000138",
+            "field:this:0x0000013C",
+            "field:this:0x00001EF0",
+            "field:this:0x00001EF4",
+            "field:this:0x00001EF8",
+            "field:this:0x00001EFC",
+            "field:this:0x00001F04",
+            "field:this:0x00001F08",
+            "field:this:0x00001F0C",
+            "field:this:0x00001F10",
+            "field:this:0x00001F14",
+            "field:this:0x00001F18",
+            "field:this:0x00001F1C",
+            "field:this:0x00001F20",
+            "field:this:0x00001F24",
+            "field:this:0x00001F28",
+            "field:this:0x00001F2C",
+            "field:this:0x00001F30"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Exact semantic meaning of each session setup-envelope field (this+0x140..0x198) is DERIVED from the existing fill, not confirmed; individual fields not matched to named config tokens.",
+        "The 13 constant-pool doubles (dbl_59E420..dbl_59EC40, flt_59EC20) are read-only data xrefs whose values Hex-Rays inlined; exact mapping of each global to a specific inlined literal (e.g. 273.16, 3.14159, 0.825) was not verified.",
+        "dword_8AD254 (0x008AD254) is read but does not appear as a named reference in the raw pseudocode; producer/consumer unknown.",
+        "The wear-mode enum semantics of dword_7CEA5C (0 / 1..3) are DERIVED; the mode-7 session-type special case (dword_7C56A4) meaning is not confirmed.",
+        "The base threshold value this+0x1C8C is produced elsewhere; only its propagation/use is visible here.",
+        "Slot-8 redirect into the global struct at dword_5C7530+64 and the v77==8 ratio divisor are observed but the target struct layout is outside this function."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x008AD254"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "HIGH",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00442060",
+      "function_ref": "function:0x00442060",
+      "name": "SteeringGeometryUpdate",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Per-wheel steering geometry update. Scales the steering input to radians, adds a deterministic noise perturbation from the trig lookup table (indexed by dword_8AAE70, incremented each call), and accumulates it into the per-wheel steering angles with the sign depending on wheel id (a2==0 or a2==3). Accumulated angles are clamped to +/-10 degrees and a clamp flag is written on overflow. Frees the physics sub-object, then transforms the wheel contact geometry through the coordinate frames of the matching contact bodies for each wheel-body contact, accumulating the steering angle; when the accumulated angle exceeds 0.015 rad, writes state flag 4 to the secondary state structure.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Convert steering input a3 to radians: v28 = a3 * 0.08726646259971647.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set the low-activity flag byte at this[281*a2+276] (offset of the per-wheel entry) to 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Look up noise angle from trig table: v5 = flt_8AAE74[(u8)dword_8AAE70] * PI, then increment dword_8AAE70.",
+          "evidence_refs": [
+            "global:0x008AAE70",
+            "global:0x008AAE74",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute sine/cosine perturbation scaled by v28 and accumulate into the wheel steering angle at this[281*a2+279] (sin) and this[281*a2+281] (cos); sign of the sin accumulation depends on wheel id (a2==0 or a2==3).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Clamp each accumulated angle to the +/-0.1745329251994329 rad (+/-10 degrees) window; on overflow write the float clamp bound and the clamp flag at this[281*a2+280]/this[281*a2+282].",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call PhysicsSubObjectFree(this) to release the wheel's physics sub-object.",
+          "evidence_refs": [
+            "callee:0x00441450",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on wheel-body contact count this+0x15BC > 0; enables the contact-array scan loop.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x000015BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate contact entries (base this+0x15C0, stride 48), matching each contact's body id (+4) or id3 (+12) against the wheel's expected body id; non-matching entries are skipped.",
+          "evidence_refs": [
+            "field:this:0x000015C0",
+            "field:this:0x0000141C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Transform the contact's position vector through the body coordinate frame via Matrix3x3VectorMultiply.",
+          "evidence_refs": [
+            "callee:0x00435E00",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Transform the intermediate vector into the wheel geometry frame via Mat3x3MulVec.",
+          "evidence_refs": [
+            "callee:0x004388D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compose the 3x3 orientation of the wheel geometry from the body and wheel frame matrices (row/column dot products over the transformed basis).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Apply F_3x3MatrixInverseCoordinateTransform to the contact entry after the forward transforms.",
+          "evidence_refs": [
+            "callee:0x0056D020",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Load the secondary-state pointer from this+0x1F00 for the steering-threshold check.",
+          "evidence_refs": [
+            "field:this:0x00001F00",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Accumulate the noise-scaled steering angle v28 into the per-wheel accumulated angle at wheel+480.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the accumulated angle exceeds 0.015 rad and the secondary state's event counter at +0x4068 is zero, write state flag 4 to the secondary state (steering state/flag at this 0x5F68).",
+          "evidence_refs": [
+            "field:this:0x00005F68",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantics of read-only globals dbl_59E890, dbl_59ED60, dbl_59ED68, dbl_59ED70, dbl_59ED78; not present in the raw source text (likely steering/suspension geometry constants).",
+        "Fields this+0x1438..0x1478 are reported as accessed but do not appear as explicit expressions in the raw source; likely suspension data pointers consumed inside the matrix-transform helpers.",
+        "Mapping of the loop constants v7==96 and v7==144 to specific wheel indices is not derivable from this function alone.",
+        "Exact float bit patterns written to clamp flags (1069963032 / -1077520616) were not decoded; clamp bounds 0.1745329251994329 rad are the readable constants.",
+        "The clamps and 0.015 threshold constants may alias the dbl_59E8x/59EDx globals in the original build, but the raw source inlines the literals."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E890",
+        "global:0x0059ED60",
+        "global:0x0059ED68",
+        "global:0x0059ED70",
+        "global:0x0059ED78",
+        "field:this:0x00001438",
+        "field:this:0x00001440",
+        "field:this:0x00001448",
+        "field:this:0x00001450",
+        "field:this:0x00001458",
+        "field:this:0x00001460",
+        "field:this:0x00001468",
+        "field:this:0x00001470",
+        "field:this:0x00001478"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004441F0",
+      "function_ref": "function:0x004441F0",
+      "name": "VehicleMainPhysicsUpdate",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x004441F0",
+          "abi:lead",
+          "source:raw"
+        ]
+      },
+      "summary": "Main per-frame vehicle physics tick: snapshots raw controller bytes, maps inputs through sub_454DA0 into steering/throttle/brake commands, commits them to the vehicle input block, then runs steering damping and heading-limit clamps, tire/suspension force projection against the track center line, obstacle/collision avoidance (wheel-link walk, opponent proximity loop, grid-mode probes), lap/position state transitions, control-mode speed logic, per-wheel torque/brake distribution, and final gearbox dispatch. Gates on vehicle state mode, session type, gear-shift mode, pit state and opponent presence.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Snapshot raw control bytes: save dword this+0x72 (handbrake), dword this+0x76 (aid flags), word this+0x7A (ABS flag), byte this+0x7C (traction-control flag) into locals v281/v282/v283/v284 for the rest of the frame.",
+          "evidence_refs": [
+            "field:this:0x00000072",
+            "field:this:0x00000076",
+            "field:this:0x0000007A",
+            "field:this:0x0000007C"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Gear-shift-mode gate: v261 = (dword_7CE910 != 0 and this+0x75 == 3); guard:5 (this+0x75 != 3) blocks the semi-auto shift path.",
+          "evidence_refs": [
+            "global:0x007CE910",
+            "field:this:0x00000075",
+            "guard:5"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Controls-present gate: if byte this+0x70 (brake input raw) is zero, initialize all control outputs (steering 0, throttle 0, brake 1, offset 0, v319=-2) and clear flags v268/v259/v288/v284/v261, jumping to the commit stage.",
+          "evidence_refs": [
+            "field:this:0x00000070"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Input processing: sub_454DA0(this+0x68 throttle raw, &steering, &throttle, &brake, &v323, &v324, &v319) maps raw controller values into per-frame vehicle commands.",
+          "evidence_refs": [
+            "callee:0x00454DA0",
+            "field:this:0x00000068"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Derive frame flags from global state words: v290 = pit-lane direction sign from dword_7CC184/dword_7CC1B0; v268 = dword_7CC1DC != 0; v259 = dword_7CC368 != 0; v288 = dword_7CC33C != 0.",
+          "evidence_refs": [
+            "global:0x007CC184",
+            "global:0x007CC1B0",
+            "global:0x007CC1DC",
+            "global:0x007CC368",
+            "global:0x007CC33C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Visual state change: if byte this+0x7C (TC flag) is set and the config object at this+0x1F00 has its controller flag at +0x344C set, force setup state (v291=1, v281=50463234, v283=514, clear v290) and call VisualStateChange(1, 0); otherwise VisualStateChange(0, 0).",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "field:this:0x00001F00",
+            "field:*(this+0x1F00):0x0000344C",
+            "callee:0x00447C70"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Commit computed control outputs: this+0x8 = throttle blend v291, this+0x10 = brake blend v304, this+0x0 = steering v280, this+0x20 = offset v324; store v290 into this+0x2C and byte v268 into this+0x28 when changed; v289 = (this+0x1EF0 == -1) gates lap-state accumulation.",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "field:this:0x00000010",
+            "field:this:0x00000000",
+            "field:this:0x00000020",
+            "field:this:0x0000002C",
+            "field:this:0x00000028",
+            "field:this:0x00001EF0",
+            "guard:8"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Session-type gates: this+0x34 (session type) == 6 (qualifying, guard:2) enables qualifying-specific steering, == 5 (race, guard:3) race-specific behavior, > 3 (active session, guard:4) permits lap-state transitions.",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "guard:2",
+            "guard:3",
+            "guard:4"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Pit-lane steering clamp: if v290 nonzero and matches session direction (v290>0 and type==6, or v290<0 and type==5) and flt_7CE8EC + this+0x38 > this+0x60, zero v290; if byte this+0x71 (clutch) is clear, also zero when the shift-mode byte is 1/2/3.",
+          "evidence_refs": [
+            "global:0x007CE8EC",
+            "field:this:0x00000038",
+            "field:this:0x00000060",
+            "field:this:0x00000071"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Commit backing/history values: store v9 into this+0x40, v12 into this+0x4C, v14 into this+0x54, v13 into this+0x48, previous this+0x10 into this+0x50, v10 into this+0x58; blend this+0x8 throttle using ratio this+0x1C50 * this+0x1C5C when the product is positive.",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "field:this:0x0000004C",
+            "field:this:0x00000054",
+            "field:this:0x00000048",
+            "field:this:0x00000050",
+            "field:this:0x00000058",
+            "field:this:0x00001C50",
+            "field:this:0x00001C5C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Pit-limit/HUD state machine on this+0x1D30: guard:7 (this+0x1D30 != 1) gates pit-limiter logic; state 1 with v259 clear becomes state 2 and calls HUDElementConfig(41, 2, blend) using weather-noise lookups flt_8AB274/flt_8AAE74 indexed by dword_8AAE70 (RW) with this+0x8 < 0.8 clearing state 2; state 0 with v259, this+0x1D34 != 0, this+0x1EF0 == 0 and this+0xD0 != 2 (guard:6) becomes state 1 and calls HUDElementConfig again.",
+          "evidence_refs": [
+            "field:this:0x00001D30",
+            "field:this:0x00001D34",
+            "field:this:0x00001EF0",
+            "field:this:0x000000D0",
+            "guard:7",
+            "guard:6",
+            "global:0x008AAE70",
+            "global:0x008AAE74",
+            "global:0x008AB274",
+            "callee:0x004F87C0",
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Speed-based steering damping: start v269 = 1.0; if this+0x9C (damping distance) > 0, compute speed = sqrt of the this+0x15F0 object +0x64/+0x6C/+0x74 vector squared; scale factor v30 = 1 - this+0x9C (or a cos-based blend); apply this+0x0 *= v30.",
+          "evidence_refs": [
+            "field:this:0x0000009C",
+            "field:this:0x000015F0",
+            "field:*(this+0x15F0):0x00000064",
+            "field:*(this+0x15F0):0x0000006C",
+            "field:*(this+0x15F0):0x00000074",
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Heading-limit clamp: if byte2 of v282 is set, Mat3x3MulVec(matrix at this+0x15F0+0x1C, vector at this+0x15F0+0x64, v308); if the projected heading exceeds 9 units and points backwards, v262 = atan2(-v308[0], -v309) * this+0x8C; when the sign matches v280, raise v269 to |v262| (capped at 1) and set this+0x0 = v280 * v269.",
+          "evidence_refs": [
+            "callee:0x004388D0",
+            "field:this:0x000015F0",
+            "field:*(this+0x15F0):0x0000001C",
+            "field:*(this+0x15F0):0x00000064",
+            "field:this:0x0000008C"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Wheel-state copy: if dword_7CE6D0 & 1, copy four strided blocks anchored at this+0x504 (stride 1124 bytes) moving wheel-state fields this+0x504/0x508/0x514/0x518.",
+          "evidence_refs": [
+            "global:0x007CE6D0",
+            "field:this:0x00000504",
+            "field:this:0x00000508",
+            "field:this:0x00000514",
+            "field:this:0x00000518"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Tire-contact aging sentinel: for four strided entries at this+0x690 (stride 1124 bytes), if the value exceeds 1148.16 write the sentinel dword (-687194767) to this+0x690 and the 4.5606 float to this+0x694.",
+          "evidence_refs": [
+            "field:this:0x00000690",
+            "field:this:0x00000694"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Vehicle-state gates: tire contact aging mode *(*(this+0x1F00)+0x32E0)+0x78 != 2 (guard:0) keeps the contact patch valid; vehicle state mode *(this+0x1F00)+0x3450 == 4 (guard:1, starting grid) blocks the physics body update.",
+          "evidence_refs": [
+            "field:*(*(this+0x1F00)+0x32E0):0x00000078",
+            "field:*(this+0x1F00):0x00003450",
+            "guard:0",
+            "guard:1"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Collision-tree probe object: v37 = this+0x15F0, v38 = this+0xB4; read position v305/v306/v307 from the this+0x15F0 object at +0x4/+0xC/+0x14; if v38 is null or a state flag is set, sub_403640(dword_5EA2C0, &v305, v38) recreates the probe object, stores it to this+0xB4 and copies an 0x18-byte block to this+0xB8.",
+          "evidence_refs": [
+            "field:this:0x000015F0",
+            "field:*(this+0x15F0):0x00000004",
+            "field:*(this+0x15F0):0x0000000C",
+            "field:*(this+0x15F0):0x00000014",
+            "field:this:0x000000B4",
+            "callee:0x00403640",
+            "global:0x005EA2C0"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Tire-force projection: on the probe object v44 = this+0xB4, compute force v293 = v299*v48 + v47*(v46-v306) + v297*v45 from velocity fields this+0xB4:0x94/0x98/0x9C and direction fields this+0xB4:0xA4/0xA8/0xAC, and half-projection v294/v295/v296 against the forward vector this+0xB4:0x20/0x24/0x28 using the position delta read from this+0xB4:0x88.",
+          "evidence_refs": [
+            "field:*(this+0xB4):0x00000088",
+            "field:*(this+0xB4):0x00000094",
+            "field:*(this+0xB4):0x00000098",
+            "field:*(this+0xB4):0x0000009C",
+            "field:*(this+0xB4):0x000000A4",
+            "field:*(this+0xB4):0x000000A8",
+            "field:*(this+0xB4):0x000000AC",
+            "field:*(this+0xB4):0x00000020",
+            "field:*(this+0xB4):0x00000024",
+            "field:*(this+0xB4):0x00000028",
+            "field:this:0x000000B4"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Slip-ratio interpolation: pick the load-normalizing branch object at *(this+0xB4):0x10C or :0x110 by the sign of v293 (the divisor is the yaw-rate field at *(this+0xB4)+0x3C, with the equivalent +0x3C field on the +0x10C body-dynamics sub-object); clamp the ratio v54 to [0, 1]; interpolate the slip plane using sub-object fields 0x20/0x24/0x28 (forward) and 0x88/0x94/0x98/0x9C (velocity).",
+          "evidence_refs": [
+            "field:*(this+0xB4):0x0000003C",
+            "field:*(this+0xB4):0x0000010C",
+            "field:*(this+0xB4):0x00000110",
+            "field:*(*(this+0xB4)+0x10C):0x0000003C",
+            "field:*(*(this+0xB4)+0x110):0x00000020",
+            "field:*(*(this+0xB4)+0x110):0x00000024",
+            "field:*(*(this+0xB4)+0x110):0x00000028",
+            "field:*(*(this+0xB4)+0x110):0x00000088",
+            "field:*(*(this+0xB4)+0x110):0x00000094",
+            "field:*(*(this+0xB4)+0x110):0x00000098",
+            "field:*(*(this+0xB4)+0x110):0x0000009C"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Velocity vector capture: v313/v314/v315 = *(double*)(this+0x15F0 + 0x64/+0x6C/+0x74) (the speed vector).",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x00000064",
+            "field:*(this+0x15F0):0x0000006C",
+            "field:*(this+0x15F0):0x00000074"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Contact-patch grip scaling: if the v283 byte is set, scale by (flt_8AFEE8 + flt_8AFEEC)/2 * (this+0xAC - 1) + 1 when positive; recompute the speed magnitude from the this+0x15F0 object +0x64/+0x6C/+0x74 vector.",
+          "evidence_refs": [
+            "global:0x008AFEE8",
+            "global:0x008AFEEC",
+            "field:this:0x000000AC",
+            "field:*(this+0x15F0):0x00000064",
+            "field:*(this+0x15F0):0x0000006C",
+            "field:*(this+0x15F0):0x00000074"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Speed/limit damping: when speed v59 is below v57 - 3, blend this+0x10 (brake blend) toward v60 through this+0x8 with smoothing for the v283 == 1 case and hard zeroing of this+0x8/0xC (as dword pairs) when the sign flips.",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "field:this:0x00000008",
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Wheel-link geometry walk: if the v283 byte == 2 and speed exceeds 14, walk a 25-link chain from *(this+0xB4):0x110 reading rigid-body fields 0x0/0x4/0x8/0x20/0x24/0x28/0x2C/0x30/0x110 of *(*(this+0xB4)+0x110); for each segment PlaneLineIntersectionRatio computes the nearest obstacle distance v292.",
+          "evidence_refs": [
+            "field:*(this+0xB4):0x00000110",
+            "field:*(*(this+0xB4)+0x110):0x00000000",
+            "field:*(*(this+0xB4)+0x110):0x00000004",
+            "field:*(*(this+0xB4)+0x110):0x00000008",
+            "field:*(*(this+0xB4)+0x110):0x00000020",
+            "field:*(*(this+0xB4)+0x110):0x00000024",
+            "field:*(*(this+0xB4)+0x110):0x00000028",
+            "field:*(*(this+0xB4)+0x110):0x0000002C",
+            "field:*(*(this+0xB4)+0x110):0x00000030",
+            "field:*(*(this+0xB4)+0x110):0x00000110",
+            "field:*(*(*(this+0xB4)+0x110)+0x110):0x00000110",
+            "callee:0x004352C0"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Brake-approach damping: v85 = 14 + v292 * 0.8 with heading-based adjustments built from the this+0xB4:0xA4/0xA8/0xAC direction fields; below the 13-unit band raise this+0x8 or brake this+0x10 via a 13-unit ramp.",
+          "evidence_refs": [
+            "field:*(this+0xB4):0x000000A4",
+            "field:*(this+0xB4):0x000000A8",
+            "field:*(this+0xB4):0x000000AC",
+            "field:this:0x00000008",
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Avoidance eligibility: if v284 (the byte snapshot of this+0x7C) is clear, skip the entire collision-avoidance block.",
+          "evidence_refs": [
+            "field:this:0x0000007C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Lap/position init: if this+0x1EF0 == -1 (guard:8, no opponent/start-line state), call PositionLapStateUpdate(0, 4).",
+          "evidence_refs": [
+            "field:this:0x00001EF0",
+            "callee:0x00447E00",
+            "guard:8"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Race-state transform chain: if the track-state field in the this+0x1F00 object is 2/3/4, run ConditionalDelegateDispatch(this+0x1F00, &v310, v308), F_3DTransformWithMatrixMultiplication(&v300, &v316) and EulerToRotationMatrix(v308, v338).",
+          "evidence_refs": [
+            "field:this:0x00001F00",
+            "callee:0x004D1100",
+            "callee:0x004EFB20",
+            "callee:0x00566E40"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Avoidance force vector: v275 = dot of the negated rotation-matrix rows with the position offset; v97 = dot of the rotated velocity (v313/v314/v315 from the this+0x15F0 object +0x64/+0x6C/+0x74); clamp v97 to >= 0.",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x00000064",
+            "field:*(this+0x15F0):0x0000006C",
+            "field:*(this+0x15F0):0x00000074"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Grid-mode avoidance (track state 4): if v97 exceeds flt_8ACFB4 clear the avoidance flag; validate the other-vehicle state then call RenderCallWithGuard(this+0x1F00, v329, v335) and CoordinateTransformWithOffset(v329, v335, v325); on the resulting flag, zero this+0x8/0xC/0x10/0x14.",
+          "evidence_refs": [
+            "global:0x008ACFB4",
+            "callee:0x004D1140",
+            "callee:0x004EF6C0",
+            "field:this:0x00001F00",
+            "field:this:0x00000008",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Collision-distance probe: when dword_8ACFD4 == 2, read the start position from the this+0x15F0 object +0x4/+0xC/+0x14; SceneNodePositionGetter (gated by dword_8ACFD8 and dword_8AD078) computes the nearest approach v292 as a dot against the this+0xB4:0xA4/0xA8/0xAC direction; derive the approach margin into this+0x8/0x10.",
+          "evidence_refs": [
+            "global:0x008ACFD4",
+            "global:0x008ACFD8",
+            "global:0x008AD078",
+            "callee:0x0054B950",
+            "field:this:0x000015F0",
+            "field:*(this+0x15F0):0x00000004",
+            "field:*(this+0x15F0):0x0000000C",
+            "field:*(this+0x15F0):0x00000014",
+            "field:this:0x000000B4",
+            "field:*(this+0xB4):0x000000A4",
+            "field:*(this+0xB4):0x000000A8",
+            "field:*(this+0xB4):0x000000AC"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Non-grid avoidance blend: v98 = (v275 + 0.5) * 0.5 - v97; drive this+0x8 toward v98 * 0.2 or brake this+0x10, otherwise hard-zero this+0x8/0xC/0x10/0x14.",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Avoidance steering push-out: if this+0x138 (collision-offset accumulator) is zero, recreate it via sub_403640(dword_5EA2C0, &v310, 0) and store the projected distance; v279 = 2 * fabs(this+0x138) + 11.5; push the steering target out along the forward vector this+0xB4:0x20/0x24/0x28 scaled by this+0x138.",
+          "evidence_refs": [
+            "field:this:0x00000138",
+            "callee:0x00403640",
+            "global:0x005EA2C0",
+            "field:*(this+0xB4):0x00000020",
+            "field:*(this+0xB4):0x00000024",
+            "field:*(this+0xB4):0x00000028"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Opponent proximity loop: if dword_5C329C > 0, iterate opponents through dword_7C54F0; skip self using the this+0x1F00 object; F_3DVectorTransformBy33Matrix(matrix at this+0x15F0+0x1C, position at this+0x15F0+0x4, ...) projects each opponent; when within -3..0 m ahead raise this+0x8 or brake this+0x10 via a 5-unit ramp, otherwise zero this+0x8..0x14.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "global:0x007C54F0",
+            "field:this:0x00001F00",
+            "field:this:0x000015F0",
+            "field:*(this+0x15F0):0x00000004",
+            "field:*(this+0x15F0):0x0000000C",
+            "field:*(this+0x15F0):0x00000014",
+            "callee:0x004361D0",
+            "field:this:0x00000008",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Steering-target chain walk: v132 = force/velocity dot, v279 = v132 * 0.29 + 3; walk the this+0xB4 link chain following *(this+0xB4):0x110, reading the this+0xB4:0x94/0x98/0x9C target fields and the chained sub-object angular fields *(*(this+0xB4)+0x110):0xA4/0xA8/0xAC; interpolate the track-center target v285/v286/v287.",
+          "evidence_refs": [
+            "field:*(this+0xB4):0x00000094",
+            "field:*(this+0xB4):0x00000098",
+            "field:*(this+0xB4):0x0000009C",
+            "field:*(this+0xB4):0x000000A4",
+            "field:*(this+0xB4):0x000000A8",
+            "field:*(this+0xB4):0x000000AC",
+            "field:*(this+0xB4):0x00000110",
+            "field:*(*(this+0xB4)+0x110):0x000000A4",
+            "field:*(*(this+0xB4)+0x110):0x000000A8",
+            "field:*(*(this+0xB4)+0x110):0x000000AC"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Steering error: v145 = atan2(-(this+0x15F0 object +0x5C), -(this+0x15F0 object +0x2C)) - atan2(v322 + v287 - v307, v308), wrapped to [-pi, pi]; v264 = v145 * this+0x8C clamped to [-1, 1]; then negate by the heading dot product.",
+          "evidence_refs": [
+            "field:this:0x0000008C",
+            "field:this:0x000015F0",
+            "field:*(this+0x15F0):0x0000002C",
+            "field:*(this+0x15F0):0x0000005C"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Steering apply: if byte2 of v282 == 3, write this+0x0 = v264 (direct heading lock).",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Steering gain scaling: if dword_7CE6D0 & 1, scale the wheel-state blocks this+0x504/0x508 (stride 1124 bytes) by 1.0399/1.0898 and the this+0x5B8 block (stride 1124 bytes) by +700/+1477 depending on the shift-mode byte.",
+          "evidence_refs": [
+            "global:0x007CE6D0",
+            "field:this:0x00000504",
+            "field:this:0x00000508",
+            "field:this:0x000005B8"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Steering rate limit: if dword_7CE6D0 < 2, v171 = (9.5 or 6.5) * this+0x8C * degrees-to-radians limited to v269; when v280 and v264 agree in sign, write this+0x0 = v280 * max(v171, |v264|).",
+          "evidence_refs": [
+            "global:0x007CE6D0",
+            "field:this:0x0000008C",
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Steering smoothing (manual shift mode): v156 = fabs(this+0x0 - this+0xA4) * this+0x68; ramp this+0xA4 toward this+0x0 with 10x/20x gains and record the history pair into this+0x0/0x4 and this+0xA8.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000068",
+            "field:this:0x000000A4",
+            "field:this:0x000000A8"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Steering blend fallback: on the error-sign flag this+0x0 = v168 + v264 with a lower clamp of -1; otherwise this+0x0 = v169 + v264 with an upper clamp of +1.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "State-block zeroing: zero twelve dwords this+0xEC through this+0x118 (lap/sector accumulators and impulse slots).",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "field:this:0x000000F0",
+            "field:this:0x000000F4",
+            "field:this:0x000000F8",
+            "field:this:0x000000FC",
+            "field:this:0x00000100",
+            "field:this:0x00000104",
+            "field:this:0x00000108",
+            "field:this:0x0000010C",
+            "field:this:0x00000110",
+            "field:this:0x00000114",
+            "field:this:0x00000118"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Wall/kerb collision response: if the this+0x15F0 object +0x3C value > 0.5 and the this+0x1F00 object +0x4064 damage gate is clear, call RenderCallWithGuard and CoordinateTransformWithOffset on the vehicle position; ensure the collision probe this+0x11C via sub_403640(dword_5EA2C0, ...); a heading mismatch within +-0.31416 rad applies a -2000 impulse to this+0xEC/0xF4/0xFC, otherwise a 1100/19000 impulse to this+0x104/0x10C/0x114; reads probe fields *(this+0x11C) 0x0/0x4/0x8/0x20/0x24/0x28/0x2C/0x30/0xA4/0xA8/0xAC/0x110 (including the wheel-force sub-object at *(*(this+0x11C)+0x110):0x0/+0x8).",
+          "evidence_refs": [
+            "field:this:0x000015F0",
+            "field:*(this+0x15F0):0x0000003C",
+            "field:this:0x00001F00",
+            "field:*(this+0x1F00):0x00004064",
+            "callee:0x004D1140",
+            "callee:0x004EF6C0",
+            "callee:0x00403640",
+            "global:0x005EA2C0",
+            "field:this:0x0000011C",
+            "field:*(this+0x11C):0x00000000",
+            "field:*(this+0x11C):0x00000004",
+            "field:*(this+0x11C):0x00000008",
+            "field:*(this+0x11C):0x00000020",
+            "field:*(this+0x11C):0x00000024",
+            "field:*(this+0x11C):0x00000028",
+            "field:*(this+0x11C):0x0000002C",
+            "field:*(this+0x11C):0x00000030",
+            "field:*(this+0x11C):0x000000A4",
+            "field:*(this+0x11C):0x000000A8",
+            "field:*(this+0x11C):0x000000AC",
+            "field:*(this+0x11C):0x00000110",
+            "field:*(*(this+0x11C)+0x110):0x00000000",
+            "field:*(*(this+0x11C)+0x110):0x00000008",
+            "field:this:0x000000EC",
+            "field:this:0x000000F4",
+            "field:this:0x000000FC",
+            "field:this:0x00000104",
+            "field:this:0x0000010C",
+            "field:this:0x00000114",
+            "field:this:0x00000008",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000014",
+            "field:this:0x0000007C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Lap-transition accumulator (start line): gated by the active-session condition (this+0x34 > 3 or flt_7CE8C8 + this+0x38 < this+0x60); if this+0x1EF0 == -1 (guard:8) and v289, accumulate this+0x1EFC += v291 * this+0x68 and call PositionLapStateUpdate(0, 4) when the accumulator crosses 1.0.",
+          "evidence_refs": [
+            "global:0x007CE8C8",
+            "field:this:0x00000038",
+            "field:this:0x00000060",
+            "field:this:0x00001EF0",
+            "field:this:0x00001EFC",
+            "field:this:0x00000068",
+            "callee:0x00447E00",
+            "guard:8"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Sector/position transitions: with this+0x1EF8 clear, compare the this+0x1C5C distance against the this+0x1C84/0x1C8C/0x1C94 thresholds; state 1 with low throttle calls PositionLapStateUpdate(0, 4); higher states run BoundingVolumeHierarchyTraversalFilter(this, this+0x140/0x148) gated by this+0x1D30 != 1 (guard:7) and the this+0x1EAC bound, then PositionLapStateUpdate(+1, 4).",
+          "evidence_refs": [
+            "field:this:0x00001EF8",
+            "field:this:0x00001C5C",
+            "field:this:0x00001C84",
+            "field:this:0x00001C8C",
+            "field:this:0x00001C94",
+            "field:this:0x00001D30",
+            "field:this:0x00001EAC",
+            "field:this:0x00000140",
+            "field:this:0x00000148",
+            "callee:0x00443AF0",
+            "callee:0x00447E00",
+            "guard:7"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Start-grid launch: accumulate this+0x1EFC += v304 * this+0x68 while this+0x1EF8 is clear; on crossing 1.0 call PositionLapStateUpdate(-1, 4); otherwise if throttle v291 >= 0.2 and this+0x1C5C > this+0x1C8C, call PositionLapStateUpdate(1, 4).",
+          "evidence_refs": [
+            "field:this:0x00001EFC",
+            "field:this:0x00001EF8",
+            "field:this:0x00001C5C",
+            "field:this:0x00001C8C",
+            "field:this:0x00000068",
+            "callee:0x00447E00"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Position-change state machine: if v319 >= -1 and v319 != this+0x30, call PositionLapStateUpdate(v319, 1) and store this+0x30 = v319; the grid-position delta v290 (from dword_7CC1B8 / dword_7CC1BC != 89) adjusts this+0x1EF4 bounded by this+0x1EAC and calls PositionLapStateUpdate(+1 or -1, 0); pit-state v268 triggers PositionLapStateUpdate(0, 1) and this+0x30 = 0.",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "field:this:0x00001EF4",
+            "field:this:0x00001EAC",
+            "global:0x007CC1B8",
+            "global:0x007CC1BC",
+            "callee:0x00447E00"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Per-object control output: write through the this+0x1630 object (field 0x0) = this+0x163C * this+0x0 + this+0x1634, and the this+0x1644 object (field 0x0) = this+0x1650 * this+0x0 + this+0x1648; zero this+0x170/0x174.",
+          "evidence_refs": [
+            "field:this:0x00001630",
+            "field:this:0x00001634",
+            "field:this:0x0000163C",
+            "field:*(this+0x1630):0x00000000",
+            "field:this:0x00001644",
+            "field:this:0x00001648",
+            "field:this:0x00001650",
+            "field:*(this+0x1644):0x00000000",
+            "field:this:0x00000170",
+            "field:this:0x00000174"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Aero/brake blend: when LOBYTE(v281) is set and v288 is clear, average the geometry fields this+0x10FC/0xC98 (plus this+0x834/0x3D0 for state 2) selected by this+0x1E14; blend this+0x8 with the this+0x150/0x158 and this+0x160 or this+0x168 coefficients; record the delta to this+0x170.",
+          "evidence_refs": [
+            "field:this:0x00001E14",
+            "field:this:0x000010FC",
+            "field:this:0x00000C98",
+            "field:this:0x00000834",
+            "field:this:0x000003D0",
+            "field:this:0x00000150",
+            "field:this:0x00000158",
+            "field:this:0x00000160",
+            "field:this:0x00000168",
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Control-mode speed logic: v218 = this+0x1D30; mode 0 computes this+0x20/0x24 from this+0x1C84/0x1C8C/0x1C5C and clamps the 0.1..0.9 band; mode 1 raises this+0x24 and uses this+0x1D3C/0x1D44 to brake this+0x8; mode 2 with this+0x1EF0 == 1 (guard:9) and this+0x1C5C > this+0x1E38 computes v223 from the geometry fields this+0x8FC/0xA14/0x82C/0x498/0x5B0/0x3C8/0x11C4/0x12DC/0x10F4/0xD60/0xE78/0xC90 and writes this+0x20; the low-speed gate zeroes this+0x20/0x24.",
+          "evidence_refs": [
+            "field:this:0x00001D30",
+            "field:this:0x00001C84",
+            "field:this:0x00001C8C",
+            "field:this:0x00001C5C",
+            "field:this:0x00000020",
+            "field:this:0x00000024",
+            "field:this:0x00000008",
+            "field:this:0x00001D3C",
+            "field:this:0x00001D44",
+            "field:this:0x00001EF0",
+            "field:this:0x00001E38",
+            "field:this:0x000008FC",
+            "field:this:0x00000A14",
+            "field:this:0x0000082C",
+            "field:this:0x00000498",
+            "field:this:0x000005B0",
+            "field:this:0x000003C8",
+            "field:this:0x000011C4",
+            "field:this:0x000012DC",
+            "field:this:0x000010F4",
+            "field:this:0x00000D60",
+            "field:this:0x00000E78",
+            "field:this:0x00000C90",
+            "field:this:0x00001E14",
+            "field:this:0x00001D34",
+            "field:this:0x00001EB8",
+            "field:this:0x00001E58",
+            "guard:9"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Control override: v226 = this+0xD0 (vehicle state mode, guard:6); state 1 clears itself when this+0x1EF0 is set and this+0x1D30 != 1; otherwise force this+0x20 = 0 and this+0x24 = 1.",
+          "evidence_refs": [
+            "field:this:0x000000D0",
+            "field:this:0x00001EF0",
+            "field:this:0x00001D30",
+            "field:this:0x00000020",
+            "field:this:0x00000024",
+            "guard:6"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Torque distribution: v227 = this+0x155C * this+0x10; split v300 = (1 - this+0x1564) * v227, v301 = v300, v302 = v227 * this+0x1564, v303 = v302.",
+          "evidence_refs": [
+            "field:this:0x0000155C",
+            "field:this:0x00001564",
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Yaw-based differential lock: if byte2 of v281 is set, build the heading from the this+0x15F0 matrix rows (+0x1C/+0x24/+0x34/+0x3C/+0x44/+0x4C/+0x54/+0x5C/+0x64/+0x6C/+0x74/+0x7C/+0x84/+0x8C); when the deviation exceeds 3 and points backwards, v231 = atan2(...) - this+0x94 * this+0x0 - (matrix dot) * 0.1; redistribute v300..v303 by the clamped v237 and clamp each wheel to [0, 1]; raise this+0x8 to min(fabs(v237) * 1.75, 0.175).",
+          "evidence_refs": [
+            "field:this:0x000015F0",
+            "field:this:0x00000094",
+            "field:this:0x00000000",
+            "field:this:0x00000008",
+            "field:*(this+0x15F0):0x0000001C",
+            "field:*(this+0x15F0):0x00000024",
+            "field:*(this+0x15F0):0x00000034",
+            "field:*(this+0x15F0):0x0000003C",
+            "field:*(this+0x15F0):0x00000044",
+            "field:*(this+0x15F0):0x0000004C",
+            "field:*(this+0x15F0):0x00000054",
+            "field:*(this+0x15F0):0x0000005C",
+            "field:*(this+0x15F0):0x00000064",
+            "field:*(this+0x15F0):0x0000006C",
+            "field:*(this+0x15F0):0x00000074",
+            "field:*(this+0x15F0):0x0000007C",
+            "field:*(this+0x15F0):0x00000084",
+            "field:*(this+0x15F0):0x0000008C"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Brake bias: v233 = v323 * this+0x1554; add the bias term to the rear-wheel torque outputs v302/v303.",
+          "evidence_refs": [
+            "field:this:0x00001554"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Per-wheel brake blend: if byte1 of v281 is set and this+0x178 is set, loop four wheels anchored at this+0x3D0 (stride 1124 bytes) blending by this+0x17C/0x184 and this+0x18C; otherwise take the minimum wheel value and scale all four wheels by this+0x18C or this+0x194.",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "field:this:0x000003D0",
+            "field:this:0x0000017C",
+            "field:this:0x00000184",
+            "field:this:0x0000018C",
+            "field:this:0x00000194"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Axle-presence gating: if the this+0x1F00 object axle-state fields at +0x834/+0x874/+0x95C/+0x99C/+0xA84/+0xAC4/+0xBAC/+0xBEC are absent, zero the corresponding front or rear torque outputs v300/v301/v302/v303.",
+          "evidence_refs": [
+            "field:this:0x00001F00",
+            "field:*(this+0x1F00):0x00000834",
+            "field:*(this+0x1F00):0x00000874",
+            "field:*(this+0x1F00):0x0000095C",
+            "field:*(this+0x1F00):0x0000099C",
+            "field:*(this+0x1F00):0x00000A84",
+            "field:*(this+0x1F00):0x00000AC4",
+            "field:*(this+0x1F00):0x00000BAC",
+            "field:*(this+0x1F00):0x00000BEC"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Per-wheel torque-split accumulation: for wheels 0..3 accumulate the per-wheel blocks using the v300..v303 torque split against strided accumulator fields (offsets not individually enumerated), then Gearbox(this, HIBYTE(v281), v282) finalizes gear selection from the drivetrain fields this+0x1554/0x155C/0x1564.",
+          "evidence_refs": [
+            "callee:0x00443B70",
+            "field:this:0x00001554",
+            "field:this:0x0000155C",
+            "field:this:0x00001564"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The 66 double/float constants at 0x0059E420..0x0059EEB8 are read by this function per the fact table (R) but Hex-Rays folds them into FPU literals, so they never appear as named references in the .c; they are consumed inside the steering/brake/tire calculations.",
+        "Globals 0x007CA590 (ppvOut) and 0x008ACEE0 (dword_8ACEE0) are read per the fact table but have no visible use site in the .c.",
+        "Tire-block fields *(*(this+0x1F00)+0x32E0)+0x7C (temperature accumulation) and +0x84 (wear scalar) are read per the fact table but not visible in the .c.",
+        "Gearbox state pointer *(this+0x1F00)+0x32E0 and the brake-disc/load/slip fields this+0x5BC, +0x670, +0x6D8/+0x6DC/+0x6E0/+0x6E4/+0x6E8/+0x6EC are read per the fact table but not visible in the .c (likely inside the Gearbox callee or inlined wheel/tire helpers).",
+        "The per-wheel strided accumulator blocks touched at the end (two groups of four entries, 1124-byte stride, offsets not enumerated among the packet fields) are not individually representable.",
+        "The 0x18-byte qmemcpy to this+0xB8 and the collision-probe copy to this+0x120 are not enumerated among the packet fields.",
+        "BoundingVolumeHierarchyTraversalFilter thresholds come from an unenumerated per-state control-point table in the this+0x1F00 region and the external dword_5C7530; both are outside the packet evidence set.",
+        "The exact object identity behind the slip-interpolation reads at *(*(this+0xB4)+0x10C) vs *(*(this+0xB4)+0x110) is ambiguous because the two sign branches of v293 pick different chain objects."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E420",
+        "global:0x0059E428",
+        "global:0x0059E430",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E450",
+        "global:0x0059E478",
+        "global:0x0059E660",
+        "global:0x0059E670",
+        "global:0x0059E7D0",
+        "global:0x0059E7D8",
+        "global:0x0059E7E0",
+        "global:0x0059E84C",
+        "global:0x0059E868",
+        "global:0x0059E880",
+        "global:0x0059E888",
+        "global:0x0059E890",
+        "global:0x0059E8CC",
+        "global:0x0059E900",
+        "global:0x0059E920",
+        "global:0x0059E930",
+        "global:0x0059EA68",
+        "global:0x0059EAE8",
+        "global:0x0059EB08",
+        "global:0x0059EB28",
+        "global:0x0059EB38",
+        "global:0x0059EB48",
+        "global:0x0059EB50",
+        "global:0x0059EB78",
+        "global:0x0059EBA0",
+        "global:0x0059EC70",
+        "global:0x0059EDB8",
+        "global:0x0059EDC8",
+        "global:0x0059EDD0",
+        "global:0x0059EDD8",
+        "global:0x0059EDE0",
+        "global:0x0059EDE8",
+        "global:0x0059EDF0",
+        "global:0x0059EDF8",
+        "global:0x0059EE00",
+        "global:0x0059EE08",
+        "global:0x0059EE10",
+        "global:0x0059EE18",
+        "global:0x0059EE20",
+        "global:0x0059EE28",
+        "global:0x0059EE30",
+        "global:0x0059EE38",
+        "global:0x0059EE40",
+        "global:0x0059EE48",
+        "global:0x0059EE50",
+        "global:0x0059EE58",
+        "global:0x0059EE60",
+        "global:0x0059EE68",
+        "global:0x0059EE70",
+        "global:0x0059EE78",
+        "global:0x0059EE80",
+        "global:0x0059EE84",
+        "global:0x0059EE88",
+        "global:0x0059EE8C",
+        "global:0x0059EE90",
+        "global:0x0059EE94",
+        "global:0x0059EE98",
+        "global:0x0059EEA0",
+        "global:0x0059EEA8",
+        "global:0x0059EEB0",
+        "global:0x0059EEB8",
+        "global:0x007CA590",
+        "global:0x008ACEE0",
+        "field:*(*(this+0x1F00)+0x32E0):0x0000007C",
+        "field:*(*(this+0x1F00)+0x32E0):0x00000084",
+        "field:*(this+0x1F00):0x000032E0",
+        "field:this:0x000005BC",
+        "field:this:0x00000670",
+        "field:this:0x000006D8",
+        "field:this:0x000006DC",
+        "field:this:0x000006E0",
+        "field:this:0x000006E4",
+        "field:this:0x000006E8",
+        "field:this:0x000006EC"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004C73F0",
+      "function_ref": "function:0x004C73F0",
+      "name": "VehiclePhysicsTimeStep",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Per-frame vehicle physics timestep. Computes frame delta time, decodes the packed input packet (orientation, steering, velocity, subsystem bits) via a set of bitfield/short-vector helpers, transforms state into the vehicle struct, runs per-wheel suspension updates, and dispatches mode-specific state machines (mode 2 = full vehicle setup copy + subsystem loop; mode 3 = vibration + subsystem loop). Ends by deriving braking/audio/bit flags from the packet and updating effect fields.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute frame delta time v36 = a3 - lastTime (this+0x48B8), then store the new timestamp a3 into this+0x48B8.",
+          "evidence_refs": [
+            "field:this:0x000048B8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Decode the packed orientation/input packet at a2+8 into component vectors v37 and v39 via ArithmeticComparison_2420.",
+          "evidence_refs": [
+            "callee:0x004B2420",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Build a 3x3 rotation matrix v43 from Euler angles v39 via EulerToRotationMatrix.",
+          "evidence_refs": [
+            "callee:0x00566E40",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Transform orientation components v37 by the rotation matrix v43 via F_3x3MatrixTransform.",
+          "evidence_refs": [
+            "callee:0x004E23D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Extract the steering float from the packed bitfield at a2+8 via BitfieldToFloatConversion into v30.",
+          "evidence_refs": [
+            "callee:0x004B2A80",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Clamp steering v30 to the range [-1.0, 1.0] and store the clamped value into this+0x1040.",
+          "evidence_refs": [
+            "field:this:0x00001040",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute steering factor v35 = this+0x1044 * clamped steering v30.",
+          "evidence_refs": [
+            "field:this:0x00001044",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For each wheel 0..3: unpack per-wheel data via sub_4B28F0 into v32 and v41[i]; accumulate v34 = v36 * wheelComponent + wheel accumulator at this+0x8C0 (stride 74 dwords); call SuspensionParamUpdate with steering factor v35 for wheels 0/1 and 0.0 for wheels 2/3.",
+          "evidence_refs": [
+            "callee:0x004B28F0",
+            "callee:0x004E24A0",
+            "field:this:0x000008C0",
+            "field:this:0x00001044",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Unpack velocity from the packed short vector at a2+8 into v38 via ShortVectorToFloatWithScale.",
+          "evidence_refs": [
+            "callee:0x004B2580",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Truncate packed float data at a2+8 into v42 via FloatTruncation.",
+          "evidence_refs": [
+            "callee:0x004B26D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Unpack short-vector data at a2+8 into raw bytes v40 via ShortToFloatVectorUnpack.",
+          "evidence_refs": [
+            "callee:0x004B2800",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Extract scaled bitfield value v31 from a2+8 via BitfieldExtractScale.",
+          "evidence_refs": [
+            "callee:0x004B2980",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Compute speed scalar v32 from a2+8 via ShortComputation_29f0.",
+          "evidence_refs": [
+            "callee:0x004B29F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write recovered orientation state: this+0xA4 = speed scalar v32; this+0x1C/0x20/0x24 = v37[0..2].",
+          "evidence_refs": [
+            "field:this:0x000000A4",
+            "field:this:0x0000001C",
+            "field:this:0x00000020",
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copy the 36-byte rotation matrix v43 into the vehicle's orientation storage at this+52 (qmemcpy 0x24 bytes).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write velocity vector v38 into this+0x58/0x5C/0x60.",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "field:this:0x0000005C",
+            "field:this:0x00000060",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write steering scale v31 into this+0xA0.",
+          "evidence_refs": [
+            "field:this:0x000000A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set byte this+0x1069 = (a2+52 bit 0x80) != 0.",
+          "evidence_refs": [
+            "field:this:0x00001069",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Branch on vehicle mode v15 = this+0x32C8: if 2, run the full setup-data path; else if 3, run the vibration path.",
+          "evidence_refs": [
+            "field:this:0x000032C8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Mode 2: store clamped steering v30 into this+0x3580.",
+          "evidence_refs": [
+            "field:this:0x00003580",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Mode 2: BitfieldExtract(a2+8) into v16, then VehicleSetupDataCopy(v37, v39, v43, v38, v42, v40, v16) and EffectParameterSetter(v31, 0.5, v32) to copy setup data into the vehicle.",
+          "evidence_refs": [
+            "callee:0x004B2A30",
+            "callee:0x004F1650",
+            "callee:0x004F17A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Mode 2: store per-wheel force values v41[i] into this+0x35BC + i*62 dwords for all 4 wheels.",
+          "evidence_refs": [
+            "field:this:0x000035BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Mode 2: compute v20 = a3 - lastSetupTime (this+0x48B4) and set byte this+0x344C = (a2+56 < 0).",
+          "evidence_refs": [
+            "field:this:0x000048B4",
+            "field:this:0x0000344C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Mode 2: if fabs(v20) > 15.0, refresh this+0x48B4 = a3 and drive all 14 subsystem state machines: BitTest(a2+8, i) then SubsystemStateMachine(i, bit).",
+          "evidence_refs": [
+            "field:this:0x000048B4",
+            "callee:0x004B2AD0",
+            "callee:0x004E17C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Mode 3: run MatrixVectorSetup(v43, v40), drive all 4 VibrationStateMachine(j, v41[j]), then all 14 subsystem state machines via BitTest(a2+8, k) + SubsystemStateMachine(k, bit).",
+          "evidence_refs": [
+            "field:this:0x000032C8",
+            "callee:0x004F17D0",
+            "callee:0x004E2230",
+            "callee:0x004B2AD0",
+            "callee:0x004E17C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute braking flag v26 = (a2+56 bit 0x8000000) != 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If stored byte this+0x105D differs from v26, update this+0x105D and call AudioSoundEffectController(this+0x1054) to refresh the audio/render state on change.",
+          "evidence_refs": [
+            "field:this:0x0000105D",
+            "field:this:0x00001054",
+            "callee:0x004E0ED0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Compute v27 = (a2+56 bit 0x4000000) != 0; write this+0x1065 = v27 and set this+0x3584 to 1.0 when v27 is set, else 0.",
+          "evidence_refs": [
+            "field:this:0x00001065",
+            "field:this:0x00003584",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set byte this+0x1067 = (a2+56 bit 0x2000000) != 0.",
+          "evidence_refs": [
+            "field:this:0x00001067",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Compute v28 via ShortComputation_2b00(a2+8) and pass it to PropertySetter (both helpers named only in the raw source; no packet callee entries).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write word this+0x48B0 = BitfieldExtract_2b80(a2+8).",
+          "evidence_refs": [
+            "field:this:0x000048B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set byte this+0x4024 = (a2+59 bit 1).",
+          "evidence_refs": [
+            "field:this:0x00004024",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write float this+0x4028 = BitfieldExtractionWithScale(a2+8).",
+          "evidence_refs": [
+            "field:this:0x00004028",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Raw source calls ShortComputation_2b00, PropertySetter, BitfieldExtract_2b80 and BitfieldExtractionWithScale, but the packet lists no callee entries (and therefore no addresses) for them; they are recorded as named calls with source:raw evidence only.",
+        "Global reads flt_59E43C / flt_59E670 / flt_59E8D8 are reported by the packet but no use is visible in the recovered raw source; they are likely consumed by inlined helper code not surfaced by the decompiler."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E670",
+        "global:0x0059E8D8"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004E3D00",
+      "function_ref": "function:0x004E3D00",
+      "name": "WheelSpringDamperForceAndSteering",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Per-frame spring/damper force and steering computation for one wheel. Builds an orthonormal frame from the suspension axis (with a near-vertical fast path and a 2D fallback when this+0xBC is exactly 1.0), computes contact-frame forces, updates spring stiffness and force magnitude (zeroing all force outputs when the force drops to zero), tracks contact-patch displacement, clamps forces to the friction/grip circle, and writes the resulting force components back along the wheel's local axes.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Branch on suspension compression: if this+0x3C <= 0.985 (near-vertical), use the full 3D suspension-geometry frame; otherwise take the simplified branch.",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "In the near-vertical branch, further branch on |this+0x38| >= 0.7071: if true, build the frame by cross-product of suspension axis this+0x38/0x3C/0x40 with the wheel basis and normalize.",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "field:this:0x0000003C",
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "In the |this+0x38| >= 0.7071 sub-branch, compute the normalized frame vectors (v41/v43/v45 and v35/v37/v39) from the suspension axis using cross products and a 1/sqrt normalization.",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "field:this:0x0000003C",
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "In the |this+0x38| < 0.7071 sub-branch, build the frame from the negated suspension axis and normalize it.",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "field:this:0x0000003C",
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Project the wheel velocity (this+0x18/0x1C/0x20) onto the frame axes to obtain the lateral force v30 and longitudinal force v29.",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "In the simplified branch (this+0x3C > 0.985), if the packed flag this+0xBC equals 1.0, take the direct fallback: v30 = this+0x18, v29 = this+0x20.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x000000BC",
+            "field:this:0x00000018",
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "In the simplified branch when this+0xBC != 1.0, apply the 2D rotation to the wheel velocity using this+0xBC/0xC0.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x000000BC",
+            "field:this:0x000000C0",
+            "field:this:0x00000018",
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute longitudinal input v33 = v29 - this+0x90 * this+0x30 and damper state v34 = this+0xB8 * this+0x44 + this+0x58, then store v34 back into this+0x58.",
+          "evidence_refs": [
+            "field:this:0x00000090",
+            "field:this:0x00000030",
+            "field:this:0x000000B8",
+            "field:this:0x00000044",
+            "field:this:0x00000058",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Clamp damper velocity v9 to this+0xAC and scale by this+0xA8 to form the compression term.",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "field:this:0x000000AC",
+            "field:this:0x000000A8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set spring stiffness this+0x48 to 5.0.",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute spring force magnitude this+0x4C = (compression + 1.0) * this+0x9C * this+0x44.",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "field:this:0x0000009C",
+            "field:this:0x00000044",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If this+0x4C <= 0.0, zero out this+0x50, this+0x54, this+0xD8, this+0xDC, this+0xE0 and return immediately.",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "field:this:0x00000050",
+            "field:this:0x00000054",
+            "field:this:0x000000D8",
+            "field:this:0x000000DC",
+            "field:this:0x000000E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set the force-active flag this+0x50 to 1.0.",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If this+0x30 != 0.0, skip contact-patch tracking and jump to the grip-clamp block.",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute contact displacement v47 = this+0xC4 - this+0x0 and v48 = this+0xC8 - this+0x8.",
+          "evidence_refs": [
+            "field:this:0x000000C4",
+            "field:this:0x00000000",
+            "field:this:0x000000C8",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the squared contact displacement >= 0.005625, skip the slip/skid computation block.",
+          "evidence_refs": [
+            "field:this:0x000000C4",
+            "field:this:0x00000000",
+            "field:this:0x000000C8",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Project the contact-patch relative velocity onto the a2 basis vectors (a2[0..8], the second parameter) to obtain slip components v51/v54/v57.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Rotate the slip components into the suspension frame: if this+0x3C <= 0.985 use the 3D frame; else if this+0xBC == 1.0 take the direct component fallback; else apply the 2D rotation.",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "guard:0",
+            "field:this:0x000000BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute raw force outputs v58 = v13 * 16000.0 - v30 * 1050.0 and v15 = v32 * 16000.0 - v29 * 1050.0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the force magnitude squared exceeds the grip limit (this+0x4C squared), enter the friction-clamp block: update contact position this+0xC4/0xC8, scale forces by -(this+0x4C / speed * this+0x94), and renormalize when the result exceeds the grip circle.",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "field:this:0x000000C4",
+            "field:this:0x000000C8",
+            "field:this:0x00000094",
+            "field:this:0x00000050",
+            "field:this:0x00000058",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Combine accumulated slip: v23 = this+0x54 - v15 * this+0x90; add or subtract damper state this+0x58 depending on the preceding comparison flags (v21|v22).",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "field:this:0x00000090",
+            "field:this:0x00000058",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the spring damping correction v25 = this+0x70 * this+0x6C * this+0x90 * v24 and the doubled term v26 = 2 * v25; form v27 = v33 - v26.",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "field:this:0x0000006C",
+            "field:this:0x00000090",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If v33 * v27 < 0, clamp the longitudinal force v15 to the damper-limited range using v31 = fabs(v27 / (v26 * this+0x90) * v24).",
+          "evidence_refs": [
+            "field:this:0x00000090",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Update the slip accumulator this+0x54 = this+0x54 - v15 * this+0x90.",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "field:this:0x00000090",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Write the final force components: if this+0x3C <= 0.985 store v35/v37/v39-rotated components into this+0xD8/0xDC/0xE0; else if this+0xBC == 1.0 store this+0xDC=0, this+0xE0=v15, this+0xD8=v58; else store the 2D-mixed components.",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "guard:0",
+            "field:this:0x000000BC",
+            "field:this:0x000000D8",
+            "field:this:0x000000DC",
+            "field:this:0x000000E0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Global reads flt_59E43C, flt_59E440, flt_59E7F8, flt_59E7FC, flt_5AD148, flt_5AD168, flt_5AD16C, flt_5AD170 and dbl_5AD178 are reported by the packet but none are visible in the recovered raw source; the scalar literals (0.985, 0.7071, 5.0, 16000.0, 1050.0, 0.005625) are inlined, so the globals are likely consumed by helper or constant-table code not surfaced here.",
+        "The branch at the damper-state combination depends on compiler comparison flags (v21|v22 carry/zero) whose source-level condition is not recoverable from this decompilation.",
+        "The a2 parameter (contact-patch frame, 9 floats) semantics are inferred from usage; its layout is not described by the packet."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E7F8",
+        "global:0x0059E7FC",
+        "global:0x005AD148",
+        "global:0x005AD168",
+        "global:0x005AD16C",
+        "global:0x005AD170",
+        "global:0x005AD178"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x004E4790",
+      "function_ref": "function:0x004E4790",
+      "name": "WheelStateReset",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Per-frame reset of the vehicle's wheel-dynamics state. On the first frame (guard this+0x32BC == 0) calls WheelDynamicsInit with a global double buffer. Frees and nulls a heap object at this+0x39A4 when non-null. Then zeroes a block of per-frame physics accumulator fields, resets four per-wheel dynamics records (62 dwords each, stride 62) with selected identity constants set to 1.0, and clears several per-frame state fields, ending with this+0x39F4 = -2.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "First-frame init guard: if this+0x32BC is zero, call WheelDynamicsInit((int)&dbl_7C7428) using the global double buffer at 0x007C7428.",
+          "evidence_refs": [
+            "field:this:0x000032BC",
+            "callee:0x0043E230",
+            "global:0x007C7428",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the heap pointer this+0x39A4 is non-null, free it via FreeWrapper_7bcf and set this+0x39A4 back to 0.",
+          "evidence_refs": [
+            "field:this:0x000039A4",
+            "callee:0x00587BCF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero the per-frame physics accumulator block: fields this+0x34EC..0x350C, this+0x3534..0x3560, this+0x3570..0x3578 and this+0x3A9C.",
+          "evidence_refs": [
+            "field:this:0x000034EC",
+            "field:this:0x000034F0",
+            "field:this:0x000034F4",
+            "field:this:0x000034F8",
+            "field:this:0x000034FC",
+            "field:this:0x00003500",
+            "field:this:0x00003504",
+            "field:this:0x00003508",
+            "field:this:0x0000350C",
+            "field:this:0x00003534",
+            "field:this:0x00003538",
+            "field:this:0x0000353C",
+            "field:this:0x00003540",
+            "field:this:0x00003544",
+            "field:this:0x00003548",
+            "field:this:0x0000354C",
+            "field:this:0x00003550",
+            "field:this:0x00003554",
+            "field:this:0x00003558",
+            "field:this:0x0000355C",
+            "field:this:0x00003560",
+            "field:this:0x00003570",
+            "field:this:0x00003574",
+            "field:this:0x00003578",
+            "field:this:0x00003A9C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Reset 4 per-wheel dynamics records, stride 62 dwords each, starting at this+0x35A0. For every record zero the leading entries (indices 0..9, 13, 14, 24..27, 40, 46..50), set indices 22, 23 and 39 to 1.0 (0x35F8, 0x35FC, 0x363C in the first record), and also clear the two preceding dwords (record-relative -2 and -1).",
+          "evidence_refs": [
+            "field:this:0x000035A0",
+            "field:this:0x000035A4",
+            "field:this:0x000035A8",
+            "field:this:0x000035AC",
+            "field:this:0x000035B0",
+            "field:this:0x000035B4",
+            "field:this:0x000035B8",
+            "field:this:0x000035BC",
+            "field:this:0x000035C0",
+            "field:this:0x000035C4",
+            "field:this:0x000035D4",
+            "field:this:0x000035D8",
+            "field:this:0x000035F8",
+            "field:this:0x000035FC",
+            "field:this:0x00003600",
+            "field:this:0x00003604",
+            "field:this:0x00003608",
+            "field:this:0x0000360C",
+            "field:this:0x0000363C",
+            "field:this:0x00003640",
+            "field:this:0x00003658",
+            "field:this:0x0000365C",
+            "field:this:0x00003660",
+            "field:this:0x00003664",
+            "field:this:0x00003668",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear remaining per-frame state fields this+0x3964, this+0x3994, this+0x39A0, this+0x39C8 and this+0x39F0 to 0.",
+          "evidence_refs": [
+            "field:this:0x00003964",
+            "field:this:0x00003994",
+            "field:this:0x000039A0",
+            "field:this:0x000039C8",
+            "field:this:0x000039F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the sentinel this+0x39F4 = -2.",
+          "evidence_refs": [
+            "field:this:0x000039F4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the record pointer, which the loop has advanced past the fourth wheel record (stride 62 dwords each).",
+          "evidence_refs": [
+            "field:this:0x000035A0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The two leading dwords written per wheel record (record-relative -2 and -1, i.e. the 8 bytes before each record base) are not represented in the packet field list and are attributed to source:raw only.",
+        "The exact purposes of most zeroed accumulator fields and of the identity (1.0) fields are inferred from the reset context; the sentinel -2 at this+0x39F4 is unexplained.",
+        "The global dbl_7C7428 is passed by address as WheelDynamicsInit initialization data; its contents are not described."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x00401340",
+    "function:0x00401910",
+    "function:0x00401C90",
+    "function:0x004358F0",
+    "function:0x0043C250",
+    "function:0x00442060",
+    "function:0x004441F0",
+    "function:0x004C73F0",
+    "function:0x004E3D00",
+    "function:0x004E4790"
+  ],
+  "required_material_refs": [
+    "callee:0x00401180",
+    "callee:0x00401340",
+    "callee:0x00401910",
+    "callee:0x00403640",
+    "callee:0x0042ED00",
+    "callee:0x0042ED30",
+    "callee:0x004352C0",
+    "callee:0x00435E00",
+    "callee:0x004361D0",
+    "callee:0x004364A0",
+    "callee:0x004388D0",
+    "callee:0x0043BC20",
+    "callee:0x0043DA10",
+    "callee:0x0043E230",
+    "callee:0x00441450",
+    "callee:0x00443AF0",
+    "callee:0x00443B70",
+    "callee:0x00447C70",
+    "callee:0x00447E00",
+    "callee:0x0044C4C0",
+    "callee:0x0044C550",
+    "callee:0x00454DA0",
+    "callee:0x004B2420",
+    "callee:0x004B2580",
+    "callee:0x004B26D0",
+    "callee:0x004B2800",
+    "callee:0x004B28F0",
+    "callee:0x004B2980",
+    "callee:0x004B29F0",
+    "callee:0x004B2A30",
+    "callee:0x004B2A80",
+    "callee:0x004B2AD0",
+    "callee:0x004B3CE0",
+    "callee:0x004D1100",
+    "callee:0x004D1140",
+    "callee:0x004D7880",
+    "callee:0x004D7A50",
+    "callee:0x004D7AA0",
+    "callee:0x004E0ED0",
+    "callee:0x004E17C0",
+    "callee:0x004E2230",
+    "callee:0x004E23D0",
+    "callee:0x004E24A0",
+    "callee:0x004E8CE0",
+    "callee:0x004E9100",
+    "callee:0x004E9300",
+    "callee:0x004EF6C0",
+    "callee:0x004EFB20",
+    "callee:0x004F1650",
+    "callee:0x004F17A0",
+    "callee:0x004F17D0",
+    "callee:0x004F6720",
+    "callee:0x004F6850",
+    "callee:0x004F6880",
+    "callee:0x004F87C0",
+    "callee:0x004FAF60",
+    "callee:0x004FB260",
+    "callee:0x0054B950",
+    "callee:0x00566E40",
+    "callee:0x005691D0",
+    "callee:0x00569280",
+    "callee:0x005697A0",
+    "callee:0x0056D020",
+    "callee:0x00587BCF",
+    "callee:0x00587BDC",
+    "callee:0x00587C03",
+    "field:*(*(*(this+0xB4)+0x110)+0x110):0x00000110",
+    "field:*(*(this+0x11C)+0x110):0x00000000",
+    "field:*(*(this+0x11C)+0x110):0x00000008",
+    "field:*(*(this+0x1F00)+0x32E0):0x00000078",
+    "field:*(*(this+0x1F00)+0x32E0):0x0000007C",
+    "field:*(*(this+0x1F00)+0x32E0):0x00000084",
+    "field:*(*(this+0xB4)+0x10C):0x0000003C",
+    "field:*(*(this+0xB4)+0x110):0x00000000",
+    "field:*(*(this+0xB4)+0x110):0x00000004",
+    "field:*(*(this+0xB4)+0x110):0x00000008",
+    "field:*(*(this+0xB4)+0x110):0x00000020",
+    "field:*(*(this+0xB4)+0x110):0x00000024",
+    "field:*(*(this+0xB4)+0x110):0x00000028",
+    "field:*(*(this+0xB4)+0x110):0x0000002C",
+    "field:*(*(this+0xB4)+0x110):0x00000030",
+    "field:*(*(this+0xB4)+0x110):0x00000088",
+    "field:*(*(this+0xB4)+0x110):0x00000094",
+    "field:*(*(this+0xB4)+0x110):0x00000098",
+    "field:*(*(this+0xB4)+0x110):0x0000009C",
+    "field:*(*(this+0xB4)+0x110):0x000000A4",
+    "field:*(*(this+0xB4)+0x110):0x000000A8",
+    "field:*(*(this+0xB4)+0x110):0x000000AC",
+    "field:*(*(this+0xB4)+0x110):0x00000110",
+    "field:*(this+0x1114):0x00000004",
+    "field:*(this+0x1114):0x0000000C",
+    "field:*(this+0x1114):0x00000014",
+    "field:*(this+0x11C):0x00000000",
+    "field:*(this+0x11C):0x00000004",
+    "field:*(this+0x11C):0x00000008",
+    "field:*(this+0x11C):0x00000020",
+    "field:*(this+0x11C):0x00000024",
+    "field:*(this+0x11C):0x00000028",
+    "field:*(this+0x11C):0x0000002C",
+    "field:*(this+0x11C):0x00000030",
+    "field:*(this+0x11C):0x000000A4",
+    "field:*(this+0x11C):0x000000A8",
+    "field:*(this+0x11C):0x000000AC",
+    "field:*(this+0x11C):0x00000110",
+    "field:*(this+0x15F0):0x00000004",
+    "field:*(this+0x15F0):0x0000000C",
+    "field:*(this+0x15F0):0x00000014",
+    "field:*(this+0x15F0):0x0000001C",
+    "field:*(this+0x15F0):0x00000024",
+    "field:*(this+0x15F0):0x0000002C",
+    "field:*(this+0x15F0):0x00000034",
+    "field:*(this+0x15F0):0x0000003C",
+    "field:*(this+0x15F0):0x00000044",
+    "field:*(this+0x15F0):0x0000004C",
+    "field:*(this+0x15F0):0x00000054",
+    "field:*(this+0x15F0):0x0000005C",
+    "field:*(this+0x15F0):0x00000064",
+    "field:*(this+0x15F0):0x0000006C",
+    "field:*(this+0x15F0):0x00000074",
+    "field:*(this+0x15F0):0x0000007C",
+    "field:*(this+0x15F0):0x00000084",
+    "field:*(this+0x15F0):0x0000008C",
+    "field:*(this+0x1630):0x00000000",
+    "field:*(this+0x1644):0x00000000",
+    "field:*(this+0x1D4):0x000000AC",
+    "field:*(this+0x1D4):0x000000B4",
+    "field:*(this+0x1F00):0x00000834",
+    "field:*(this+0x1F00):0x00000874",
+    "field:*(this+0x1F00):0x0000095C",
+    "field:*(this+0x1F00):0x0000099C",
+    "field:*(this+0x1F00):0x00000A84",
+    "field:*(this+0x1F00):0x00000AC4",
+    "field:*(this+0x1F00):0x00000BAC",
+    "field:*(this+0x1F00):0x00000BEC",
+    "field:*(this+0x1F00):0x000032E0",
+    "field:*(this+0x1F00):0x0000344C",
+    "field:*(this+0x1F00):0x00003450",
+    "field:*(this+0x1F00):0x00004064",
+    "field:*(this+0x3E8):0x00000004",
+    "field:*(this+0x3E8):0x0000000C",
+    "field:*(this+0x3E8):0x00000014",
+    "field:*(this+0x84C):0x00000004",
+    "field:*(this+0x84C):0x0000000C",
+    "field:*(this+0x84C):0x00000014",
+    "field:*(this+0xB4):0x00000020",
+    "field:*(this+0xB4):0x00000024",
+    "field:*(this+0xB4):0x00000028",
+    "field:*(this+0xB4):0x0000003C",
+    "field:*(this+0xB4):0x00000088",
+    "field:*(this+0xB4):0x00000094",
+    "field:*(this+0xB4):0x00000098",
+    "field:*(this+0xB4):0x0000009C",
+    "field:*(this+0xB4):0x000000A4",
+    "field:*(this+0xB4):0x000000A8",
+    "field:*(this+0xB4):0x000000AC",
+    "field:*(this+0xB4):0x0000010C",
+    "field:*(this+0xB4):0x00000110",
+    "field:*(this+0xCB0):0x00000004",
+    "field:*(this+0xCB0):0x0000000C",
+    "field:*(this+0xCB0):0x00000014",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x0000002C",
+    "field:this:0x00000030",
+    "field:this:0x00000034",
+    "field:this:0x00000038",
+    "field:this:0x0000003C",
+    "field:this:0x00000040",
+    "field:this:0x00000044",
+    "field:this:0x00000048",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000054",
+    "field:this:0x00000058",
+    "field:this:0x0000005C",
+    "field:this:0x00000060",
+    "field:this:0x00000064",
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x00000071",
+    "field:this:0x00000072",
+    "field:this:0x00000074",
+    "field:this:0x00000075",
+    "field:this:0x00000076",
+    "field:this:0x00000078",
+    "field:this:0x0000007A",
+    "field:this:0x0000007C",
+    "field:this:0x00000080",
+    "field:this:0x00000084",
+    "field:this:0x00000088",
+    "field:this:0x0000008C",
+    "field:this:0x00000090",
+    "field:this:0x00000094",
+    "field:this:0x00000098",
+    "field:this:0x0000009C",
+    "field:this:0x000000A0",
+    "field:this:0x000000A4",
+    "field:this:0x000000A8",
+    "field:this:0x000000AC",
+    "field:this:0x000000B4",
+    "field:this:0x000000B8",
+    "field:this:0x000000BC",
+    "field:this:0x000000C0",
+    "field:this:0x000000C4",
+    "field:this:0x000000C8",
+    "field:this:0x000000CC",
+    "field:this:0x000000D0",
+    "field:this:0x000000D8",
+    "field:this:0x000000DC",
+    "field:this:0x000000E0",
+    "field:this:0x000000EC",
+    "field:this:0x000000F0",
+    "field:this:0x000000F4",
+    "field:this:0x000000F8",
+    "field:this:0x000000FC",
+    "field:this:0x00000100",
+    "field:this:0x00000104",
+    "field:this:0x00000108",
+    "field:this:0x0000010C",
+    "field:this:0x00000110",
+    "field:this:0x00000114",
+    "field:this:0x00000118",
+    "field:this:0x0000011C",
+    "field:this:0x00000120",
+    "field:this:0x00000124",
+    "field:this:0x00000128",
+    "field:this:0x0000012C",
+    "field:this:0x00000130",
+    "field:this:0x00000134",
+    "field:this:0x00000138",
+    "field:this:0x0000013C",
+    "field:this:0x00000140",
+    "field:this:0x00000148",
+    "field:this:0x00000150",
+    "field:this:0x00000158",
+    "field:this:0x00000160",
+    "field:this:0x00000164",
+    "field:this:0x00000168",
+    "field:this:0x0000016C",
+    "field:this:0x00000170",
+    "field:this:0x00000174",
+    "field:this:0x00000178",
+    "field:this:0x0000017C",
+    "field:this:0x00000184",
+    "field:this:0x0000018C",
+    "field:this:0x00000190",
+    "field:this:0x00000194",
+    "field:this:0x00000198",
+    "field:this:0x0000019C",
+    "field:this:0x000001A4",
+    "field:this:0x000001AC",
+    "field:this:0x000001B4",
+    "field:this:0x000001D4",
+    "field:this:0x000001D8",
+    "field:this:0x000001E0",
+    "field:this:0x00000340",
+    "field:this:0x00000344",
+    "field:this:0x00000348",
+    "field:this:0x0000034C",
+    "field:this:0x00000350",
+    "field:this:0x00000354",
+    "field:this:0x00000358",
+    "field:this:0x0000035C",
+    "field:this:0x00000360",
+    "field:this:0x00000368",
+    "field:this:0x0000036C",
+    "field:this:0x00000388",
+    "field:this:0x0000038C",
+    "field:this:0x000003A8",
+    "field:this:0x000003AC",
+    "field:this:0x000003C8",
+    "field:this:0x000003D0",
+    "field:this:0x000003D4",
+    "field:this:0x000003D8",
+    "field:this:0x000003DC",
+    "field:this:0x000003E8",
+    "field:this:0x00000450",
+    "field:this:0x0000048C",
+    "field:this:0x00000498",
+    "field:this:0x000004F0",
+    "field:this:0x000004F4",
+    "field:this:0x000004F8",
+    "field:this:0x000004FC",
+    "field:this:0x00000500",
+    "field:this:0x00000504",
+    "field:this:0x00000508",
+    "field:this:0x00000514",
+    "field:this:0x00000518",
+    "field:this:0x000005B0",
+    "field:this:0x000005B8",
+    "field:this:0x000005BC",
+    "field:this:0x00000608",
+    "field:this:0x00000668",
+    "field:this:0x0000066C",
+    "field:this:0x00000670",
+    "field:this:0x00000674",
+    "field:this:0x00000678",
+    "field:this:0x0000067C",
+    "field:this:0x00000680",
+    "field:this:0x00000688",
+    "field:this:0x00000690",
+    "field:this:0x00000694",
+    "field:this:0x00000698",
+    "field:this:0x0000069C",
+    "field:this:0x000006A0",
+    "field:this:0x000006A8",
+    "field:this:0x000006B0",
+    "field:this:0x000006B8",
+    "field:this:0x000006C0",
+    "field:this:0x000006C8",
+    "field:this:0x000006CC",
+    "field:this:0x000006D0",
+    "field:this:0x000006D8",
+    "field:this:0x000006DC",
+    "field:this:0x000006E0",
+    "field:this:0x000006E4",
+    "field:this:0x000006E8",
+    "field:this:0x000006EC",
+    "field:this:0x0000082C",
+    "field:this:0x00000834",
+    "field:this:0x0000084C",
+    "field:this:0x000008C0",
+    "field:this:0x000008FC",
+    "field:this:0x00000A14",
+    "field:this:0x00000C90",
+    "field:this:0x00000C98",
+    "field:this:0x00000CB0",
+    "field:this:0x00000D60",
+    "field:this:0x00000E78",
+    "field:this:0x00001040",
+    "field:this:0x00001044",
+    "field:this:0x00001054",
+    "field:this:0x0000105D",
+    "field:this:0x00001065",
+    "field:this:0x00001067",
+    "field:this:0x00001069",
+    "field:this:0x000010F4",
+    "field:this:0x000010FC",
+    "field:this:0x00001114",
+    "field:this:0x000011C4",
+    "field:this:0x000012DC",
+    "field:this:0x0000141C",
+    "field:this:0x00001438",
+    "field:this:0x00001440",
+    "field:this:0x00001448",
+    "field:this:0x00001450",
+    "field:this:0x00001458",
+    "field:this:0x0000145C",
+    "field:this:0x00001460",
+    "field:this:0x00001468",
+    "field:this:0x00001470",
+    "field:this:0x00001478",
+    "field:this:0x00001554",
+    "field:this:0x0000155C",
+    "field:this:0x00001564",
+    "field:this:0x0000156C",
+    "field:this:0x00001574",
+    "field:this:0x00001580",
+    "field:this:0x000015BC",
+    "field:this:0x000015C0",
+    "field:this:0x000015F0",
+    "field:this:0x00001630",
+    "field:this:0x00001634",
+    "field:this:0x0000163C",
+    "field:this:0x00001644",
+    "field:this:0x00001648",
+    "field:this:0x00001650",
+    "field:this:0x00001658",
+    "field:this:0x0000165C",
+    "field:this:0x00001670",
+    "field:this:0x000016A0",
+    "field:this:0x00001710",
+    "field:this:0x00001718",
+    "field:this:0x0000171C",
+    "field:this:0x00001720",
+    "field:this:0x00001724",
+    "field:this:0x00001C50",
+    "field:this:0x00001C58",
+    "field:this:0x00001C59",
+    "field:this:0x00001C5C",
+    "field:this:0x00001C60",
+    "field:this:0x00001C64",
+    "field:this:0x00001C68",
+    "field:this:0x00001C6C",
+    "field:this:0x00001C74",
+    "field:this:0x00001C7C",
+    "field:this:0x00001C84",
+    "field:this:0x00001C8C",
+    "field:this:0x00001C94",
+    "field:this:0x00001C9C",
+    "field:this:0x00001CA4",
+    "field:this:0x00001CDC",
+    "field:this:0x00001CE4",
+    "field:this:0x00001CEC",
+    "field:this:0x00001CF4",
+    "field:this:0x00001CFC",
+    "field:this:0x00001D08",
+    "field:this:0x00001D0C",
+    "field:this:0x00001D10",
+    "field:this:0x00001D14",
+    "field:this:0x00001D18",
+    "field:this:0x00001D20",
+    "field:this:0x00001D28",
+    "field:this:0x00001D30",
+    "field:this:0x00001D34",
+    "field:this:0x00001D3C",
+    "field:this:0x00001D44",
+    "field:this:0x00001D4C",
+    "field:this:0x00001D54",
+    "field:this:0x00001D5C",
+    "field:this:0x00001D64",
+    "field:this:0x00001D6C",
+    "field:this:0x00001D74",
+    "field:this:0x00001D78",
+    "field:this:0x00001D7C",
+    "field:this:0x00001D84",
+    "field:this:0x00001D8C",
+    "field:this:0x00001D94",
+    "field:this:0x00001DA4",
+    "field:this:0x00001DA8",
+    "field:this:0x00001DAC",
+    "field:this:0x00001DB0",
+    "field:this:0x00001DB4",
+    "field:this:0x00001DB8",
+    "field:this:0x00001DBC",
+    "field:this:0x00001DC4",
+    "field:this:0x00001DCC",
+    "field:this:0x00001DD4",
+    "field:this:0x00001DDC",
+    "field:this:0x00001DE4",
+    "field:this:0x00001DE8",
+    "field:this:0x00001DEC",
+    "field:this:0x00001DF0",
+    "field:this:0x00001DF4",
+    "field:this:0x00001DF8",
+    "field:this:0x00001E14",
+    "field:this:0x00001E18",
+    "field:this:0x00001E20",
+    "field:this:0x00001E28",
+    "field:this:0x00001E30",
+    "field:this:0x00001E38",
+    "field:this:0x00001E3C",
+    "field:this:0x00001E40",
+    "field:this:0x00001E44",
+    "field:this:0x00001E48",
+    "field:this:0x00001E50",
+    "field:this:0x00001E58",
+    "field:this:0x00001E60",
+    "field:this:0x00001E68",
+    "field:this:0x00001E70",
+    "field:this:0x00001E78",
+    "field:this:0x00001E84",
+    "field:this:0x00001E8C",
+    "field:this:0x00001E94",
+    "field:this:0x00001E9C",
+    "field:this:0x00001EA4",
+    "field:this:0x00001EA8",
+    "field:this:0x00001EAC",
+    "field:this:0x00001EB0",
+    "field:this:0x00001EB8",
+    "field:this:0x00001EC0",
+    "field:this:0x00001EF0",
+    "field:this:0x00001EF4",
+    "field:this:0x00001EF8",
+    "field:this:0x00001EFC",
+    "field:this:0x00001F00",
+    "field:this:0x00001F04",
+    "field:this:0x00001F08",
+    "field:this:0x00001F0C",
+    "field:this:0x00001F10",
+    "field:this:0x00001F14",
+    "field:this:0x00001F18",
+    "field:this:0x00001F1C",
+    "field:this:0x00001F20",
+    "field:this:0x00001F24",
+    "field:this:0x00001F28",
+    "field:this:0x00001F2C",
+    "field:this:0x00001F30",
+    "field:this:0x000032BC",
+    "field:this:0x000032C8",
+    "field:this:0x0000344C",
+    "field:this:0x000034EC",
+    "field:this:0x000034F0",
+    "field:this:0x000034F4",
+    "field:this:0x000034F8",
+    "field:this:0x000034FC",
+    "field:this:0x00003500",
+    "field:this:0x00003504",
+    "field:this:0x00003508",
+    "field:this:0x0000350C",
+    "field:this:0x00003534",
+    "field:this:0x00003538",
+    "field:this:0x0000353C",
+    "field:this:0x00003540",
+    "field:this:0x00003544",
+    "field:this:0x00003548",
+    "field:this:0x0000354C",
+    "field:this:0x00003550",
+    "field:this:0x00003554",
+    "field:this:0x00003558",
+    "field:this:0x0000355C",
+    "field:this:0x00003560",
+    "field:this:0x00003570",
+    "field:this:0x00003574",
+    "field:this:0x00003578",
+    "field:this:0x00003580",
+    "field:this:0x00003584",
+    "field:this:0x000035A0",
+    "field:this:0x000035A4",
+    "field:this:0x000035A8",
+    "field:this:0x000035AC",
+    "field:this:0x000035B0",
+    "field:this:0x000035B4",
+    "field:this:0x000035B8",
+    "field:this:0x000035BC",
+    "field:this:0x000035C0",
+    "field:this:0x000035C4",
+    "field:this:0x000035D4",
+    "field:this:0x000035D8",
+    "field:this:0x000035F8",
+    "field:this:0x000035FC",
+    "field:this:0x00003600",
+    "field:this:0x00003604",
+    "field:this:0x00003608",
+    "field:this:0x0000360C",
+    "field:this:0x0000363C",
+    "field:this:0x00003640",
+    "field:this:0x00003658",
+    "field:this:0x0000365C",
+    "field:this:0x00003660",
+    "field:this:0x00003664",
+    "field:this:0x00003668",
+    "field:this:0x00003964",
+    "field:this:0x00003994",
+    "field:this:0x000039A0",
+    "field:this:0x000039A4",
+    "field:this:0x000039C8",
+    "field:this:0x000039F0",
+    "field:this:0x000039F4",
+    "field:this:0x00003A9C",
+    "field:this:0x00004024",
+    "field:this:0x00004028",
+    "field:this:0x000048B0",
+    "field:this:0x000048B4",
+    "field:this:0x000048B8",
+    "field:this:0x00005F68",
+    "global:0x0059E420",
+    "global:0x0059E428",
+    "global:0x0059E430",
+    "global:0x0059E438",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E448",
+    "global:0x0059E44C",
+    "global:0x0059E450",
+    "global:0x0059E478",
+    "global:0x0059E660",
+    "global:0x0059E670",
+    "global:0x0059E7D0",
+    "global:0x0059E7D8",
+    "global:0x0059E7E0",
+    "global:0x0059E7F8",
+    "global:0x0059E7FC",
+    "global:0x0059E84C",
+    "global:0x0059E868",
+    "global:0x0059E880",
+    "global:0x0059E888",
+    "global:0x0059E890",
+    "global:0x0059E8CC",
+    "global:0x0059E8D8",
+    "global:0x0059E900",
+    "global:0x0059E920",
+    "global:0x0059E930",
+    "global:0x0059EA60",
+    "global:0x0059EA68",
+    "global:0x0059EAC8",
+    "global:0x0059EAE8",
+    "global:0x0059EB08",
+    "global:0x0059EB20",
+    "global:0x0059EB28",
+    "global:0x0059EB38",
+    "global:0x0059EB48",
+    "global:0x0059EB50",
+    "global:0x0059EB78",
+    "global:0x0059EBA0",
+    "global:0x0059EC20",
+    "global:0x0059EC28",
+    "global:0x0059EC30",
+    "global:0x0059EC38",
+    "global:0x0059EC40",
+    "global:0x0059EC70",
+    "global:0x0059ED60",
+    "global:0x0059ED68",
+    "global:0x0059ED70",
+    "global:0x0059ED78",
+    "global:0x0059EDB8",
+    "global:0x0059EDC8",
+    "global:0x0059EDD0",
+    "global:0x0059EDD8",
+    "global:0x0059EDE0",
+    "global:0x0059EDE8",
+    "global:0x0059EDF0",
+    "global:0x0059EDF8",
+    "global:0x0059EE00",
+    "global:0x0059EE08",
+    "global:0x0059EE10",
+    "global:0x0059EE18",
+    "global:0x0059EE20",
+    "global:0x0059EE28",
+    "global:0x0059EE30",
+    "global:0x0059EE38",
+    "global:0x0059EE40",
+    "global:0x0059EE48",
+    "global:0x0059EE50",
+    "global:0x0059EE58",
+    "global:0x0059EE60",
+    "global:0x0059EE68",
+    "global:0x0059EE70",
+    "global:0x0059EE78",
+    "global:0x0059EE80",
+    "global:0x0059EE84",
+    "global:0x0059EE88",
+    "global:0x0059EE8C",
+    "global:0x0059EE90",
+    "global:0x0059EE94",
+    "global:0x0059EE98",
+    "global:0x0059EEA0",
+    "global:0x0059EEA8",
+    "global:0x0059EEB0",
+    "global:0x0059EEB8",
+    "global:0x005AD148",
+    "global:0x005AD168",
+    "global:0x005AD16C",
+    "global:0x005AD170",
+    "global:0x005AD178",
+    "global:0x005C329C",
+    "global:0x005C421C",
+    "global:0x005C42F4",
+    "global:0x005C7530",
+    "global:0x005EA2C0",
+    "global:0x007C54F0",
+    "global:0x007C569C",
+    "global:0x007C56A4",
+    "global:0x007C7428",
+    "global:0x007C9360",
+    "global:0x007CA590",
+    "global:0x007CC184",
+    "global:0x007CC1B0",
+    "global:0x007CC1B8",
+    "global:0x007CC1BC",
+    "global:0x007CC1DC",
+    "global:0x007CC33C",
+    "global:0x007CC368",
+    "global:0x007CE254",
+    "global:0x007CE6D0",
+    "global:0x007CE8C8",
+    "global:0x007CE8EC",
+    "global:0x007CE910",
+    "global:0x007CE97C",
+    "global:0x007CEA5C",
+    "global:0x007D0B64",
+    "global:0x008AAE70",
+    "global:0x008AAE74",
+    "global:0x008AB274",
+    "global:0x008ACEE0",
+    "global:0x008ACF9C",
+    "global:0x008ACFB4",
+    "global:0x008ACFD4",
+    "global:0x008ACFD8",
+    "global:0x008AD078",
+    "global:0x008AD254",
+    "global:0x008AD25C",
+    "global:0x008AFEE8",
+    "global:0x008AFEEC",
+    "global:0x008AFEF0"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x00401180",
+    "callee:0x00401340",
+    "callee:0x00401910",
+    "callee:0x00403640",
+    "callee:0x0042ED00",
+    "callee:0x0042ED30",
+    "callee:0x004352C0",
+    "callee:0x00435E00",
+    "callee:0x004361D0",
+    "callee:0x004364A0",
+    "callee:0x004388D0",
+    "callee:0x0043BC20",
+    "callee:0x0043DA10",
+    "callee:0x0043E230",
+    "callee:0x00441450",
+    "callee:0x00443AF0",
+    "callee:0x00443B70",
+    "callee:0x00447C70",
+    "callee:0x00447E00",
+    "callee:0x0044C4C0",
+    "callee:0x0044C550",
+    "callee:0x00454DA0",
+    "callee:0x004B2420",
+    "callee:0x004B2580",
+    "callee:0x004B26D0",
+    "callee:0x004B2800",
+    "callee:0x004B28F0",
+    "callee:0x004B2980",
+    "callee:0x004B29F0",
+    "callee:0x004B2A30",
+    "callee:0x004B2A80",
+    "callee:0x004B2AD0",
+    "callee:0x004B3CE0",
+    "callee:0x004D1100",
+    "callee:0x004D1140",
+    "callee:0x004D7880",
+    "callee:0x004D7A50",
+    "callee:0x004D7AA0",
+    "callee:0x004E0ED0",
+    "callee:0x004E17C0",
+    "callee:0x004E2230",
+    "callee:0x004E23D0",
+    "callee:0x004E24A0",
+    "callee:0x004E8CE0",
+    "callee:0x004E9100",
+    "callee:0x004E9300",
+    "callee:0x004EF6C0",
+    "callee:0x004EFB20",
+    "callee:0x004F1650",
+    "callee:0x004F17A0",
+    "callee:0x004F17D0",
+    "callee:0x004F6720",
+    "callee:0x004F6850",
+    "callee:0x004F6880",
+    "callee:0x004F87C0",
+    "callee:0x004FAF60",
+    "callee:0x004FB260",
+    "callee:0x0054B950",
+    "callee:0x00566E40",
+    "callee:0x005691D0",
+    "callee:0x00569280",
+    "callee:0x005697A0",
+    "callee:0x0056D020",
+    "callee:0x00587BCF",
+    "callee:0x00587BDC",
+    "callee:0x00587C03",
+    "caller:0x00401910",
+    "caller:0x00401C90",
+    "caller:0x004353F0",
+    "caller:0x00435410",
+    "caller:0x0043E050",
+    "caller:0x0043E230",
+    "caller:0x004E4910",
+    "field:*(*(*(this+0xB4)+0x110)+0x110):0x00000110",
+    "field:*(*(this+0x11C)+0x110):0x00000000",
+    "field:*(*(this+0x11C)+0x110):0x00000008",
+    "field:*(*(this+0x1F00)+0x32E0):0x00000078",
+    "field:*(*(this+0x1F00)+0x32E0):0x0000007C",
+    "field:*(*(this+0x1F00)+0x32E0):0x00000084",
+    "field:*(*(this+0xB4)+0x10C):0x0000003C",
+    "field:*(*(this+0xB4)+0x110):0x00000000",
+    "field:*(*(this+0xB4)+0x110):0x00000004",
+    "field:*(*(this+0xB4)+0x110):0x00000008",
+    "field:*(*(this+0xB4)+0x110):0x00000020",
+    "field:*(*(this+0xB4)+0x110):0x00000024",
+    "field:*(*(this+0xB4)+0x110):0x00000028",
+    "field:*(*(this+0xB4)+0x110):0x0000002C",
+    "field:*(*(this+0xB4)+0x110):0x00000030",
+    "field:*(*(this+0xB4)+0x110):0x00000088",
+    "field:*(*(this+0xB4)+0x110):0x00000094",
+    "field:*(*(this+0xB4)+0x110):0x00000098",
+    "field:*(*(this+0xB4)+0x110):0x0000009C",
+    "field:*(*(this+0xB4)+0x110):0x000000A4",
+    "field:*(*(this+0xB4)+0x110):0x000000A8",
+    "field:*(*(this+0xB4)+0x110):0x000000AC",
+    "field:*(*(this+0xB4)+0x110):0x00000110",
+    "field:*(this+0x1114):0x00000004",
+    "field:*(this+0x1114):0x0000000C",
+    "field:*(this+0x1114):0x00000014",
+    "field:*(this+0x11C):0x00000000",
+    "field:*(this+0x11C):0x00000004",
+    "field:*(this+0x11C):0x00000008",
+    "field:*(this+0x11C):0x00000020",
+    "field:*(this+0x11C):0x00000024",
+    "field:*(this+0x11C):0x00000028",
+    "field:*(this+0x11C):0x0000002C",
+    "field:*(this+0x11C):0x00000030",
+    "field:*(this+0x11C):0x000000A4",
+    "field:*(this+0x11C):0x000000A8",
+    "field:*(this+0x11C):0x000000AC",
+    "field:*(this+0x11C):0x00000110",
+    "field:*(this+0x15F0):0x00000004",
+    "field:*(this+0x15F0):0x0000000C",
+    "field:*(this+0x15F0):0x00000014",
+    "field:*(this+0x15F0):0x0000001C",
+    "field:*(this+0x15F0):0x00000024",
+    "field:*(this+0x15F0):0x0000002C",
+    "field:*(this+0x15F0):0x00000034",
+    "field:*(this+0x15F0):0x0000003C",
+    "field:*(this+0x15F0):0x00000044",
+    "field:*(this+0x15F0):0x0000004C",
+    "field:*(this+0x15F0):0x00000054",
+    "field:*(this+0x15F0):0x0000005C",
+    "field:*(this+0x15F0):0x00000064",
+    "field:*(this+0x15F0):0x0000006C",
+    "field:*(this+0x15F0):0x00000074",
+    "field:*(this+0x15F0):0x0000007C",
+    "field:*(this+0x15F0):0x00000084",
+    "field:*(this+0x15F0):0x0000008C",
+    "field:*(this+0x1630):0x00000000",
+    "field:*(this+0x1644):0x00000000",
+    "field:*(this+0x1D4):0x000000AC",
+    "field:*(this+0x1D4):0x000000B4",
+    "field:*(this+0x1F00):0x00000834",
+    "field:*(this+0x1F00):0x00000874",
+    "field:*(this+0x1F00):0x0000095C",
+    "field:*(this+0x1F00):0x0000099C",
+    "field:*(this+0x1F00):0x00000A84",
+    "field:*(this+0x1F00):0x00000AC4",
+    "field:*(this+0x1F00):0x00000BAC",
+    "field:*(this+0x1F00):0x00000BEC",
+    "field:*(this+0x1F00):0x000032E0",
+    "field:*(this+0x1F00):0x0000344C",
+    "field:*(this+0x1F00):0x00003450",
+    "field:*(this+0x1F00):0x00004064",
+    "field:*(this+0x3E8):0x00000004",
+    "field:*(this+0x3E8):0x0000000C",
+    "field:*(this+0x3E8):0x00000014",
+    "field:*(this+0x84C):0x00000004",
+    "field:*(this+0x84C):0x0000000C",
+    "field:*(this+0x84C):0x00000014",
+    "field:*(this+0xB4):0x00000020",
+    "field:*(this+0xB4):0x00000024",
+    "field:*(this+0xB4):0x00000028",
+    "field:*(this+0xB4):0x0000003C",
+    "field:*(this+0xB4):0x00000088",
+    "field:*(this+0xB4):0x00000094",
+    "field:*(this+0xB4):0x00000098",
+    "field:*(this+0xB4):0x0000009C",
+    "field:*(this+0xB4):0x000000A4",
+    "field:*(this+0xB4):0x000000A8",
+    "field:*(this+0xB4):0x000000AC",
+    "field:*(this+0xB4):0x0000010C",
+    "field:*(this+0xB4):0x00000110",
+    "field:*(this+0xCB0):0x00000004",
+    "field:*(this+0xCB0):0x0000000C",
+    "field:*(this+0xCB0):0x00000014",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x0000002C",
+    "field:this:0x00000030",
+    "field:this:0x00000034",
+    "field:this:0x00000038",
+    "field:this:0x0000003C",
+    "field:this:0x00000040",
+    "field:this:0x00000044",
+    "field:this:0x00000048",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000054",
+    "field:this:0x00000058",
+    "field:this:0x0000005C",
+    "field:this:0x00000060",
+    "field:this:0x00000064",
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x00000071",
+    "field:this:0x00000072",
+    "field:this:0x00000074",
+    "field:this:0x00000075",
+    "field:this:0x00000076",
+    "field:this:0x00000078",
+    "field:this:0x0000007A",
+    "field:this:0x0000007C",
+    "field:this:0x00000080",
+    "field:this:0x00000084",
+    "field:this:0x00000088",
+    "field:this:0x0000008C",
+    "field:this:0x00000090",
+    "field:this:0x00000094",
+    "field:this:0x00000098",
+    "field:this:0x0000009C",
+    "field:this:0x000000A0",
+    "field:this:0x000000A4",
+    "field:this:0x000000A8",
+    "field:this:0x000000AC",
+    "field:this:0x000000B4",
+    "field:this:0x000000B8",
+    "field:this:0x000000BC",
+    "field:this:0x000000C0",
+    "field:this:0x000000C4",
+    "field:this:0x000000C8",
+    "field:this:0x000000CC",
+    "field:this:0x000000D0",
+    "field:this:0x000000D8",
+    "field:this:0x000000DC",
+    "field:this:0x000000E0",
+    "field:this:0x000000EC",
+    "field:this:0x000000F0",
+    "field:this:0x000000F4",
+    "field:this:0x000000F8",
+    "field:this:0x000000FC",
+    "field:this:0x00000100",
+    "field:this:0x00000104",
+    "field:this:0x00000108",
+    "field:this:0x0000010C",
+    "field:this:0x00000110",
+    "field:this:0x00000114",
+    "field:this:0x00000118",
+    "field:this:0x0000011C",
+    "field:this:0x00000120",
+    "field:this:0x00000124",
+    "field:this:0x00000128",
+    "field:this:0x0000012C",
+    "field:this:0x00000130",
+    "field:this:0x00000134",
+    "field:this:0x00000138",
+    "field:this:0x0000013C",
+    "field:this:0x00000140",
+    "field:this:0x00000148",
+    "field:this:0x00000150",
+    "field:this:0x00000158",
+    "field:this:0x00000160",
+    "field:this:0x00000164",
+    "field:this:0x00000168",
+    "field:this:0x0000016C",
+    "field:this:0x00000170",
+    "field:this:0x00000174",
+    "field:this:0x00000178",
+    "field:this:0x0000017C",
+    "field:this:0x00000184",
+    "field:this:0x0000018C",
+    "field:this:0x00000190",
+    "field:this:0x00000194",
+    "field:this:0x00000198",
+    "field:this:0x0000019C",
+    "field:this:0x000001A4",
+    "field:this:0x000001AC",
+    "field:this:0x000001B4",
+    "field:this:0x000001D4",
+    "field:this:0x000001D8",
+    "field:this:0x000001E0",
+    "field:this:0x00000340",
+    "field:this:0x00000344",
+    "field:this:0x00000348",
+    "field:this:0x0000034C",
+    "field:this:0x00000350",
+    "field:this:0x00000354",
+    "field:this:0x00000358",
+    "field:this:0x0000035C",
+    "field:this:0x00000360",
+    "field:this:0x00000368",
+    "field:this:0x0000036C",
+    "field:this:0x00000388",
+    "field:this:0x0000038C",
+    "field:this:0x000003A8",
+    "field:this:0x000003AC",
+    "field:this:0x000003C8",
+    "field:this:0x000003D0",
+    "field:this:0x000003D4",
+    "field:this:0x000003D8",
+    "field:this:0x000003DC",
+    "field:this:0x000003E8",
+    "field:this:0x00000450",
+    "field:this:0x0000048C",
+    "field:this:0x00000498",
+    "field:this:0x000004F0",
+    "field:this:0x000004F4",
+    "field:this:0x000004F8",
+    "field:this:0x000004FC",
+    "field:this:0x00000500",
+    "field:this:0x00000504",
+    "field:this:0x00000508",
+    "field:this:0x00000514",
+    "field:this:0x00000518",
+    "field:this:0x000005B0",
+    "field:this:0x000005B8",
+    "field:this:0x000005BC",
+    "field:this:0x00000608",
+    "field:this:0x00000668",
+    "field:this:0x0000066C",
+    "field:this:0x00000670",
+    "field:this:0x00000674",
+    "field:this:0x00000678",
+    "field:this:0x0000067C",
+    "field:this:0x00000680",
+    "field:this:0x00000688",
+    "field:this:0x00000690",
+    "field:this:0x00000694",
+    "field:this:0x00000698",
+    "field:this:0x0000069C",
+    "field:this:0x000006A0",
+    "field:this:0x000006A8",
+    "field:this:0x000006B0",
+    "field:this:0x000006B8",
+    "field:this:0x000006C0",
+    "field:this:0x000006C8",
+    "field:this:0x000006CC",
+    "field:this:0x000006D0",
+    "field:this:0x000006D8",
+    "field:this:0x000006DC",
+    "field:this:0x000006E0",
+    "field:this:0x000006E4",
+    "field:this:0x000006E8",
+    "field:this:0x000006EC",
+    "field:this:0x0000082C",
+    "field:this:0x00000834",
+    "field:this:0x0000084C",
+    "field:this:0x000008C0",
+    "field:this:0x000008FC",
+    "field:this:0x00000A14",
+    "field:this:0x00000C90",
+    "field:this:0x00000C98",
+    "field:this:0x00000CB0",
+    "field:this:0x00000D60",
+    "field:this:0x00000E78",
+    "field:this:0x00001040",
+    "field:this:0x00001044",
+    "field:this:0x00001054",
+    "field:this:0x0000105D",
+    "field:this:0x00001065",
+    "field:this:0x00001067",
+    "field:this:0x00001069",
+    "field:this:0x000010F4",
+    "field:this:0x000010FC",
+    "field:this:0x00001114",
+    "field:this:0x000011C4",
+    "field:this:0x000012DC",
+    "field:this:0x0000141C",
+    "field:this:0x00001438",
+    "field:this:0x00001440",
+    "field:this:0x00001448",
+    "field:this:0x00001450",
+    "field:this:0x00001458",
+    "field:this:0x0000145C",
+    "field:this:0x00001460",
+    "field:this:0x00001468",
+    "field:this:0x00001470",
+    "field:this:0x00001478",
+    "field:this:0x00001554",
+    "field:this:0x0000155C",
+    "field:this:0x00001564",
+    "field:this:0x0000156C",
+    "field:this:0x00001574",
+    "field:this:0x00001580",
+    "field:this:0x000015BC",
+    "field:this:0x000015C0",
+    "field:this:0x000015F0",
+    "field:this:0x00001630",
+    "field:this:0x00001634",
+    "field:this:0x0000163C",
+    "field:this:0x00001644",
+    "field:this:0x00001648",
+    "field:this:0x00001650",
+    "field:this:0x00001658",
+    "field:this:0x0000165C",
+    "field:this:0x00001670",
+    "field:this:0x000016A0",
+    "field:this:0x00001710",
+    "field:this:0x00001718",
+    "field:this:0x0000171C",
+    "field:this:0x00001720",
+    "field:this:0x00001724",
+    "field:this:0x00001C50",
+    "field:this:0x00001C58",
+    "field:this:0x00001C59",
+    "field:this:0x00001C5C",
+    "field:this:0x00001C60",
+    "field:this:0x00001C64",
+    "field:this:0x00001C68",
+    "field:this:0x00001C6C",
+    "field:this:0x00001C74",
+    "field:this:0x00001C7C",
+    "field:this:0x00001C84",
+    "field:this:0x00001C8C",
+    "field:this:0x00001C94",
+    "field:this:0x00001C9C",
+    "field:this:0x00001CA4",
+    "field:this:0x00001CDC",
+    "field:this:0x00001CE4",
+    "field:this:0x00001CEC",
+    "field:this:0x00001CF4",
+    "field:this:0x00001CFC",
+    "field:this:0x00001D08",
+    "field:this:0x00001D0C",
+    "field:this:0x00001D10",
+    "field:this:0x00001D14",
+    "field:this:0x00001D18",
+    "field:this:0x00001D20",
+    "field:this:0x00001D28",
+    "field:this:0x00001D30",
+    "field:this:0x00001D34",
+    "field:this:0x00001D3C",
+    "field:this:0x00001D44",
+    "field:this:0x00001D4C",
+    "field:this:0x00001D54",
+    "field:this:0x00001D5C",
+    "field:this:0x00001D64",
+    "field:this:0x00001D6C",
+    "field:this:0x00001D74",
+    "field:this:0x00001D78",
+    "field:this:0x00001D7C",
+    "field:this:0x00001D84",
+    "field:this:0x00001D8C",
+    "field:this:0x00001D94",
+    "field:this:0x00001DA4",
+    "field:this:0x00001DA8",
+    "field:this:0x00001DAC",
+    "field:this:0x00001DB0",
+    "field:this:0x00001DB4",
+    "field:this:0x00001DB8",
+    "field:this:0x00001DBC",
+    "field:this:0x00001DC4",
+    "field:this:0x00001DCC",
+    "field:this:0x00001DD4",
+    "field:this:0x00001DDC",
+    "field:this:0x00001DE4",
+    "field:this:0x00001DE8",
+    "field:this:0x00001DEC",
+    "field:this:0x00001DF0",
+    "field:this:0x00001DF4",
+    "field:this:0x00001DF8",
+    "field:this:0x00001E14",
+    "field:this:0x00001E18",
+    "field:this:0x00001E20",
+    "field:this:0x00001E28",
+    "field:this:0x00001E30",
+    "field:this:0x00001E38",
+    "field:this:0x00001E3C",
+    "field:this:0x00001E40",
+    "field:this:0x00001E44",
+    "field:this:0x00001E48",
+    "field:this:0x00001E50",
+    "field:this:0x00001E58",
+    "field:this:0x00001E60",
+    "field:this:0x00001E68",
+    "field:this:0x00001E70",
+    "field:this:0x00001E78",
+    "field:this:0x00001E84",
+    "field:this:0x00001E8C",
+    "field:this:0x00001E94",
+    "field:this:0x00001E9C",
+    "field:this:0x00001EA4",
+    "field:this:0x00001EA8",
+    "field:this:0x00001EAC",
+    "field:this:0x00001EB0",
+    "field:this:0x00001EB8",
+    "field:this:0x00001EC0",
+    "field:this:0x00001EF0",
+    "field:this:0x00001EF4",
+    "field:this:0x00001EF8",
+    "field:this:0x00001EFC",
+    "field:this:0x00001F00",
+    "field:this:0x00001F04",
+    "field:this:0x00001F08",
+    "field:this:0x00001F0C",
+    "field:this:0x00001F10",
+    "field:this:0x00001F14",
+    "field:this:0x00001F18",
+    "field:this:0x00001F1C",
+    "field:this:0x00001F20",
+    "field:this:0x00001F24",
+    "field:this:0x00001F28",
+    "field:this:0x00001F2C",
+    "field:this:0x00001F30",
+    "field:this:0x000032BC",
+    "field:this:0x000032C8",
+    "field:this:0x0000344C",
+    "field:this:0x000034EC",
+    "field:this:0x000034F0",
+    "field:this:0x000034F4",
+    "field:this:0x000034F8",
+    "field:this:0x000034FC",
+    "field:this:0x00003500",
+    "field:this:0x00003504",
+    "field:this:0x00003508",
+    "field:this:0x0000350C",
+    "field:this:0x00003534",
+    "field:this:0x00003538",
+    "field:this:0x0000353C",
+    "field:this:0x00003540",
+    "field:this:0x00003544",
+    "field:this:0x00003548",
+    "field:this:0x0000354C",
+    "field:this:0x00003550",
+    "field:this:0x00003554",
+    "field:this:0x00003558",
+    "field:this:0x0000355C",
+    "field:this:0x00003560",
+    "field:this:0x00003570",
+    "field:this:0x00003574",
+    "field:this:0x00003578",
+    "field:this:0x00003580",
+    "field:this:0x00003584",
+    "field:this:0x000035A0",
+    "field:this:0x000035A4",
+    "field:this:0x000035A8",
+    "field:this:0x000035AC",
+    "field:this:0x000035B0",
+    "field:this:0x000035B4",
+    "field:this:0x000035B8",
+    "field:this:0x000035BC",
+    "field:this:0x000035C0",
+    "field:this:0x000035C4",
+    "field:this:0x000035D4",
+    "field:this:0x000035D8",
+    "field:this:0x000035F8",
+    "field:this:0x000035FC",
+    "field:this:0x00003600",
+    "field:this:0x00003604",
+    "field:this:0x00003608",
+    "field:this:0x0000360C",
+    "field:this:0x0000363C",
+    "field:this:0x00003640",
+    "field:this:0x00003658",
+    "field:this:0x0000365C",
+    "field:this:0x00003660",
+    "field:this:0x00003664",
+    "field:this:0x00003668",
+    "field:this:0x00003964",
+    "field:this:0x00003994",
+    "field:this:0x000039A0",
+    "field:this:0x000039A4",
+    "field:this:0x000039C8",
+    "field:this:0x000039F0",
+    "field:this:0x000039F4",
+    "field:this:0x00003A9C",
+    "field:this:0x00004024",
+    "field:this:0x00004028",
+    "field:this:0x000048B0",
+    "field:this:0x000048B4",
+    "field:this:0x000048B8",
+    "field:this:0x00005F68",
+    "function:0x00401340",
+    "function:0x00401910",
+    "function:0x00401C90",
+    "function:0x004358F0",
+    "function:0x0043C250",
+    "function:0x00442060",
+    "function:0x004441F0",
+    "function:0x004C73F0",
+    "function:0x004E3D00",
+    "function:0x004E4790",
+    "global:0x0059E420",
+    "global:0x0059E428",
+    "global:0x0059E430",
+    "global:0x0059E438",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E448",
+    "global:0x0059E44C",
+    "global:0x0059E450",
+    "global:0x0059E478",
+    "global:0x0059E660",
+    "global:0x0059E670",
+    "global:0x0059E7D0",
+    "global:0x0059E7D8",
+    "global:0x0059E7E0",
+    "global:0x0059E7F8",
+    "global:0x0059E7FC",
+    "global:0x0059E84C",
+    "global:0x0059E868",
+    "global:0x0059E880",
+    "global:0x0059E888",
+    "global:0x0059E890",
+    "global:0x0059E8CC",
+    "global:0x0059E8D8",
+    "global:0x0059E900",
+    "global:0x0059E920",
+    "global:0x0059E930",
+    "global:0x0059EA60",
+    "global:0x0059EA68",
+    "global:0x0059EAC8",
+    "global:0x0059EAE8",
+    "global:0x0059EB08",
+    "global:0x0059EB20",
+    "global:0x0059EB28",
+    "global:0x0059EB38",
+    "global:0x0059EB48",
+    "global:0x0059EB50",
+    "global:0x0059EB78",
+    "global:0x0059EBA0",
+    "global:0x0059EC20",
+    "global:0x0059EC28",
+    "global:0x0059EC30",
+    "global:0x0059EC38",
+    "global:0x0059EC40",
+    "global:0x0059EC70",
+    "global:0x0059ED60",
+    "global:0x0059ED68",
+    "global:0x0059ED70",
+    "global:0x0059ED78",
+    "global:0x0059EDB8",
+    "global:0x0059EDC8",
+    "global:0x0059EDD0",
+    "global:0x0059EDD8",
+    "global:0x0059EDE0",
+    "global:0x0059EDE8",
+    "global:0x0059EDF0",
+    "global:0x0059EDF8",
+    "global:0x0059EE00",
+    "global:0x0059EE08",
+    "global:0x0059EE10",
+    "global:0x0059EE18",
+    "global:0x0059EE20",
+    "global:0x0059EE28",
+    "global:0x0059EE30",
+    "global:0x0059EE38",
+    "global:0x0059EE40",
+    "global:0x0059EE48",
+    "global:0x0059EE50",
+    "global:0x0059EE58",
+    "global:0x0059EE60",
+    "global:0x0059EE68",
+    "global:0x0059EE70",
+    "global:0x0059EE78",
+    "global:0x0059EE80",
+    "global:0x0059EE84",
+    "global:0x0059EE88",
+    "global:0x0059EE8C",
+    "global:0x0059EE90",
+    "global:0x0059EE94",
+    "global:0x0059EE98",
+    "global:0x0059EEA0",
+    "global:0x0059EEA8",
+    "global:0x0059EEB0",
+    "global:0x0059EEB8",
+    "global:0x005AD148",
+    "global:0x005AD168",
+    "global:0x005AD16C",
+    "global:0x005AD170",
+    "global:0x005AD178",
+    "global:0x005C329C",
+    "global:0x005C421C",
+    "global:0x005C42F4",
+    "global:0x005C7530",
+    "global:0x005EA2C0",
+    "global:0x007C54F0",
+    "global:0x007C569C",
+    "global:0x007C56A4",
+    "global:0x007C7428",
+    "global:0x007C9360",
+    "global:0x007CA590",
+    "global:0x007CC184",
+    "global:0x007CC1B0",
+    "global:0x007CC1B8",
+    "global:0x007CC1BC",
+    "global:0x007CC1DC",
+    "global:0x007CC33C",
+    "global:0x007CC368",
+    "global:0x007CE254",
+    "global:0x007CE6D0",
+    "global:0x007CE8C8",
+    "global:0x007CE8EC",
+    "global:0x007CE910",
+    "global:0x007CE97C",
+    "global:0x007CEA5C",
+    "global:0x007D0B64",
+    "global:0x008AAE70",
+    "global:0x008AAE74",
+    "global:0x008AB274",
+    "global:0x008ACEE0",
+    "global:0x008ACF9C",
+    "global:0x008ACFB4",
+    "global:0x008ACFD4",
+    "global:0x008ACFD8",
+    "global:0x008AD078",
+    "global:0x008AD254",
+    "global:0x008AD25C",
+    "global:0x008AFEE8",
+    "global:0x008AFEEC",
+    "global:0x008AFEF0",
+    "guard:0",
+    "guard:1",
+    "guard:2",
+    "guard:3",
+    "guard:4",
+    "guard:5",
+    "guard:6",
+    "guard:7",
+    "guard:8",
+    "guard:9",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/stage1/vehicle_physics_01.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

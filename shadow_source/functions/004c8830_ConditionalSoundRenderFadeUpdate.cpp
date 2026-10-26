@@ -1,0 +1,30 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C8830
+// Canonical corpus name: sub_4C8830
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4C8830_004c8830.c
+
+void UnknownObject::ConditionalSoundRenderFadeUpdate()
+{
+    // Conditional render-fade update: only when the this-object enable flag is set, the audio mixer object at dword_8AC4C8 is present, the mixer current value at +4 differs from the global render fade alpha flt_7CF380, and flt_7CF380 is non-zero, sets this+0x14 (update pending flag) to 1 and computes the fade target this+0x18 as either flt_7CF380 directly (when a2 <= 0.0) or flt_7CF380 divided by a2. Otherwise it does nothing. Called by ConditionalSoundRenderDispatchOnParamCheck at 0x00404970. All semantics DERIVED from raw source; owner UNKNOWN.
+    // GUARD: Guard: this+0x10 enable byte must be non-zero, dword_8AC4C8 (audio mixer object pointer) must be non-null, *(dword_8AC4C8 + 4) must differ from flt_7CF380, and flt_7CF380 must not be 0.0. If any condition fails the function returns without writing. [field:this:0x00000010, global:0x007CF380, global:0x008AC4C8, source:raw]
+    // ASSIGNMENT: When the guard passes, set this+0x14 (update pending flag) to 1. [field:this:0x00000014, function:0x004C8830, source:raw]
+    // GUARD: Branch on a2 <= 0.0: when true, the computed fade target equals flt_7CF380 directly; otherwise it equals flt_7CF380 / a2. [source:raw]
+    // ASSIGNMENT: If a2 <= 0.0, write this+0x18 (computed fade target float) = flt_7CF380 (render fade alpha global, read-only here). [field:this:0x00000018, global:0x007CF380, source:raw]
+    // CALCULATION: Else (a2 > 0.0), write this+0x18 = flt_7CF380 / a2, scaling the global fade alpha by the supplied divisor. [field:this:0x00000018, global:0x007CF380, source:raw]
+    // STATE_TRANSITION: Caller relationship: this function is invoked by ConditionalSoundRenderDispatchOnParamCheck at 0x00404970 to drive the fade update when a parameter change is dispatched. [caller:0x00404970, function:0x004C8830]
+
+    // Conservative worker pseudocode:
+    //   // Conditional render-fade update; called when a sound/render param changes.
+    //   void ConditionalSoundRenderFadeUpdate(byte* this, float a2) {
+    //       if (this[0x10] != 0 && dword_8AC4C8 != 0 &&
+    //           *(float*)(dword_8AC4C8 + 4) != flt_7CF380 && flt_7CF380 != 0.0f) {
+    //           this[0x14] = 1;
+    //           this[0x18] = (a2 <= 0.0f) ? flt_7CF380 : (flt_7CF380 / a2);
+    //       }
+    //   }
+    // UNRESOLVED: Owner class of the this object is UNKNOWN (packet owner trust UNKNOWN; no local call site besides the caller listed).
+    // UNRESOLVED: flt_59E440 is listed in the packet as a read global but does not appear in the raw source text of this function; its role here is unexplained.
+    // UNRESOLVED: The meaning of *(dword_8AC4C8 + 4) as the audio mixer's current fade value is DERIVED from the comparison against flt_7CF380, not proven.
+    // UNRESOLVED: The exact purpose of a2 (time divisor vs target scale) and of this+0x14 / this+0x18 consumption is DERIVED and unproven.
+}

@@ -1,0 +1,61 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0043DA10
+// Canonical corpus name: TireCompoundPerWheelPhysicsApplication
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TireCompoundPerWheelPhysicsApplication_0043da10.c
+
+void UnknownObject::TireCompoundPerWheelPhysicsApplication()
+{
+    // Loads tire compound parameters for one wheel of the vehicle and applies them to a per-wheel physics record. Resolves the compound via CompoundIndexLookup(this[1303]) from this+0x145C, picks the compound data source by wheel index (a2 <= 1 selects base+24, else base+352), and copies grip, geometry, thermal, wear and stiffness values (with scaling constants such as 0.45, 0.15, 0.92, 2500.0, 273.16) into the per-wheel record at &this[281*a2+163]. Resolves three tire slip curve names (null pointers default to &byte_5EA438), logs warnings when a curve is missing or the camber angle exceeds 90 degrees and dword_7C569C != 5, runs TireLoadFactorSetter, CubicHermiteInterpolation, VehicleSuspensionForceHelper, QuaternionTransformComputation and TorqueForceProductComputation on the populated record, scans a static delta array for a max range term, and finally writes this[43] (this+0xAC) = ratio * maxDelta.
+    // CALL: CompoundIndexLookup(this[1303]) resolves the tire compound record from the vehicle's compound index field at this+0x145C. [callee:0x004D7570, field:this:0x0000145C, source:raw]
+    // CALCULATION: Selects the compound data source base: v4 = v3 + 24 when a2 <= 1, otherwise v3 + 352; destination base v5 = &this[281*a2 + 163] (a per-wheel record, 281 DWORD stride). [source:raw]
+    // ASSIGNMENT: Copies compound grip/torque pairs into the wheel record: v5+524..536 from v4+32..44; v5+564/568 from v4+72/76; scaled double terms at v5+540 (= v4+48 * 0.45) and v5+548/556 (= v4+48 * 0.15). [source:raw]
+    // CALL: VehicleSuspensionForceHelper called with double values loaded from this[281*a2+386] and this[281*a2+387]. [callee:0x004D6AE0, source:raw]
+    // CALL: QuaternionTransformComputation called with compound values at v4+80, v4+88, v4+96. [callee:0x004D5C70, source:raw]
+    // ASSIGNMENT: Copies compound geometry (dwords at v4+0/4/8/12 and doubles at v4+16/24) into v5+632..656 and v5+1100..1112, including difference terms (v5+640, v5+656). [source:raw]
+    // CALL: TireLoadFactorSetter called twice with compound values at v4+104/112/120 and v4+128/136/144. [callee:0x004D5EE0, source:raw]
+    // ASSIGNMENT: Resolves three tire slip curve names: the name pointers at v4+304, v4+312, v4+320 each default to &byte_5EA438 when null, pass through TireSlipCurveNameLookup, and are stored at this[281*a2+345], this[281*a2+346], this[281*a2+347]. [callee:0x004D75D0, global:0x005EA438, source:raw]
+    // GUARD: If any resolved slip curve lookup is null (v13, this[281*a2+346] or v12) and dword_7C569C != 5, logs a 'could not find' warning: StringSplitLoop(1, aDDevF119992002, 3730) then DebugLogWrite(&dword_8AD25C, aCouldNotFindOn). [global:0x007C569C, global:0x005C421C, global:0x005C4364, global:0x008AD25C, callee:0x004D7A50, callee:0x004D7AA0, source:raw]
+    // CALL: CubicHermiteInterpolation(1.0, 0.0001) called three times in sequence (interpolation structure setup). [callee:0x004D6830, source:raw]
+    // CALCULATION: Computes v5+740 = 1.0 / ((v8 + v8 + v8 + v8) * 2500.0), an inverse scaling term where v8 = (v4+16) + (v4+24). [source:raw]
+    // GUARD: If the compound camber value at v4+152 is >= 1.570796326794897 and dword_7C569C != 5, logs a warning: StringSplitLoop(1, aDDevF119992002, 3747) then DebugLogWrite(&dword_8AD25C, aTireOptimumCam). [global:0x007C569C, global:0x005C421C, global:0x005C4328, global:0x008AD25C, callee:0x004D7A50, callee:0x004D7AA0, source:raw]
+    // ASSIGNMENT: Writes camber v14 = (v4+152) to v5+756; writes v5+772/776 to 0 under a compare-flag condition (v16 | v17) or to 1.570796326794897 / v14 otherwise; also writes v5+748/752 from v4+160/164 and v5+764 = (v4+168) * 0.6366197723675814, v5+780 = 3.141592653589793 / (1.570796326794897 - v5+756). [source:raw]
+    // ASSIGNMENT: Writes stiffness/rate defaults at v5+844..888 (repeating literal pair -1889785610 / 1081507266) and v5+292/296; scales the double at v5+892 by 0.002778858444950814 and stores it at v5+876. [source:raw]
+    // ASSIGNMENT: Copies compound force data at v4+56..68 into v5+900..912. [source:raw]
+    // STATE_TRANSITION: If dword_7CE958 is nonzero: overrides v5+292 = 0 and v5+296 = 1076985856, and scales v5+900, v5+908 and v5+564 by 0.9200000166893005. [global:0x007CE958, source:raw]
+    // ASSIGNMENT: Computes v5+300 = 1.0 / (v5+292); writes temperature offset (v5+820 = (v4+280) + 273.16) and thermal values v5+828..840 from v4+288..300; copies v4+176/180 to both v5+812/816 and v5+1116/1120. [source:raw]
+    // ASSIGNMENT: Copies compound wear/stress values v4+184..220 into v5+932..968; v5+940 = (v4+192) * (v5+740); v5+972 = dword_7D0C60 * (v4+224) * (v5+740); sets v5+916 = 0 and v5+920 = 1072693248. [global:0x007D0C60, source:raw]
+    // CALL: TorqueForceProductComputation(v5) runs the wheel force-product computation on the populated record. [callee:0x00438100, source:raw]
+    // LOOP: Scans dword_8ACEA8 entries starting at dword_8ACEAC + 12 with a stride of 27 DWORDs, tracking the maximum positive delta (v28 = prev - curr) into v23. [global:0x008ACEA8, global:0x008ACEAC, source:raw]
+    // ASSIGNMENT: Writes this[43] = (v29 / v30) * v23 at this+0xAC (suspension ratio output scaled by the max range delta). [field:this:0x000000AC, source:raw]
+    // CALCULATION: Reads floating-point constants from static data globals (dbl_59E420..dbl_59EC68) that back the compound-parameter scaling and thermal factors used above (e.g. 0.45/0.15 grip splits, camber limit, thermal conversion). [global:0x0059E420, global:0x0059E430, global:0x0059E890, global:0x0059E898, global:0x0059EAC8, global:0x0059EB40, global:0x0059EC48, global:0x0059EC50, global:0x0059EC58, global:0x0059EC60, global:0x0059EC68, source:raw]
+
+    // Conservative worker pseudocode:
+    //   v3 = CompoundIndexLookup(this[1303]);
+    //   v4 = (a2 <= 1) ? v3 + 24 : v3 + 352;
+    //   v5 = &this[281 * a2 + 163];
+    //   copyCompoundGrip(v4, v5);           // +524..568 with 0.45/0.15 scaling
+    //   VehicleSuspensionForceHelper(this[281*a2+386..387]);
+    //   QuaternionTransformComputation(v4+80, v4+88, v4+96);
+    //   copyCompoundGeometry(v4, v5);       // +632..656, +1100..1112
+    //   TireLoadFactorSetter(v4+104, v4+112, v4+120);
+    //   TireLoadFactorSetter(v4+128, v4+136, v4+144);
+    //   for each of 3 slip names: p = *(v4+304/312/320) or &byte_5EA438;
+    //       this[281*a2+345/346/347] = TireSlipCurveNameLookup(p);
+    //   if ((!v13 || !this[281*a2+346] || !v12) && dword_7C569C != 5)
+    //       if (StringSplitLoop(1, aDDevF119992002, 3730)) DebugLogWrite(&dword_8AD25C, aCouldNotFindOn);
+    //   CubicHermiteInterpolation(1.0, 0.0001); x3
+    //   v5+740 = 1.0 / ((v8 + v8 + v8 + v8) * 2500.0);
+    //   if ((v4+152) >= 1.570796326794897 && dword_7C569C != 5)
+    //       if (StringSplitLoop(1, aDDevF119992002, 3747)) DebugLogWrite(&dword_8AD25C, aTireOptimumCam);
+    //   writeCamberTerms(v4, v5);   // v5+748..780
+    //   writeStiffnessAndThermal(v4, v5);  // v5+820..972, +292..300
+    //   if (dword_7CE958) scaleRecord(v5);  // * 0.9200000166893005
+    //   TorqueForceProductComputation(v5);
+    //   v23 = maxDeltaOver(dword_8ACEA8, dword_8ACEAC + 12, stride 27);
+    //   this[43] = (v29 / v30) * v23;
+    // UNRESOLVED: Compare flags v16/v17 are used before assignment in the decompiled source; the branch controlling v5+772/776 is a FP-compare encoding issue and its exact condition is unclear.
+    // UNRESOLVED: The dbl_59E420..dbl_59EC68 globals are .rdata double constants; their one-to-one mapping to specific scaling literals (0.45, 0.15, 0.92, 2500.0, 273.16, ...) is DERIVED, not deterministic.
+    // UNRESOLVED: a2 is a wheel selector indexing 281-element wheel records; the compound source selection (a2 <= 1 picks base+24, else base+352) implies a compound category split by wheel position that is not fully pinned.
+    // UNRESOLVED: The repeating literal pair -1889785610 / 1081507266 written at v5+844..888 is likely a grip-curve coefficient pair; its exact meaning is unverified.
+}

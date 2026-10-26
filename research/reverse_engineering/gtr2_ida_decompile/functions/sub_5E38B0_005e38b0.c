@@ -1,0 +1,40 @@
+int *__thiscall sub_5E38B0(int *this)
+{
+  sub_5D9010(this);
+  *this = 0;
+  memset(this + 39, 0, 0x40u);
+  this[54] = 1065353216;
+  this[49] = 1065353216;
+  this[44] = 1065353216;
+  this[39] = 1065353216;
+  this[38] = 1;
+  sub_60AA20(this + 57);
+  memset(this + 3, 0, 0x40u);
+  *this = 0;
+  this[2] = 1;
+  this[1] = 1;
+  this[34] = 0;
+  this[19] = 0;
+  this[20] = 0;
+  this[21] = 0;
+  this[22] = 0;
+  this[23] = 0;
+  this[24] = 1;
+  this[25] = 1;
+  this[26] = 1120403456;
+  this[27] = -1;
+  this[28] = 0;
+  this[29] = 0;
+  this[30] = 0;
+  this[31] = 0;
+  this[33] = 0;
+  *((_BYTE *)this + 128) = 1;
+  *((_BYTE *)this + 129) = 0;
+  this[35] = 0;
+  this[36] = 0;
+  this[37] = 0;
+  this[55] = 0;
+  this[56] = 0;
+  sub_5D8280(this + 38);
+  return this;
+}

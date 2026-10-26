@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "address": "0x0057E570",
+  "proposed_name": "NetworkConnectionCleanup",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0057E570"]
+  },
+  "summary": "Performs cleanup of stale network connection records: acquires the list mutex, walks the linked list of connection nodes until the shared head record is reached, unlinks the node, destroys and frees it, resets the head record's fields and ring-buffer state, re-queues the reset record, and finally releases the mutex. Uses a mutex/event at this+0xABC with timeout this+0xAC0 to guard the list, plus a secondary handle at this+0xBEC (with timeout this+0xBF0) around the reset section.",
+  "local_names": {
+    "v1": "primary wait handle (mutex/event) at this+0xABC",
+    "v2": "list control block pointer (this+683)",
+    "v4": "selected control block, null when the primary wait fails",
+    "v5/v8": "current list node being scanned",
+    "v7": "value at the head record, used as the termination sentinel",
+    "v9": "predecessor node during the scan"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Acquire the primary handle: when this+0xABC is non-null and WaitForSingleObject returns 0 or 128 (timeout), use the list control block at this+0xAAC; otherwise treat the block as null and return early.",
+      "evidence_refs": ["guard:0", "global:0x0059E1A0", "field:this:0x00000ABC", "field:this:0x00000AC0", "field:this:0x00000AAC", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Snapshot the control block: read the list head pointer at *(this+0xAAC)+0 and mirror it into the cursor slot at *(this+0xAAC)+8.",
+      "evidence_refs": ["field:*(this+0xAAC):0x00000000", "field:*(this+0xAAC):0x00000008", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan the linked list of connection nodes, following next pointers, until a node whose first field equals the head-record sentinel is found; track the predecessor node.",
+      "evidence_refs": ["field:*(this+0xAAC):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Unlink the matched node: rebind the head/tail/cursor pointers in the control block and decrement the node count.",
+      "evidence_refs": ["field:*(this+0xAAC):0x00000000", "field:*(this+0xAAC):0x00000004", "field:*(this+0xAAC):0x00000008", "field:this:0x00000AB0", "field:this:0x00000AB4", "field:this:0x00000AB8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Destroy the removed node via sub_491E40 and release its memory through FreeWrapper_7bcf.",
+      "evidence_refs": ["callee:0x00491E40", "callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Acquire the secondary handle at this+0xBEC (WaitForSingleObject with timeout this+0xBF0) before resetting state, then ReleaseMutex on it afterwards.",
+      "evidence_refs": ["global:0x0059E1A0", "global:0x0059E1A4", "field:this:0x00000BEC", "field:this:0x00000BF0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Reset the ring buffer of the head record with RingBufferHeadTailReset at offset 54 of the record.",
+      "evidence_refs": ["callee:0x0057B530", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Reset the head record fields: zero offsets 0 through 28, write the -1 sentinel at offset 32, zero the byte at 40, zero offsets 44 and 48, and zero the word at 52.",
+      "evidence_refs": ["field:*(*(this+0xAAC)+0x0):0x00000000", "field:*(*(this+0xAAC)+0x0):0x00000004", "field:*(*(this+0xAAC)+0x0):0x00000008", "field:*(*(this+0xAAC)+0x0):0x0000000C", "field:*(*(this+0xAAC)+0x0):0x00000010", "field:*(*(this+0xAAC)+0x0):0x00000014", "field:*(*(this+0xAAC)+0x0):0x00000018", "field:*(*(this+0xAAC)+0x0):0x0000001C", "field:*(*(this+0xAAC)+0x0):0x00000020", "field:*(*(this+0xAAC)+0x0):0x00000024", "field:*(*(this+0xAAC)+0x0):0x00000028", "field:*(*(this+0xAAC)+0x0):0x0000002C", "field:*(*(this+0xAAC)+0x0):0x00000030", "field:*(*(this+0xAAC)+0x0):0x00000034", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Re-queue the reset record by prepending it to the linked list with LinkedListNodeAllocPrepend.",
+      "evidence_refs": ["callee:0x00583210", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Re-read the list head after the mutation and continue the outer scan until the list is exhausted (head becomes null).",
+      "evidence_refs": ["field:*(this+0xAAC):0x00000000", "field:*(this+0xAAC):0x00000008", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the primary handle stored at *(this+0xAAC)+16 (equivalently this+0xABC); if non-null, ReleaseMutex it first.",
+      "evidence_refs": ["global:0x0059E1A4", "field:this:0x00000AAC", "field:this:0x00000ABC", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v1 = this[687];                              // primary wait handle",
+    "if (v1 && WaitForSingleObject(v1, this[688]) == 0 || WaitForSingleObject(v1, this[688]) == 128)",
+    "    block = this + 683;",
+    "else",
+    "    block = null;",
+    "if (!block) return;",
+    "cursor = *block;",
+    "while (*block) {",
+    "    scan list for node matching head-record sentinel;",
+    "    unlink node;",
+    "    sub_491E40(node); FreeWrapper_7bcf(node);",
+    "    if (this[763]) WaitForSingleObject(this[763], this[764]);",
+    "    RingBufferHeadTailReset(record + 54);",
+    "    zero(record, 0, 56); record[8] = -1; record[40] = 0; record[52] = 0;",
+    "    LinkedListNodeAllocPrepend(record, 0);",
+    "    if (this[763]) ReleaseMutex(this[763]);",
+    "}",
+    "result = block[4];",
+    "if (result) return ReleaseMutex(result);",
+    "return 0;"
+  ],
+  "unresolved": [
+    "Whether this+0xABC is a mutex or an event is not evidenced; the packet names the first global WaitForSingleObject and the second ReleaseMutex but the concrete object kinds at this+0xABC and this+0xBEC are unknown.",
+    "The meaning of the -1 sentinel at record offset 32 and of the ring-buffer reset at offset 54 are inferred from the surrounding reset sequence.",
+    "sub_491E40's exact role (node destructor vs. other teardown) is unknown.",
+    "The list node layout beyond the first-field sentinel and the next-pointer is not evidenced."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

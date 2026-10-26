@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "address": "0x00429470",
+  "proposed_name": "AIAbility",
+  "owner": {
+    "type": "AIDriver",
+    "trust": "DERIVED",
+    "evidence_refs": ["caller:0x00424E70", "source:raw", "function:0x00429470"]
+  },
+  "summary": "Per-frame AI ability/driver tick: scales AI difficulty (this+0x453C ability value walks +/-0.01 per frame with a probability override), decides pit-stop entry/exit and tire-compound behavior, handles final-lap steering target setup from vehicle limits, and clears AI state flags after a pit stop. Runs each frame from AIMainUpdate. The this+0x453C ability value is recalculated every frame (external writes do not persist).",
+  "local_names": {
+    "v18": "ring_input_value",
+    "v3": "ability_walked",
+    "v4": "ability_probability_override",
+    "v6": "mode",
+    "v9": "vehicle_setup_ptr",
+    "v10": "steering_target",
+    "v13": "tire_durability_ptr",
+    "v14": "tire_durability_used",
+    "v22": "durability_bytes"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Cache ring-buffer input (this+0x4044) and set engagement/ability gate dword this+0x4544 = 1.",
+      "evidence_refs": ["field:this:0x00016452", "field:this:0x00017732", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Dispatch on RingBufferAccessWithWrap(this+0x4044): when it returns 2 (in-pit) clear the gate this+0x4544 = 0 and set difficulty this+0x457C = AIDifficultyScalar() * 0.75.",
+      "evidence_refs": ["callee:0x004D1CF0", "field:this:0x00016452", "field:this:0x00017732", "field:this:0x00017788", "callee:0x00424750"]
+    },
+    {
+      "kind": "calculation",
+      "description": "When ring-buffer value is 0 or 1: set this+0x457C = AIDifficultyScalar(); if race phase dword_7C56A4 == 7, walk ability this+0x453C down by 0.01 (clamped above this+0x44F4) when this+0x4508 is 0, or up by 0.01 (clamped below this+0x44D8 + this+0x44F4) otherwise.",
+      "evidence_refs": ["global:0x007C56A4", "callee:0x00424750", "field:this:0x00017788", "field:this:0x00017724", "field:this:0x00017652", "field:this:0x00017672", "field:this:0x00017624", "field:this:0x00016452"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Probability override when this+0x450C != 0: if (this+0x44D4 - this+0x450C*0.5) * 100.0 >= RandLCGRandomNumberGenerator()%100 then this+0x453C = this+0x44D8 + this+0x44F4 (capped up), else this+0x453C = this+0x44F4 * 0.5 (capped down); then clear this+0x4508 and this+0x450C to 0.",
+      "evidence_refs": ["callee:0x005884ED", "field:this:0x00017620", "field:this:0x00017676", "field:this:0x00017724", "field:this:0x00017624", "field:this:0x00017652", "field:this:0x00017672"]
+    },
+    {
+      "kind": "guard",
+      "description": "Difficulty override gate (guard 0): when dword this+0x4064 == 1, set this+0x4544 = 0 and this+0x457C = AIDifficultyScalar() * 0.75.",
+      "evidence_refs": ["guard:0", "field:this:0x00016484", "field:this:0x00017732", "field:this:0x00017788", "callee:0x00424750"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pit-exit / slow-mode handling: when mode this+0x3D6C != 2, speed this+0x3984 > 0.001 and this+0x4000 <= 0: if mode == 1 and (vtable obj at *(this+0x0) with +0xCD4 non-null and pit flags, or byte this+0x39FA with lap this+0x403C + 2 < dword_8ACF8C) then ForcePitExit(this); then reset ability this+0x453C = this+0x44F4 * 0.85.",
+      "evidence_refs": ["field:this:0x00015724", "field:this:0x00014724", "field:this:0x00016384", "field:this:0x00000000", "field:obj:0x00003284", "field:this:0x00014842", "field:this:0x00016444", "global:0x008ACF8C", "callee:0x0042A110", "field:this:0x00017724", "field:this:0x00017652"]
+    },
+    {
+      "kind": "guard",
+      "description": "Final-lap / pit-exit-eligible gate: when dword_7C56A4 == 7, lap this+0x403C == dword_8ACF8C - 1, lap status this+0x4040 in {2, -1} and speed this+0x4440 >= 5.0: set this+0x4534 = dbl_8AFEA0 + 120.0; compute steering target from vehicle setup this+0x4354 limits at +0x34/+0x38 into this+0x4420 and clear byte this+0x4579.",
+      "evidence_refs": ["global:0x007C56A4", "global:0x008ACF8C", "global:0x008AFEA0", "field:this:0x00016444", "field:this:0x00016448", "field:this:0x00017472", "field:this:0x00017236", "field:this:0x00017716", "field:this:0x00017448", "field:this:0x00017440", "field:this:0x00017785", "field:*(this+0x4354):0x00000052", "field:*(this+0x4354):0x00000056"]
+    },
+    {
+      "kind": "call",
+      "description": "In-pit phase gate: call ConditionalGate(this+3); if this+0x4000 > 0 and this+0x4068 == 0 then set this+0x4068 = 6.",
+      "evidence_refs": ["callee:0x004EFAC0", "global:0x007C56A4", "field:this:0x00016384", "field:this:0x00016488"]
+    },
+    {
+      "kind": "call",
+      "description": "Slow-speed pit-stop decision (this+0x4440 < 1.0): in-pit phase clears byte this+0x45F4; otherwise PitStopDecisionTireCompound(this), compare tire durability this[4472-indexed] against this+0x3988, SpeedValueSetterWithGlobalMirror(1.0 or durability); then PostPitCleanup(this), ParameterValueSetter(18), clear gate this+0x4544, set this+0x4550 = 1 and byte this+0x4548 = 1, zero steering/physics fields (this+0x443C, 0x34F8/0x34FC/0x3500, this+0x43F8, this+0x4424, this+0x4428-region), AIClearStateFlags(this), set this+0x4510 = 4/5 by phase, zero this+0x4534/0x4438/0x4434/0x454C, call sub_426430, then set this+0x4534 = dbl_8AFEA0 + 180.0.",
+      "evidence_refs": ["field:this:0x00017472", "field:this:0x00017908", "field:this:0x00017785", "callee:0x0042A3D0", "field:this:0x00014728", "field:this:0x00017888", "callee:0x004F1890", "callee:0x0042A6F0", "callee:0x0042ACD0", "field:this:0x00017732", "field:this:0x00017744", "field:this:0x00017736", "field:this:0x00017468", "field:this:0x00013560", "field:this:0x00013568", "field:this:0x00013564", "field:this:0x00017400", "callee:0x0042AE00", "field:this:0x00017680", "field:this:0x00017700", "field:this:0x00017464", "field:this:0x00017460", "field:this:0x00017740", "field:this:0x00017444", "callee:0x00426430", "field:this:0x00017716", "global:0x008AFEA0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Fuel-lap pit-exit check: when this+0x45F8 (child driver) is non-null, dword_7C56A4 == 7, FuelMultiplierValue(this) < 2, FuelMultiplierValue(child) in (0,3), and neither FuelWeightLimitCheck(child) nor FuelWeightLimitCheck(this) holds, call ForcePitExit(this).",
+      "evidence_refs": ["field:this:0x00017912", "global:0x007C56A4", "callee:0x0042AD20", "callee:0x0042AD50", "callee:0x0042A110"]
+    },
+    {
+      "kind": "return",
+      "description": "Call RacePhasePitEntryTrigger(this), write NAN to this+0x44B0, and return the trigger result.",
+      "evidence_refs": ["callee:0x00429EB0", "field:this:0x00017584", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "gate = 1; ring = ringbuffer(this+0x4044);",
+    "if (ring == 2) { gate = 0; this->difficulty(0x457C) = AIDifficultyScalar() * 0.75; }",
+    "else if (ring == 0 || ring == 1) {",
+    "    this->difficulty = AIDifficultyScalar();",
+    "    if (phase == 7) { walk this->ability(0x453C) by +/-0.01 toward bounds;",
+    "        if (this+0x450C) apply probability override via LCG; }",
+    "}",
+    "if (this+0x4064 == 1) { gate = 0; difficulty *= 0.75; }",
+    "if (mode != 2 && speed > 0.001 && this+0x4000 <= 0) { maybe ForcePitExit(this); ability *= 0.85; }",
+    "if (final_lap_gate) { compute steering target from setup limits into 0x4420; }",
+    "if (speed < 1.0) { PitStopDecisionTireCompound; post-pit reset of steering/physics/state fields; }",
+    "if (this+0x45F8 && fuel_conditions) ForcePitExit(this);",
+    "return RacePhasePitEntryTrigger(this);"
+  ],
+  "unresolved": [
+    "The constants at 0x59E43C, 0x59E440, 0x59E444, 0x59E450, 0x59E600, 0x59E6F8, 0x59E7EC, 0x59E7FC, 0x59E808, 0x59E908, 0x59E968 and 0x8ACEE0 are read but their precise role is not visible in the raw source text.",
+    "The tire-durability base (this[4453]) is an indexed array whose base offset is not among the packet's enumerated fields.",
+    "Vtable-adjacent flag derefs at obj+0x3348/+0x3352/+0x3416 are not enumerated fields in the packet; treated as pit-status flags conservatively."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E450",
+    "global:0x0059E600",
+    "global:0x0059E6F8",
+    "global:0x0059E7EC",
+    "global:0x0059E7FC",
+    "global:0x0059E808",
+    "global:0x0059E908",
+    "global:0x0059E968",
+    "global:0x008ACEE0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

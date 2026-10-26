@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "address": "0x00594624",
+  "proposed_name": "SlabBuddyFree",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Releases a memory block back into a slab/buddy allocator object (a1). Aligns the requested size a3 to 16 bytes, derives the subbin selector from the block address relative to the region base a1[3], reads the block header at a2-4 (slot count and total span), then either splits an oversized free block into an allocated part plus a free remainder or, when the block is already free, coalesces it with its buddy. The remainder is re-inserted into the free list of its size class while updating the aggregate bitmap words a1[0] (size classes below 0x20) and a1[1] (classes 0x20-0x3F) and the per-subbin bitmap arrays at v3 + 4*v5 + 68 / + 196. Returns 1 on success and 0 when the block is marked in use or the requested size exceeds the total span. Invoked from sub_58B5D4.",
+  "local_names": {
+    "a1": "allocator object; a1[0] lower aggregate bitmap word, a1[1] upper aggregate bitmap word, a1[3] region base, a1[4] per-subbin data base",
+    "a2": "address of the memory block being released",
+    "a3": "requested byte size before alignment",
+    "v4": "aligned requested size",
+    "v5": "subbin selector derived from the block address",
+    "v3/v36": "per-subbin data base and per-subbin free-list head area"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Read the block header at a2-4: v6 = (header size dword) - 1 giving the aligned-slot count, v7 = total span dword at v6 + a2 - 4, with v8 = v6 + a2 - 4 as the free-list node base.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the aligned requested size v4 = (a3 + 23) & 0xFFFFFFF0, the subbin selector v5 = (a2 - a1[3]) >> 15, and the per-subbin head area v36 = 516 * v5 + v3 + 324 where v3 = a1[4].",
+      "evidence_refs": ["field:this:0x0000000C", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When v4 <= v6 the request fits within the first header span: take the shrink path and either use the whole block or split off a free remainder of span v44 = v6 - v4.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When v4 > v6, reject with return 0 if the block is marked in use (v7 low bit set) or the request exceeds the total span (v4 > v6 + v7).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Coalesce path: unlink the free block from its current size-class list by relinking the cross-links stored at v8 + 4 and v8 + 8, then merge its span into the buddy region.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the old size class from the per-subbin bitmap (v3 + 4*v5 + 68 for classes below 0x20, v3 + 4*v5 + 196 for classes 0x20-0x3F), decrement the class-count byte at v3 + class + 4, and clear the aggregate bit 0x80000000 >> class in a1[0] (lower) or a1[1] (upper) when the count drops to zero.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Record the remainder's size class: increment the class-count byte, set the class bit in the per-subbin bitmap (v3 + 4*v5 + 68 / + 196), and set the aggregate bit in a1[0] or a1[1] when the class was previously empty.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Finish the free-list insert for the remainder node v25 = a2 + v4 - 4: store next/back links via the head at v33 = v36 + 8*class, and write the remainder size v44 into the node header v25[0] and its trailer.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On the shrink path write the final allocated-block header and trailer: *(_DWORD *)(v21 - 4) = v4 + 1 and *(_DWORD *)(v21 + v4 - 8) = v4 + 1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 after a successful release/split; the in-use or over-sized guard returns 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "This free path is invoked from sub_58B5D4 (0x0058B5D4).",
+      "evidence_refs": ["caller:0x0058B5D4"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// a1[0] = lower aggregate bitmap, a1[1] = upper aggregate bitmap,",
+    "// a1[3] = region base, a1[4] = per-subbin data base.",
+    "int SlabBuddyFree(int* a1, int block, int requested) {",
+    "  int base  = a1[4];",
+    "  int size  = (requested + 23) & 0xFFFFFFF0;   // align to 16",
+    "  int sub   = (block - a1[3]) >> 15;           // subbin selector",
+    "  int head  = 516 * sub + base + 324;          // per-subbin head area",
+    "  int slots = *(int*)(block - 4) - 1;",
+    "  int span  = *(int*)(slots + block - 4);",
+    "  if (size <= slots) {",
+    "    if (size < slots) split: reinsert remainder (slots - size) at class ((slots - size) >> 4) - 1;",
+    "  } else {",
+    "    if ((span & 1) || size > slots + span) return 0;  // in use or too small",
+    "    unlink block from its size-class list; merge span; reinsert at class (merged >> 4) - 1;",
+    "  }",
+    "  *(int*)(block - 4) = size + 1;               // mark allocated block size",
+    "  return 1;",
+    "}"
+  ],
+  "unresolved": [
+    "The size-class mapping (class = (size >> 4) - 1, capped at 63) is implied by the bitmap arithmetic but the allocator object layout beyond offsets 0x0/0x4/0xC/0x10 is not present in this packet.",
+    "a1[3] (offset 0xC) and a1[4] (offset 0x10) are consumed as region base and per-subbin data base; their exact subbin stride (516 bytes) is only evident in this function body.",
+    "Whether this is purely the free path (versus also serving split-allocate requests) depends on the caller sub_58B5D4, whose body is outside this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

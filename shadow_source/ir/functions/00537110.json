@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "address": "0x00537110",
+  "proposed_name": "InflateDecompressStateMachine",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Core DEFLATE (zlib inflate) decompression state machine, driven by a per-frame caller sub_5357E0. The state object this carries the block state (this+0x0), a length/count word (this+0x4), a code-length build counter (this+0x8), the BFINAL block flag (this+0x18), the bit accumulator (this+0x20), a decode-table construction parameter (this+0x24) and a ring-buffer limit pointer (this+0x28). The stream object (obj+0x0) holds the input read pointer. It handles stored blocks (LEN/NLEN), fixed-Huffman and dynamic-Huffman block types, builds Huffman decode tables, decodes symbols against mask tables, and pushes output through AudioRingBufferCopy; error paths return -2/-3/-4 statuses with diagnostic strings.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Dispatch on the decompressor state stored at this+0x0 (switch over states 0-9 plus default), backed by the compiler jump tables at 0x00537C9C and 0x00537CC4.",
+      "evidence_refs": ["function:0x00537110", "field:this:0x00000000", "global:0x00537C9C", "global:0x00537CC4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "State 0 (stored-block header): while fewer than 3 bits are buffered, read bytes from the stream read pointer (obj+0x0) into the bit accumulator (this+0x20), shifting each byte in by the running bit count.",
+      "evidence_refs": ["field:obj:0x00000000", "field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the low header bit as the BFINAL block flag at this+0x18; the BTYPE field selects the block encoding.",
+      "evidence_refs": ["field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Dispatch on BTYPE: 0 -> stored uncompressed block (state 1), 1 -> dynamic Huffman (state 6 after table allocation), 2 -> fixed Huffman (state 3), 3 -> invalid block type.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BTYPE=1 (dynamic): call ArithmeticComparison_a630 and then ObjectAllocFieldInit to allocate the dynamic-Huffman table object using the construction parameter at this+0x24; on allocation failure persist the accumulator/bit-count and return -4 via AudioRingBufferCopy.",
+      "evidence_refs": ["callee:0x0053A630", "callee:0x00539830", "callee:0x0053A660", "field:this:0x00000024", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "BTYPE=3 is invalid: set error state 9 at this+0x0, record the aInvalidBlockTy_0 diagnostic string, and return -3 via AudioRingBufferCopy.",
+      "evidence_refs": ["field:this:0x00000000", "global:0x005DA914", "callee:0x0053A660", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "State 1 (stored LEN/NLEN): refill the accumulator (this+0x20) to 32 bits and verify that the header complement (~LEN >> 16) equals the 16-bit NLEN; a mismatch sets error state 9, records aInvalidStoredB_0, and returns -3.",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000000", "global:0x005DA8F4", "callee:0x0053A660", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the decoded 16-bit stored-block length in this+0x4; if nonzero advance to state 2 (byte copy), otherwise jump to the flush/final state selected by the BFINAL flag at this+0x18.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000018", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "State 2: copy up to this+0x4 remaining bytes from input (obj+0x0 read pointer) to output in chunks bounded by ring-buffer availability, using this+0x28 as the ring-limit pointer and re-entering the state when the buffer wraps.",
+      "evidence_refs": ["field:this:0x00000004", "field:obj:0x00000000", "field:this:0x00000028", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "State 3 (Huffman header): read a 14-bit header (HLIT/HDIST/HCLEN) into this+0x4; reject when HLIT or HDIST exceeds 0x1D, setting error state 9, recording aTooManyLengthO_0, and returning -3.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000000", "global:0x005DA8D0", "callee:0x0053A660", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "State 3: allocate the code-length decode table via the allocator callback stored at v117[8], passing the construction parameter at this+0x24; allocation failure returns -4 via AudioRingBufferCopy.",
+      "evidence_refs": ["field:this:0x00000024", "callee:0x0053A660", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "State 4: read 3-bit code lengths into the table buffer, placing each by the code-length order index table dword_5B7C60 indexed by the this+0x8 counter, then zero-fill the remaining entries up to 19.",
+      "evidence_refs": ["field:this:0x00000008", "global:0x005B7C60", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "State 4: build the 3-bit code-length Huffman table by calling sub_539F70 with the parameter at this+0x24; on failure invoke the table-owner callback and return its error code, mapping -3 to error state 9.",
+      "evidence_refs": ["callee:0x00539F70", "field:this:0x00000024", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "State 5 (symbol decode): decode symbols against the code-length tables reading up to a1[4] bits at a time into the accumulator (this+0x20) and using the bit-mask table dword_5DBB90; a repeat-of-last or repeat-zero code copies prior entries.",
+      "evidence_refs": ["field:this:0x00000020", "global:0x005DBB90", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "State 5: a code-length repeat-overrun (repeat-of-last with an empty history) or count overflow sets error state 9, records aInvalidBitLeng_0, and returns -3 via AudioRingBufferCopy.",
+      "evidence_refs": ["field:this:0x00000000", "global:0x005DA8B4", "callee:0x0053A660", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "State 5: after all code lengths are decoded, build the main literal/length-distance decode tables via sub_53A4D0 and ObjectAllocFieldInit; allocation failure persists state and returns -4.",
+      "evidence_refs": ["callee:0x0053A4D0", "callee:0x00539830", "callee:0x0053A660", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "State 6 (output): query sub_539870; when it returns 1, emit the decoded block through IndirectCallViaVTable0x24 with the table object, reload the stream pointers, and continue with state 0 unless the BFINAL flag (this+0x18) was set, which advances to state 7.",
+      "evidence_refs": ["callee:0x00539870", "callee:0x00539F60", "field:this:0x00000018", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "States 7/8 (flush/final): push remaining buffered output through AudioRingBufferCopy; final completion returns 1 and other flushes return the copied byte count. Error and default exits return -2/-3/-4 statuses via AudioRingBufferCopy after restoring the stream read/write pointers; the frame-path caller is sub_5357E0.",
+      "evidence_refs": ["callee:0x0053A660", "caller:0x005357E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// zlib inflate: per-frame coroutine keyed on state at this[0].",
+    "int InflateDecompressStateMachine(state* s, stream* r) {",
+    "  for (;;) switch (s->state) {",
+    "    case 0: // block header",
+    "      refill_bits(s, r, 3);",
+    "      s->bfinal = s->bits & 1;",
+    "      switch ((s->bits & 7) >> 1) {",
+    "        case 0: s->state = 1; break;           // stored",
+    "        case 1: alloc_dynamic_table(s); break; // dynamic huffman",
+    "        case 2: s->state = 3; break;           // fixed huffman",
+    "        default: return error(s, InvalidBlockType);",
+    "      }",
+    "      break;",
+    "    case 1: // stored LEN/NLEN header",
+    "      refill_bits(s, r, 32);",
+    "      if (check_complement(s->bits) == 0) return error(s, InvalidStoredBlock);",
+    "      s->len = (unsigned short)s->bits;",
+    "      s->state = s->len ? 2 : (s->bfinal ? 7 : 0);",
+    "      break;",
+    "    case 2: copy_stored_bytes(s, r); break;   // ring-buffer copy",
+    "    case 3: read_huffman_header(s, r); break; // HLIT/HDIST/HCLEN",
+    "    case 4: build_codelen_table(s, r); break;",
+    "    case 5: decode_symbols(s, r); break;      // literal/length+dist",
+    "    case 6: emit_decoded_block(s, r); break;",
+    "    case 7: case 8: return AudioRingBufferCopy(r);",
+    "    default: return -2;",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "Existing-analysis field purposes for this+0x8 ('bit accumulator'), this+0x18 ('bit count') and this+0x20 ('allocation size') conflict with raw-source usage, where this+0x8 is the code-length build counter (a1[2]), this+0x18 is the BFINAL block flag (a1[6]) and this+0x20 is the bit accumulator (a1[8]); raw-source usage was used here.",
+    "Exact contract of the construction parameters at this+0x24 and this+0x28 depends on callee sub_539F70 / sub_53A4D0 and the ring-buffer layout, which are outside this packet.",
+    "The identity of the state object (this) and stream object (obj) classes is unconfirmed; the owner is left UnknownObject."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

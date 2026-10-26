@@ -1,0 +1,2498 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_005_vehicle_physics_05",
+  "scope": "vehicle_physics",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x0049E570",
+      "function_ref": "function:0x0049E570",
+      "name": "SuspensionCornerCheck",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Renders one corner's suspension/temperature gauge into the draw surface a2. The per-corner state is read from the input-state object dword_7C54E0 at a 296-byte-per-corner stride (non-zero dword at +2100 and non-zero byte at +2164 gate the active branch). When the corner is inactive the gauge blinks red, gated on the parity CRTFtol(dbl_8AFEA0) % 2. When active and the per-car dword at +18580 of the car selected by dword_7C54DC equals that of the car selected by dword_7C54E4, it draws three color-encoded segments built from the corner temperature table at 8157696 (a double converted from Kelvin to Celsius by -273.16, then passed to FloatToColorEncoding); otherwise it draws the whole bar in the fixed green color.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Enter the active-corner branch only when the corner entry at dword_7C54E0 + 296*a1 has a non-zero dword at +2100 and a non-zero byte at +2164; otherwise fall through to the blink path.",
+          "evidence_refs": [
+            "global:0x007C54E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Compare the per-car dword at +18580 of the car selected by dword_7C54DC (via dword_7C54F0) with the +18580 dword of the car selected by dword_7C54E4; equality selects the three-segment draw, inequality the plain green bar.",
+          "evidence_refs": [
+            "global:0x007C54E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Loop over three segments: for segment v6 in {0,1,2}, compute segment start v8 = a3 + v6*(a5/3) and end v9 (a3 + a5 for the first two segments, a3 + 2*(a5/3) + a5/3 for the last), read the corner temperature double at 1124*a1 + 8*v6 + 8157696, subtract 273.16 to convert Kelvin to Celsius, encode it with FloatToColorEncoding, and draw the segment via RenderDrawOperationWithClipping(a2, v8, a4, v9 - v8, color).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "In the unequal-car branch, draw the full gauge bar with RenderDrawOperationWithClipping(a2, a3, a4, a5, -16711936), the fixed green color, and return its result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "In the inactive-corner branch, compute the blink gate result = CRTFtol(dbl_8AFEA0) % 2; when the remainder is zero draw the whole bar with RenderDrawOperationWithClipping(a2, a3, a4, a5, -65536), the fixed red color, and return it.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the last draw result from the active path (the final segment draw) or the blink remainder when the blink gate rejected the red draw.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "dword_7C54F0, dword_7C54DC, dword_7C54E4, dbl_8AFEA0, the temperature table base 8157696, FloatToColorEncoding, RenderDrawOperationWithClipping and CRTFtol appear in the raw source but have no packet-level evidence entries; their roles are read from the source text only.",
+        "The meaning of the +18580 comparison (one per-corner value on two cars) and the physical meaning of the temperature table are not evidenced; the gauge reading is a DERIVED label.",
+        "Whether the green bar and the red blink bar represent distinct HUD states is inferred from the branch structure, not stated in evidence.",
+        "The 296-byte corner stride and the +2100/+2164 gate offsets are read from the raw source arithmetic; their field names are unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004A4710",
+      "function_ref": "function:0x004A4710",
+      "name": "FindNearestVehicle",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Searches the global vehicle pointer array (dword_7C54F0, terminated by byte_7C5690) for the candidate vehicle whose speed/distance delta from a target vehicle (index a2 into a per-slot pointer table at this) is smallest but still positive. Each candidate uses one of two delta paths: a live candidate delegates through AIDelegateCall, while a null slot whose base state at +13000 is not 1 falls back to the base vehicle data at +15016. Returns the winning vehicle pointer, or 0 when the target slot is null. Called by OpponentProximityScanTeamRecognition.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize the return value to 0, the best-vehicle pointer v11 to 0, and the minimum-delta sentinel v10 to 99999.0 so any valid positive delta replaces it.",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x004A4710"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on the target vehicle slot pointer at this[4*a2]; when null the function returns 0 immediately and skips the whole scan.",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x004A4710"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate the vehicle pointer array starting at dword_7C54F0 up to the byte_7C5690 end sentinel, advancing one pointer per step.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x007C54F0",
+            "global:0x007C5690"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Per-candidate branch: when the scanned slot pointer v6 is non-null, evaluate it via the AI delegate path.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call AIDelegateCall(candidate) to obtain the candidate value used for the delta computation.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x0042ADD0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call SpeedDeltaComputation(target vehicle, candidate value) to compute the distance/delta metric between the two vehicles.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x00426CC0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Accept the candidate only when its delta is below the current minimum and greater than the zero threshold (flt_59E440, the ~0.0f clamp), so negative or zero deltas are rejected.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x0059E440"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On accept, record the new minimum delta into v10 and the winning candidate pointer into v11.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Fallback branch for a null slot: use base vehicle data only when the state dword at base+13000 is not 1 (slot not reserved/active).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Fallback delta: call SpeedDeltaComputation(target vehicle, *(base+15016)) using the base vehicle value.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x00426CC0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Accept the fallback candidate when its delta is below the current minimum and greater than the zero threshold.",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x0059E440"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On accept, record the new minimum delta and the base vehicle pointer as the winner.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the closest vehicle pointer found during the scan (0 if the target slot was null), consumed by the caller's proximity scan.",
+          "evidence_refs": [
+            "source:raw",
+            "caller:0x0042A7D0"
+          ]
+        }
+      ],
+      "unresolved": [
+        "flt_59E440 is read by the positive-delta guards but its exact numeric value (zero threshold) is DERIVED, not confirmed in this function.",
+        "Semantics of AIDelegateCall's return value and the base-data dwords at +13000 and +15016 are unknown here.",
+        "The exact stride/type of the this[4*a2] target slot table and whether a2 indexes slots or grid positions is unresolved."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004A6B80",
+      "function_ref": "function:0x004A6B80",
+      "name": "CollisionAvoidanceCheck",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Vehicle collision-avoidance state machine, called per frame. When the avoidance sub-object (this+0x14 / this[5]) is present, it reads the vehicle's movement-threshold flag, gets the position-change monitor, and computes the normalized movement delta between the monitor's predicted position and its current position. It then iterates every other active vehicle and tests the other vehicle's direction vector for an approaching path (approach-time ratio 0 < t < 5.5). If a collision is predicted it clears the collision flag; otherwise it transitions the avoidance state from 1 to 2 and optionally raises a flag-field bit, or, when a collision is detected while in state 2, invokes the utility handler. Returns the current state value.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Proceed only when the avoidance sub-object pointer at this+0x14 (this[5]) is non-null; otherwise the function returns that null value immediately.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read the movement-threshold flag at obj+0x39A0 (14752) of the object struct pointed to by *this; a value > 0.0 means the vehicle is moving and the collision check is enabled.",
+          "evidence_refs": [
+            "field:obj:0x000039A0",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call PositionChangeMonitor on the object base + 12 to obtain the position-change monitor; read the predicted position (pointer stored at monitor+272) and the current position fields (monitor+0/+4/+8).",
+          "evidence_refs": [
+            "callee:0x004E9630",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the movement delta vector between the monitor's predicted position and its current position (three components) and its squared length.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "If the squared length is > 0.0, normalize the delta by 1/sqrt(length) so the subsequent tests use a unit direction.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate vehicle index i over all vehicles, count taken from the global dword_5C329C (VehicleCount).",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Skip the vehicle whose index equals this[1] (this+0x4, the own index).",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "For each candidate, dereference the active-vehicle pointer array dword_7C54F0; only consider vehicles whose activity byte at +13388 is non-zero.",
+          "evidence_refs": [
+            "global:0x007C54F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Dot product of the normalized delta with the other vehicle's direction vector (offsets +13560/+13564/+13568); this is the denominator of the approach-time test.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Only continue the approach test when the dot-product denominator is non-zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the approach-time ratio: dot product of the delta with the own vehicle's direction (obj+13536/13540/13544, i.e. obj+0x34E0/0x34E4/0x34E8) minus the other vehicle's position projection, divided by the denominator; if 0 < t < 5.5 the paths collide and the collision flag is cleared.",
+          "evidence_refs": [
+            "field:obj:0x000034E0",
+            "field:obj:0x000034E4",
+            "field:obj:0x000034E8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Read the avoidance state from the sub-object and apply the state machine: when clear and state == 1, set the state to 2 and, if the sub-object flag (dword index [25]) is set, invoke FlagFieldBitManipulation(1, 1, 1, 0); when a collision is predicted and state == 2, invoke UtilityFunction_4000 on the sub-object. The deterministic field table reports the state at this+0x8C and a related sub-object field at this+0x78.",
+          "evidence_refs": [
+            "field:this:0x00000078",
+            "field:this:0x0000008C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the avoidance state value read from the sub-object (or the null sub-object pointer when absent).",
+          "evidence_refs": [
+            "field:this:0x0000008C",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Owner type and identity of the avoidance sub-object and of the enclosing object are unknown.",
+        "The deterministic field table reports the state at this+0x8C and a related field at this+0x78, while the raw source reads the state as sub-object dword index [30] and a flag as index [25]; the exact base binding of the deterministic offsets is unresolved.",
+        "Globals flt_59E43C, flt_59E440 and flt_59E918 are listed by the packet's global table but do not appear in the raw source text; their role here is unresolved.",
+        "FlagFieldBitManipulation and UtilityFunction_4000 are invoked in the source but are absent from the packet callee list; their addresses and contracts are unknown.",
+        "The collision-test window literal 5.5 and the other-vehicle direction offsets +13560/+13564/+13568 are taken verbatim from the raw source without independent confirmation."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E918"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004B2DD0",
+      "function_ref": "function:0x004B2DD0",
+      "name": "VehicleOrientationFromEulerAngles",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x004B2DD0",
+          "source:raw"
+        ]
+      },
+      "summary": "Converts packed Euler/orientation data from the fixed-point struct `this` into a float triple written at a2+8/+12/+16 plus two bitfield-packed values, storing a3 at a2+4 and returning it. Reads int16 components at this+9/+11/+13 scaled by 0.015625, round-trips the output vector through fixed-point and clamped-short conversions, and when the direction vector is non-zero builds an orthonormal orientation basis: unpacks this+0/+2/+4/+8 into a second triple scaled by 0.000030517578, derives a normal with CollisionNormalFromFeature (falling back to a default axis on failure), forms cross-product axes, normalizes, extracts Euler angles via atan2 with a gimbal-singularity case, and packs the result to saturated int16. Finally writes the unpacked float triple and packs the two bitfield parameters. Called by FloatComputation (00464B40) and CollisionStateUpdate (00500010).",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Read the three packed int16 orientation components at this+9, this+11 and this+13 and scale each by 0.015625 into v21/v22/v23.",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "field:this:0x0000000B",
+            "field:this:0x0000000D",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call UtilityFunction_2480(a2+8, &v21) to load the scaled components into the output float vector at a2+8.",
+          "evidence_refs": [
+            "callee:0x004B2480",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Round-trip the output vector through FloatToFixedConversionWithClamp(a2+8, zeroed buffer) and FloatToShortClampedConversion(a2+8, zeroed buffer).",
+          "evidence_refs": [
+            "callee:0x004B25D0",
+            "callee:0x004B2750",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Skip the entire orientation-basis computation and Euler extraction when all three scaled components v21, v22 and v23 are zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Unpack the packed dwords: v20 = this+0 << 8, v6 = (this+4 << 16) + (word at this+2 & 0xFF00), v7 = (this+4 >> 8) & 0xFFFF00.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000002",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Normalize the direction vector: compute 1/sqrt of the squared sum of v21/v22/v23, scale each component by it, then negate all three.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Build the second input triple: v9 = (byte at this+8 << 24) + v7, then scale v20/v6/v9 by 0.000030517578 into v35[0..2].",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call CollisionNormalFromFeature(dbl_7C9360, v35, &v24) to derive a collision normal; when it returns 0, fall back to a default axis (v24 = 0.0, v25 = 1.0, v26 = 0.0).",
+          "evidence_refs": [
+            "callee:0x0044C550",
+            "global:0x007C9360",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Build the orthonormal basis: compute cross-product axes from the normalized direction and the normal components, then normalize the resulting axis again.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call FloatConvertWrapper() to convert an intermediate value with sign handling, then store its negation into v32.",
+          "evidence_refs": [
+            "callee:0x00588570",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Extract Euler angles: when fabs of the pivot component equals 1.0 use atan2(-v23, v21) with v34 = 0.0, otherwise use atan2(v27, v29) and atan2(v22, v25).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call FloatToInt16SaturationPack(&v32) to pack the extracted angle component into a saturated int16.",
+          "evidence_refs": [
+            "callee:0x004B31A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Unpack this+0/+4/+8 again (shifted and scaled by 0.000030517578) into the final float triple v13/v14/v31 and write it to a2+8, a2+12 and a2+16.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call TernarySelectByBitfield(this) to select a value from the bitfield and pass it into BitfieldInsert on the output vector at a2+8.",
+          "evidence_refs": [
+            "callee:0x004B2BF0",
+            "callee:0x004B29B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_4B2C50(this) to decode an additional parameter and pack it into the output bitfield with FloatToBitfieldPack.",
+          "evidence_refs": [
+            "callee:0x004B2C50",
+            "callee:0x004B2930",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write a3 to a2+4 and return a3 as the result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Globals dbl_59E420, flt_59E43C, flt_59E440, flt_59E670, flt_59E778 and flt_59E780 are recorded as read by this function but do not appear by name in the decompiled text; they are most likely constant operands (for example the 0.000030517578 scale or threshold/zero constants) that Hex-Rays folded, so their exact role here cannot be confirmed from this packet.",
+        "The concrete types of the packed struct `this` and of the output object at a2 are unknown; offset meanings (Euler angles, orientation basis, bitfield parameters) are inferred from the access pattern.",
+        "The sign/negation sequence around FloatConvertWrapper and the exact meaning of the two bitfield parameters selected by TernarySelectByBitfield and sub_4B2C50 are not established."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E420",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E670",
+        "global:0x0059E778",
+        "global:0x0059E780"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004B32A0",
+      "function_ref": "function:0x004B32A0",
+      "name": "CollisionVertexPackTransform",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x004B32A0",
+          "source:raw"
+        ]
+      },
+      "summary": "Packs a fixed-point triple from the struct `this` into floats and through the bitfield pipeline at the output object a2. Zeroes v12/v13/v14, round-trips the output vector at a2+8 through UtilityFunction_2480, FloatToFixedConversionWithClamp and FloatToShortClampedConversion, unpacks this+0/+2/+4/+8 (shifted, combined and scaled by 0.000030517578) into v12/v13/v14, calls sub_4B2310 to process the vector into a zero-initialized buffer, then packs two bitfield parameters via TernarySelectByBitfield -> BitfieldInsert and sub_4B2C50 -> FloatToBitfieldPack. Writes a3 to a2+4 and returns the bitfield-pack result. Called by CollisionStateUpdate (00500010) during collision geometry setup.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call UtilityFunction_2480(a2+8, &v12) to initialize the output float vector at a2+8 from the zeroed float buffer.",
+          "evidence_refs": [
+            "callee:0x004B2480",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Round-trip the output vector through FloatToFixedConversionWithClamp(a2+8, &v12) and FloatToShortClampedConversion(a2+8, &v12).",
+          "evidence_refs": [
+            "callee:0x004B25D0",
+            "callee:0x004B2750",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Unpack the packed fixed-point triple: v12 = (this+0 << 8) * 0.000030517578; v13 = ((this+4 << 16) + (word at this+2 & 0xFF00)) * 0.000030517578; v14 = ((byte at this+8 << 24) + ((this+4 >> 8) & 0xFFFF00)) * 0.000030517578.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000002",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_4B2310(a2+8, &v12, zeroed buffer) to process the unpacked vector data into the output path.",
+          "evidence_refs": [
+            "callee:0x004B2310",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call TernarySelectByBitfield(this) to select a value from the bitfield of `this` and insert it into the output vector at a2+8 with BitfieldInsert.",
+          "evidence_refs": [
+            "callee:0x004B2BF0",
+            "callee:0x004B29B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_4B2C50(this) to decode an additional parameter and pack it into the output bitfield with FloatToBitfieldPack; the pack result becomes the return value.",
+          "evidence_refs": [
+            "callee:0x004B2C50",
+            "callee:0x004B2930",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write a3 to a2+4 and return the bitfield-pack result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Global flt_59E780 is recorded as read by this function but does not appear by name in the decompiled text; it is likely the 0.000030517578 scale constant folded by Hex-Rays, so its exact role cannot be confirmed from this packet.",
+        "The concrete types of the packed struct `this` and the output object at a2 are unknown; the fields are treated as packed fixed-point components based on the shift/combine pattern, but the semantic meaning of the two bitfield parameters is not established.",
+        "The relationship of this function to its sibling VehicleOrientationFromEulerAngles (004B2DD0), which shares the same unpack/bitfield tail, is structurally clear but the shared owning object is unknown."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E780"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004B5120",
+      "function_ref": "function:0x004B5120",
+      "name": "VehicleIdentityStringComparison",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004B5120"
+        ]
+      },
+      "summary": "Thiscall identity/path comparison on two strings. Computes the end of the path string stored at object offset 18196 of a2, then scans backward for the last backslash (92). The trailing filename v3 is compared with the string at this+65, and the string at this+1 is compared with the string at object offset 17952 of a2; the function returns true when both match. When the path has no backslash, the comparison is performed against the whole path string. Invoked by VehicleInstanceListBuilder (0x004B5C50).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "v3 = a2 + 18196 + strlen(a2 + 18196): locate the null terminator of the path string stored at object offset 18196 of a2.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Scan for a backslash only while (unsigned int)v3 > a2 + 18196, i.e. the path string at offset 18196 is non-empty; an empty path skips the scan entirely.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk v3 backward while *v3 != 92 (backslash) to find the last path separator; if the backward scan reaches a2 + 18196 the identity comparison is evaluated and returned directly.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "After a backslash is found, advance v3 by one so it points past the separator to the trailing filename.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return !strcmp(this + 65, v3) && !strcmp(this + 1, a2 + 17952): true when the string at this+65 equals the trailing filename v3 AND the string at this+1 equals the string at object offset 17952 of a2.",
+          "evidence_refs": [
+            "function:0x004B5120",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by VehicleInstanceListBuilder (0x004B5C50) to match a vehicle's identity strings against a path-derived name.",
+          "evidence_refs": [
+            "caller:0x004B5C50",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The type of object a2 (owner of offsets 18196 and 17952) and the meanings of the identity strings at this+1 and this+65 are caller-defined; VehicleInstanceListBuilder context is out of packet scope.",
+        "The unsigned comparison (unsigned int)v3 <= a2 + 18196 is the decompiler's rendering of the pointer boundary; its exact intent when the path contains no backslash is inferred from the fall-through return."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004B9CB0",
+      "function_ref": "function:0x004B9CB0",
+      "name": "VehicleLifetimeAverageAccessor",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004B9CB0"
+        ]
+      },
+      "summary": "Accessor that reads a float at offset 0xF30 of the object pointed to by the pointer stored at this+0x0. First dereferences this to obtain the target object, then loads the float at object+0xF30 and returns it. No branches, guards, globals, or callees.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Dereference this to obtain the target object pointer stored at this+0x0.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Load and return the float at the target object's offset 0xF30 (byte offset 3888).",
+          "evidence_refs": [
+            "field:obj:0x00000F30",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The owning class of both this and the dereferenced object is unknown; the packet provides no owner evidence.",
+        "The meaning of the float at object+0xF30 as a lifetime average is taken from the existing-analysis label and ABI legacy name (DERIVED); the field could equally be any scalar quantity, and the accessor reads only through a single pointer hop.",
+        "The raw source declares a double return type while the value loaded is a 32-bit float; the discrepancy was not reconciled in this packet."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x0047C940",
+        "caller:0x0047C960",
+        "caller:0x0047DBE0",
+        "function:0x004B9CB0"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004C6920",
+      "function_ref": "function:0x004C6920",
+      "name": "VehicleObjectConstructor",
+      "owner": {
+        "type": "VehicleObject",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "function:0x004C6920",
+          "source:raw"
+        ]
+      },
+      "summary": "Vehicle-object constructor. Calls RaceStructInit to zero-initialise the struct, sets the field at offset 0x4894 to -1 (all bits set) to mark an unset handle/ID, clears the driver-info substructure via VehicleDriverInfoClear, then stores a persistent self-reference via LargeStructFieldSetterWithStoredReference and returns the object pointer.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call RaceStructInit(this) to zero-initialise the vehicle/race struct fields.",
+          "evidence_refs": [
+            "callee:0x00423E80"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write this[4645] (offset 0x4894) = -1, i.e. 18446744073709551615 as an unsigned 64-bit literal (all bits set), marking the handle/ID as uninitialised.",
+          "evidence_refs": [
+            "field:this:0x00004894"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call VehicleDriverInfoClear(this) to clear the driver-info substructure fields.",
+          "evidence_refs": [
+            "callee:0x004C79E0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call LargeStructFieldSetterWithStoredReference(this, this) to store a persistent self-reference pointer inside the object.",
+          "evidence_refs": [
+            "callee:0x00424040"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the constructed object pointer (this).",
+          "evidence_refs": [
+            "function:0x004C6920",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantic purpose of the handle/ID at offset 0x4894 beyond 'default-initialised to unset' is not established.",
+        "Construction context and preconditions from caller RepeatedCallLoop (0x0042BB50) are not resolved here."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead",
+        "caller:0x0042BB50"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004CB620",
+      "function_ref": "function:0x004CB620",
+      "name": "ParticleCollisionSpark",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Spawns a spark particle at a collision contact point. Computes the contact magnitude and point from the incoming normal and position vectors, allocates a slot from the circular buffer owned by this, sizes the spark from a 256-entry trig table indexed by a rotating byte counter, computes a collision normal (with a fallback when the feature query fails), writes position, velocity and magnitude into the slot, then publishes the slot through three array/flag-flagging helpers. Runs when the contact magnitude is at least 1.0 and the slot counter at this + 88 is positive. Called by the collision effect dispatch (004ce3e0).",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute the contact magnitude v39 as the square root of the sum of the three squared components of the direction vector a4.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Emit a particle only when the magnitude is at least 1.0 and the slot counter at this + 88 (field 0x58) is positive.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x00000058",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Allocate a particle slot from the circular buffer owned by this.",
+          "evidence_refs": [
+            "callee:0x004CB540",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize the slot position: slot[2] = a2 and slot[3] = a2 + the slot's prior value at slot[7].",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the spark size v13 as (trig-table value indexed by the post-incrementing byte counter times 64.0 plus 190.0) times a5, store it in slot[10], and rescale it by v39 divided by the threshold at this + 72 (field 0x48) when v39 is below that threshold.",
+          "evidence_refs": [
+            "global:0x008AAE70",
+            "global:0x008AAE74",
+            "field:this:0x00000048",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the caller-supplied integer a7 into the slot's dword 17.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the contact point as a3 plus a4 scaled by the value at this + 76 (field 0x4C) divided by the magnitude v39.",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the contact point vector components into slot[11..13] after the normal computation completes.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the velocity vector as a4 scaled by 0.1 into slot[14..16] and the magnitude v39 into slot[26].",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Compute the collision normal from the feature data at dbl_7C9360 and the contact point vector; on failure write a fallback normal into slot[21..23] and adjust the stored slot[12] component.",
+          "evidence_refs": [
+            "callee:0x0044C550",
+            "global:0x007C9360",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Set the texture layer flag on the slot's backing array using the stored slot[11..13] values as parameters.",
+          "evidence_refs": [
+            "callee:0x00558C60",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Set an array element flag with bounds checking using the values at this + 12 (field 0xC), this + 16 (field 0x10) and this + 20 (field 0x14) as parameters.",
+          "evidence_refs": [
+            "callee:0x00558CB0",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Write the sentinel value 0xFFFFFF into the bounds-checked array entry for the slot.",
+          "evidence_refs": [
+            "callee:0x00558CF0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Five packet-annotated global reads (flt_59E43C, flt_59E708, flt_59E7F8, flt_59E84C, flt_5ACEA8) appear as evidence but do not surface as named identifiers in the raw source; their roles here are unknown.",
+        "Meaning of slot[7]'s prior value in the position accumulation is unknown.",
+        "Constants 64.0, 190.0, 0.25 and 0.1, and the four packed dwords (0, 1070596096, 0x40000000, 1201543096) passed through the stack, are unexplained.",
+        "The slot[12] fallback value (py - 0.25) and the identity of the fallback normal are not grounded.",
+        "Owner class for this particle-emitter / collision-effect object is unknown."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E708",
+        "global:0x0059E7F8",
+        "global:0x0059E84C",
+        "global:0x005ACEA8"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004CE3E0",
+      "function_ref": "function:0x004CE3E0",
+      "name": "CollisionEffectDispatch",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Dispatches collision contact effects (spark and trail particles) per frame. Gated by ArithmeticComparison_9fb0 on the dword_8AB6E4 scoring/effects gate, iterates the effect slot array at this+0x40 over this+0x3C slots, and switches on each slot's type id (slot+4). Type id 5 (raw id 4) spawns collision sparks via ParticleCollisionSpark; trail-type slots spawn particles via ParticleTrailEmitter with jittered positions sampled from the flt_8AB274 noise table through the dword_8AAE70 ring counter. Emission is throttled on dword_7CF8A8 / dword_8AB6E4 / dword_7C5698 (every 20 ticks), deduplicated by remembering the last contact position (a2+56..64) and speed (a2+68), and the byte_7CF9D4 / byte_7CF9EC weather-render flags select the trail magnitude/persistence variant.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Enter the dispatch only when ArithmeticComparison_9fb0(&dword_8AB6E4) returns true (effects/scoring gate).",
+          "evidence_refs": [
+            "callee:0x004B9FB0",
+            "global:0x008AB6E4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Proceed only when the effect slot count at this+0x3C (this[15]) is greater than zero.",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the effect slot array at this+0x40, reading each slot's effect type id from the dword at slot+4.",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "field:*(this+0x40):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Skip a slot when its type id is not one of the handled types; the spark branch (raw id 4) additionally requires *(a2+48) != 0.0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute jittered spawn positions as flt_8AB274[(byte)dword_8AAE70++] * 0.25 added to the contact position components.",
+          "evidence_refs": [
+            "global:0x008AB274",
+            "global:0x008AAE70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Throttle emission when dword_7CF8A8 <= threshold and dword_8AB6E4 != 2: emit only every 20th tick of the dword_7C5698 session tick counter.",
+          "evidence_refs": [
+            "global:0x007CF8A8",
+            "global:0x008AB6E4",
+            "global:0x007C5698",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Spawn collision spark particles via ParticleCollisionSpark for the spark effect type id.",
+          "evidence_refs": [
+            "callee:0x004CB620",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Persist the last contact position (a2+56, +60, +64) and speed value (a2+68) so re-emission is suppressed within a 0.15 speed-difference and 1.0 squared-distance window.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Emit trail particles via ParticleTrailEmitter using the jittered contact position and the velocity vector (a5[0..2]) scaled by 0.1.",
+          "evidence_refs": [
+            "callee:0x004CBC50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "The weather/render flags byte_7CF9D4 and byte_7CF9EC select the trail emitter magnitude/persistence variant (1, -1, or 104).",
+          "evidence_refs": [
+            "global:0x007CF9D4",
+            "global:0x007CF9EC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Advance the slot pointer and index until the index reaches the this+0x3C slot count.",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the slot-iteration flag value v8.",
+          "evidence_refs": [
+            "function:0x004CE3E0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The flt_59E43C, flt_59E440, flt_59E7F8, flt_59E84C and flt_59E868 globals are listed in the packet's global table but never referenced in the raw source text; their role is unknown.",
+        "Owner object, parameter semantics (a2 contact, a4 position, a5 velocity, a6, a7), and the exact type-id enumeration are not evidenced.",
+        "The precise mapping of the byte_7CF9D4/byte_7CF9EC truth table to the emitter persistence constants (1, -1, 104) is reconstructed, not confirmed.",
+        "Meaning of the returned slot-iteration flag v8 to callers is unresolved."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead",
+        "caller:0x004472B0",
+        "caller:0x004EE2D0",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E7F8",
+        "global:0x0059E84C",
+        "global:0x0059E868"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004CE930",
+      "function_ref": "function:0x004CE930",
+      "name": "ParticleCollisionEffect",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004CE930"
+        ]
+      },
+      "summary": "Spawns trail particles from three collision-effect slots (this[8], this[9], this[10], offsets 0x20/0x24/0x28) whenever the collision point has moved enough since the last frame. An emitter-mode argument a6 is derived from the smoke/renderer flags (byte_7CF9BC, byte_7CF9EC), and emission is gated per slot by the collision strength stored in the a2 state, the slot pointer, and the throttle counters (dword_7CF8A8, dword_8AB6E4, dword_7C5698). On significant movement (vertical delta beyond 0.15/0.06, or squared horizontal distance beyond 1.0/0.16) it updates the tracked position, builds a noise-jittered spawn position from flt_8AB274 indexed by the ring counter dword_8AAE70, scales the a5 velocity by 0.1, and calls ParticleTrailEmitter (0x004CBC50). The third slot additionally spawns a secondary offset trail at higher render-throttle detail. Called from tire-slip force calculation (0x004472B0) and 0x004EE2D0.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Derive the emitter-mode argument a6 from the smoke/renderer flags: when byte_7CF9BC is set and byte_7CF9EC is set use 104; when both flags are clear use -1; otherwise keep the incoming a6.",
+          "evidence_refs": [
+            "global:0x007CF9BC",
+            "global:0x007CF9EC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Slot-8 emission gate: requires the collision strength at a2+0 to be non-zero, the slot pointer this[8] (offset 0x20) to be set, and the throttle condition dword_7CF8A8 > 2, dword_8AB6E4 == 2, or dword_7C5698 % 20 == 0.",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "global:0x007CF8A8",
+            "global:0x008AB6E4",
+            "global:0x007C5698",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Slot-8 movement test: emit only when the vertical delta from the last tracked collision height exceeds 0.15000001, or the squared horizontal distance from the tracked position exceeds 1.0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Update the tracked collision state at a2 (position components, collision height a3, and velocity) to the current frame's values.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Build the jittered spawn position for slot 8: offset the collision point by flt_8AB274[ring counter dword_8AAE70++] scaled by 0.25, and scale the a5 velocity components by 0.1.",
+          "evidence_refs": [
+            "global:0x008AB274",
+            "global:0x008AAE70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Emit the slot-8 trail particle via ParticleTrailEmitter (0x004CBC50) with the slot pointer this[8], the collision height, the jittered position, the scaled velocity and the emitter-mode a6.",
+          "evidence_refs": [
+            "callee:0x004CBC50",
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Slot-9 emission gate: same throttle condition with the collision strength at a2+20 and the slot pointer this[9] (offset 0x24).",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "global:0x007CF8A8",
+            "global:0x008AB6E4",
+            "global:0x007C5698",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Slot-9 movement test: vertical delta beyond 0.15000001, or squared horizontal distance beyond 1.0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Update the slot-9 tracked collision state at a2 (positions around a2+28, height a2+24, velocity a2+36).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Build the jittered spawn position for slot 9 using flt_8AB274[ring counter dword_8AAE70++] and the 0.25/0.1 scalings.",
+          "evidence_refs": [
+            "global:0x008AB274",
+            "global:0x008AAE70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Emit the slot-9 trail particle via ParticleTrailEmitter (0x004CBC50) with the slot pointer this[9] (offset 0x24).",
+          "evidence_refs": [
+            "callee:0x004CBC50",
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Slot-10 emission gate: requires the collision strength at a2+40 and the slot pointer this[10] (offset 0x28), with the slightly weaker throttle condition dword_7CF8A8 > 1, dword_8AB6E4 == 2, or dword_7C5698 % 20 == 0.",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "global:0x007CF8A8",
+            "global:0x008AB6E4",
+            "global:0x007C5698",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Slot-10 movement test: vertical delta beyond 0.059999999, or squared horizontal distance beyond 0.16000001.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Update the slot-10 tracked collision state at a2 (positions around a2+48, height a2+44, velocity a2+56).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Build the jittered spawn position for slot 10 using flt_8AB274[ring counter dword_8AAE70++] with the finer 0.15000001 offset scaling and the 0.1 velocity scaling.",
+          "evidence_refs": [
+            "global:0x008AB274",
+            "global:0x008AAE70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Emit the slot-10 trail particle via ParticleTrailEmitter (0x004CBC50) with the slot pointer this[10] (offset 0x28).",
+          "evidence_refs": [
+            "callee:0x004CBC50",
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When dword_7CF8A8 > 2 (high render-throttle detail), also spawn a secondary offset trail from slot this[10]: offset the spawn position backward by a5 scaled by 0.0125, jitter it again with flt_8AB274[ring counter dword_8AAE70++], and use the collision height a3 minus 0.0125.",
+          "evidence_refs": [
+            "global:0x007CF8A8",
+            "field:this:0x00000028",
+            "global:0x008AB274",
+            "global:0x008AAE70",
+            "callee:0x004CBC50",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The emitter-mode magic values 104 and -1 (a6) are not explained by the packet.",
+        "The slot thresholds (0.15000001/0.059999999/1.0/0.16000001) and scaling factors (0.25/0.1/0.0125) are inlined literals in the raw source; their binding to the packet's float globals (flt_59E43C, flt_59E440, flt_59E454, flt_59E7F8, flt_59E84C, flt_59E868, flt_5ACECC, flt_5ACED0) is not directly evidenced.",
+        "The a2 state layout (per-slot tracked position/height/velocity fields) is used via raw pointer arithmetic; no field evidence pins it to a named struct.",
+        "The exact meaning of the ParticleTrailEmitter throttle argument a6 is not evidenced here."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E454",
+        "global:0x0059E7F8",
+        "global:0x0059E84C",
+        "global:0x0059E868",
+        "global:0x005ACECC",
+        "global:0x005ACED0"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004CEFA0",
+      "function_ref": "function:0x004CEFA0",
+      "name": "ArraySearchAndWheelContactParticle",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x004CEFA0",
+          "source:raw"
+        ]
+      },
+      "summary": "Searches a strided array owned by the receiver for the first entry whose element field at +4 equals a3, then spawns a wheel contact particle effect at that entry via WheelContactParticle. The array element count is read from this+0x10 and the pointer to the first element from this+0x14; entries are 108 bytes apart. Returns the matched entry index (0-based), or the element count when no entry matches and the search runs out, or 0 when the array is empty. Called by AIWaypointPathCheckerRenderer.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize result to 0 before the count check.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on the array element count at this+0x10 being greater than zero; when it is <= 0 the function returns the initial result 0 immediately.",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Linear search starting at the first element pointer stored at this+0x14, advancing the entry pointer by a 108-byte stride each iteration.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Per-iteration exit guard: if the incremented result reaches the element count at this+0x10, stop searching and return the count.",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compare the entry field at +4 (matching slot/ID) against a3 to decide whether to keep scanning.",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000004"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "On match, call WheelContactParticle with the matched entry and the raw arguments a2, a4, a5 to spawn the wheel contact particle effect.",
+          "evidence_refs": [
+            "callee:0x004CD6C0"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return WheelContactParticle's result on match, the element count when the scan exhausts, or 0 for an empty array.",
+          "evidence_refs": [
+            "callee:0x004CD6C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by AIWaypointPathCheckerRenderer (0x004024F0) during render-time contact-particle lookup.",
+          "evidence_refs": [
+            "caller:0x004024F0"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Element layout beyond the +4 matching slot is unknown; the 108-byte stride structure is not described by the packet.",
+        "Semantic meaning of a2, a4, a5 passed to WheelContactParticle depends on that callee's signature."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004D2450",
+      "function_ref": "function:0x004D2450",
+      "name": "SetFirstUninitializedVehicleActive",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004D2450"
+        ]
+      },
+      "summary": "Scans the active-vehicle pointer table dword_7C54F0 over dword_5C329C slots for the first slot whose in-use flag at offset 0x4064 (16484) is zero, then marks that slot active by setting the flag to 1 (unless the current value is 3) and returns the slot base plus 0x4034 (16436). If every checked slot is already in use, returns the slot count. Matches the ABI lead Set_First_Uninitialized_Vehicle_Active.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize the scan index result to 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Proceed only when the slot count dword_5C329C is positive; otherwise skip the scan and fall through to the final return.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the pointer table while the in-use flag at dword_7C54F0[result] + 16484 is nonzero, i.e. skip slots already active.",
+          "evidence_refs": [
+            "global:0x007C54F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Within the scan, if ++result reaches dword_5C329C return the count immediately (no free slot found).",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Capture the candidate slot pointer v1 = dword_7C54F0[result], read its flag v2 at +16484, and set result to the slot base v1 + 16436.",
+          "evidence_refs": [
+            "global:0x007C54F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Only overwrite the flag when its current value v2 is not 3.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set the slot's active flag at (result + 48), which is the slot base + 16484, to 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the found slot base plus 0x4034, or the slot count when the scan was exhausted or dword_5C329C was non-positive.",
+          "evidence_refs": [
+            "function:0x004D2450",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by DispatchChainWithVTableCalls (0x0046DA20) and sub_46DC60 (0x0046DC60) to claim the first inactive vehicle slot during startup/dispatch paths.",
+          "evidence_refs": [
+            "caller:0x0046DA20",
+            "caller:0x0046DC60",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantics of the flag values: 3 is treated as a sentinel that must not be overwritten, and its meaning (e.g. player-owned or permanently-active slot) is unknown.",
+        "The owner class of the scanned slot structure is unknown; the scan pattern matches the vehicle array but the slot stride is not established here."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004D5C70",
+      "function_ref": "function:0x004D5C70",
+      "name": "ComputeQuaternionTransform",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead"
+        ]
+      },
+      "summary": "Builds four 4x4 transform matrices on the stack from parameters a2 (negated when positive), a3 (clamped to [0,1]) and a4 (used as a scalar power/twist base), passes their pointer table to sub_5677B0 to combine them, then writes the combined result as eight dwords into this[0..0x1C]. On failure (non-zero result from sub_5677B0) the output is zeroed except the last dword set to the identity value 1072693248 (1.0f). Stores input parameter a4 into this[4] (field 0x20) as a double.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "If a2 > 0.0, negate it so a2 is always <= 0.0 (comparison against zero sentinel dbl_59E430).",
+          "evidence_refs": [
+            "global:0x0059E430",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Clamp a3 into [0,1]: a3 >= 1.0 becomes 1.0, a3 < 0.0 becomes 0.0, otherwise unchanged (bounds from globals dbl_59E420=1.0 and dbl_59E430=0.0).",
+          "evidence_refs": [
+            "global:0x0059E420",
+            "global:0x0059E430",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store input parameter a4 as a double into this[4] (field this+0x20).",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Fill the v42 pointer table with the addresses of four consecutive 40-byte matrix slots in the v15 stack buffer (v7 advances by 10 dwords per iteration, 4 iterations).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute coefficient powers and initialize the four matrix slots: a4*a4, a4*a4*a4, 3*a4*a4, a4+a4, plus identity (1072693248 = 1.0f) and zero entries; constant 3.0 sourced from global dbl_59E7E0.",
+          "evidence_refs": [
+            "global:0x0059E7E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_5677B0 with the matrix pointer table v42 and count 4 to combine the four matrices; the non-zero return marks failure.",
+          "evidence_refs": [
+            "callee:0x005677B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "On failure (sub_5677B0 returned non-zero): zero all eight output dwords this[0x0..0x18] and set this[0x1C] to identity value 1072693248 (1.0f).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000014",
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On success: copy the combined matrix dwords from the stack locals into this[0x0..0x1C] (eight dwords).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000014",
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of sub_5677B0 (0 success, non-zero failure).",
+          "evidence_refs": [
+            "function:0x004D5C70",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The semantics of sub_5677B0's matrix combination (cubic/quaternion interpolation) are not established by this packet; the existing analysis label suggests cubic interpolation but that is not packet evidence.",
+        "The interpretation of the eight-dword output as quaternion versus 4x4 transform, and which callers (sub_430750, BrakeTemperatureFadeModel, TireCompoundPerWheelPhysicsApplication) consume it, is unconfirmed.",
+        "Global dbl_59E7E0 is referenced where a literal 3.0 appears in the coefficient computation; the equality is inferred, not stated in the packet."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x00430750",
+        "caller:0x00430A50",
+        "caller:0x0043DA10"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004D9FE0",
+      "function_ref": "function:0x004D9FE0",
+      "name": "VehicleStateUpdate",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004D9FE0"
+        ]
+      },
+      "summary": "Updates a per-vehicle lap-gap state object. Reads one of two time values through the player vehicle pointer dword_7C54E0 at offsets 16592 and 16596, records which source was chosen as a byte flag at this+0x18 and stores the chosen value at this+0x1C, then calls LapTimeGapCalculation to compute the gap written into the float at this+0x14. A non-zero gap-calculation return, a zero-or-negative gap at this+0x14, or a non-zero gap flag v6 each cause VTableDispatchWithFieldClear on this; otherwise the function falls through returning v6.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Initialize the gap flag v6 to 0 before any comparison path runs.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Select comparison source on the player vehicle pointer dword_7C54E0: a non-zero value at offset 16592 selects path A; otherwise path B is taken only when offset 16596 is non-zero, else flow jumps to LABEL_6 skipping the comparison.",
+          "evidence_refs": [
+            "global:0x007C54E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Path A: set the byte flag at this+0x18 to 1 (comparing against offset 16592) and store the offset-16592 value into this+0x1C.",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "global:0x007C54E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Path A: LapTimeGapCalculation(offset-16592 value, dword_7C54E0, gap output at this+0x14, &v6) computes the gap and the v6 flag.",
+          "evidence_refs": [
+            "callee:0x0049B6D0",
+            "field:this:0x00000014",
+            "global:0x007C54E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Path B: set the byte flag at this+0x18 to 0 (comparing against offset 16596) and store the offset-16596 value into this+0x1C.",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "global:0x007C54E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Path B: LapTimeGapCalculation(dword_7C54E0, offset-16596 value, gap output at this+0x14, &v6) computes the gap and the v6 flag.",
+          "evidence_refs": [
+            "callee:0x0049B6D0",
+            "field:this:0x00000014",
+            "global:0x007C54E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If v3 (the gap-calculation return) is non-zero, return VTableDispatchWithFieldClear(this).",
+          "evidence_refs": [
+            "callee:0x004D7E30",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "At LABEL_6: if the float gap at this+0x14 is <= 0.0, return VTableDispatchWithFieldClear(this).",
+          "evidence_refs": [
+            "callee:0x004D7E30",
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the gap flag v6 is non-zero, return VTableDispatchWithFieldClear(this).",
+          "evidence_refs": [
+            "callee:0x004D7E30",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Fall-through path returns v6 (zero when no dispatch fired).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked from sub_4D9F80 as the vehicle lap-gap state update step.",
+          "evidence_refs": [
+            "caller:0x004D9F80",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantics of the dword_7C54E0 offsets 16592 and 16596 (the two comparison time sources) are not named in the packet; they may be lap or segment time slots on the player vehicle.",
+        "flt_59E440 appears in the packet global set but not in the raw source text; the existing analysis labels it a zero threshold, unconfirmed.",
+        "unk_7CE234 appears in the packet global set but not in the raw source text; role unresolved.",
+        "Polarity of the byte flag at this+0x18 (1 for offset 16592, 0 for offset 16596) and the exact purpose of the v6 gap flag are understood only at the structural level."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E440",
+        "global:0x007CE234"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004DA990",
+      "function_ref": "function:0x004DA990",
+      "name": "CountVehiclesAtOrBeyondLap",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Counts vehicles whose per-vehicle progress field (vehicle_ptr + 16444) meets or exceeds a threshold read from this+0x24. Iterates all vehicles in the global pointer array dword_7C54F0 (index 0..dword_5C329C-1), comparing each vehicle's progress value against the threshold v2 = this[9]; returns the count of vehicles that pass. If dword_5C329C (vehicle count) is not positive the loop is skipped and 0 is returned.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize the packed 64-bit accumulator v1 to 0 (count of matches = 0, loop index = 0).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on dword_5C329C (vehicle count) > 0; when not positive the iteration loop is skipped entirely and 0 is returned.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Read the comparison threshold v2 = this[9] (byte offset this+0x24).",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "do-while loop over vehicle indices 0 through dword_5C329C-1, incrementing the index (HIDWORD of v1) each iteration.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "For each index, dereference the global vehicle pointer array dword_7C54F0 to obtain the vehicle pointer and read the dword at vehicle_ptr + 16444 (progress field); compare it against the threshold v2.",
+          "evidence_refs": [
+            "global:0x007C54F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "When the vehicle's progress value is >= v2, increment the match count (LODWORD of v1).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the accumulated count of vehicles meeting the threshold (0 when the guard skips the loop).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The per-vehicle field at byte offset 16444 (0x403C) is read from the vehicle pointer array; its exact meaning (the fill labels it lap progress) is DERIVED and not independently evidenced. The fill's prose cites 0x406C for this field, which does not match the deterministic displacement 16444 = 0x403C from the raw source.",
+        "The meaning of the threshold field this+0x24 and the purpose of the returned count (fill: position/finish ranking) are DERIVED and not established by the packet."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004DAD80",
+      "function_ref": "function:0x004DAD80",
+      "name": "CheckAllVehiclesFinished",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Returns whether race completion is confirmed, combining a race-end condition, a stored count at this+0x20, and a walk over trailing vehicles. Reads the race-end boolean from ArithmeticComparison_ae80 and the vehicle tally from dword_5C329C. The result flag starts false and is set true if the race-end condition holds or this+0x20 equals the tally. When the finished count from sub_4DA990 matches the tracked count read from the player vehicle pointer (dword_7C54E8 + 16480) and that tracked count has not reached the tally, it scans the trailing vehicles (via sub_4D1B50 over dword_8ACEE0 indexing dword_5F073C at stride 4656) under a one-shot flag at this+0x28, and clears the flag if the scan reaches the end of the grid. Writes 1 to this+0x28 to mark the one-shot check as done.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize the result flag to 0 (false) before any checks.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Read the race-end condition via ArithmeticComparison_ae80().",
+          "evidence_refs": [
+            "callee:0x004DAE80",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Read the vehicle tally from dword_5C329C.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Set the result flag when either the race-end condition holds or this+0x20 equals the vehicle tally.",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Read the tracked vehicle count from the player vehicle pointer dword_7C54E8 at offset +16480.",
+          "evidence_refs": [
+            "global:0x007C54E8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Compute the finished count via sub_4DA990(this).",
+          "evidence_refs": [
+            "callee:0x004DA990",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Proceed with the trailing-vehicle walk only when the finished count equals the tracked count and the tracked count has not yet reached the tally in dword_5C329C.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "One-shot flag: only perform the trailing-vehicle walk when this+0x28 (byte at +40) equals 1.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk indices forward from the tracked count, stopping when a trailing vehicle is not finished; each index resolves through sub_4D1B50 over dword_8ACEE0 and indexes dword_5F073C at stride 4656. The walk terminates at the tally in dword_5C329C.",
+          "evidence_refs": [
+            "callee:0x004D1B50",
+            "global:0x008ACEE0",
+            "global:0x005F073C",
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "If the walk reached the end of the grid (all trailing vehicles finished), clear the result flag; then mark the one-shot flag handled by writing 1 to this+0x28.",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return whether race completion is confirmed.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The meaning of this+0x20 (stored count) and how it is populated is not established here.",
+        "The interpretation of dword_5F073C entries as per-vehicle finish state and the 4656 stride depend on the vehicle array layout.",
+        "The exact condition evaluated by ArithmeticComparison_ae80 is not visible in this function."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004DB130",
+      "function_ref": "function:0x004DB130",
+      "name": "PhysicsConstantInitializer",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004DB130",
+          "source:raw"
+        ]
+      },
+      "summary": "Minimal __thiscall constant initializer (structural twin of ConstantReturnSetter 004db100): stores the literal 1082130432 into the dword at this[4] (byte offset 0x10) and returns the same literal. Likely seeds a per-object physics/scalar field with a fixed value and echoes it back.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Write the constant 1082130432 (packet init_float 4.0) into this[4], the dword at byte offset 0x10 of the caller-owned object.",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Hold the same constant 1082130432 in the return register as result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return result, i.e. the value that was just stored into this[4].",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Facts record a read of global dword_5ACF5C (0x005ACF5C) but the raw pseudocode body emits only the immediate 1082130432; whether that global is the constant's source or an unrelated read is unresolved.",
+        "The object this refers to (physics/vehicle sub-object) is unconfirmed; proposed_name rests on the DERIVED prelabel twin relationship with 004db100."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x005ACF5C"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004E16F0",
+      "function_ref": "function:0x004E16F0",
+      "name": "ParticleEffectWorldTransform",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004E16F0",
+          "source:raw"
+        ]
+      },
+      "summary": "Transforms up to 17 particle-emitter positions from local to world space and spawns particles. Guards on the global particle-system pointer dword_8ACEB8; when it is non-null, iterates an emitter array of 17 slots starting at this+0x998 (this + 614 floats), each slot 7 floats wide (28 bytes). For every slot whose active-flag byte is non-zero it reads the 3x3 rotation matrix a2 and translation a3, transforms the slot position into world space, and calls ParticleSpawnFunction with the global system, world position, slot data, and the a4 parameter.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Load the global particle-system pointer: v4 = dword_8ACEB8.",
+          "evidence_refs": [
+            "global:0x008ACEB8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Return immediately when dword_8ACEB8 is null (no particle system active).",
+          "evidence_refs": [
+            "global:0x008ACEB8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Point v5 at the first emitter slot this + 614 floats (this+0x998) and seed the slot counter to 17.",
+          "evidence_refs": [
+            "field:this:0x00000998",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "do-while loop over 17 emitter slots; v5 advances by 7 floats (28 bytes) each iteration and the counter decrements until zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Read the active-flag byte at v5 - 8 (v6); when zero, skip this emitter slot.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Rotate the slot position into world space using rows of the 3x3 matrix a2: X = a2[1]*v5[0] + a2[2]*v5[1] + a2[0]*(v5-1), Y = a2[4]*v5[0] + a2[5]*v5[1] + a2[3]*(v5-1), Z = a2[7]*v5[0] + a2[8]*v5[1] + a2[6]*(v5-1), consuming the position components at this+0x998 (v5[0]) and this+0x99C (v5[1]).",
+          "evidence_refs": [
+            "field:this:0x00000998",
+            "field:this:0x0000099C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Add the translation vector a3: world.X += a3[0], world.Y += a3[1], world.Z += a3[2].",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call ParticleSpawnFunction(v4, worldPosition, v6, v5 + 2, slotExtraByte, a4) to spawn a particle at the world-space position.",
+          "evidence_refs": [
+            "callee:0x004CCE90",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by sub_4EE2D0 (004EE2D0) as the particle-emitter world transform stage.",
+          "evidence_refs": [
+            "caller:0x004EE2D0"
+          ]
+        }
+      ],
+      "unresolved": [
+        "dword_8ACEB8 (particle-system pointer), the a2 rotation matrix and a3 translation vector are only named as data locations; their containing object types and purposes are not proven.",
+        "The emitter slot stride of 7 floats and the exact meanings of the active-flag byte (v5-8), the extra byte (v5-7) and the trailing slot data passed as v5+2 are inferred from the raw layout, not from an independent struct definition."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004E1FD0",
+      "function_ref": "function:0x004E1FD0",
+      "name": "PointTransformByMatrixWithTranslation",
+      "owner": {
+        "type": "CameraTransform",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "caller:0x00409A00",
+          "caller:0x0040B710",
+          "caller:0x00434D60"
+        ]
+      },
+      "summary": "Pure 3D math helper with no callees, globals or guards. Multiplies the 3x3 rotation matrix stored at this+0x20..0x40 (rows this[8..10], this[11..13], this[14..16]) by the vector at this+0x8E8/0x8EC/0x8F0, adds a translation offset read just before the matrix (this+0x08..0x10 in the raw source, not present in the packet field list) into output a2, and copies the three floats at this+0x14/0x18/0x1C into output a3. Returns a3.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute output x: this+0x28 * this+0x8F0 + this+0x24 * this+0x8EC + this+0x8E8 * this+0x20 (matrix row 0 dotted with the this+0x8E8 vector).",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "field:this:0x00000024",
+            "field:this:0x00000028",
+            "field:this:0x000008E8",
+            "field:this:0x000008EC",
+            "field:this:0x000008F0"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute output y: this+0x34 * this+0x8F0 + this+0x30 * this+0x8EC + this+0x2C * this+0x8E8 (matrix row 1 dotted with the this+0x8E8 vector).",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "field:this:0x00000030",
+            "field:this:0x00000034",
+            "field:this:0x000008E8",
+            "field:this:0x000008EC",
+            "field:this:0x000008F0"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute output z: this+0x40 * this+0x8F0 + this+0x3C * this+0x8EC + this+0x38 * this+0x8E8 (matrix row 2 dotted with the this+0x8E8 vector).",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "field:this:0x0000003C",
+            "field:this:0x00000040",
+            "field:this:0x000008E8",
+            "field:this:0x000008EC",
+            "field:this:0x000008F0"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Add the translation offset to each output component; in the raw source the addend reads float slots this+0x08, this+0x0C, this+0x10 (v4 - 3, v4 - 2, v4 - 1) which are not present in the packet field list.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copy the three floats at this+0x14, this+0x18, this+0x1C into the output a3 as three _DWORDs.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "field:this:0x00000018",
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the a3 output pointer.",
+          "evidence_refs": [
+            "function:0x004E1FD0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The translation addend is read at this+0x08/0x0C/0x10 in the raw source, but the packet field list only covers this+0x14..0x40 and this+0x8E8..0x8F0; the addend offsets have no packet evidence reference.",
+        "The existing analysis labels this+0x38..0x40 as a quaternion and this+0x14..0x1C as matrix row 0, but the raw source copies this+0x14..0x1C into a3 and uses this+0x20..0x40 as the 3x3 matrix; the two labelings disagree.",
+        "Semantic role of the output a3 copy (this+0x14..0x1C) is not characterized by other evidence."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004E2610",
+      "function_ref": "function:0x004E2610",
+      "name": "initSuspensionGeometry",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead"
+        ]
+      },
+      "summary": "Initializes suspension geometry for a single wheel slot: computes the wheel offset vector from the chassis local origin, copies the suspension orientation matrix and the upright orientation matrix into per-wheel geometry storage, and extracts Euler angles from both matrices with gimbal-lock handling.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute wheel offset vector by subtracting the chassis local origin (this+0x48/0x4C/0x50 = X/Y/Z) from the input position a3, and store the three components into the wheel offset vector (v8[0..2]).",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "field:this:0x0000004C",
+            "field:this:0x00000050",
+            "function:0x004E2610",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Mirror the same three offset components into the geometry block at v5+184/+188/+192.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Copy the suspension orientation matrix (0x24 bytes, 3x3 floats) from a4 into per-wheel geometry storage at v6.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Load an element of the copied suspension orientation matrix (this[74*a2+93]), pass it through FloatConvertWrapper, negate it, and store the result at v5+128.",
+          "evidence_refs": [
+            "callee:0x00588570",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Gimbal-lock check on the suspension matrix: if fabs of a matrix element equals 1.0 (the constant 1.0 at 0x0059E420), take the alternate atan2 branch and force the second angle to 0.",
+          "evidence_refs": [
+            "global:0x0059E420",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Extract the first Euler angle from the suspension matrix via atan2(v6[2], v6[8]) when not in gimbal lock.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Extract the second Euler angle from the suspension matrix via atan2(v6[3], v6[4]) when not in gimbal lock.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Copy the upright orientation matrix (0x24 bytes, 3x3 floats) from a5 into the geometry block at v5+208.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Load an element of the copied upright matrix (v5+228), pass it through FloatConvertWrapper, negate it, and store at v5+196.",
+          "evidence_refs": [
+            "callee:0x00588570",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Second gimbal-lock check: if fabs of the upright matrix element (v5+228) equals 1.0, use the alternate atan2 formula and force the second angle to 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Extract the first Euler angle from the upright matrix via atan2(v5+216, v5+240) when not in gimbal lock.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Extract the second Euler angle from the upright matrix via atan2(v5+220, v5+224) when not in gimbal lock.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "FloatConvertWrapper (0x00588570) semantics not established; assumed double/float conversion helper.",
+        "atan2 argument order and the exact Euler angle rotation convention (order of Y/Z axes) not proven.",
+        "Whether the 0x24-byte matrices are row-major or column-major not determined.",
+        "Field at v5+128 (negated suspension element) role beyond Euler extraction not confirmed."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x004F0430"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x0049E570",
+    "function:0x004A4710",
+    "function:0x004A6B80",
+    "function:0x004B2DD0",
+    "function:0x004B32A0",
+    "function:0x004B5120",
+    "function:0x004B9CB0",
+    "function:0x004C6920",
+    "function:0x004CB620",
+    "function:0x004CE3E0",
+    "function:0x004CE930",
+    "function:0x004CEFA0",
+    "function:0x004D2450",
+    "function:0x004D5C70",
+    "function:0x004D9FE0",
+    "function:0x004DA990",
+    "function:0x004DAD80",
+    "function:0x004DB130",
+    "function:0x004E16F0",
+    "function:0x004E1FD0",
+    "function:0x004E2610"
+  ],
+  "required_material_refs": [
+    "callee:0x00423E80",
+    "callee:0x00424040",
+    "callee:0x00426CC0",
+    "callee:0x0042ADD0",
+    "callee:0x0044C550",
+    "callee:0x0049B6D0",
+    "callee:0x004B2310",
+    "callee:0x004B2480",
+    "callee:0x004B25D0",
+    "callee:0x004B2750",
+    "callee:0x004B2930",
+    "callee:0x004B29B0",
+    "callee:0x004B2BF0",
+    "callee:0x004B2C50",
+    "callee:0x004B31A0",
+    "callee:0x004B9FB0",
+    "callee:0x004C79E0",
+    "callee:0x004CB540",
+    "callee:0x004CB620",
+    "callee:0x004CBC50",
+    "callee:0x004CCE90",
+    "callee:0x004CD6C0",
+    "callee:0x004D1B50",
+    "callee:0x004D7E30",
+    "callee:0x004DA990",
+    "callee:0x004DAE80",
+    "callee:0x004E9630",
+    "callee:0x00558C60",
+    "callee:0x00558CB0",
+    "callee:0x00558CF0",
+    "callee:0x005677B0",
+    "callee:0x00588570",
+    "field:*(this+0x14):0x00000004",
+    "field:*(this+0x40):0x00000004",
+    "field:obj:0x00000F30",
+    "field:obj:0x000034E0",
+    "field:obj:0x000034E4",
+    "field:obj:0x000034E8",
+    "field:obj:0x000039A0",
+    "field:this:0x00000000",
+    "field:this:0x00000002",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x00000009",
+    "field:this:0x0000000B",
+    "field:this:0x0000000C",
+    "field:this:0x0000000D",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x0000002C",
+    "field:this:0x00000030",
+    "field:this:0x00000034",
+    "field:this:0x00000038",
+    "field:this:0x0000003C",
+    "field:this:0x00000040",
+    "field:this:0x00000048",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000058",
+    "field:this:0x00000078",
+    "field:this:0x0000008C",
+    "field:this:0x000008E8",
+    "field:this:0x000008EC",
+    "field:this:0x000008F0",
+    "field:this:0x00000998",
+    "field:this:0x0000099C",
+    "field:this:0x00004894",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E454",
+    "global:0x0059E670",
+    "global:0x0059E708",
+    "global:0x0059E778",
+    "global:0x0059E780",
+    "global:0x0059E7E0",
+    "global:0x0059E7F8",
+    "global:0x0059E84C",
+    "global:0x0059E868",
+    "global:0x0059E918",
+    "global:0x005ACEA8",
+    "global:0x005ACECC",
+    "global:0x005ACED0",
+    "global:0x005ACF5C",
+    "global:0x005C329C",
+    "global:0x005F073C",
+    "global:0x007C54E0",
+    "global:0x007C54E8",
+    "global:0x007C54F0",
+    "global:0x007C5690",
+    "global:0x007C5698",
+    "global:0x007C9360",
+    "global:0x007CE234",
+    "global:0x007CF8A8",
+    "global:0x007CF9BC",
+    "global:0x007CF9D4",
+    "global:0x007CF9EC",
+    "global:0x008AAE70",
+    "global:0x008AAE74",
+    "global:0x008AB274",
+    "global:0x008AB6E4",
+    "global:0x008ACEB8",
+    "global:0x008ACEE0"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x00423E80",
+    "callee:0x00424040",
+    "callee:0x00426CC0",
+    "callee:0x0042ADD0",
+    "callee:0x0044C550",
+    "callee:0x0049B6D0",
+    "callee:0x004B2310",
+    "callee:0x004B2480",
+    "callee:0x004B25D0",
+    "callee:0x004B2750",
+    "callee:0x004B2930",
+    "callee:0x004B29B0",
+    "callee:0x004B2BF0",
+    "callee:0x004B2C50",
+    "callee:0x004B31A0",
+    "callee:0x004B9FB0",
+    "callee:0x004C79E0",
+    "callee:0x004CB540",
+    "callee:0x004CB620",
+    "callee:0x004CBC50",
+    "callee:0x004CCE90",
+    "callee:0x004CD6C0",
+    "callee:0x004D1B50",
+    "callee:0x004D7E30",
+    "callee:0x004DA990",
+    "callee:0x004DAE80",
+    "callee:0x004E9630",
+    "callee:0x00558C60",
+    "callee:0x00558CB0",
+    "callee:0x00558CF0",
+    "callee:0x005677B0",
+    "callee:0x00588570",
+    "caller:0x004024F0",
+    "caller:0x00409A00",
+    "caller:0x0040B710",
+    "caller:0x0042A7D0",
+    "caller:0x0042BB50",
+    "caller:0x00430750",
+    "caller:0x00430A50",
+    "caller:0x00434D60",
+    "caller:0x0043DA10",
+    "caller:0x004472B0",
+    "caller:0x0046DA20",
+    "caller:0x0046DC60",
+    "caller:0x0047C940",
+    "caller:0x0047C960",
+    "caller:0x0047DBE0",
+    "caller:0x004B5C50",
+    "caller:0x004D9F80",
+    "caller:0x004EE2D0",
+    "caller:0x004F0430",
+    "field:*(this+0x14):0x00000004",
+    "field:*(this+0x40):0x00000004",
+    "field:obj:0x00000F30",
+    "field:obj:0x000034E0",
+    "field:obj:0x000034E4",
+    "field:obj:0x000034E8",
+    "field:obj:0x000039A0",
+    "field:this:0x00000000",
+    "field:this:0x00000002",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x00000009",
+    "field:this:0x0000000B",
+    "field:this:0x0000000C",
+    "field:this:0x0000000D",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x0000002C",
+    "field:this:0x00000030",
+    "field:this:0x00000034",
+    "field:this:0x00000038",
+    "field:this:0x0000003C",
+    "field:this:0x00000040",
+    "field:this:0x00000048",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000058",
+    "field:this:0x00000078",
+    "field:this:0x0000008C",
+    "field:this:0x000008E8",
+    "field:this:0x000008EC",
+    "field:this:0x000008F0",
+    "field:this:0x00000998",
+    "field:this:0x0000099C",
+    "field:this:0x00004894",
+    "function:0x0049E570",
+    "function:0x004A4710",
+    "function:0x004A6B80",
+    "function:0x004B2DD0",
+    "function:0x004B32A0",
+    "function:0x004B5120",
+    "function:0x004B9CB0",
+    "function:0x004C6920",
+    "function:0x004CB620",
+    "function:0x004CE3E0",
+    "function:0x004CE930",
+    "function:0x004CEFA0",
+    "function:0x004D2450",
+    "function:0x004D5C70",
+    "function:0x004D9FE0",
+    "function:0x004DA990",
+    "function:0x004DAD80",
+    "function:0x004DB130",
+    "function:0x004E16F0",
+    "function:0x004E1FD0",
+    "function:0x004E2610",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E454",
+    "global:0x0059E670",
+    "global:0x0059E708",
+    "global:0x0059E778",
+    "global:0x0059E780",
+    "global:0x0059E7E0",
+    "global:0x0059E7F8",
+    "global:0x0059E84C",
+    "global:0x0059E868",
+    "global:0x0059E918",
+    "global:0x005ACEA8",
+    "global:0x005ACECC",
+    "global:0x005ACED0",
+    "global:0x005ACF5C",
+    "global:0x005C329C",
+    "global:0x005F073C",
+    "global:0x007C54E0",
+    "global:0x007C54E8",
+    "global:0x007C54F0",
+    "global:0x007C5690",
+    "global:0x007C5698",
+    "global:0x007C9360",
+    "global:0x007CE234",
+    "global:0x007CF8A8",
+    "global:0x007CF9BC",
+    "global:0x007CF9D4",
+    "global:0x007CF9EC",
+    "global:0x008AAE70",
+    "global:0x008AAE74",
+    "global:0x008AB274",
+    "global:0x008AB6E4",
+    "global:0x008ACEB8",
+    "global:0x008ACEE0",
+    "guard:0",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/wave_005/wave_005_vehicle_physics_05.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

@@ -1,0 +1,56 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C0B70
+// Canonical corpus name: CareerSeasonStateFileReader
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/CareerSeasonStateFileReader_004c0b70.c
+
+void UnknownObject::CareerSeasonStateFileReader()
+{
+    // Reads career season state from an ini-style buffer a2 into the 'this' object. While the conditional-dispatch loop over the state struct remains active: an early return code from the scene-setup dispatch (1 or 4) aborts the loop; otherwise the opponent section loads per-driver standings into a slot at this + 436 * index, the player section loads player standings at this + 44908, the season-status section writes the parsed value to this + 45380, and the fallback path reads race session (this + 45388), race-over flag (this + 45392) and current race (this + 45384). Returns 1 once any state was read, else 0.
+    // ASSIGNMENT: Initialize result flag v3 to 0 and retain the state buffer pointer a2 in v2. [source:raw]
+    // GUARD: Guard on the state buffer a2: the read loop runs only while *a2 is non-null. [source:raw]
+    // LOOP: Loop while ConditionalDispatchBasedOnFlag(&unk_8AC1E8, 256) returns true, dispatching on the flag of the state struct unk_8AC1E8. [callee:0x00566CC0, global:0x008AC1E8, source:raw]
+    // ASSIGNMENT: Mark that at least one dispatch iteration executed: v3 = 1. [source:raw]
+    // CALL: Check the scene-setup dispatch return code with sub_5651B0(&unk_8AC050), producing v5. [callee:0x005651B0, global:0x008AC050, source:raw]
+    // GUARD: Guard on v5: when non-zero, compute v6 = v5 - 1; if v6 is 0 or 3 the loop returns v3 immediately (early termination of the read). [source:raw]
+    // RETURN: Early return of v3 when the dispatch code is 1 or 4. [source:raw]
+    // CALL: Look up the opponent section header in the state struct with sub_587C20(&unk_8AC1E8, aOpponent). [callee:0x00587C20, global:0x008AC1E8, global:0x005D2858, source:raw]
+    // CALL: Resolve the per-opponent standings slot index with sub_587ECE(strlen(aOpponent) + v8). [callee:0x00587ECE, global:0x005D2858, source:raw]
+    // CALL: Load opponent standings into the slot at this + 436 * v9 with CareerStandingsStateLoader((this + 436 * v9), a2). [callee:0x004C03F0, source:raw]
+    // GUARD: Else-guard: when no opponent header was found, check for the player section with sub_587C20(&unk_8AC1E8, aPlayer). [callee:0x00587C20, global:0x008AC1E8, global:0x005D284C, source:raw]
+    // CALL: Load player standings into the fixed slot at this + 44908 with CareerStandingsStateLoader((this + 44908), a2). [callee:0x004C03F0, source:raw]
+    // GUARD: Else-guard: when no player header was found, parse the season-status field with sub_565760(aSeasonstatus, &a2, 0, 0, 0). [callee:0x00565760, global:0x005D283C, source:raw]
+    // ASSIGNMENT: When the season-status field parses non-zero, write the parsed value to the season-status field of 'this': *(this + 45380) = a2, i.e. the field at offset 0xB144. [field:this:0x0000B144, source:raw]
+    // CALL: Fallback branch: parse the race-session field into this + 45388 with sub_565760(aRacesession, this + 45388, 0, 0, 0). [callee:0x00565760, global:0x005D2830, source:raw]
+    // CALL: Fallback branch: parse the race-over field with sub_565760(aRaceover, &a2, 0, 0, 0). [callee:0x00565760, global:0x005D2824, source:raw]
+    // ASSIGNMENT: When the race-over field parses non-zero, write the boolean of the parsed value to the race-over flag field of 'this': *(this + 45392) = a2 != 0, i.e. the field at offset 0xB150. [field:this:0x0000B150, source:raw]
+    // CALL: Fallback branch: parse the current-race index into this + 45384 with sub_565760(aCurrentrace, this + 45384, 0, 0, 0). [callee:0x00565760, global:0x005D2818, source:raw]
+    // RETURN: Return v3: 1 if any state was read, 0 if the buffer was empty. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char CareerSeasonStateFileReader(CareerState* this, DWORD* a2) {
+    //     int v3 = 0;
+    //     if (!*a2) return 0;
+    //     while (ConditionalDispatchBasedOnFlag(&unk_8AC1E8, 256)) {
+    //       v3 = 1;
+    //       int v5 = CheckSceneSetupDispatch(&unk_8AC050);
+    //       if (v5) { int v6 = v5 - 1; if (v6 == 0 || v6 == 3) return v3; }
+    //       else if (LookupSection(&unk_8AC1E8, aOpponent)) {
+    //         int v9 = ResolveStandingsSlot(strlen(aOpponent) + LookupResult);
+    //         CareerStandingsStateLoader(this + 436 * v9, a2);
+    //       } else if (LookupSection(&unk_8AC1E8, aPlayer)) {
+    //         CareerStandingsStateLoader(this + 44908, a2);
+    //       } else if (ParseIntField(aSeasonstatus, &a2, 0, 0, 0)) {
+    //         *(DWORD*)(this + 45380) = a2;
+    //       } else {
+    //         ParseIntField(aRacesession, this + 45388, 0, 0, 0);
+    //         if (ParseIntField(aRaceover, &a2, 0, 0, 0)) *(BYTE*)(this + 45392) = a2 != 0;
+    //         ParseIntField(aCurrentrace, this + 45384, 0, 0, 0);
+    //       }
+    //     }
+    //     return v3;
+    //   }
+    // UNRESOLVED: The layout of the per-opponent standings array (stride 436 bytes starting at this) is unconfirmed; the base slot is not a listed packet field.
+    // UNRESOLVED: The early-termination dispatch codes (v5 - 1 equal to 0 or 3) are treated as 1 and 4 by the decompilation; their semantic meaning is unresolved.
+    // UNRESOLVED: The exact size and element type of the standings slots at this + 44908 (player) and this + 436 * index (opponents) are not evidenced by this function alone.
+}

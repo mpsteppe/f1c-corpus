@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "address": "0x004A34A0",
+  "proposed_name": "PerElementConditionalActionDispatcher",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004A34A0"]
+  },
+  "summary": "Walks the element array at this+0x10 (count this+0x0C, 120-byte stride) and flips a Bit12 flag on each element's target object. In conditional mode (a2 == 0) the flag is cleared when the element's completion predicate (signed +112 > 0 and the float reached through +116 == 99999.0) matches the pending byte at +2, and set when they disagree. In clear-all mode (a2 != 0) every element with a valid object at +100 has its flag cleared unconditionally. Called per-frame by PitStopOperationTimer (004a6340) and PitStopProgress (004a68b0).",
+  "local_names": {
+    "this": "container holding the element count at +0x0C and the element-array base pointer at +0x10",
+    "a2": "mode selector: zero selects the conditional branch, non-zero selects the forced clear-all branch",
+    "v3": "loop counter compared against the count at this+0x0C",
+    "i": "byte offset into the 120-byte-stride element array",
+    "v11": "element-array base pointer read from this+0x10",
+    "v12": "state/index dword at element+72, -1 marks a dead element",
+    "v14": "target object pointer at element+100, cleared/set when valid",
+    "v13": "current element pointer (array base + i)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "a2 == 0 selects the conditional per-element mode; a non-zero a2 forces the clear-all mode that skips the conditional branch entirely",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterates the element array at this+0x10 with a 120-byte stride, once per element of the count stored at this+0x0C, stopping when the counter reaches the count",
+      "evidence_refs": ["field:this:0x00000010", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Per-element skip: elements whose dword at +72 equals -1, or whose target pointer at +100 is null, are skipped without any flag change",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Conditional flag decision: BitClear is applied to the object at +100 when the completion predicate (int +112 > 0 and float pointed by +116 == 99999.0) equals the pending byte at +2, otherwise Bit12FlagSet is applied",
+      "evidence_refs": ["callee:0x0054C190", "callee:0x0054C1A0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Clear-all mode walks the same array and unconditionally BitClear-s the object at +100 for every element whose +72 dword is not -1 and whose target pointer is non-null",
+      "evidence_refs": ["callee:0x0054C190", "field:this:0x00000010", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the final element count read from this+0x0C",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "count = this[0x0C/4];",
+    "if (a2 == 0) {",
+    "    for (i = 0; i < count; i += 120) {",
+    "        elem = this[0x10/4] + i;",
+    "        if (*(elem+72) == -1 || *(elem+100) == 0) continue;",
+    "        predicate = (*(elem+112) > 0) && (**(elem+116) == 99999.0);",
+    "        if (predicate == *(elem+2)) BitClear(*(elem+100));",
+    "        else Bit12FlagSet(*(elem+100));",
+    "    }",
+    "} else {",
+    "    for (i = 0; i < count; i += 120) {",
+    "        elem = this[0x10/4] + i;",
+    "        if (*(elem+72) != -1 && *(elem+100) != 0) BitClear(*(elem+100));",
+    "    }",
+    "}"
+  ],
+  "unresolved": [
+    "The float constant 99999.0 appears as a literal in the raw source while the packet facts also flag the read-only global flt_59E928 as compared here; the relationship between the literal and the global is not established by this packet",
+    "The meaning of the flag manipulated by BitClear/Bit12FlagSet (bit 12, activation/enable) and the purpose of the 120-byte element layout come from the prior fill and remain DERIVED",
+    "The exact semantics of the fields at element+72 (index/state) and +2 (pending byte) are not established by this packet alone"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E928"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,114 @@
+__m64 *__userpurge sub_5265DB@<eax>(__m64 a1@<mm2>, __m64 a2@<mm3>, __m64 *a3, __m64 *a4, __m64 *a5)
+{
+  __m64 v5; // mm1
+  __m64 v6; // mm2
+  __m64 v7; // mm3
+  __m64 v8; // mm0
+  __m64 v9; // mm1
+  __m64 v10; // mm2
+  __m64 v11; // mm5
+  __m64 v12; // mm3
+  __m64 v13; // mm2
+  __m64 v14; // mm7
+  __m64 v15; // mm0
+  __m64 v16; // mm3
+  __m64 v17; // mm1
+  __m64 m64_u64; // mm4
+  __m64 v19; // mm2
+  __m64 v20; // mm3
+  __m64 v21; // mm0
+  __m64 v22; // mm1
+  __m64 v23; // mm2
+  __m64 v24; // mm5
+  __m64 v25; // mm3
+  __m64 v26; // mm2
+  __m64 v27; // mm7
+  __m64 v28; // mm0
+  __m64 v29; // mm3
+  __m64 v30; // mm1
+  __m64 v31; // mm4
+  __m64 v32; // mm2
+  __m64 v33; // mm3
+  __m64 v34; // mm0
+  __m64 v35; // mm1
+  __m64 v36; // mm2
+  __m64 v37; // mm5
+  __m64 v38; // mm3
+  __m64 v39; // mm2
+  __m64 v40; // mm7
+  __m64 v41; // mm0
+  __m64 v42; // mm3
+  __m64 v43; // mm1
+  __m64 v44; // mm4
+  __m64 v45; // mm2
+  __m64 v46; // mm3
+  __m64 v47; // mm0
+  __m64 v48; // mm1
+  __m64 v49; // mm2
+  __m64 v50; // mm3
+  __m64 v51; // mm7
+  __m64 v52; // mm3
+
+  v5 = a4[1];
+  v6 = _m_punpckhdq(a1, (__m64)a4->m64_u64);
+  v7 = _m_punpckhdq(a2, v5);
+  v8 = _m_punpckldq((__m64)a4->m64_u64, (__m64)a4->m64_u64);
+  v9 = _m_punpckldq(v5, v5);
+  v10 = _m_punpckhdq(v6, v6);
+  v11 = _m_pfmul(a5[2], v10);
+  v12 = _m_punpckhdq(v7, v7);
+  v13 = _m_pfadd(_m_pfadd(_m_pfmul(v10, a5[3]), _m_pfmul(v8, a5[1])), _m_pfmul(v9, a5[5]));
+  v14 = _m_pfadd(_m_pfmul(a5[6], v12), _m_pfadd(_m_pfmul(a5[4], v9), _m_pfadd(v11, _m_pfmul((__m64)a5->m64_u64, v8))));
+  v15 = a4[2];
+  v16 = _m_pfadd(_m_pfmul(v12, a5[7]), v13);
+  v17 = a4[3];
+  a3->m64_u64 = (unsigned __int64)v14;
+  m64_u64 = (__m64)a5->m64_u64;
+  a3[1].m64_u64 = (unsigned __int64)v16;
+  v19 = _m_punpckhdq(v13, v15);
+  v20 = _m_punpckhdq(v16, v17);
+  v21 = _m_punpckldq(v15, v15);
+  v22 = _m_punpckldq(v17, v17);
+  v23 = _m_punpckhdq(v19, v19);
+  v24 = _m_pfmul(a5[2], v23);
+  v25 = _m_punpckhdq(v20, v20);
+  v26 = _m_pfadd(_m_pfadd(_m_pfmul(v23, a5[3]), _m_pfmul(v21, a5[1])), _m_pfmul(v22, a5[5]));
+  v27 = _m_pfadd(_m_pfmul(a5[6], v25), _m_pfadd(_m_pfmul(a5[4], v22), _m_pfadd(v24, _m_pfmul(m64_u64, v21))));
+  v28 = a4[4];
+  v29 = _m_pfadd(_m_pfmul(v25, a5[7]), v26);
+  v30 = a4[5];
+  a3[2].m64_u64 = (unsigned __int64)v27;
+  v31 = (__m64)a5->m64_u64;
+  a3[3].m64_u64 = (unsigned __int64)v29;
+  v32 = _m_punpckhdq(v26, v28);
+  v33 = _m_punpckhdq(v29, v30);
+  v34 = _m_punpckldq(v28, v28);
+  v35 = _m_punpckldq(v30, v30);
+  v36 = _m_punpckhdq(v32, v32);
+  v37 = _m_pfmul(a5[2], v36);
+  v38 = _m_punpckhdq(v33, v33);
+  v39 = _m_pfadd(_m_pfadd(_m_pfmul(v36, a5[3]), _m_pfmul(v34, a5[1])), _m_pfmul(v35, a5[5]));
+  v40 = _m_pfadd(_m_pfmul(a5[6], v38), _m_pfadd(_m_pfmul(a5[4], v35), _m_pfadd(v37, _m_pfmul(v31, v34))));
+  v41 = a4[6];
+  v42 = _m_pfadd(_m_pfmul(v38, a5[7]), v39);
+  v43 = a4[7];
+  a3[4].m64_u64 = (unsigned __int64)v40;
+  v44 = (__m64)a5->m64_u64;
+  a3[5].m64_u64 = (unsigned __int64)v42;
+  v45 = _m_punpckhdq(v39, v41);
+  v46 = _m_punpckhdq(v42, v43);
+  v47 = _m_punpckldq(v41, v41);
+  v48 = _m_punpckldq(v43, v43);
+  v49 = _m_punpckhdq(v45, v45);
+  v50 = _m_punpckhdq(v46, v46);
+  v51 = _m_pfmul(a5[6], v50);
+  v52 = _m_pfadd(
+          _m_pfmul(v50, a5[7]),
+          _m_pfadd(_m_pfadd(_m_pfmul(v49, a5[3]), _m_pfmul(v47, a5[1])), _m_pfmul(v48, a5[5])));
+  a3[6].m64_u64 = (unsigned __int64)_m_pfadd(
+                                      v51,
+                                      _m_pfadd(_m_pfmul(a5[4], v48), _m_pfadd(_m_pfmul(a5[2], v49), _m_pfmul(v44, v47))));
+  a3[7].m64_u64 = (unsigned __int64)v52;
+  _m_femms();
+  return a3;
+}

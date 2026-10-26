@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "address": "0x00491350",
+  "proposed_name": "RectangleClipping",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00491350"]
+  },
+  "summary": "Subtractive rectangle clipping. Computes the area of a subject rectangle (this[0]..this[3], a 16-bit x1/y1 plus extents) that lies outside a boundary rectangle (a2..a5). Splits the space into a 3 by 3 grid, allocates a resource-pool node per surviving cell, links the nodes into a singly linked list via the next-pointer at node offset 12, and returns the list head (0 when the subject is entirely inside the boundary).",
+  "local_names": {
+    "this": "subject rectangle: x1, y1, x-extent, y-extent (16-bit words), metadata at offset 8",
+    "a2": "boundary rectangle left",
+    "a3": "boundary rectangle top",
+    "a4": "boundary rectangle width",
+    "a5": "boundary rectangle height",
+    "v43": "3 by 3 grid of cell-mask bytes (live = allocated cell)",
+    "v45": "sorted x coordinates of the 3 grid columns",
+    "v47": "sorted y coordinates of the 3 grid rows",
+    "v34": "linked-list head of allocated output nodes"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Read subject rectangle x1 (this+0) and y1 (this+2) and compute right = x1 + extent (this+4) and bottom = y1 + extent (this+6).",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000002", "field:this:0x00000004", "field:this:0x00000006"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Build boundary coordinate arrays from a2..a5: columns v45 = (a2, right-derived, a2+a4) and rows v47 = (a3, bottom-derived, a3+a5).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Bubble-sort the 3 column coordinates (v45) and 3 row coordinates (v47) by running 3 passes of a 3-element compare-swap loop.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Build the 3 by 3 cell-mask grid v43: for each cell, record whether it lies within the subject rectangle or outside the boundary rectangle (inside-subject OR not-inside-boundary test).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "For each not-yet-marked cell, test whether the cell spans positive width and height (column delta and row delta greater than 0); zero-size cells are marked as handled.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For each surviving cell, mark it and the cells it covers as handled, then allocate a clipped-rectangle output node via ResourcePoolNodeAllocDealloc(x, y, width, height).",
+      "evidence_refs": ["callee:0x00490940", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the subject metadata word from this+8 into the allocated node at node offset 8.",
+      "evidence_refs": ["field:this:0x00000008"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Append the new node to the singly linked list using the next-pointer at node offset 12, or start the list with it when the list head is empty.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the linked-list head of allocated clipped rectangles (0 when no cell passed the tests).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "RectangleClipping(this, a2, a3, a4, a5) {",
+    "  x1 = this[0]; y1 = this[1];",
+    "  right = x1 + this[2]; bottom = y1 + this[3];",
+    "  cols = sort(a2, right, a2 + a4); rows = sort(a3, bottom, a3 + a5);",
+    "  grid = mark_cells(subject, boundary, cols, rows);",
+    "  head = 0;",
+    "  for each live cell c:",
+    "    if cell size > 0:",
+    "      node = ResourcePoolNodeAllocDealloc(c.x, c.y, c.w, c.h);",
+    "      node[8] = this[4]; append(node, &head);",
+    "  return head;",
+    "}"
+  ],
+  "unresolved": [
+    "Whether this+4/this+6 are extents or absolute right/bottom coordinates is ambiguous from source:raw.",
+    "Meaning of the metadata word copied from this+8 into each output node is unknown.",
+    "Exact node layout beyond the next-pointer at offset 12 and metadata at offset 8 is unknown.",
+    "Callers are sub_490D00, CollisionBroadphaseBuilder, CollisionBroadphaseTraversal; on_frame_path=false."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

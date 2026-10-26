@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0058CC00
+// Canonical corpus name: MemoryCopy_cc00
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/MemoryCopy_cc00_0058cc00.c
+
+void UnknownObject::MemoryCopy_cc00()
+{
+    // Custom memory copy (memmove-like): copies a3 bytes from source a2 to destination a1 and returns the destination address a1. When the destination overlaps the source range (a1 > a2 && a1 < a2 + a3) the function copies backward from the end to avoid clobbering source data; otherwise it copies forward. The forward path performs DWORD-aligned bulk copies (a qmemcpy for large sizes plus an unrolled 0..7 DWORD switch) and finishes with byte-granular remainder copies; an unaligned destination is first brought to alignment through jump-table-dispatched loops (jpt_58CC5C / jpt_58CC35). All loc_/byte_ globals are jump-table data and case targets of the Duff's-device-style dispatch.
+    // GUARD: Detect source/destination overlap: when a1 > (unsigned)a2 and a1 < (unsigned)(a2 + a3) the destination lies inside the source range and the backward-copy path is taken. [function:0x0058CC00, source:raw]
+    // CALCULATION: Backward path setup: seed end-of-range pointers v7 = (int)&a2[a3 - 4] and v8 = a3 + a1 - 4. [source:raw]
+    // LOOP: Backward bulk copy: while v9 = a3 >> 2 is non-zero, copy DWORDs from v7 to v8 and step both pointers back by 4, entering the loop only when a3 >> 2 >= 8. [source:raw]
+    // ASSIGNMENT: Backward tail copy: dispatch through the jpt_58CDE4 / jpt_58CDC2 jump tables (entry data byte_58CDE8 / byte_58CDF8, case targets loc_58CE94..loc_58CED7 and loc_58CEF0..loc_58CF1C) and copy the remaining 0..3 bytes at v8+3, v8+2, v8+1 from the matching source tail bytes. [global:0x0058CEE0, global:0x0058CDE8, global:0x0058CDF8, global:0x0058CE90, global:0x0058CE94, global:0x0058CE9C, global:0x0058CEA4, global:0x0058CEAC, global:0x0058CEB4, global:0x0058CEBC, global:0x0058CEC4, global:0x0058CED7, global:0x0058CEF0, global:0x0058CEF8, global:0x0058CF08, global:0x0058CF1C, source:raw]
+    // GUARD: Forward path destination-alignment check: when (a1 & 3) != 0 dispatch through the jpt_58CC5C table (entry byte_58CC60, small-size entry loc_58CD58 / jpt_58CC35) to align the destination before bulk copying. [global:0x0058CCDC, global:0x0058CD48, global:0x0058CD58, global:0x0058CC60, source:raw]
+    // LOOP: Unaligned-destination alignment loop: copy leading bytes until the destination is DWORD-aligned, loop body at loc_58CC70. [global:0x0058CC70, source:raw]
+    // CALCULATION: Forward bulk copy: for 4 * v5 >= 8 bytes use qmemcpy(a1, a2, 4 * v5); otherwise dispatch through the unrolled 0..7 DWORD switch (entry loc_58CC9C, completion loc_58CCC0, case targets loc_58CCFC..loc_58CD3F). [global:0x0058CC9C, global:0x0058CCC0, global:0x0058CCFC, global:0x0058CD04, global:0x0058CD0C, global:0x0058CD14, global:0x0058CD1C, global:0x0058CD24, global:0x0058CD2C, global:0x0058CD3F, source:raw]
+    // ASSIGNMENT: Forward tail copy: switch on a3 & 3 and copy the 0..3 remainder bytes from v3 to v4 (bytes v4[0], v4[1], v4[2] at destination offsets 0x0, 0x1, 0x2). [field:this:0x00000000, field:this:0x00000001, field:this:0x00000002, source:raw]
+    // RETURN: Return the destination address a1 in all copy paths. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   unsigned int MemoryCopy_cc00(unsigned int dst, _BYTE *src, unsigned int n) {
+    //     if (dst > (unsigned)src && dst < (unsigned)(src + n)) {
+    //       int d = n + dst - 4, s = (int)(src + n - 4);
+    //       unsigned int q = n >> 2;
+    //       if (q >= 8) { while (q) { *(DWORD*)d = *(DWORD*)s; s -= 4; d -= 4; --q; } }
+    //       /* jpt_58CDE4/jpt_58CDC2 dispatch: copy 0..3 backward tail bytes * /
+    //     } else {
+    //       if (dst & 3) { /* jpt_58CC5C / jpt_58CC35 alignment dispatch * / }
+    //       if ((n >> 2) >= 8) qmemcpy((void*)dst, src, 4 * (n >> 2)); /* else unrolled 0..7 DWORD switch * /
+    //       /* switch (n & 3): copy 0..3 forward remainder bytes * /
+    //     }
+    //     return dst;
+    //   }
+    // UNRESOLVED: Exact per-case target mapping inside jump tables jpt_58CC5C / jpt_58CC35 / jpt_58CDE4 / jpt_58CDC2 is assembly-level and not recoverable from the C listing; the listed loc_/byte_ globals are jump-table data and case targets.
+    // UNRESOLVED: Role of individual case targets loc_58CD60 / loc_58CD6C / loc_58CD80 is not pinned from the C listing.
+}

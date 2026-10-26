@@ -1,0 +1,79 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051427F
+// Canonical corpus name: OBBFittingAndProjection
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/OBBFittingAndProjection_0051427f.c
+
+void UnknownObject::OBBFittingAndProjection()
+{
+    // Fit an oriented bounding box of 16 float4 vertices, then iteratively refine its projection bounds for quantization to a4 levels. Outputs a float3 min bound into a1 and a float3 max bound into a2 and returns a2. Inputs per the raw signature and ABI lead: a1 = min-bound output, a2 = max-bound output, a3 = base of the 16-vertex float4 array (vertices read at a3 + i*16), a4 = quantization level count; a4 == 3 selects the unk_5AF60C/unk_5AF600 coefficient-table pair, any other value selects unk_5AF5F0/unk_5AF5E0. Called once from TextureFilterAndLayerCompositing (0x005147EA).
+    // ASSIGNMENT: Assign the parameter/output roles from the raw signature and ABI lead: a1 receives the min float3, a2 receives the max float3 and becomes the return value, a3 is the base of the 16-vertex float4 array, a4 is the quantization level count. [abi:lead, source:raw]
+    // GUARD: Branch on a4: when a4 == 3 select the coefficient-table pair unk_5AF60C (v61) / unk_5AF600 (v62); otherwise select unk_5AF5F0 (v61) / unk_5AF5E0 (v62). [global:0x005AF60C, global:0x005AF600, global:0x005AF5F0, global:0x005AF5E0, source:raw]
+    // ASSIGNMENT: Initialize the running AABB before the vertex scan: running maxima v77/v4/v79 (X/Y/Z) start at 0.0 and running minima v80/v81/v82 start from flt_5D79BC and the adjacent initial-min globals flt_5D79C0/flt_5D79C4 read in the raw source; v83 is assigned unk_5D79C8 but never read afterward. [global:0x005D79BC, source:raw]
+    // LOOP: Scan exactly 16 vertices (v6 = 16) starting at a3 + 8 with a 4-float stride (v5 += 4, i.e. a3 + i*16); each iteration reads one float4 (x, y, z at indices -2, -1, 0 of the current pointer) and updates the component-wise running min/max bounds. [source:raw]
+    // CALCULATION: Compute the box diagonal from the running bounds: v70 = maxX - minX, v71 = maxY - minY, v7 = maxZ - minZ, and the squared diagonal v8 = v7*v7 + v71*v71 + v70*v70, stored into v69; v78 is set to the running maxY. [source:raw]
+    // GUARD: Early-exit guard driven by the FPU compare flags v10 (c0) and v11 (c2) recorded from the squared-extent computation; when either is set (zero or unordered extent) jump to the raw-AABB emission path, skipping the orientation and refinement stages. [source:raw]
+    // CALCULATION: Non-degenerate path: build the inverse-diagonal projection scale v15 = 1.0 / v8 and per-axis scales v58/v59/v60 = extent * v15, plus the box center v66/v67/v68 = (min + max) * 0.5 per axis. [source:raw]
+    // LOOP: Accumulate four moment sums over the 16 vertices (v17, v74, v75, v76), each the squared projection of a vertex offset from the box center onto a combination of the three axis scales. [source:raw]
+    // LOOP: Find the index v23 of the largest moment sum among the four contiguous locals v73..v76 (v25 = &v73 + i), keeping the maximum in v17. [source:raw]
+    // STATE_TRANSITION: Re-order the bounds to align with the dominant projection axis: when (v23 & 2) swap the Y min/max (v81/v4) and set v78/v64 to the old minY; when (v23 & 1) swap the Z min/max (v82/v79). [source:raw]
+    // GUARD: When the squared diagonal v69 is below 0.00024414062 (1/4096) emit the current raw AABB without iterative refinement. [source:raw]
+    // CALL: Call FPUControlWordMerger() before the quantization refinement to set the FPU rounding/control mode for the fixed-point style rounding done in the projection loop. [callee:0x00513E5D, source:raw]
+    // LOOP: Iterative refinement capped at 8 iterations (LODWORD(v69) counting up to 8). Each iteration first computes a4 projected level positions v55[] from the current min/max bounds and the selected coefficient-table pair (v61/v62 read as two float tables separated by v32 = v62 - v61 bytes), then projects each of the 16 vertices onto the box diagonal (v36/v71/v37 scaled by v39 = (a4-1)/v38), rounds each projection to the nearest level index clamped to a4-1, and accumulates weighted sums (v84/v65 weight norms, v66/v67/v68 and v73/v74/v75 weighted offset sums) using table weights v50 = table1 * 0.125 and v51 = table2 * 0.125. [global:0x005AF60C, global:0x005AF600, global:0x005AF5F0, global:0x005AF5E0, source:raw]
+    // CALCULATION: Refine the bounds with the accumulated weighted sums: when v84 > 0 update the min bounds v80/v81/v82 by v66/v67/v68 / v84 (via -1.0/v84); when v65 > 0 update the max bounds v77/v78/v79 by v73/v74/v75 / v65 (via -1.0/v65). [source:raw]
+    // GUARD: Convergence test: if all six weighted offset sums (v66*v66, v67*v67, v68*v68, v73*v73, v74*v74, v75*v75) are below v29 = 0.000015258789, break the refinement loop early; the loop also breaks when the squared extent v38 drops below 0.00024414062. [source:raw]
+    // ASSIGNMENT: Emit the final min float3 into a1: *a1 = v80 (X), a1[1] = v81 (Y), a1[2] = v82 (Z); these writes correspond to the packet's this+0x0/0x4/0x8 fields. [field:this:0x00000000, field:this:0x00000004, field:this:0x00000008, source:raw]
+    // ASSIGNMENT: Emit the final max float3 into a2: *a2 = v77 (X), a2[1] = v78 (Y), and via the returned pointer result[2] = v79 (Z). [source:raw]
+    // RETURN: Return result (the a2 max-bound pointer) as the function's float* return value. [function:0x0051427F, source:raw]
+
+    // Conservative worker pseudocode:
+    //   float *OBBFittingAndProjection(float *minOut, float *maxOut, int vertexBase, int levels) {
+    //     float *tabA, *tabB;
+    //     if (levels == 3) { tabA = &unk_5AF60C; tabB = &unk_5AF600; }
+    //     else             { tabA = &unk_5AF5F0; tabB = &unk_5AF5E0; }
+    //     float minX = flt_5D79BC, minY = flt_5D79C0, minZ = flt_5D79C4;
+    //     float maxX = 0.0f, maxY = 0.0f, maxZ = 0.0f;
+    //     for (int k = 0; k < 16; ++k) {
+    //       float x = ((float*)vertexBase)[4*k];
+    //       float y = ((float*)vertexBase)[4*k + 1];
+    //       float z = ((float*)vertexBase)[4*k + 2];
+    //       if (x < minX) minX = x; if (x > maxX) maxX = x;
+    //       if (y < minY) minY = y; if (y > maxY) maxY = y;
+    //       if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    //     }
+    //     extX = maxX - minX; extY = maxY - minY; extZ = maxZ - minZ;
+    //     diagSq = extX*extX + extY*extY + extZ*extZ;
+    //     if (fpCompareFlags) goto emitBounds;
+    //     scale = (extX, extY, extZ) * (1.0 / diagSq);
+    //     center = (minX+maxX, minY+maxY, minZ+maxZ) * 0.5;
+    //     /* four moment sums over the 16 vertices; choose dominant axis index sel * /
+    //     if (sel & 2) { swap(minY, maxY); }
+    //     if (sel & 1) { swap(minZ, maxZ); }
+    //     if (diagSq < 0.00024414062) goto emitBounds;
+    //     float levelScale = (float)(levels - 1);
+    //     FPUControlWordMerger();
+    //     for (iter = 0; iter < 8; ++iter) {
+    //       for (j = 0; j < levels; ++j)
+    //         levelPos[j] = min * tabA[j] + max * tabB[j];
+    //       newDiagSq = (maxX-minX)^2 + (maxY-minY)^2 + (maxZ-minZ)^2;
+    //       if (newDiagSq < 0.00024414062) break;
+    //       /* project each of the 16 vertices, round to nearest level (clamped to levels-1),
+    //          accumulate weighted sums with weights tabA[level]*0.125 and tabB[level]*0.125 * /
+    //       if (wNorm1 > 0.0) min = min - sums1 / wNorm1;
+    //       if (wNorm2 > 0.0) max = max - sums2 / wNorm2;
+    //       if (all six sums squared < 0.000015258789) break;
+    //     }
+    //   emitBounds:
+    //     minOut[0] = minX; minOut[1] = minY; minOut[2] = minZ;
+    //     maxOut[0] = maxX; maxOut[1] = maxY; maxOut[2] = maxZ;
+    //     return maxOut;
+    //   }
+    // UNRESOLVED: The raw source reads flt_5D79C0, flt_5D79C4 and unk_5D79C8 for the initial minY/minZ and a dead-initialized value, but the packet global list carries only flt_5D79BC (0x005D79BC); no allowed evidence refs exist for the other three addresses, so their roles are described from source:raw only.
+    // UNRESOLVED: Nine packet-listed globals (0x0059E440, 0x0059E450, 0x0059E4E0, 0x0059E670, 0x005AD1B8, 0x005ADB14, 0x005ADE40, 0x005AF5DC, 0x008B00A0) do not appear anywhere in the raw source, so no role is evidenced for them.
+    // UNRESOLVED: The FPU compare flags v10 (c0) and v11 (c2) are uninitialized locals in the Hex-Rays listing; the exact FPU compare instruction that produced them is not visible in the packet.
+    // UNRESOLVED: The max-bound output (a2, three floats) is written in the raw source but has no corresponding entry in the packet field list, which covers only this+0x0/0x4/0x8 (the min-bound writes).
+    // UNRESOLVED: v83 is assigned unk_5D79C8 during initialization and never read; it is a dead store whose intended purpose is unknown.
+    // UNRESOLVED: The semantics of the two coefficient-table pairs (unk_5AF5F0/unk_5AF5E0 versus unk_5AF60C/unk_5AF600) are not established by the packet; a4 == 3 clearly selects the second pair, but the tables' numeric meaning is unknown.
+    // UNRESOLVED: The exact round-to-nearest and clamp-to-levels-1 behavior of the vertex projection is evident from source but the quantization interpretation (level positions in v55[]) is DERIVED, not stated by the packet.
+    // UNRESOLVED: Owner is unknown: the function is __cdecl with no this pointer and no owning class is evidenced; the packet owner is UnknownObject/UNKNOWN. Caller TextureFilterAndLayerCompositing (0x005147EA) supplies the caller-side context, which is not in this packet.
+}

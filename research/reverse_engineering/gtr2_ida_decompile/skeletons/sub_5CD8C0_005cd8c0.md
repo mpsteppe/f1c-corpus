@@ -1,0 +1,62 @@
+## sub_5CD8C0_005cd8c0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0xC | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 006eb9fb | SEH_5CD8C0 | R | [LLM] |
+| 007296cc | off_7296CC | R | [LLM] |
+| 0072a3ac | aPassedActorSee | R | [LLM] |
+| 0072a6f4 | aWireframeD | R | [LLM] |
+| 0072a710 | aDoubleSidedD | R | [LLM] |
+| 0072a72c | aIorF | R | [LLM] |
+| 0072a748 | aOpacityF | R | [LLM] |
+| 0072a764 | aShineStrengthF | R | [LLM] |
+| 0072a780 | aShineF | R | [LLM] |
+| 0072a79c | aEmissiveFFF | R | [LLM] |
+| 0072a7c0 | aSpecularFFF | R | [LLM] |
+| 0072a7e4 | aDiffuseFFF | R | [LLM] |
+| 0072a808 | aAmbientFFF | R | [LLM] |
+| 0072a82c | aMaterialNameS | R | [LLM] |
+| 00912b08 | dword_912B08 | R | [LLM] |
+| 016c942c | off_16C942C | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 004050c0 | sub_4050C0 | [LLM] |
+| 005a8840 | sub_5A8840 | [LLM] |
+| 005bd2d0 | sub_5BD2D0 | [LLM] |
+| 005bd510 | sub_5BD510 | [LLM] |
+| 005d3be0 | sub_5D3BE0 | [LLM] |
+| 00630739 | ??2@YAPAXI@Z | [LLM] |
+| 006349bb | sub_6349BB | [LLM] |
+| 00643e40 | sub_643E40 | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]
+
+**String literals referenced (deterministic):**
+
+- `Passed actor seems to be not valid!`
+- `    + WireFrame     : %d`
+- `    + Double sided  : %d`
+- `    + IOR           : %f`
+- `    + Opacity       : %f`
+- `    + Shine strength: %f`
+- `    + Shine         : %f`
+- `    + Emissive      : (%f, %f, %f)`
+- `    + Specular      : (%f, %f, %f)`
+- `    + Diffuse       : (%f, %f, %f)`
+- `    + Ambient       : (%f, %f, %f)`
+- `- Material name = '%s'`

@@ -1,0 +1,46 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004BBC60
+// Canonical corpus name: WarningHandler
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/WarningHandler_004bbc60.c
+
+void UnknownObject::WarningHandler()
+{
+    // HUD warning message display. Guarded by the pending-warning flag at this+0x30 (blocks when nonzero), a2 being non-NULL, and the penalty-state flag at obj+0x32C8 (read through *this, blocks when nonzero). Looks up the 'Warning' token in the string table, copies it into the shared buffer byte_5EC4CC, snapshots it into a local buffer, conditionally replaces it with the a2 message text, formats '%s %s' into a 192-byte buffer via StringFormatWithBufferOverflowCheck, and renders it with TextLineWrappingAndRendering(&dword_7CD204, ...). Returns the flag value originally read from this+0x30.
+    // ASSIGNMENT: Seed v2 = this[12] (the pending-warning flag at this+0x30). [field:this:0x00000030, source:raw]
+    // GUARD: Block the whole body when this+0x30 (v2) is nonzero, i.e. a warning is already pending. [field:this:0x00000030, source:raw]
+    // GUARD: Block when the message text a2 is NULL. [source:raw]
+    // ASSIGNMENT: Load v2 = *this, the pointer to the penalty-state object held at this+0x0. [field:this:0x00000000, source:raw]
+    // GUARD: Block when the penalty-state flag at obj+0x32C8 (read as *( *this + 0x32C8 )) is nonzero. [field:obj:0x000032C8, source:raw]
+    // CALL: If BinarySearchInStringTable(byte_5EC4C0, aWarning, byte_5EC4CC) succeeds, the 'Warning' token is found in the string table indexed by byte_5EC4C0. [callee:0x00423A00, global:0x005EC4C0, global:0x005D2568, global:0x005EC4CC, source:raw]
+    // LOOP: Copy the aWarning string into byte_5EC4CC byte by byte until the NUL terminator is copied. [global:0x005D2568, global:0x005EC4CC, source:raw]
+    // CALL: sub_587DD0(v6, byte_5EC4CC, 63) copies at most 63 bytes of the warning text into local v6, then v6[63] = 0 forces a terminator. [callee:0x00587DD0, global:0x005EC4CC, source:raw]
+    // CALL: If BinarySearchInStringTable(byte_5EC4C0, a2, byte_5EC4CC) succeeds, strcpy(byte_5EC4CC, a2) replaces the shared buffer with the incoming message text. [callee:0x00423A00, global:0x005EC4C0, global:0x005EC4CC, source:raw]
+    // CALL: sub_587DD0(v7, byte_5EC4CC, 63) copies at most 63 bytes of the final message text into local v7, then v7[63] = 0 forces a terminator. [callee:0x00587DD0, global:0x005EC4CC, source:raw]
+    // CALL: StringFormatWithBufferOverflowCheck(v8, "%s %s", v6, v7) formats the 'Warning' prefix and the message into local v8 with overflow protection. [callee:0x0058815F, source:raw]
+    // ASSIGNMENT: LOBYTE(v2) = TextLineWrappingAndRendering(&dword_7CD204, (int)v8, 3, 16909060); the render result overwrites the low byte of the return value. [callee:0x0045BD10, global:0x007CD204, source:raw]
+    // RETURN: Return v2 (the flag originally read from this+0x30, or its render-overwritten low byte). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   v2 = this[12];
+    //   if (v2) return v2;
+    //   if (a2) {
+    //     v2 = *this;
+    //     if (!*( *this + 0x32C8 )) {
+    //       if (BinarySearchInStringTable(byte_5EC4C0, aWarning, byte_5EC4CC)) {
+    //         v3 = 0;
+    //         do { v4 = aWarning[v3]; byte_5EC4CC[v3++] = v4; } while (v4);
+    //       }
+    //       sub_587DD0(v6, byte_5EC4CC, 63); v6[63] = 0;
+    //       if (BinarySearchInStringTable(byte_5EC4C0, a2, byte_5EC4CC)) strcpy(byte_5EC4CC, a2);
+    //       sub_587DD0(v7, byte_5EC4CC, 63); v7[63] = 0;
+    //       StringFormatWithBufferOverflowCheck(v8, "%s %s", v6, v7);
+    //       LOBYTE(v2) = TextLineWrappingAndRendering(&dword_7CD204, (int)v8, 3, 16909060);
+    //     }
+    //   }
+    //   return v2;
+    // UNRESOLVED: aSS_2 (0x005C5D30) is listed as a read global in the packet but never appears in the raw source text; possibly a string-literal alias folded by the decompiler.
+    // UNRESOLVED: The render call's literal arguments 3 and 16909060 (width/flag/color bits) are unnamed.
+    // UNRESOLVED: obj+0x32C8 is read through the *this pointer with base 'obj' in the packet while the raw source dereferences *this + 0x32C8; the object relation is inferred from the shared pointer load.
+    // UNRESOLVED: The exact structure of the penalty-state object at *this is unknown.
+}

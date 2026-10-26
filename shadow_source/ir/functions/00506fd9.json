@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "address": "0x00506FD9",
+  "proposed_name": "ComplexDestructorWithLoop",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00506FD9"]
+  },
+  "summary": "Object destructor that installs the off_5ADB90 vtable, frees a 2D slab of child entries via nested loops, then frees two buffer pointers and delegates final cleanup to VtableSetFreeChild. The object's dword index 1071 gates the loop body; index 1072 is the child-row pointer array, indices 1063..1064 bound the outer row loop and 1060..1062 bound the inner column loop (stride 4 dwords / 8 bytes, freeing the second dword of each entry). After the loops it frees index 1070 and index 1072 buffers, stores -1 in a stack marker slot, and returns VtableSetFreeChild(v2).",
+  "local_names": {
+    "v1": "object 'this' pointer (ecx), also copied to v2",
+    "v2": "alias of v1 used by the loop bounds and final frees",
+    "v3": "child-row pointer array loaded from index 1072",
+    "v4": "outer loop counter starting at index 1063"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "SEHHandlerInit initializes the structured-exception-handler frame for this function",
+      "evidence_refs": ["callee:0x0058A5D8", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Install the vtable: the object's first dword is set to the address of off_5ADB90",
+      "evidence_refs": ["global:0x005ADB90", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Stack bookkeeping: stores the object pointer at (a1-20) and initializes the marker slot at (a1-4) to 0",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Child-loop gate: the body only runs when the object's dword index 1071 (byte offset 0x10BC) is non-zero",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Loads the child-row pointer array v3 = index 1072 (byte offset 0x10C0); the loop body requires it to be non-null",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Row-range guard: the outer loop starts v4 = index 1063 (byte offset 0x109C) and only runs while v4 is below index 1064 (byte offset 0x10A0)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer do/while loop walks rows from index 1063 while v4 remains below index 1064",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner for loop walks columns i from index 1060 (byte offset 0x1090) to index 1062 (byte offset 0x1098) in steps of 4 dwords (8 bytes)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Per entry: FreeWrapper_7bcf frees the pointer stored at the second dword of the current 8-byte child entry",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Per entry: the walk pointer at (a1-16) advances by 8 bytes to reach the next child entry",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FreeWrapper_7bcf frees the buffer stored at the object's dword index 1070 (byte offset 0x10B8)",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FreeWrapper_7bcf frees the child-row pointer array stored at the object's dword index 1072 (byte offset 0x10C0)",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "The stack marker slot at (a1-4) is set to -1 before delegating final cleanup",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the result of VtableSetFreeChild(v2), which performs the final vtable reset and child-pointer free",
+      "evidence_refs": ["callee:0x00506CCC", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "SEHHandlerInit();",
+    "v2 = v1;",
+    "*(a1 - 20) = v1;",
+    "*v1 = &off_5ADB90;               // install vtable",
+    "*(a1 - 4) = 0;",
+    "if (v1[1071]) {",
+    "    v3 = v1[1072];",
+    "    if (v3) {",
+    "        v4 = v1[1063];",
+    "        *(a1 - 16) = v3;",
+    "        if (v4 < v1[1064]) {",
+    "            do {",
+    "                for (i = v2[1060]; i < v2[1062]; i += 4) {",
+    "                    FreeWrapper_7bcf(*(LPVOID*)(*(a1 - 16) + 4));",
+    "                    *(a1 - 16) += 8;",
+    "                }",
+    "                ++v4;",
+    "            } while (v4 < v2[1064]);",
+    "        }",
+    "    }",
+    "}",
+    "FreeWrapper_7bcf((LPVOID)v2[1070]);",
+    "FreeWrapper_7bcf((LPVOID)v2[1072]);",
+    "*(a1 - 4) = -1;",
+    "return VtableSetFreeChild(v2);"
+  ],
+  "unresolved": [
+    "loc_59C534 is the SEH jump target for the exception path; its role in this function is not visible in the decompiled body",
+    "The exact storage layout of the freed 8-byte child entries (first dword unused, second dword a heap pointer) is inferred from the +4 dereference and +8 stride, not confirmed",
+    "VtableSetFreeChild at 0x00506CCC is the final-cleanup delegate; its full behavior is outside this packet"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059C534"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

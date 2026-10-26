@@ -1,0 +1,14 @@
+_DWORD *__thiscall sub_4C4D90(_DWORD *this)
+{
+  _DWORD *result; // eax
+
+  result = this;
+  this[1] = 0;
+  this[2] = -1;
+  this[3] = 0;
+  this[4] = -1;
+  this[5] = 0;
+  this[6] = -1;
+  *this = &off_5EA4C8;
+  return result;
+}

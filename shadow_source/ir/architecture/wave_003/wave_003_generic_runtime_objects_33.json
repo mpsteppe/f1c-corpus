@@ -1,0 +1,1921 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_003_generic_runtime_objects_33",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Linked-list containers, node allocators, and resource-object lifecycle infrastructure shared by the audio, scene-node, and D3D texture/mesh loading subsystems: two-head scene node lists, string-keyed resource registries, reference-counted D3D texture resources, and teardown/free wrappers.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x005450E0",
+      "function:0x00545250",
+      "function:0x005452F0",
+      "function:0x00545340",
+      "function:0x005453A0",
+      "function:0x00545D00",
+      "function:0x00546450",
+      "function:0x005469C0",
+      "function:0x005477F0",
+      "function:0x00548890",
+      "function:0x00549110"
+    ]
+  },
+  "summary": "Runtime object infrastructure for the F1C engine: (1) a two-head scene-node list container (heads this+0x100 / this+0x108) supporting append, node counting, indexed lookup, recursive string property search, and flag-driven per-frame updates; (2) a reference-counted D3D texture/resource object (refcounts +0x84/+0x88, flags +0x9C, 148-byte element slots at +0xA4/+0xA8, float-key node +0xB0/+0xB4) that materializes texture sets and releases sub-resources; (3) a string-keyed resource registry (list heads +0x24/+0x2C) used for name-based resource lookup and cleanup; (4) node allocator and constructor helpers (56-byte nodes, multi-field zero-init objects); and (5) teardown wrappers (ReleaseLinkedResource, DestroyFree), an audio-engine startup dispatch walk, and free helpers (string copy, key generation, global stream-cursor reader). Function owners are UNKNOWN in the packet except loadTextureSet (DERIVED TextureResourceLoader), findNodeByNameCaseInsensitive (DERIVED NamedStringList), and recursiveNodeFree (DERIVED SceneGraphNode); the class groupings below are DERIVED/GUESS synthesis over the evidenced field bases.",
+  "function_roles": [
+    {
+      "address": "0x005450E0",
+      "role": "Mesh-resource factory: allocates a 572-byte heap block, constructs the mesh-resource object (sub_54A600), stores the caller-supplied ID at dword index 15, copies the name string (sub_54A730); returns 0 on success writing the pointer through a1, -1 after teardown+free on string-copy failure.",
+      "owner": "MeshResourceObject",
+      "evidence_refs": [
+        "function:0x005450E0",
+        "callee:0x0054A600",
+        "callee:0x0054A730",
+        "callee:0x0054A710",
+        "callee:0x00587C03",
+        "callee:0x00587BCF",
+        "field:this:0x00000000",
+        "caller:0x004A2010",
+        "caller:0x004A2A90",
+        "caller:0x004D0110",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00545250",
+      "role": "Appends an actor node to the singly-linked scene-node list: sets flag bit 3 at node+0x3C, clears node forward link +0x4C, registers the node with the tree accumulator (sub_544C50), then appends to the tail (head at this+0x108) or promotes the node to head; writes the +0x48 backward link.",
+      "owner": "SceneNodeListContainer",
+      "evidence_refs": [
+        "function:0x00545250",
+        "callee:0x00544C50",
+        "field:this:0x00000108",
+        "field:this:0x00000154",
+        "field:*(this+0x154):0x0000004C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005452F0",
+      "role": "Counts nodes across the two scene-node chains: first chain rooted at this+0x100 (forward link node+0x104) contributes every node of its per-node sub-chain (head node+0xEC, links +0x4C); second chain rooted at this+0x108 (forward link +0x4C) is counted directly; returns the total.",
+      "owner": "SceneNodeListContainer",
+      "evidence_refs": [
+        "function:0x005452F0",
+        "field:this:0x00000100",
+        "field:this:0x00000108",
+        "field:this:0x00000154",
+        "field:this:0x000001EC",
+        "field:*(this+0x204):0x00000104",
+        "field:*(this+0x204):0x000000EC",
+        "field:*(*(*(this+0x204)+0xEC)+0x4C):0x0000004C",
+        "field:*(*(this+0x1EC)+0x4C):0x0000004C",
+        "caller:0x0040FE50",
+        "caller:0x0044ACB0",
+        "caller:0x004BDC10",
+        "caller:0x004C7CA0",
+        "caller:0x004CF070",
+        "caller:0x004FBA10",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00545340",
+      "role": "Indexed node lookup across the two hierarchical lists: when the first-list head at this+0x100 is non-null, walks each first-list node (next +260) descending its sub-list (head +236, links +76); falls back to the second list at this+0x108 (+76 links); returns the node at index a2 or 0 when exhausted.",
+      "owner": "SceneNodeListContainer",
+      "evidence_refs": [
+        "function:0x00545340",
+        "field:this:0x00000100",
+        "field:this:0x00000108",
+        "field:this:0x000001EC",
+        "field:this:0x00000154",
+        "field:*(this+0x204):0x00000104",
+        "field:*(*(this+0x1EC)+0x4C):0x0000004C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005453A0",
+      "role": "Scene-node property evaluation: when flag a3 is non-zero searches the supplied tree a2 directly via RecursiveTreeStringSearch (sub_54BC60); otherwise walks the first chain (head this+0x100, sub-node at element+236, forward link element+260), falling back to the second chain at this+0x108; returns the first matched value or 0.",
+      "owner": "SceneNodeListContainer",
+      "evidence_refs": [
+        "function:0x005453A0",
+        "callee:0x0054BC60",
+        "field:this:0x00000100",
+        "field:this:0x00000108",
+        "field:this:0x000001EC",
+        "field:*(this+0x204):0x00000104",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005454A0",
+      "role": "Resource teardown: unlinks the object from its doubly linked list (sub_5455F0), clears a byte flag (sub_55D2E0), and when non-null runs the empty stub (sub_557470) and frees the block (sub_587BCF); always returns 0. Invoked by ResourceCleanupDestructionForDirectXObjects.",
+      "owner": "ResourceDestructor",
+      "evidence_refs": [
+        "function:0x005454A0",
+        "callee:0x005455F0",
+        "callee:0x0055D2E0",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "caller:0x00543BF0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00545930",
+      "role": "Node allocator/insert: allocates a 56-byte node (sub_587C03), initializes it with parameter a2 and the counter at this+0x158 (sub_560BA0), then appends it to the parent's child list (head +44) when parent a3 carries a non-null child container at a3+560, otherwise to the main list at this+0x15C; writes +48/+52 links, increments this+0x158, returns 0.",
+      "owner": "NodeListAllocator",
+      "evidence_refs": [
+        "function:0x00545930",
+        "callee:0x00587C03",
+        "callee:0x00560BA0",
+        "field:this:0x00000158",
+        "field:this:0x0000015C",
+        "field:this:0x00000190",
+        "field:*(*(this+0x190)+0x34):0x00000034",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00545D00",
+      "role": "Flag-driven scene update: zeroes this+0x1B0 on a2 bit 0x20, ORs this+0xEC with 0x800 on a3 bit 0x20, walks the node list at this+0x100 (and the node at this+0x108) calling RecursiveTraversal (sub_54BCD0), propagates 0x40/0x80/0xC0 flag bits through the chain rooted at *(this+0x110)+36, then clears per-element flags selected by the a3&0x1800 mask across the four (count, array) pairs at this+0x1B4..0x1D0 (jump table at 0x545F24).",
+      "owner": "SceneNodeListContainer",
+      "evidence_refs": [
+        "function:0x00545D00",
+        "callee:0x0054BCD0",
+        "field:this:0x000000EC",
+        "field:this:0x00000100",
+        "field:this:0x00000108",
+        "field:this:0x00000110",
+        "field:this:0x00000134",
+        "field:this:0x000001B0",
+        "field:this:0x000001B4",
+        "field:this:0x000001B8",
+        "field:this:0x000001BC",
+        "field:this:0x000001C0",
+        "field:this:0x000001C4",
+        "field:this:0x000001C8",
+        "field:this:0x000001CC",
+        "field:this:0x000001D0",
+        "field:this:0x000001F4",
+        "field:this:0x000001F8",
+        "field:this:0x00000200",
+        "field:*(this+0x134):0x0000009C",
+        "field:*(*(this+0x134)+0xC0):0x000000C0",
+        "field:*(this+0x204):0x000000EC",
+        "field:*(this+0x204):0x00000104",
+        "global:0x00545F24",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00546330",
+      "role": "Free helper: copies source string a2 into the caller buffer via strcpy, passes the buffer to the normalize helper sub_589901, stores integer a3 at DWORD index 46 of the buffer, and returns a3 unchanged. Used by resource-loading paths ResourceObjectCreationWithConfig and DirectXMeshVertexBufferParsingAndLoading.",
+      "owner": "FreeFunction",
+      "evidence_refs": [
+        "function:0x00546330",
+        "callee:0x00589901",
+        "caller:0x005474D0",
+        "caller:0x00547B40",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00546450",
+      "role": "Texture-set materialization: iterates this-owned 148-byte element descriptors (base this+0xA8, bound this+0xA4), builds per-frame file paths, allocates zero-filled 96-byte frame blocks, creates D3D textures (sub_550080), registers/reuses nodes in the string-keyed list, maintains the float-key node at this+0xB4, and cleans up the global stream handles dword_8B8DBC/dword_8B8DC0 on the audio-flag path; returns 0 or -1. Owner DERIVED TextureResourceLoader.",
+      "owner": "D3DResourceObject",
+      "evidence_refs": [
+        "function:0x00546450",
+        "callee:0x00550080",
+        "callee:0x0054FEC0",
+        "callee:0x00547920",
+        "callee:0x0054FE10",
+        "callee:0x00547860",
+        "callee:0x00548D40",
+        "callee:0x00548A00",
+        "callee:0x005489A0",
+        "callee:0x00550300",
+        "callee:0x00551A30",
+        "callee:0x00551A50",
+        "callee:0x00542E50",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "callee:0x0058815F",
+        "field:this:0x0000009C",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "global:0x00800000",
+        "global:0x005BE860",
+        "global:0x005DBE48",
+        "global:0x005DBE54",
+        "global:0x005CC79C",
+        "global:0x008B8DBC",
+        "global:0x008B8DC0",
+        "global:0x008B8E24",
+        "caller:0x005487A0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005469C0",
+      "role": "Reference-counted resource release: returns -2 while the release-blocking flag bit at this+0x9C is set; otherwise decrements refcounts at this+0x84 and this+0x88 and returns -2 while this+0x88 stays non-zero; when the count reaches zero it frees each sub-resource slot (this+0xA8, count this+0xA4) by decrementing its list node refcount (node at *(this+0xA8)+0x8C), destructing per-element data when the node count at +0x4C reaches zero (sub_5502C0), removing the node (sub_5478B0) and zeroing the slot; finally ORs this+0x9C with 3 and returns 0.",
+      "owner": "D3DResourceObject",
+      "evidence_refs": [
+        "function:0x005469C0",
+        "callee:0x005478B0",
+        "callee:0x005502C0",
+        "field:this:0x00000084",
+        "field:this:0x00000088",
+        "field:this:0x0000009C",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000B8",
+        "field:*(this+0xA8):0x0000008C",
+        "field:*(*(this+0xA8)+0x8C):0x00000000",
+        "field:*(*(this+0xA8)+0x8C):0x0000004C",
+        "field:*(this+0xB8):0x00000028",
+        "caller:0x00547710",
+        "caller:0x005487E0",
+        "guard:0",
+        "guard:1",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005471C0",
+      "role": "Unconditional field setter: stores the second parameter into this+0xB0 and returns it unchanged. Called from DirectXMeshVertexBufferParsingAndLoading and D3DTextureResourceCreation.",
+      "owner": "D3DResourceObject",
+      "evidence_refs": [
+        "function:0x005471C0",
+        "field:this:0x000000B0",
+        "caller:0x00547B40",
+        "caller:0x00548190",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00547240",
+      "role": "Dimension setter: stores WORD a2 at this+0xAC and WORD a3 at this+0xAE, each only when in [1,8]; sets flag bit 5 (0x20) at this+0x9C unless the pair is exactly (2,1); returns a3. Called by DirectXMeshVertexBufferParsingAndLoading, D3DTextureResourceCreation and sub_557CE0.",
+      "owner": "D3DResourceObject",
+      "evidence_refs": [
+        "function:0x00547240",
+        "field:this:0x000000AC",
+        "field:this:0x000000AE",
+        "field:this:0x0000009C",
+        "caller:0x00547B40",
+        "caller:0x00548190",
+        "caller:0x00557CE0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005473C0",
+      "role": "Increments two adjacent dword counters on the owner: this+0x88 first, then this+0x84; no other side effects. Runs on the per-frame path from TreeNodeAccumulator and two other callers.",
+      "owner": "D3DResourceObject",
+      "evidence_refs": [
+        "function:0x005473C0",
+        "field:this:0x00000084",
+        "field:this:0x00000088",
+        "caller:0x00544C50",
+        "caller:0x00557670",
+        "caller:0x00557CE0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005473D0",
+      "role": "Constructor/initializer: runs GlobalZeroInit_c2a0 (sub_53C2A0) then explicitly zeroes ten dword fields at offsets 0x8 through 0x2C; returns this.",
+      "owner": "ZeroInitializedObject",
+      "evidence_refs": [
+        "function:0x005473D0",
+        "callee:0x0053C2A0",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "caller:0x0053CAC0",
+        "caller:0x0054AC70",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00547420",
+      "role": "Bulk cleanup of two owned linked lists: the first (root this+0x24) is walked via node index 48, freeing each node's +0xBC payload (ArrayCleanupWithDualFree, EmptyStub_7470, FreeWrapper_7bcf) and the trailing node; the second (root this+0x2C) is walked via +20 links, freeing each node's +16 payload (SingleFieldFree) and the trailing node; returns 0.",
+      "owner": "StringKeyedResourceList",
+      "evidence_refs": [
+        "function:0x00547420",
+        "callee:0x00546370",
+        "callee:0x0053AB70",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "field:this:0x00000024",
+        "field:this:0x0000002C",
+        "caller:0x0053CAF0",
+        "caller:0x0054AC70",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005477F0",
+      "role": "String search of the string-keyed resource list: reads the head at this+0x24; when non-null walks nodes comparing each node's string against a2 with strcmp and following the next pointer at node+192 (0xC0) until a match or the end; returns the matched node or 0. Used for name-based resource lookup by mesh and texture loading paths.",
+      "owner": "StringKeyedResourceList",
+      "evidence_refs": [
+        "function:0x005477F0",
+        "field:this:0x00000024",
+        "field:this:0x000000E4",
+        "field:*(this+0xE4):0x000000C0",
+        "caller:0x00547B40",
+        "caller:0x00548190",
+        "caller:0x0054C510",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00548620",
+      "role": "Material-library lookup and texture creation: tries direct open of a2, then the registered entry path array byte_8B5A3C (stride 132, count dword_8B8E30), then a linked list from head dword_8B8F14 (nodes tested with sub_560230); for each located file runs D3DTextureResourceCreation and closes the handle; returns -1 with an 'Unable to locate material lib' report (sub_53C590) when nothing is found, 0 otherwise.",
+      "owner": "FreeFunction",
+      "evidence_refs": [
+        "function:0x00548620",
+        "callee:0x00587DB0",
+        "callee:0x00587D02",
+        "callee:0x00548190",
+        "callee:0x0058815F",
+        "callee:0x00560230",
+        "callee:0x0053C590",
+        "global:0x005BE828",
+        "global:0x005DBE70",
+        "global:0x008B5A3C",
+        "global:0x008B8E30",
+        "global:0x008B8F14",
+        "global:0x008B6AC0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00548890",
+      "role": "Case-insensitive name lookup over the string-keyed list: normalizes the needle via sub_589901, reads the head at this+0x24, and walks nodes (next at node+0xC0) comparing each node's name, where the per-node flag at +0x9C bit 0x200 selects wide vs narrow string layout; returns the matching node or 0. Owner DERIVED NamedStringList.",
+      "owner": "StringKeyedResourceList",
+      "evidence_refs": [
+        "function:0x00548890",
+        "callee:0x00589901",
+        "field:this:0x00000024",
+        "field:this:0x000000E4",
+        "field:this:0x000000C0",
+        "field:*(this+0xE4):0x000000C0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00548A30",
+      "role": "Free helper generating a 4-character NUL-terminated printable key: seeds the TLS random context with a1 modulo 42330 (sub_5884E0), folds a pseudo-random value (v3 << 17) | v3 (sub_5884ED), maps four successive low bytes into the 48..126 range via modulo 78, and returns the last computed quotient.",
+      "owner": "FreeFunction",
+      "evidence_refs": [
+        "function:0x00548A30",
+        "callee:0x005884E0",
+        "callee:0x005884ED",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00548E00",
+      "role": "Constructor/initializer: bulk zero-initializes the object via GlobalZeroInit_c2a0 (sub_53C2A0), then explicitly clears the byte at offset 0x0 and the dwords at offsets 0x10 and 0x14; returns this.",
+      "owner": "ZeroInitializedObject",
+      "evidence_refs": [
+        "function:0x00548E00",
+        "callee:0x0053C2A0",
+        "field:this:0x00000000",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00549110",
+      "role": "Recursive node free: recurses into the child at +0x44 when non-null, and into the child at +0x4C when both the guard at +0x40 and the pointer are non-null; returns -1 when the SceneGraph check (sub_54A770) fails, otherwise runs the TwoFunctionCallChain teardown (sub_54A710) and frees the node (sub_587BCF), returning 0. Owner DERIVED SceneGraphNode.",
+      "owner": "SceneGraphNode",
+      "evidence_refs": [
+        "function:0x00549110",
+        "callee:0x00549110",
+        "callee:0x0054A770",
+        "callee:0x0054A710",
+        "callee:0x00587BCF",
+        "field:this:0x00000040",
+        "field:this:0x00000044",
+        "field:this:0x0000004C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005492B0",
+      "role": "Audio-engine startup dispatch: walks the linked list headed at this+0xF0 (next at node+0x34), reads the string at each node's data base plus 88 bytes, looks it up via sub_5456B0 on the manager context this[0], and for a match removes the entry from the source doubly linked list (sub_5455F0) and inserts it into the byte buffer (sub_549250).",
+      "owner": "AudioEngineSetup",
+      "evidence_refs": [
+        "function:0x005492B0",
+        "callee:0x005456B0",
+        "callee:0x005455F0",
+        "callee:0x00549250",
+        "field:this:0x00000000",
+        "field:this:0x000000F0",
+        "field:this:0x00000124",
+        "field:this:0x00000158",
+        "caller:0x00546010",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0054A240",
+      "role": "Destroy-and-free wrapper for a multi-list container: unconditionally releases the list contents via MultiListFreeWithTraversal (sub_548EB0); when the object pointer is non-null, finalizes it with the empty stub (sub_557470) and frees the block (sub_587BCF); returns 0. Invoked by ResourceCleanupDestructionForDirectXObjects.",
+      "owner": "ResourceDestructor",
+      "evidence_refs": [
+        "function:0x0054A240",
+        "callee:0x00548EB0",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "caller:0x00543BF0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0054A5C0",
+      "role": "Global stream-cursor reader: copies a3 bytes from (a2 + dword_8B8F3C) into the destination buffer a1, advances dword_8B8F3C by a3, and returns the copied byte count a3. Called by rendering/resource loaders (DirectXMeshVertexBufferParsingAndLoading, D3DTextureResourceCreation, sub_54AC70, MeshVertexIndexBufferLoader).",
+      "owner": "GlobalStreamReader",
+      "evidence_refs": [
+        "function:0x0054A5C0",
+        "global:0x008B8F3C",
+        "caller:0x00547B40",
+        "caller:0x00548190",
+        "caller:0x0054AC70",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "MeshResourceObject",
+      "responsibility": "572-byte mesh-resource object: stores a caller-supplied resource ID (dword index 15) and a copied name string; constructed via the sub_54A600 constructor and cleaned up through the TwoFunctionCallChain teardown sub_54A710. The stored ID and name string are described in the packet but have no packet-allowed field evidence refs, so they are documented in unresolved rather than declared as fields.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005450E0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x005450E0",
+        "callee:0x0054A600",
+        "callee:0x0054A730",
+        "callee:0x0054A710",
+        "callee:0x00587C03",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "SceneNodeListContainer",
+      "responsibility": "Container of two singly-linked scene-node lists (heads +0x100 and +0x108) with per-node sub-lists and a flag-propagation chain; supports node append, node counting, indexed lookup, recursive string-property search, and flag-driven per-frame update.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00545250",
+        "0x005452F0",
+        "0x00545340",
+        "0x005453A0",
+        "0x00545D00"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000100",
+          "name": "first_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000100"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000108",
+          "name": "second_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000108"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000154",
+          "name": "tail_walk_base",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000154"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001EC",
+          "name": "sub_list_base",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001EC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000EC",
+          "name": "element_flag_dword",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000EC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000110",
+          "name": "flag_chain_root_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000110"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000134",
+          "name": "flag_chain_base",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000134"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B0",
+          "name": "cleared_dword",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000001B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B4",
+          "name": "element_count_0",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B8",
+          "name": "element_array_0",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001BC",
+          "name": "element_count_1",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001BC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001C0",
+          "name": "element_array_1",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001C0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001C4",
+          "name": "element_count_2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001C8",
+          "name": "element_array_2",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001C8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001CC",
+          "name": "element_count_3",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001CC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001D0",
+          "name": "element_array_3",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001F4",
+          "name": "element_gate",
+          "type_guess": "uint32",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001F4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001F8",
+          "name": "element_gate_aux",
+          "type_guess": "uint32",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001F8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000200",
+          "name": "element_gate_aux2",
+          "type_guess": "uint32",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000200"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00545250",
+        "function:0x005452F0",
+        "function:0x00545340",
+        "function:0x005453A0",
+        "function:0x00545D00",
+        "callee:0x0054BCD0",
+        "callee:0x0054BC60",
+        "callee:0x00544C50",
+        "field:this:0x00000100",
+        "field:this:0x00000108",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "D3DResourceObject",
+      "responsibility": "Reference-counted D3D texture/resource object: refcounts at +0x84/+0x88, a flags dword at +0x9C, a 148-byte element-slot array (count +0xA4, base +0xA8), WORD dimensions +0xAC/+0xAE, a float key at +0xB0 with a cached float-key node at +0xB4, and a linked sub-resource list head at +0xB8. Materializes texture sets and releases sub-resources on the count reaching zero.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00546450",
+        "0x005469C0",
+        "0x005471C0",
+        "0x00547240",
+        "0x005473C0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000084",
+          "name": "refcount_a",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000084"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "refcount_b",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000088"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000009C",
+          "name": "flags",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000009C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A4",
+          "name": "element_slot_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000A4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A8",
+          "name": "element_slot_array",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000A8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000AC",
+          "name": "dim_word_a",
+          "type_guess": "uint16",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000AE",
+          "name": "dim_word_b",
+          "type_guess": "uint16",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000AE"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B0",
+          "name": "float_key",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B4",
+          "name": "float_key_node",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B8",
+          "name": "subresource_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000B8"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00546450",
+        "function:0x005469C0",
+        "function:0x005471C0",
+        "function:0x00547240",
+        "function:0x005473C0",
+        "callee:0x00550080",
+        "callee:0x0054FEC0",
+        "callee:0x005478B0",
+        "callee:0x005502C0",
+        "callee:0x00548190",
+        "field:this:0x0000009C",
+        "field:this:0x000000A8"
+      ]
+    },
+    {
+      "name": "StringKeyedResourceList",
+      "responsibility": "Registry of name-keyed resource nodes with two list heads (+0x24 and +0x2C); nodes carry a next pointer at +0xC0 (packet base *(this+0xE4)); supports case-sensitive string lookup, normalized (case-insensitive) name lookup, and bulk two-list cleanup.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00547420",
+        "0x005477F0",
+        "0x00548890"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "list_head_secondary",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E4",
+          "name": "traversal_node_base",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000E4"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00547420",
+        "function:0x005477F0",
+        "function:0x00548890",
+        "callee:0x00589901",
+        "callee:0x00546370",
+        "callee:0x0053AB70",
+        "field:this:0x00000024",
+        "field:*(this+0xE4):0x000000C0"
+      ]
+    },
+    {
+      "name": "ZeroInitializedObject",
+      "responsibility": "Object family constructed by a bulk zero-init (GlobalZeroInit_c2a0) plus explicit field clears; the two constructors clear byte 0x0 / dwords 0x8..0x2C (MultiFieldZeroInitConstructor) and byte 0x0 / dwords +0x10/+0x14 (objectZeroInitConstructor).",
+      "trust": "GUESS",
+      "methods": [
+        "0x005473D0",
+        "0x00548E00"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "first_byte",
+          "type_guess": "uint8",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "zeroed_dword_08",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "zeroed_dword_0C",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "zeroed_dword_10",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "zeroed_dword_14",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "zeroed_dword_18",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "zeroed_dword_1C",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "zeroed_dword_20",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "zeroed_dword_24",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "zeroed_dword_28",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "zeroed_dword_2C",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005473D0",
+        "function:0x00548E00",
+        "callee:0x0053C2A0"
+      ]
+    },
+    {
+      "name": "SceneGraphNode",
+      "responsibility": "Scene-graph node freed recursively: child pointers at +0x44 (unconditional) and +0x4C (gated on the +0x40 guard); freeing aborts (returns -1) when the SceneGraph check at 0x0054A770 reports failure.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00549110"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "second_child_guard",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000040"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "first_child",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000044"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "second_child",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000004C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00549110",
+        "callee:0x0054A770",
+        "callee:0x0054A710",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "NodeListAllocator",
+      "responsibility": "Allocates and inserts 56-byte nodes into a main list (head +0x15C, first link +0x190) or a parent's child list; owns the node counter at +0x158.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00545930"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000158",
+          "name": "node_counter",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000158"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000015C",
+          "name": "main_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000015C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000190",
+          "name": "main_list_first_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000190"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00545930",
+        "callee:0x00587C03",
+        "callee:0x00560BA0"
+      ]
+    },
+    {
+      "name": "AudioEngineSetup",
+      "responsibility": "Audio-engine startup dispatch: walks a list of named entries (head +0xF0), looks each name up through the manager context this[0], and relocates matched entries from the source doubly linked list into the byte buffer.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x005492B0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "manager_context",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F0",
+          "name": "entry_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005492B0",
+        "callee:0x005456B0",
+        "callee:0x005455F0",
+        "callee:0x00549250",
+        "caller:0x00546010"
+      ]
+    },
+    {
+      "name": "ResourceDestructor",
+      "responsibility": "Teardown wrappers that unlink objects from lists, run stub finalizers, and free heap blocks during resource teardown (ReleaseLinkedResource for singly-owned resources, DestroyFree for multi-list containers).",
+      "trust": "GUESS",
+      "methods": [
+        "0x005454A0",
+        "0x0054A240"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x005454A0",
+        "function:0x0054A240",
+        "callee:0x005455F0",
+        "callee:0x00548EB0",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "caller:0x00543BF0"
+      ]
+    },
+    {
+      "name": "GlobalStreamReader",
+      "responsibility": "Reads bytes from the global stream-buffer cursor dword_8B8F3C at a caller-supplied offset and advances the cursor by the copied length.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0054A5C0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0054A5C0",
+        "global:0x008B8F3C"
+      ]
+    },
+    {
+      "name": "SceneListNode",
+      "responsibility": "Node of the scene-node lists: carries a forward link at +0x4C (tail-walk base *(this+0x154)) and a backward link at +0x48.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x154)",
+          "offset": "0x0000004C",
+          "name": "forward_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x154):0x0000004C",
+            "field:*(*(this+0x154)+0x4C):0x0000004C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(this+0x154):0x0000004C",
+        "function:0x00545250"
+      ]
+    },
+    {
+      "name": "FirstListNode",
+      "responsibility": "Node of the first scene-node chain (base *(this+0x204)): holds a sub-list head at +0xEC and the next first-list link at +0x104.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x204)",
+          "offset": "0x000000EC",
+          "name": "sub_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x204):0x000000EC"
+          ]
+        },
+        {
+          "base": "*(this+0x204)",
+          "offset": "0x00000104",
+          "name": "next_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x204):0x00000104"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(this+0x204):0x000000EC",
+        "field:*(this+0x204):0x00000104"
+      ]
+    },
+    {
+      "name": "SubListNode",
+      "responsibility": "Node of a per-first-node sub-list (reached via base *(*(this+0x204)+0xEC)): next link at +0x4C. The packet field evidence spells the base as *(*(*(this+0x204)+0xEC)+0x4C), which is used verbatim for the field declaration.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(*(*(this+0x204)+0xEC)+0x4C)",
+          "offset": "0x0000004C",
+          "name": "next_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(*(this+0x204)+0xEC)+0x4C):0x0000004C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(*(*(this+0x204)+0xEC)+0x4C):0x0000004C"
+      ]
+    },
+    {
+      "name": "SubListWalkNode",
+      "responsibility": "Node of a sub-list walked during indexed lookup (base *(*(this+0x1EC)+0x4C)): next link at +0x4C.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(*(this+0x1EC)+0x4C)",
+          "offset": "0x0000004C",
+          "name": "next_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x1EC)+0x4C):0x0000004C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(*(this+0x1EC)+0x4C):0x0000004C"
+      ]
+    },
+    {
+      "name": "FlagChainNode",
+      "responsibility": "Node of the flag-propagation chain (base *(this+0x134)): flag dword at +0x9C, next link at +0xC0. The packet field evidence spells the next-link base as *(*(this+0x134)+0xC0), which is used verbatim for the field declaration.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x134)",
+          "offset": "0x0000009C",
+          "name": "flag_dword",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x134):0x0000009C"
+          ]
+        },
+        {
+          "base": "*(*(this+0x134)+0xC0)",
+          "offset": "0x000000C0",
+          "name": "next_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x134)+0xC0):0x000000C0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(this+0x134):0x0000009C",
+        "field:*(*(this+0x134)+0xC0):0x000000C0"
+      ]
+    },
+    {
+      "name": "NamedNode",
+      "responsibility": "Node of the string-keyed resource list (base *(this+0xE4)): next link at +0xC0. A per-node name-layout flag at +0x9C (bit 0x200 selects wide-character names) is described in the packet but has no packet-allowed field evidence ref, so it is documented in unresolved rather than declared as a field.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0xE4)",
+          "offset": "0x000000C0",
+          "name": "next_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xE4):0x000000C0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(this+0xE4):0x000000C0",
+        "function:0x00548890"
+      ]
+    },
+    {
+      "name": "AllocListNode",
+      "responsibility": "Node of the node-allocator main list (base *(this+0x190)): next link at +0x34 (52). The packet field evidence spells the next-link base as *(*(this+0x190)+0x34), which is used verbatim for the field declaration; the node also carries +48/+52 links per the raw source.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(*(this+0x190)+0x34)",
+          "offset": "0x00000034",
+          "name": "next_link",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(*(this+0x190)+0x34):0x00000034"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(*(this+0x190)+0x34):0x00000034"
+      ]
+    },
+    {
+      "name": "SubresourceSlot",
+      "responsibility": "Element of the D3D resource slot array (base *(this+0xA8), 148-byte stride): stores the node pointer at +0x8C.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0xA8)",
+          "offset": "0x0000008C",
+          "name": "node_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0xA8):0x0000008C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(this+0xA8):0x0000008C"
+      ]
+    },
+    {
+      "name": "SubresourceNode",
+      "responsibility": "Node referenced by a sub-resource slot (base *(*(this+0xA8)+0x8C)): refcount at +0x0 and element count at +0x4C.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(*(this+0xA8)+0x8C)",
+          "offset": "0x00000000",
+          "name": "refcount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(*(this+0xA8)+0x8C):0x00000000"
+          ]
+        },
+        {
+          "base": "*(*(this+0xA8)+0x8C)",
+          "offset": "0x0000004C",
+          "name": "element_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0xA8)+0x8C):0x0000004C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(*(this+0xA8)+0x8C):0x00000000",
+        "field:*(*(this+0xA8)+0x8C):0x0000004C"
+      ]
+    },
+    {
+      "name": "ListContainerHead",
+      "responsibility": "Indirection stub of the sub-resource list (base *(this+0xB8)): list head at +0x28, from which nodes are walked via dword index 23.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0xB8)",
+          "offset": "0x00000028",
+          "name": "head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xB8):0x00000028"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:*(this+0xB8):0x00000028"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "FlagDrivenElementUpdate",
+      "owner": "SceneNodeListContainer",
+      "states": [
+        "IDLE",
+        "CLEAR_FLAG_0x400",
+        "WALK_SUBSLOTS",
+        "CLEAR_AND_WALK"
+      ],
+      "transitions": [
+        {
+          "from": "IDLE",
+          "to": "CLEAR_FLAG_0x400",
+          "condition": "a3 & 0x1800 == 0x800"
+        },
+        {
+          "from": "IDLE",
+          "to": "WALK_SUBSLOTS",
+          "condition": "a3 & 0x1800 == 0x1000"
+        },
+        {
+          "from": "IDLE",
+          "to": "CLEAR_AND_WALK",
+          "condition": "a3 & 0x1800 == 0x1800"
+        }
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00545D00",
+        "global:0x00545F24",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ReferenceCountedRelease",
+      "owner": "D3DResourceObject",
+      "states": [
+        "RELEASE_BLOCKED",
+        "REFERENCES_OUTSTANDING",
+        "RELEASED"
+      ],
+      "transitions": [
+        {
+          "from": "RELEASE_BLOCKED",
+          "to": "RELEASE_BLOCKED",
+          "condition": "flags at +0x9C bit 1 set -> return -2 without touching refcounts"
+        },
+        {
+          "from": "REFERENCES_OUTSTANDING",
+          "to": "REFERENCES_OUTSTANDING",
+          "condition": "this+0x88 still non-zero after decrement -> return -2"
+        },
+        {
+          "from": "REFERENCES_OUTSTANDING",
+          "to": "RELEASED",
+          "condition": "counts reach zero: free sub-resource nodes, OR +0x9C with 3, return 0"
+        }
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005469C0",
+        "field:this:0x0000009C",
+        "field:this:0x00000088",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "ResourceNameLookup",
+      "purpose": "Resolve a loaded resource node by name string from the string-keyed resource registry: case-sensitive strcmp scan (ArithmeticComparisonBinarySearch) and normalized case-insensitive scan (findNodeByNameCaseInsensitive) sharing the +0x24 list head and +0xC0 node links.",
+      "functions": [
+        "0x005477F0",
+        "0x00548890"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005477F0",
+        "function:0x00548890",
+        "field:this:0x00000024",
+        "field:*(this+0xE4):0x000000C0"
+      ]
+    },
+    {
+      "name": "ResourceTeardown",
+      "purpose": "Release or destroy resource objects during teardown: ReleaseLinkedResource unlinks and frees a single resource, DestroyFree frees a multi-list container, and ReferenceCountedResourceRelease drains reference counts before freeing sub-resources.",
+      "functions": [
+        "0x005454A0",
+        "0x0054A240",
+        "0x005469C0"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005454A0",
+        "function:0x0054A240",
+        "function:0x005469C0",
+        "caller:0x00543BF0"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "SceneNodeListContainer",
+      "to": "callee:0x0054BCD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00545D00",
+        "callee:0x0054BCD0"
+      ]
+    },
+    {
+      "from": "SceneNodeListContainer",
+      "to": "callee:0x0054BC60",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005453A0",
+        "callee:0x0054BC60"
+      ]
+    },
+    {
+      "from": "SceneNodeListContainer",
+      "to": "callee:0x00544C50",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00545250",
+        "callee:0x00544C50"
+      ]
+    },
+    {
+      "from": "SceneNodeListContainer",
+      "to": "global:0x00545F24",
+      "kind": "jump_table",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00545D00",
+        "global:0x00545F24"
+      ]
+    },
+    {
+      "from": "D3DResourceObject",
+      "to": "callee:0x00550080",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00546450",
+        "callee:0x00550080"
+      ]
+    },
+    {
+      "from": "D3DResourceObject",
+      "to": "callee:0x0054FEC0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00546450",
+        "callee:0x0054FEC0"
+      ]
+    },
+    {
+      "from": "D3DResourceObject",
+      "to": "callee:0x005478B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005469C0",
+        "callee:0x005478B0"
+      ]
+    },
+    {
+      "from": "D3DResourceObject",
+      "to": "callee:0x005502C0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005469C0",
+        "callee:0x005502C0"
+      ]
+    },
+    {
+      "from": "D3DResourceObject",
+      "to": "callee:0x00548190",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00548620",
+        "callee:0x00548190",
+        "caller:0x00548190"
+      ]
+    },
+    {
+      "from": "StringKeyedResourceList",
+      "to": "callee:0x00589901",
+      "kind": "uses_helper",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00548890",
+        "callee:0x00589901"
+      ]
+    },
+    {
+      "from": "AudioEngineSetup",
+      "to": "callee:0x005456B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005492B0",
+        "callee:0x005456B0"
+      ]
+    },
+    {
+      "from": "AudioEngineSetup",
+      "to": "callee:0x005455F0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005492B0",
+        "callee:0x005455F0"
+      ]
+    },
+    {
+      "from": "AudioEngineSetup",
+      "to": "callee:0x00549250",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005492B0",
+        "callee:0x00549250"
+      ]
+    },
+    {
+      "from": "MeshResourceObject",
+      "to": "callee:0x00587BCF",
+      "kind": "frees",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005450E0",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "SceneGraphNode",
+      "to": "callee:0x0054A770",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00549110",
+        "callee:0x0054A770"
+      ]
+    },
+    {
+      "from": "function:0x00548620",
+      "to": "global:0x008B5A3C",
+      "kind": "uses_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00548620",
+        "global:0x008B5A3C"
+      ]
+    },
+    {
+      "from": "function:0x00548620",
+      "to": "global:0x008B8F14",
+      "kind": "uses_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00548620",
+        "global:0x008B8F14"
+      ]
+    },
+    {
+      "from": "function:0x00546450",
+      "to": "global:0x008B8DBC",
+      "kind": "uses_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00546450",
+        "global:0x008B8DBC"
+      ]
+    },
+    {
+      "from": "function:0x00546450",
+      "to": "global:0x008B8DC0",
+      "kind": "uses_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00546450",
+        "global:0x008B8DC0"
+      ]
+    },
+    {
+      "from": "GlobalStreamReader",
+      "to": "global:0x008B8F3C",
+      "kind": "uses_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0054A5C0",
+        "global:0x008B8F3C"
+      ]
+    },
+    {
+      "from": "function:0x00548A30",
+      "to": "callee:0x005884E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00548A30",
+        "callee:0x005884E0"
+      ]
+    },
+    {
+      "from": "function:0x00548A30",
+      "to": "callee:0x005884ED",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00548A30",
+        "callee:0x005884ED"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "TwoHeadSceneListLayout",
+      "category": "data_layout",
+      "description": "The scene-node container keeps two singly-linked node lists at +0x100 and +0x108. Append (0x00545250) sets flag bit 3 at node+0x3C, clears the node forward link (+0x4C), registers the node with the tree accumulator (sub_544C50), and maintains +0x48 backward links. Counting and indexed lookup descend per-node sub-lists (head at node+0xEC). A replacement must preserve the two-head traversal order and the +0x4C/+0x104 forward-link semantics.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00545250",
+        "function:0x005452F0",
+        "function:0x00545340",
+        "field:this:0x00000100",
+        "field:this:0x00000108"
+      ]
+    },
+    {
+      "name": "TextureResourceRefcountRelease",
+      "category": "lifecycle",
+      "description": "ReferenceCountedResourceRelease (0x005469C0) decrements refcounts at +0x84/+0x88. It returns -2 while the release-blocking flag at +0x9C bit 1 is set or while +0x88 stays non-zero, and returns 0 only after sub-resource nodes are freed and +0x9C is ORed with 3. Callers sub_547710 and LinkedListWalkWithExitCheck depend on this -2 vs 0 signalling.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005469C0",
+        "field:this:0x00000084",
+        "field:this:0x00000088",
+        "field:this:0x0000009C",
+        "caller:0x00547710",
+        "caller:0x005487E0"
+      ]
+    },
+    {
+      "name": "TextureSetElementDescriptor",
+      "category": "data_layout",
+      "description": "Texture-set loading (0x00546450) iterates 148-byte element descriptors (array base +0xA8, bound +0xA4). A dword at element+96 equal to the 0x8000000 sentinel selects the single-object path with a 20-byte struct at element+144; otherwise the frame-count path allocates 96-byte zero-filled frame blocks (count recorded via sub_550300) and creates D3D textures. Element layout observed at offsets +0, +64, +68, +72, +96, +128, +140, +144.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00546450",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "callee:0x00550080",
+        "global:0x00800000"
+      ]
+    },
+    {
+      "name": "StringKeyedResourceRegistry",
+      "category": "data_layout",
+      "description": "The resource registry roots lists at +0x24 and +0x2C. Nodes carry a next pointer at +0xC0 and, for the normalized lookup, a name-layout flag at node+0x9C (bit 0x200 selects wide-character names). Name lookups apply the same normalization (sub_589901) to the needle before comparing, and a two-list bulk cleanup (0x00547420) frees per-node payloads.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005477F0",
+        "function:0x00548890",
+        "function:0x00547420",
+        "field:this:0x00000024",
+        "field:*(this+0xE4):0x000000C0",
+        "callee:0x00589901"
+      ]
+    },
+    {
+      "name": "GlobalStreamCursorRead",
+      "category": "io",
+      "description": "CopyFromGlobalBufferAndAdvance (0x0054A5C0) reads from the global buffer cursor dword_8B8F3C at a caller-supplied offset and advances the cursor by the copied length, returning the byte count. Callers pass offsets with no bounds check; a replacement must mirror the single-cursor advance-by-read semantics exactly.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0054A5C0",
+        "global:0x008B8F3C"
+      ]
+    },
+    {
+      "name": "RecursiveNodeFreeGuard",
+      "category": "lifecycle",
+      "description": "recursiveNodeFree (0x00549110) recurses into the +0x44 child unconditionally when non-null but only into the +0x4C child when the guard at +0x40 is non-null, and aborts the entire free (returning -1) when the SceneGraph check (0x0054A770) reports failure. This ordering and the guard must be preserved.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00549110",
+        "field:this:0x00000040",
+        "field:this:0x00000044",
+        "field:this:0x0000004C",
+        "callee:0x0054A770"
+      ]
+    }
+  ],
+  "unresolved": [
+    "All packet function owners are UNKNOWN except loadTextureSet (DERIVED TextureResourceLoader), findNodeByNameCaseInsensitive (DERIVED NamedStringList), and recursiveNodeFree (DERIVED SceneGraphNode); the class groupings (MeshResourceObject, SceneNodeListContainer, D3DResourceObject, StringKeyedResourceList, ZeroInitializedObject, NodeListAllocator, AudioEngineSetup, ResourceDestructor, GlobalStreamReader) are worker synthesis at DERIVED/GUESS, not packet evidence. Equal byte offsets on distinct this-bases (e.g. this+0x40 on SceneGraphNode vs StringKeyedResourceList cleanup, +0x4C node links across SceneListNode/SubListNode/SubresourceNode, +0x9C flags on D3DResourceObject vs FlagChainNode/NamedNode) are NOT merged; common ownership is unproven.",
+    "applyFlagDrivenTraversal (0x00545D00) roots its flag-propagation chain at *(this+0x134) per the deterministic facts (fields *(this+0x134):0x9C and *(*(this+0x134)+0xC0):0xC0) but the Hex-Rays rendering roots it at *(this+0x110)+36; the two bases cannot be reconciled from this packet alone.",
+    "The node-list fields of applyFlagDrivenTraversal are attributed to base *(this+0x204) (offsets 0xEC, 0x104) by the facts while the source renders them relative to list nodes reached from this+0x100; base mapping unresolved. The +0x1EC sub-list base has no counterpart in the raw source text.",
+    "field:this:0x00000000 is tri-ambiguous: the MeshResourceAllocator output pointer a1, the manager context this[0] of LinkedListWalkWithDispatch, and the cleared first byte of objectZeroInitConstructor. It is placed on ZeroInitializedObject and AudioEngineSetup separately, with no cross-ownership claim.",
+    "field:this:0x000000C0 (findNodeByNameCaseInsensitive node next pointer) is labeled with a this-base by the packet while the traversal base *(this+0xE4):0xC0 is used elsewhere; the two are treated as the same +0xC0 node link but the base spelling is not reconciled.",
+    "ZeroInitializedObject offsets +0x24/+0x2C coincide with StringKeyedResourceList list roots and +0x10/+0x14 coincide with D3DResourceObject elements; the constructors (callers sub_53CAC0/sub_54AC70 and sub_53CAC0) may construct a shared object family, but common ownership is not proven.",
+    "field:this:0x00000025, field:this:0x00000040, field:this:0x00000124, field:this:0x000001A0, field:*(this+0x40):0x00000010 and field:*(*(this+0xB8)+0x28):0x000000B8 appear in packet evidence but have no grounded operation in the raw source text; their roles (possibly decomposition artifacts or unread element/version gates) are unproven.",
+    "The this+0x9C flag bits (release-block bit 1, dimension-flag bit 5, loader bits 0/1/0x40/0x400) and the element+64/element+96 mask literals (0x20, 0x100, 0x1800, 0x800, 0x1000, 0x8000000, 0x00800000, 0x4000, 0x400000) are observed literals only; their consumers and meanings are not established here.",
+    "The 148-byte element-slot stride and the 24-byte sub-resource element stride are inferred from loop increments and have no named struct backing; the sub-resource list head at this+0xB8 and its +0x28 indirection are read as two distinct fields whose object roles are not established.",
+    "ReferenceCountedResourceRelease returning -2 vs 0 to callers sub_547710 and LinkedListWalkWithExitCheck is not semantically established by this packet.",
+    "MeshResourceObject's resource ID at dword index 15 (derived from the packet summary, GUESS) has no packet-allowed field evidence ref: field:this:0x0000003C is outside the packet's allowed evidence refs, so it is documented here rather than declared as a field; the 572-byte block layout and name-string offset are not evidenced.",
+    "LoadMaterialLibrary's entry-path array byte_8B5A3C stride 132, the dword_8B8F14 linked-list 304-byte stride, and the count comparison against dword_8B6AC0 (a mismatch returning success 0) are observed from the raw walk only.",
+    "The mapping of rodata format-string globals 0x005BE860/0x005DBE48/0x005DBE54 to the inline format literals in loadTextureSet is inferred, not evidenced; global dword_8B8F28 (0x008B8F28) has no visible role in the decompiled text.",
+    "GenerateRandomPasswordKey: the semantic role of a1 (seed or key index), the 42330 modulus, and whether RandLCGRandomNumberGenerator's raw-register argument is meaningful are unresolved.",
+    "Free functions SelfCopyStringToBuffer (0x00546330), LoadMaterialLibrary (0x00548620), GenerateRandomPasswordKey (0x00548A30) have no defensible class owner and are kept unassigned.",
+    "EmptyStub_7470 (0x00557470) and TwoFunctionCallChain (0x0054A710) labels are taken from existing analysis, not independently verified; their real cleanup behavior is unknown."
+  ],
+  "unresolved_evidence_refs": [
+    "field:*(*(this+0xB8)+0x28):0x000000B8",
+    "field:*(this+0x40):0x00000010",
+    "field:this:0x00000025",
+    "field:this:0x000000C0",
+    "field:this:0x00000124",
+    "field:this:0x000001A0",
+    "global:0x005C2D64",
+    "global:0x008B8F28"
+  ],
+  "confidence": {
+    "boundaries": "HIGH",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

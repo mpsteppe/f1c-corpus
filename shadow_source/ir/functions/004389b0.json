@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "address": "0x004389B0",
+  "proposed_name": "SuspensionDataCopyToPhysicsEngine",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004389B0"]
+  },
+  "summary": "Copies suspension geometry data (Euler-derived rotation matrix and inertia tensor) into one or two physics engine body structs. In the active path it builds the rotation matrix from stored Euler angles, transforms the inertia tensor to body and world space, and copies the buffers into the body pointed to by this+348; it repeats into the optional second body at this+352 when that pointer is non-null. In the inactive path it copies a reference matrix from the source argument and rebuilds the rotation around the X axis. On the vehicle physics frame path.",
+  "local_names": {
+    "this": "suspension/vehicle object carrying the geometry data and physics body pointers",
+    "a2": "source data block whose matrix (offset 28) and position (offsets 124/132/140) feed the inactive copy path",
+    "v11": "local zero-initialized 24-byte matrix buffer copied into the physics body",
+    "v12": "local zero-initialized 24-byte matrix buffer copied into the physics body",
+    "v13": "local zero-initialized 3x3 rotation matrix buffer built by EulerAnglesTo33RotationMatrix",
+    "v14": "72-byte inertia tensor buffer shared across both paths",
+    "v9": "24-byte displacement vector scaled by the scale factor at this+188"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Reads the byte flag at this+452 (active suspension path selector) and branches into the active copy path when non-zero, otherwise the inactive reference-copy path",
+      "evidence_refs": ["field:this:0x000001C4", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Active path: zero-initializes the four local buffers v11, v12, v13 and v9 via memset before they are filled",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls EulerAnglesTo33RotationMatrix(v13) to build the 3x3 rotation matrix from the Euler angle stored at this+172",
+      "evidence_refs": ["callee:0x0056BD40", "field:this:0x000000AC", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copies v11 into the first physics body (pointed to by this+348) at offset 4 (24 bytes) and v12 at offset 100 (24 bytes)",
+      "evidence_refs": ["field:this:0x0000015C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls F_3x3InertiaTensorTransform on the first physics body to transform its inertia tensor into the body frame",
+      "evidence_refs": ["callee:0x005692A0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copies the 72-byte inertia tensor buffer v14 into the first physics body at offset 28, then the displacement vector v9 at offset 124",
+      "evidence_refs": ["field:this:0x0000015C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls InertiaTensorWorldSpaceTransform on the first physics body to bring the inertia tensor into world space",
+      "evidence_refs": ["callee:0x00569410", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Reads the optional second physics body pointer at this+352 and copies into it only when it is non-null",
+      "evidence_refs": ["field:this:0x00000160", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copies v11 into the second physics body at offset 4 and v12 at offset 100, then selects that body pointer as the working body",
+      "evidence_refs": ["field:this:0x00000160", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Inactive path: copies the 72-byte reference matrix from the source argument a2 at offset 28 into v14, then calls sub_56BDE0(this+456, 0) when the byte flag at this+453 is set",
+      "evidence_refs": ["callee:0x0056BDE0", "field:this:0x000001C5", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls F_33RotationMatrixAroundXAxis with the double value at this+188 as the angle to build the rotation matrix around the X axis",
+      "evidence_refs": ["callee:0x0056C2D0", "field:this:0x000000BC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Computes the displacement vector v9 as the v14 matrix columns scaled by the factor at this+188, summed with the source position components read from a2 at offsets 124, 132 and 140",
+      "evidence_refs": ["field:this:0x000000BC", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Common tail: copies v14 into the working physics body at offset 28 (72 bytes), calls F_3x3InertiaTensorTransform, copies v9 at offset 124, and returns the result of InertiaTensorWorldSpaceTransform on that body",
+      "evidence_refs": ["callee:0x005692A0", "callee:0x00569410", "field:this:0x0000015C", "field:this:0x00000160", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (*(this + 452)) {",
+    "    memset(v11, 0, 24); memset(v12, 0, 24); memset(v13, 0, 24); memset(v9, 0, 24);",
+    "    EulerAnglesTo33RotationMatrix(v13);",
+    "    memcpy(*(this + 348) + 4, v11, 24); memcpy(*(this + 348) + 100, v12, 24);",
+    "    memcpy(*(this + 348) + 28, v14, 72); F_3x3InertiaTensorTransform(*(this + 348));",
+    "    memcpy(*(this + 348) + 124, v9, 24); InertiaTensorWorldSpaceTransform(*(this + 348));",
+    "    if (*(this + 352)) {",
+    "        memcpy(*(this + 352) + 4, v11, 24); memcpy(*(this + 352) + 100, v12, 24);",
+    "        body = *(this + 352);",
+    "    }",
+    "} else {",
+    "    memcpy(v14, a2 + 28, 72);",
+    "    if (*(this + 453)) sub_56BDE0(this + 456, 0);",
+    "    F_33RotationMatrixAroundXAxis(*(this + 188), 0);",
+    "    body = *(this + 348);",
+    "    v9[0] = v14[0] * *(this + 188) + *(a2 + 124);",
+    "    v9[1] = v14[3] * *(this + 188) + *(a2 + 132);",
+    "    v9[2] = v14[6] * *(this + 188) + *(a2 + 140);",
+    "}",
+    "memcpy(body + 28, v14, 72); F_3x3InertiaTensorTransform(body);",
+    "memcpy(body + 124, v9, 24);",
+    "return InertiaTensorWorldSpaceTransform(body);"
+  ],
+  "unresolved": [
+    "The internal math of F_3x3InertiaTensorTransform and InertiaTensorWorldSpaceTransform is defined elsewhere; only their call order and the buffers they operate on are known from this packet",
+    "The second body pointer at this+352 is only written when non-null; the tail copy applies to whichever body pointer (this+348 or this+352) was selected",
+    "sub_56BDE0 is called with the derived address this+456, which has no packet field entry and whose semantics are not defined here",
+    "The source argument a2 layout (matrix at offset 28, position at offsets 124/132/140) is read but its defining structure is not present in this packet",
+    "The inactive path reads the angle at this+188 as a double and the active path's rotation input at this+172; their units are not stated"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,55 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0058F7C9
+// Canonical corpus name: sub_58F7C9
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_58F7C9_0058f7c9.c
+
+void UnknownObject::LocaleInfoQueryBulk()
+{
+    // Bulk locale information query. Reads the LCID from word_8D3F88 and runs a chain of sub_5968F6 queries that fill a caller structure at offsets a1 + 12 through a1 + 47 with locale values (LCTYPE codes 0x14-0x18, 0x1A, 0x19, 0x50-0x57). The digit string stored at field offset 0x1C is post-processed in place by InPlaceDigitCharConversionStripSemicolons. Returns the OR of all query results: 0 means every query succeeded, nonzero means at least one failed; returns -1 immediately when a1 is NULL.
+    // GUARD: Guard: if a1 is NULL, return -1 immediately. [source:raw]
+    // ASSIGNMENT: Load the locale handle: v1 = (unsigned __int16)word_8D3F88; used as the LCID argument for every subsequent query. [source:raw, global:0x008D3F88]
+    // CALL: Query LCTYPE 0x15 into a1 + 12 via sub_5968F6 and seed the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x14 into a1 + 16 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x16 into a1 + 20 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x17 into a1 + 24 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x18 into a1 + 28 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Read the char-pointer field at offset 0x1C (a1 + 28) and convert the semicolon-separated digit string in place via InPlaceDigitCharConversionStripSemicolons. [source:raw, callee:0x0058F6C7, field:this:0x0000001C]
+    // CALL: Query LCTYPE 0x50 into a1 + 32 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x51 into a1 + 36 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x1A into a1 + 40 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x19 into a1 + 41 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x54 into a1 + 42 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x55 into a1 + 43 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x56 into a1 + 44 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x57 into a1 + 45 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x52 into a1 + 46 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // CALL: Query LCTYPE 0x53 into a1 + 47 via sub_5968F6 and OR into the accumulated result. [source:raw, callee:0x005968F6]
+    // RETURN: Return the OR of all sub_5968F6 results: 0 means every query succeeded, nonzero means at least one failed. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_58F7C9(int a1) {
+    //     if (!a1) return -1;
+    //     int r = 0;
+    //     r |= sub_5968F6(1, (unsigned __int16)word_8D3F88, 0x15, a1 + 12);
+    //     r |= sub_5968F6(1, lcid, 0x14, a1 + 16);
+    //     r |= sub_5968F6(1, lcid, 0x16, a1 + 20);
+    //     r |= sub_5968F6(1, lcid, 0x17, a1 + 24);
+    //     r |= sub_5968F6(1, lcid, 0x18, a1 + 28);
+    //     InPlaceDigitCharConversionStripSemicolons(*(char **)(a1 + 28));
+    //     r |= sub_5968F6(1, lcid, 0x50, a1 + 32);
+    //     r |= sub_5968F6(1, lcid, 0x51, a1 + 36);
+    //     r |= sub_5968F6(0, lcid, 0x1A, a1 + 40);
+    //     r |= sub_5968F6(0, lcid, 0x19, a1 + 41);
+    //     r |= sub_5968F6(0, lcid, 0x54, a1 + 42);
+    //     r |= sub_5968F6(0, lcid, 0x55, a1 + 43);
+    //     r |= sub_5968F6(0, lcid, 0x56, a1 + 44);
+    //     r |= sub_5968F6(0, lcid, 0x57, a1 + 45);
+    //     r |= sub_5968F6(0, lcid, 0x52, a1 + 46);
+    //     r |= sub_5968F6(0, lcid, 0x53, a1 + 47);
+    //     return r;
+    //   }
+    // UNRESOLVED: The exact locale value behind each LCTYPE code is not established by this packet; the codes cluster around number/currency formatting (0x14-0x18, 0x1A, 0x19, 0x50-0x57) but their ordering differs from GetLocaleInfoW's numbering.
+    // UNRESOLVED: The mode flag (1 vs 0) passed as the first argument to sub_5968F6 distinguishes two query variants whose semantics are unresolved here.
+    // UNRESOLVED: a1 points to an unnamed structure; only offsets a1 + 12 through a1 + 47 are written and offset 0x1C is read as a char pointer.
+}

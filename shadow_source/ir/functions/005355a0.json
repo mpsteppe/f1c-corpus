@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "address": "0x005355A0",
+  "proposed_name": "StreamFileTypeCheckWithDispatch",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x005355A0"]
+  },
+  "summary": "File-stream close/cleanup with an optional write-flush path. Returns -2 when the stream pointer is NULL. When the mode byte at this+0x5C equals 119 ('w') and FileReadLoop returns 0, runs ArithmeticComparison_55f0 twice to sync the remaining-buffer state between the handle fields (this+0x40 with this+0x4C, and this+0x40 with this+0x8), then always hands the stream to FileHandleDestructorWithModeCheck for final cleanup. Called from file-loader call sites across the vehicle/HDV loader and scene writer paths.",
+  "local_names": {
+    "this": "file stream object carrying mode byte, handle and buffer state",
+    "a2": "unused in raw source (thiscall stub parameter)",
+    "this+0x40": "file handle for read",
+    "this+0x4C": "compressed data size / remaining-buffer count field",
+    "this+0x8": "target buffer pointer; pSrc for the write-mode sync"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If this is NULL, return -2 immediately",
+      "evidence_refs": ["function:0x005355A0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Write-flush path is entered only when the mode byte at this+0x5C equals 119 ('w') AND FileReadLoop(this, 4) returns 0; any other mode bypasses the flush logic entirely",
+      "evidence_refs": ["field:this:0x0000005C", "guard:0"]
+    },
+    {
+      "kind": "call",
+      "description": "FileReadLoop(this, 4) flushes the remaining buffered data of the stream; a zero result gates the state-sync block",
+      "evidence_refs": ["callee:0x005352D0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ArithmeticComparison_55f0 runs twice, once with (this+0x40, this+0x4C) and once with (this+0x40, this+0x8), syncing the remaining-byte state between the read handle and the two buffer fields in write mode",
+      "evidence_refs": ["callee:0x005355F0", "field:this:0x00000040", "field:this:0x0000004C", "field:this:0x00000008"]
+    },
+    {
+      "kind": "return",
+      "description": "Always finishes by calling FileHandleDestructorWithModeCheck((LPVOID *)this) and returning its result; the destructor call target is absent from the packet callee list",
+      "evidence_refs": ["function:0x005355A0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (this == NULL) return -2;",
+    "if (this[0x5C] == 119 /* 'w' */ && FileReadLoop(this, 4) == 0) {",
+    "  ArithmeticComparison_55f0(this[0x40], this[0x4C]);",
+    "  ArithmeticComparison_55f0(this[0x40], this[0x8]);",
+    "}",
+    "return FileHandleDestructorWithModeCheck(this);"
+  ],
+  "unresolved": [
+    "FileHandleDestructorWithModeCheck is called in the final return but its address is not present in the packet callees, so no evidence ref binds it; only its cleanup role is inferable",
+    "The exact copy/sync semantics of ArithmeticComparison_55f0 (a legacy name) cannot be verified from this packet",
+    "Meaning of the -2 return for a NULL stream and of the mode != 'w' bypass path is undocumented",
+    "FileReadLoop is named as a read loop yet gates a write-mode flush; the relationship is ambiguous under the legacy name"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

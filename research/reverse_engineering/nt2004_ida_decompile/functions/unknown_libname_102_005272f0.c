@@ -1,0 +1,5 @@
+// Microsoft VisualC 2-14/net runtime
+void __cdecl unknown_libname_102()
+{
+  nullsub_6(&unk_7DA778);
+}

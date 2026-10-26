@@ -1,0 +1,44 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051F700
+// Canonical corpus name: NewtonRaphsonReciprocalWithVectorInterpolation
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/NewtonRaphsonReciprocalWithVectorInterpolation_0051f700.c
+
+void UnknownObject::NewtonRaphsonReciprocalWithVectorInterpolation()
+{
+    // Computes a scalar via horizontal reduction of products between the vector at a4 and the vectors at a5/a6, refines its reciprocal with one Newton-Raphson step (2/r - x*r*r with r = 1/v15), interpolates the base vector at a5 toward the vector at a6 by the refined factor, writes the resulting 3-float vector to the output buffer a3 (high two floats at a3, low dword at a3 + 8), and returns a3. When the scalar v15 equals the float at global dword_8B00E0 (a zero sentinel) the function returns 0 without producing output.
+    // CALCULATION: Load base vector v6 as the high two floats of a5 and target vector v9 as the high two floats of a6; load the full vector *a4. [source:raw]
+    // CALCULATION: Reduce the lanes of the product terms (v6 * shuffle(a4, 78) and shuffle(a4, 78) * v9) via movehl and shuffle-based horizontal additions into two accumulators v16 and v14. [source:raw]
+    // CALCULATION: Form the scalar v15 = accumulator1 - accumulator2, the value whose reciprocal is to be refined. [source:raw]
+    // GUARD: Guard: if v15 equals the float stored at global dword_8B00E0, return 0 without interpolating or writing output. [global:0x008B00E0]
+    // RETURN: Return 0 on the guard path (division-by-zero sentinel hit). [source:raw]
+    // CALCULATION: Newton-Raphson reciprocal refinement: v16 = v16 * (2.0 * (1.0 / v15) - (v15 * (1.0 / v15)) * (1.0 / v15)); the ABI name identifies this as Newton-Raphson reciprocal with vector interpolation. [source:raw, abi:lead]
+    // CALCULATION: Interpolate along the third component: v17 = v6 + broadcast(refined factor v16) * (v9 - v6). [source:raw]
+    // ASSIGNMENT: Store the interpolated 3-float vector into a3: high two floats via storeh at a3 and the low dword at a3 + 8. [source:raw]
+    // RETURN: Return the saved output buffer pointer a3 (v19). [function:0x0051F700]
+
+    // Conservative worker pseudocode:
+    //   int sub_51F700(__m128 a1, __m128 a2, int a3, __m128 *a4, const double *a5, const double *a6) {
+    //     __m128 v6 = _mm_loadh_ps(a5);
+    //     __m128 v7 = *a4;
+    //     __m128 v8 = _mm_shuffle_ps(v7, v7, 78);
+    //     __m128 v9 = _mm_loadh_ps(a6);
+    //     __m128 acc1 = _mm_add_ps(_mm_mul_ps(v6, v8), _mm_movehl_ps(a1, _mm_mul_ps(v6, v8)));
+    //     __m128 acc2 = _mm_add_ps(_mm_mul_ps(v8, v9), _mm_movehl_ps(a2, _mm_mul_ps(v8, v9)));
+    //     float v15 = (acc1 + shuffle(acc1, 85)) - (acc2 + shuffle(acc2, 85));
+    //     float factor = acc1 + shuffle(v7, v7, 255);
+    //     if (v15 == *(float *)&dword_8B00E0)
+    //       return 0;
+    //     factor = factor * (float)((float)((float)(1.0 / v15) + (float)(1.0 / v15))
+    //                       - (float)((float)(v15 * (float)(1.0 / v15)) * (float)(1.0 / v15)));
+    //     __m128 r = _mm_add_ps(v6, _mm_mul_ps(_mm_shuffle_ps(v16, v16, 0), _mm_sub_ps(v9, v6)));
+    //     _mm_storeh_ps((double *)a3, r);
+    //     *(_DWORD *)(a3 + 8) = r.m128_i32[0];
+    //     return a3;
+    //   }
+    // UNRESOLVED: The register-passed __m128 values a1 and a2 are consumed only as movehl sources; their required contents and meaning are unknown.
+    // UNRESOLVED: The exact lane algebra of the two horizontal reductions (what each of a4, a5, a6 contributes to numerator vs. denominator) is not fully pinned.
+    // UNRESOLVED: dword_8B00E0 is a zero-compare sentinel, but the exact float it holds (which the reduction must equal to trigger the guard) is not evidenced.
+    // UNRESOLVED: Why the guard path returns 0 instead of the interpolated result is a caller-level convention.
+    // UNRESOLVED: The third component of the base and target vectors is implicit in the store layout (low dword at +8) and is not a separate loaded value.
+}

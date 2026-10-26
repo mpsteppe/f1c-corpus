@@ -1,0 +1,38 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005489A0
+// Canonical corpus name: LinkedListNodeAppend_89a0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LinkedListNodeAppend_89a0_005489a0.c
+
+void UnknownObject::LinkedListNodeAppend()
+{
+    // Allocates a 24-byte node via OperatorNewNhMallocWrapper, initializes it as a sound-buffer node via SoundBufferAllocator(node, 1024, a2), then appends it to the singly-advanced list whose head is tracked at this+0x2C. When the list is empty the new node becomes this+0x2C with its backward slot cleared; otherwise the forward-pointer chain at node+0x14 is walked to the end and the new node is linked with its backward slot pointing at the previous last node. Returns the new node pointer, or 0 if allocation failed.
+    // CALL: Allocate a 24-byte block for a new list node via OperatorNewNhMallocWrapper. [callee:0x00587C03, source:raw]
+    // GUARD: If the allocation returned 0, set result to 0 and skip initialization. [source:raw]
+    // CALL: Initialize the allocated block as a sound-buffer node: result = SoundBufferAllocator(node, 1024, a2). [callee:0x0053AB20, source:raw]
+    // GUARD: Load v5 = this[11] (offset 0x2C); if it is non-NULL the list is non-empty and the append walks the chain. [field:this:0x0000002C, source:raw]
+    // LOOP: Walk the forward-pointer chain: start at v5 and advance v5 = i while i = *(v5 + 20) is non-NULL, i.e. follow the +0x14 slot of each node to reach the last one. [field:*(*(this+0x40)+0x14):0x00000014, source:raw]
+    // ASSIGNMENT: Link the new node at the end of the non-empty list: set the previous last node's +0x14 slot to result and result[4] (offset +0x10) back to that previous node. [field:*(*(this+0x40)+0x14):0x00000014, field:this:0x0000002C, source:raw]
+    // ASSIGNMENT: Empty-list branch: set this[11] (offset 0x2C) to result and clear result[4] (offset +0x10) to 0; the new node is the only node. [field:this:0x0000002C, source:raw]
+    // RETURN: Return result, the new node pointer (or 0 on allocation failure). [source:raw, function:0x005489A0]
+    // CALL: Called by sub_546450 (00546450) and sub_546AA0 (00546aa0) to append sound-buffer nodes. [caller:0x00546450, caller:0x00546AA0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int* LinkedListNodeAppend(_DWORD* this, int a2) {
+    //     void* node = OperatorNewNhMallocWrapper(24);
+    //     int* result = node ? SoundBufferAllocator(node, 1024, a2) : 0;
+    //     int v5 = this[0x2C];
+    //     if (v5) {
+    //       for (int i = *(v5 + 20); i; i = *(i + 20)) v5 = i;
+    //       *(v5 + 20) = result;
+    //       result[4] = v5;
+    //     } else {
+    //       this[0x2C] = result;
+    //       result[4] = 0;
+    //     }
+    //     return result;
+    //   }
+    // UNRESOLVED: The packet field list includes this+0x40 as a read, but the raw source walks from this+0x2C via each node's +0x14 slot and never reads this+0x40; the relationship between the two list anchors is unresolved.
+    // UNRESOLVED: The new node's backward slot at +0x10 is written but has no packet field evidence; its exact meaning depends on the sound-buffer list layout.
+    // UNRESOLVED: Whether the list is doubly linked (a backward slot exists at +0x10) or the +0x10 value is used for another purpose depends on SoundBufferAllocator and the list consumers.
+}

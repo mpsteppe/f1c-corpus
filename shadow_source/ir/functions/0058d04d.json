@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "address": "0x0058D04D",
+  "proposed_name": "FormatOutputToStream",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Core printf-family formatter. Parses the format string a2 against a state machine indexed by byte_5B8D88, honouring flags, field width, precision, length modifiers and the d/i/u/o/x/X/c/s/S/C/p/n/e/E/f/F/g/G/Z conversions, reading arguments through the va-list pointer a3, and emitting formatted output to the stream a1 while tracking a character count v56. Serves as the shared engine behind six callers including SafeStringFormat, StringFormatWithNestedIO and FileWriteWrapperWithLock.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize formatter state: zero the character count v56 and flag byte v60, read the first format character v4 = *a2 and set the advance pointer v61 = a2 + 1",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the first format character is NUL (empty format string), skip parsing entirely and return 0",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Main format parse loop: classify each character with a lookup table (aIsprocessorfea, masked to 4 bits) and use it to index byte_5B8D88 for the state-machine transition nibble; dispatch on the resulting state",
+      "evidence_refs": ["global:0x005B8D88"]
+    },
+    {
+      "kind": "guard",
+      "description": "Abort when the character count v56 goes negative (buffer-overrun protection) and return v56",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Literal/ordinary characters outside a conversion are tested against off_5E69C8 and emitted with StreamByteOutputWithBufferManagement",
+      "evidence_refs": ["global:0x005E69C8", "callee:0x0058D78E"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Flags state: parse ' ', '#', '+', '-', '0' into flag byte v60",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Width/precision state: parse either literal digits or '*' read from the va-list via IntPeekFromPointer; negative precision is clamped to -1",
+      "evidence_refs": ["callee:0x0058D82C"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Length-modifier state: 'h', 'l', 'w' and 'I64' set size flags on v60",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Integer conversions d/i/u/o/x/X/p: fetch the numeric argument (IntPeekFromPointer, or PointerAdvanceReadBack for the I64/64-bit path), apply sign handling, then generate digits via repeated sub_594FF0 (divide) and sub_596100 (modulo) into a local buffer, optionally prefixing with a base marker for hex/pointer output",
+      "evidence_refs": ["callee:0x0058D82C", "callee:0x0058D839", "callee:0x00594FF0", "callee:0x00596100"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Float conversions e/E/f/F/g/G: read an 8-byte double argument, format it with off_5E6730, trim trailing zeros with off_5E6734 and apply precision with off_5E673C, then measure the produced string with Strlen",
+      "evidence_refs": ["global:0x005E6730", "global:0x005E6734", "global:0x005E673C", "callee:0x0058E1B0"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "String conversions s/S/Z: read a string pointer argument via IntPeekFromPointer, measure it with Strlen (or a wide char-pair scan), substituting the default placeholders off_5E6BE0 / off_5E6BE4 when the pointer is null",
+      "evidence_refs": ["callee:0x0058D82C", "callee:0x0058E1B0", "global:0x005E6BE0", "global:0x005E6BE4"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Character conversions c/C and single wide characters: read a 1-byte or 2-byte argument (IntPeekFromPointer / Read2ByteValueFromStreamPointer) and convert it into the output buffer with sub_596030",
+      "evidence_refs": ["callee:0x0058D82C", "callee:0x0058D849", "callee:0x00596030"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Conversion n: store the running character count v56 through an argument pointer",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Field output and padding: compute the pad count as width minus sign/prefix minus field length, emit leading fill via LoopWithSentinelTermination, the sign/prefix, the zero fill, then the field body via CharByCharStringProcessingWithTerminatorCheck, and trailing fill when left-justified",
+      "evidence_refs": ["callee:0x0058D7C3", "callee:0x0058D7F4"]
+    },
+    {
+      "kind": "loop",
+      "description": "Wide-string output path (v52 set): each wide character is converted with sub_596030 into a local buffer and written with CharByCharStringProcessingWithTerminatorCheck",
+      "evidence_refs": ["callee:0x00596030", "callee:0x0058D7F4"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the total character count v56 written to the stream",
+      "evidence_refs": ["function:0x0058D04D"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int FormatOutputToStream(Stream* out, const char* fmt, va_list ap) {",
+    "    int count = 0;",
+    "    if (!*fmt) return 0;",
+    "    while (*fmt) {",
+    "        state = byte_5B8D88[classify(*fmt) * 8 + prev_state] >> 4;",
+    "        /* states: reset, flags, width, precision, length, conversion */",
+    "        switch (conversion) { /* d/i/u/o/x/X/c/s/S/C/p/n/e/E/f/F/g/G/Z */ }",
+    "        emit_field(out, field, width, flags, &count);",
+    "        fmt = advance;",
+    "    }",
+    "    return count;",
+    "}"
+  ],
+  "unresolved": [
+    "AmsgExitRuntimeError (callee 0x00595733) is declared in the packet but absent from the decompiled body; likely a runtime-error abort on a path not visible in Hex-Rays output.",
+    "jpt_58D0BB (global 0x0058D76E) is the compiler-generated switch jump table for the state dispatch; it has no direct source reference.",
+    "The character-classification table referenced in the body (aIsprocessorfea) has no packet evidence entry and its backing address is unverified.",
+    "sub_594FF0 and sub_596100 are called as 64-bit divide/modulo helpers but their exact semantics are only inferred from usage."
+  ],
+  "unresolved_evidence_refs": ["callee:0x00595733", "global:0x0058D76E"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

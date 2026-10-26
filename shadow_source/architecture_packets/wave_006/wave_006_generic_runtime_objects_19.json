@@ -1,0 +1,2844 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_006_generic_runtime_objects_19",
+  "scope": "generic_runtime_objects",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x00511060",
+      "function_ref": "function:0x00511060",
+      "name": "ReadStreamSegmentSize",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Reads a 2-byte big-endian segment size from a byte stream, dispatching it together with a stored value into a parameterized dispatcher object (state code 90), then skips the remaining segment bytes via a stream callback.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Load the stream state object from this+0x14 and its current read pointer and remaining-byte count from stream-state words 0 and 1.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "field:*(this+0x14):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the stream has no remaining bytes, refill via the stream refill callback and reload the read pointer and count.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "field:*(this+0x14):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoke the refill callback stored in stream-state word 3; if it returns false, abort with 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read the first byte as the high byte of a 16-bit value and advance the read pointer past it.",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If only one byte remained before the first read, refill again so the second byte can be read.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Second invocation of the stream refill callback (word 3) when the stream is short; returning false aborts with 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Form the big-endian 16-bit size: second byte plus first byte shifted into the high byte.",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write dispatcher state: obj+0x14 = 90, obj+0x18 = stored value read from this+0x178, obj+0x1C = computed size.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000014",
+            "field:obj:0x00000018",
+            "field:this:0x00000178",
+            "field:obj:0x0000001C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Dispatch obj vtable entry at obj+0x4 with argument 1 (parameterized state dispatch).",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Consume the two bytes from the stream: read pointer becomes the second-byte position plus 1, remaining count becomes the pre-decrement count minus 1.",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000000",
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoke the skip callback at stream-state plus 16 with the remaining segment byte count (size minus 2).",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 on success.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Identity and semantics of the obj+0x4 dispatch and the stream-state plus 16 skip callback are caller-supplied.",
+        "The backing store of the stream refill callback (stream-state word 3) is not defined in this function."
+      ],
+      "unresolved_evidence_refs": [
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "field:this:0x00000024"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005110FC",
+      "function_ref": "function:0x005110FC",
+      "name": "ReadNextBitstreamMarker",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x005110FC",
+          "source:raw"
+        ]
+      },
+      "summary": "Reads bytes from a bitstream through a refill-callback state struct at this+0x14, handling 0xFF byte-stuffing (a 0xFF 0x00 pair counts as one escaped data byte and consecutive 0xFF bytes are skipped) until a marker byte (0xFF followed by a non-zero, non-0xFF byte) is found. Maintains an accumulated byte counter at (this+0x190)+88. When a marker is found with a non-zero byte count, writes state code 112, the count and the marker byte into the dispatcher object *v1, dispatches through the callback at *v1+4 with -1, and resets the counter; finally stores the marker byte at this+0x178 and returns 1, or 0 when a refill callback fails.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Load the byte-stream read-state struct pointer into v2 from this+0x14 (dword index 5), initializing the current read pointer v4 = *v2 and the remaining-byte count v3 = v2[1].",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "field:*(this+0x14):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When the remaining-byte count v3 reaches zero, invoke the refill callback stored at v2[3]; a zero return aborts the read with return value 0, otherwise the read pointer and count are reloaded from *v2 and v2[1].",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Consume bytes one at a time: read a byte from the current pointer, decrement the remaining-byte count and advance the pointer; the outer loop runs until a marker byte is found.",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "A byte value of 255 is not a marker by itself; an escaped data byte is a 0xFF 0x00 pair, and consecutive 0xFF bytes are skipped until a non-0xFF byte is read, which ends the scan.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Increment the accumulated byte counter at (this+0x190)+88 by 1 for each ordinary data byte consumed.",
+          "evidence_refs": [
+            "field:this:0x00000190",
+            "field:this:0x000001E8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "For an escaped 0xFF 0x00 data byte, increment the accumulated byte counter at (this+0x190)+88 by 2.",
+          "evidence_refs": [
+            "field:this:0x00000190",
+            "field:this:0x000001E8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Persist the updated read pointer and remaining-byte count back into *v2 and v2[1] after each consumed run of bytes.",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When the byte counter at (this+0x190)+88 is non-zero after a marker is found, report the result through the dispatcher object at *v1; if the counter is zero the marker byte is stored without dispatching.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000190",
+            "field:this:0x000001E8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the state code 112 to the dispatcher object at *v1+20 (field obj+0x14).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the accumulated byte count to the dispatcher object at *v1+24 (field obj+0x18).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the detected marker byte to the dispatcher object at *v1+28 (field obj+0x1C).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Dispatch through the callback function pointer at *v1+4 (field obj+0x4) with the reader object and -1 as arguments.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Reset the byte counter at (this+0x190)+88 to 0 after dispatching.",
+          "evidence_refs": [
+            "field:this:0x00000190",
+            "field:this:0x000001E8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the detected marker byte into this+0x178 (dword index 94) at the end of the function.",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 on success (a marker byte was stored), or 0 when a refill callback returns zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The field this+0x18 is listed in the packet as read/write but is not referenced anywhere in the raw source body; the existing analysis speculates it caches the buffer position, which is not evidenced here.",
+        "The field this+0x20 is listed in the packet as read but is not referenced in the raw source body; the existing analysis describes it as a table entry count unused in this function.",
+        "The refill callback stored at v2[3] and the dispatcher object *v1 have no concrete types or owner classes evidenced in this packet; the owner is UNKNOWN.",
+        "The semantics of state code 112 and the -1 dispatch argument depend on the dispatcher contract, which is outside this packet's evidence."
+      ],
+      "unresolved_evidence_refs": [
+        "field:this:0x00000018",
+        "field:this:0x00000020"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x005111D3",
+      "function_ref": "function:0x005111D3",
+      "name": "ReadJpegStartOfImageMarker",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x005111D3"
+        ]
+      },
+      "summary": "Reads two bytes from the byte stream (refilling transparently when the buffer is empty) and validates them as the JPEG SOI marker 0xFF 0xD8. On mismatch it reports error state 52 with the two unexpected bytes and dispatches through the state-dispatcher vtable. The second byte is stored at this+0x178 unconditionally, the stream read pointer and remaining count are advanced, and 1 is returned.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If the stream's remaining byte count is zero, call the refill function at stream+0xC; abort with return 0 when the refill fails",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000000",
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Consume the first stream byte, decrement the remaining count, refill again if that leaves zero, then consume the second stream byte and decrement again",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000000",
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Validation guard: the marker only passes when the first byte equals 255 (0xFF) and the second byte equals 216 (0xD8), the JPEG Start-Of-Image marker",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On a failed marker check, write state 52 to obj+0x14, the first byte to obj+0x18 and the second byte to obj+0x1C, then dispatch through the state-dispatcher vtable (obj+0x0)",
+          "evidence_refs": [
+            "field:obj:0x00000014",
+            "field:obj:0x00000018",
+            "field:obj:0x0000001C",
+            "field:obj:0x00000000",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the second stream byte at this+0x178 regardless of marker validity (this+0x178 acts as the current-marker field for downstream consumers)",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the advanced read pointer and remaining count back into the stream read-state struct at this+0x14",
+          "evidence_refs": [
+            "field:*(this+0x14):0x00000000",
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 after consuming the marker; return 0 when a stream refill fails; invoked by CommandDispatchStateMachine (0x0051126A)",
+          "evidence_refs": [
+            "caller:0x0051126A",
+            "function:0x005111D3",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Field this+0x18 (cached buffer pointer) and this+0x20 (table entry count) appear in the packet field list but are never accessed by the raw source of this function"
+      ],
+      "unresolved_evidence_refs": [
+        "field:this:0x00000018",
+        "field:this:0x00000020"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0051126A",
+      "function_ref": "function:0x0051126A",
+      "name": "CommandDispatchStateMachine",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0051126A"
+        ]
+      },
+      "summary": "Main JPEG marker parsing dispatcher. While the current marker slot a1[94] (offset this+0x178) is non-zero it dispatches on the marker value: markers 192..204 and 1 route through ImageFormatStreamDecoder, sub_510975, or sub_510ACC; markers 205..207, 197..200 and 195 route to the error dispatch (state code 59 via obj vfunc0); markers 1 and 208..215 route to the parameterized dispatch (state code 91 via obj vfunc1); 216 (SOI) calls sub_50FF84; 217 sets state code 84 via obj vfunc1 and returns 2; 219 calls MP3HuffmanDecoder; 220/221 call StreamingDataReader / StreamRead2ByteTokenParser; 224..239 (APP) dispatch through a function table at this+0x190; 254 (COM) dispatches through the handler at *(this+0x190+12) (this+0x19C); unrecognized markers write state code 67 and dispatch through obj vfunc0. When a1[94] is zero the next marker is read through BitstreamTokenReader or JPEGMarkerReader selected by the byte-stuffing flag at *(this+0x190+0x50). The marker slot is reset to 0 after every dispatch.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Read the next marker when the marker slot a1[94] is zero: select BitstreamTokenReader when the byte-stuffing flag byte at *(a1[100]+80) is set, otherwise JPEGMarkerReader",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "field:this:0x00000190",
+            "field:this:0x000001E0",
+            "callee:0x005110FC",
+            "callee:0x005111D3",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 when the marker reader returns 0",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Branch on the current marker value a1[94]: values above 207 leave the inner loop for the high-marker dispatch block",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Error dispatch for markers 205..207, 197..200 and 195: write state code 59 to obj+0x14, the marker to obj+0x18, and dispatch through obj vtable slot 0",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000000",
+            "field:obj:0x00000014",
+            "field:obj:0x00000018",
+            "field:this:0x00000178",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Marker 202 dispatches to ImageFormatStreamDecoder(1, this, 1) and marker 204 to sub_510975",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "callee:0x00510012",
+            "callee:0x00510975",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Markers 192 and 193 dispatch to ImageFormatStreamDecoder(0, this, 0) and marker 201 to ImageFormatStreamDecoder(0, this, 1)",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "callee:0x00510012",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Marker 194 dispatches to ImageFormatStreamDecoder(1, this, 0) and marker 196 to sub_510ACC",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "callee:0x00510012",
+            "callee:0x00510ACC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Return 0 when the selected per-marker parser returns 0",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Reset the marker slot a1[94] to 0 after each dispatch, forcing a new marker read on the next loop iteration",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "High markers 220 and 221 dispatch to StreamingDataReader and StreamRead2ByteTokenParser, and marker 219 to MP3HuffmanDecoder",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "callee:0x00511060",
+            "callee:0x00510F89",
+            "callee:0x00510D60",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "APP markers 224..239 dispatch through the function table at this+0x190 indexed by (4*marker - 880), and marker 254 (COM) dispatches through the handler pointer at *(this+0x190+12) (this+0x19C)",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "field:this:0x00000190",
+            "field:this:0x0000019C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Marker 216 (SOI) dispatches to sub_50FF84 for context initialization",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "callee:0x0050FF84",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Markers 1 and 208..215 use the parameterized dispatch: write state code 91 to obj+0x14, the marker to obj+0x18, and dispatch through obj vtable slot 1 with argument 1",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000004",
+            "field:obj:0x00000014",
+            "field:obj:0x00000018",
+            "field:this:0x00000178",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Marker 217 writes state code 84 to obj+0x14, dispatches through obj vtable slot 1 with argument 1, and returns 2",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000004",
+            "field:obj:0x00000014",
+            "field:this:0x00000178",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Remaining markers in the 208..218 range (default path) dispatch to sub_51030D; a non-zero result returns 1, otherwise 0",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "callee:0x0051030D",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Unrecognized markers (2..191, 222/223, 240..253, 255): write state code 67 to obj+0x14, the marker to obj+0x18, and dispatch through obj vtable slot 0",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000000",
+            "field:obj:0x00000014",
+            "field:obj:0x00000018",
+            "field:this:0x00000178",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The dispatch-table walk for markers 224..239 at (this[100] + 4*marker - 880) references table entries not statically known from this packet; the table content and per-APP-handler behavior are unresolved",
+        "Marker 217 returns 2 while marker 1 / 208..215 path returns through the outer loop; the return-value contract (0/1/2) across callers is not established here",
+        "The reader-config object at this+0x190 also serves as the dispatch base and byte-stuffing flag holder; whether it is a dedicated config struct or a shared context is unresolved",
+        "The marker-distance arithmetic (201..205) leaves the 204-to-sub_510975 and 205-or-above-to-error routes overlapping in a way that suggests the decompiler structure, not clearly distinct semantic states"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x00511457",
+      "function_ref": "function:0x00511457",
+      "name": "AdvanceJpegRestartMarkerCounter",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00511457"
+        ]
+      },
+      "summary": "Handles the next JPEG restart marker. Ensures a current marker exists at this+0x178 (reading one via BitstreamTokenReader when it is zero) and compares it against the expected value counter + 208. On a match it reports state 97 through the parameterized dispatcher with the counter value, clears the current marker, and increments the counter modulo 8. On a mismatch it delegates to an alternative handler reached through a vfunc on the stream object, and increments the counter when that handler accepts the marker. Returns 0 when no marker can be read and no handler accepts it.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If the current marker at this+0x178 is zero, load the next marker by calling BitstreamTokenReader; the function returns 0 when no marker can be produced",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "callee:0x005110FC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Expected-marker match: compare the current marker at this+0x178 against the restart counter stored at (this+0x190 value)+84 plus 208 (0xD0)",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "field:this:0x00000190",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On a match write state 97 to obj+0x14 and the current counter value to obj+0x18",
+          "evidence_refs": [
+            "field:obj:0x00000014",
+            "field:obj:0x00000018",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Parameterized dispatch of the matched restart marker through the second vtable entry (obj+0x4) with argument 3",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear the current marker at this+0x178 back to 0 after the match is dispatched",
+          "evidence_refs": [
+            "field:this:0x00000178",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "On a mismatch, delegate to the alternative marker handler reached through vfunc at (this+0x14 stream object)+0x14, passing the current counter value; a true return accepts the marker and falls through to the counter increment",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "field:this:0x00000190",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Increment the restart counter at (this+0x190 value)+84 modulo 8: ((counter as byte) + 1) & 7",
+          "evidence_refs": [
+            "field:this:0x00000190",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 when the marker matched, or when the alternative handler accepted it (counter incremented in both cases); return 0 otherwise",
+          "evidence_refs": [
+            "function:0x00511457",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The skeleton fill claims this+0x1E4 is the restart counter, but the raw source addresses the counter only through a1[100]+84 (dereferenced this+0x190 plus 0x54). The fill's this+0x1E4 claim cannot be reconciled with the raw source from this packet alone",
+        "Field this+0x28 (a limit/constant) appears in the packet field list but is never accessed by the raw source of this function"
+      ],
+      "unresolved_evidence_refs": [
+        "field:this:0x00000028",
+        "field:this:0x000001E4"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x005114D5",
+      "function_ref": "function:0x005114D5",
+      "name": "AudioVideoDecodeSubbandLoop",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead"
+        ]
+      },
+      "summary": "Marker-scanning loop that classifies a marker byte relative to a reference counter a2 and dispatches decoder states through a sub-object vtable. Initializes dispatcher state to 117 and current marker from this[94]; each iteration classifies the marker into category 1 (expected marker, break), 2 (skip and read next), or 3 (acceptable stop, return). On category 1, this[94] is reset to 0.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Read current marker v3 = a1[94] (+0x178).",
+          "evidence_refs": [
+            "field:this:0x00000178"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write dispatcher state fields: obj+0x14 (+0x14) = 117, obj+0x18 (+0x18) = v3, obj+0x1C (+0x1C) = a2.",
+          "evidence_refs": [
+            "field:obj:0x00000014",
+            "field:obj:0x00000018",
+            "field:obj:0x0000001C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Dispatch through obj vtable entry +0x4 (obj = *a1, this+0x0) with argument -1.",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Marker classification: v3 < 192 gives category 2 (skip); v3 outside 208-215 or equal to ((a2+1)&7)+208 or ((a2+2)&7)+208 gives category 3; v3 equal to ((a2-1)&7)+208 or ((a2-2)&7)+208 gives category 2; otherwise category 1 (expected marker).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Per iteration write dispatcher state: obj+0x14 (+0x14) = 96, obj+0x18 (+0x18) = v3, obj+0x1C (+0x1C) = category v5.",
+          "evidence_refs": [
+            "field:obj:0x00000014",
+            "field:obj:0x00000018",
+            "field:obj:0x0000001C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Dispatch through obj vtable entry +0x4 with argument 4.",
+          "evidence_refs": [
+            "field:obj:0x00000004"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Category 1: expected marker found, loop breaks.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Category 3: return 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Category 2: call BitstreamTokenReader(a1) to read the next marker; if it returns false, return 0.",
+          "evidence_refs": [
+            "callee:0x005110FC"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Re-read marker v3 = a1[94] (+0x178) after skipping the token.",
+          "evidence_refs": [
+            "field:this:0x00000178"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "After the expected marker is found, reset a1[94] (+0x178) to 0 and return 1.",
+          "evidence_refs": [
+            "field:this:0x00000178"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantics of the dispatched states 117 (initial) and 96 (per-iteration) and the dispatch arguments -1 and 4 are not established by the evidence.",
+        "The a2 reference-counter arithmetic and the meaning of the 208..215 marker range are DERIVED from the raw branch structure only.",
+        "Role of this+0x0 (pointer to the dispatcher object) is a DERIVED reading from the raw dereferences.",
+        "Category 2 (skip) is interpreted as an unexpected or out-of-range marker without independent confirmation."
+      ],
+      "unresolved_evidence_refs": [
+        "field:this:0x00000000"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005115EE",
+      "function_ref": "function:0x005115EE",
+      "name": "JpegAppDispatchTableInit",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x005115EE"
+        ]
+      },
+      "summary": "Allocates a 92-byte JPEG APP-marker state dispatch table through an allocator vfunc reached at this+0x4, stores it at this+0x190, then fills its slots: slot 0 StateReset, slot 1 CommandDispatchStateMachine, slot 2 StateCounterWithDispatch, slot 3 StreamingDataReader, slots 4..18 default StreamingDataReader, slot 4 overridden to JPEGMarkerParsing and slot 18 to AdobePSDHeaderParser. Ends by calling StateReset on the receiver. Called from sub_50F632.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Calls the allocator vfunc read from *(this+4) with receiver a1 and arguments 0, 92 to obtain a new 92-byte state table",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "field:*(this+0x4):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Stores the allocated table pointer at this+0x190",
+          "evidence_refs": [
+            "field:this:0x00000190",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Fills the first four table slots: table+0 StateReset, table+4 CommandDispatchStateMachine, table+8 StateCounterWithDispatch, table+12 StreamingDataReader",
+          "evidence_refs": [
+            "global:0x005115C4",
+            "global:0x0051126A",
+            "global:0x00511457",
+            "global:0x00511060",
+            "field:*(this+0x190):0x00000004",
+            "field:*(this+0x190):0x00000008",
+            "field:*(this+0x190):0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walks table byte offsets 16 through below 80 in steps of 4, writing StreamingDataReader as the default handler into every slot",
+          "evidence_refs": [
+            "global:0x00511060",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Overrides table+16 with JPEGMarkerParsing (APP0/JFIF marker handler)",
+          "evidence_refs": [
+            "field:*(this+0x190):0x00000010",
+            "global:0x005105BF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Overrides table+72 with AdobePSDHeaderParser (Adobe APP14 marker handler)",
+          "evidence_refs": [
+            "field:*(this+0x190):0x00000048",
+            "global:0x005107FB",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Returns the result of StateReset invoked on the receiver; the function is itself called from sub_50F632",
+          "evidence_refs": [
+            "callee:0x005115C4",
+            "caller:0x0050F632",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The receiver object owning this+0x190 is not named in the packet; the allocator vfunc contract (arguments 0, 92) is only inferred from this call site",
+        "table+0 is written with StateReset but has no dedicated packet field evidence ref, so the first slot is grounded on source and the global only",
+        "Slot semantics (which APP markers route to which handler) are implied by the handler names but not proven here"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005116A3",
+      "function_ref": "function:0x005116A3",
+      "name": "ReferenceCountedResourceAccessRelease",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x005116A3"
+        ]
+      },
+      "summary": "Access/release of a tracked resource through a callback pointer. Reads the tracking struct via *a1; on the indexed path (a2 >= 0) calls the release callback at obj+0x8 only when the limit at obj+0x68 is >= a2; on the unconditional path (a2 < 0) calls it when the concurrent count at obj+0x6C is zero or the limit at obj+0x68 is >= 3, then increments the concurrent count at obj+0x6C.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Read the tracking-struct pointer: v3 = *a1 (field this+0x0); all limit, counter and callback reads go through it.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: branch on the sign of a2; a2 >= 0 selects the indexed access path, a2 < 0 the unconditional release path.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Indexed path guard: the limit at obj+0x68 (0x68) must be >= a2 for the release to be allowed.",
+          "evidence_refs": [
+            "field:obj:0x00000068",
+            "guard:0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Indexed path: call the release callback at obj+0x8 (vtable-style callback slot) and return its result.",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Unconditional path guard: call the release callback when the concurrent count at obj+0x6C is zero, or the limit at obj+0x68 is >= 3.",
+          "evidence_refs": [
+            "field:obj:0x0000006C",
+            "field:obj:0x00000068",
+            "guard:0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Unconditional path: call the release callback at obj+0x8; its result becomes the function result.",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Increment the concurrent reference count at obj+0x6C (runs when the unconditional release path was taken, regardless of whether the callback fired).",
+          "evidence_refs": [
+            "field:obj:0x0000006C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the last computed result (release callback result, or the original a1 pointer value when no callback ran on the unconditional path).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The resource object type and the meaning of the limit at obj+0x68 (max index vs. max concurrent holders) are not evidenced.",
+        "The release callback at obj+0x8 has no statically resolved target.",
+        "The counter at obj+0x6C increments but never decrements within this function; the decrement path is not evidenced here.",
+        "No static callers are recorded for this function."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005116D4",
+      "function_ref": "function:0x005116D4",
+      "name": "FormatStringWithArgs",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "source:raw"
+        ]
+      },
+      "summary": "Selects a format string from a format-state object by index, falling back to the first primary-table string (overriding the stored argument) when the index is out of range, then scans the selected string for a '%s' (115) sequence to choose between varargs and va_list calling conventions and delegates to StringFormatWithBufferOverflowCheck.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Load the format-state pointer v2 = *(DWORD**)a1 and read the stored format index v3 from the object.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Range-check v3 against the primary table count and the alternate table start/end bounds; out-of-range indices route to the fallback path.",
+          "evidence_refs": [
+            "field:obj:0x00000074",
+            "field:obj:0x00000078",
+            "field:obj:0x0000007C",
+            "field:obj:0x00000080",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Alternate-range resolution: v4 = *(char**)(alternate table base + 4 * (v3 - alternate start index)).",
+          "evidence_refs": [
+            "field:obj:0x00000078",
+            "field:obj:0x0000007C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Primary-range resolution: v4 = *(char**)(primary table base + 4 * v3).",
+          "evidence_refs": [
+            "field:obj:0x00000070",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Fallback when the resolved string pointer is null: write v3 into the stored argument field and use the first primary-table string as the format string.",
+          "evidence_refs": [
+            "field:*(obj+0x70):0x00000000",
+            "field:obj:0x00000018",
+            "field:obj:0x00000070",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Scan the selected format string for a null terminator or a '%' (37) character; if the terminator is reached first, return StringFormatWithBufferOverflowCheck(a2, v4, stored arguments) passing the stored argument fields.",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "field:obj:0x00000018",
+            "field:obj:0x0000001C",
+            "field:obj:0x00000020",
+            "field:obj:0x00000024",
+            "field:obj:0x00000028",
+            "field:obj:0x0000002C",
+            "field:obj:0x00000030",
+            "field:obj:0x00000034",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "After a '%' is found, check whether the following character is not 's' (115); when it is not '%s', call StringFormatWithBufferOverflowCheck with the individual stored arguments (varargs form).",
+          "evidence_refs": [
+            "guard:0",
+            "callee:0x0058815F",
+            "field:obj:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "For the '%s' (115) case, return StringFormatWithBufferOverflowCheck(a2, v4, pointer to the stored argument fields) using the va_list-style form.",
+          "evidence_refs": [
+            "callee:0x0058815F",
+            "field:obj:0x00000018",
+            "abi:lead",
+            "function:0x005116D4",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "exact format-state object type and the meaning of its fields are unknown",
+        "the varargs vs va_list call-form distinction is inferred from the '%s' (115) check only"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0051176B",
+      "function_ref": "function:0x0051176B",
+      "name": "ResettableStateClear",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0051176B"
+        ]
+      },
+      "summary": "Reads obj = *a1 (a1 is a pointer-to-pointer / handle), then unconditionally writes 0 to obj+0x6C and 0 to obj+0x14, and returns the obj pointer. Partial state reset on the pointed-to struct; no branches, no calls.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Dereference a1 to obtain obj, the pointer to the state struct.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write 0 to obj+0x6C.",
+          "evidence_refs": [
+            "field:obj:0x0000006C",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write 0 to obj+0x14.",
+          "evidence_refs": [
+            "field:obj:0x00000014",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the obj pointer (the original *a1 value).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantics of the two reset fields (obj+0x14 and obj+0x6C) are unknown; the state struct type and the fields' purposes are not established.",
+        "a1 is a pointer-to-pointer (handle); the relationship between a1 and the state object owner is unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0051177C",
+      "function_ref": "function:0x0051177C",
+      "name": "sub_51177C",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0051177C"
+        ]
+      },
+      "summary": "Initializes a vtable-plus-config struct pointed to by a1 (a _DWORD/function-pointer array). Slots 0..4 receive the method pointers ArithmeticComparison_166b, ReferenceCountedResourceAccessRelease, VtableDispatchThunk, FormatStringWithArgs and ResettableStateClear; slot 28 (offset 0x70) receives the off_5ADE98 table pointer and slot 29 (offset 0x74) receives element count 119; slots 5, 26, 27, 30, 31 and 32 (offsets 0x14, 0x68, 0x6C, 0x78, 0x7C, 0x80) are cleared to 0. Returns the struct pointer. Called by ImageTextureDecompressor (00501722).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Preserve the struct pointer a1 as the return value",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write method pointer ArithmeticComparison_166b into slot 0 (offset 0x0)",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "global:0x0051166B",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write method pointer ReferenceCountedResourceAccessRelease into slot 1 (offset 0x4)",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "global:0x005116A3",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write method pointer VtableDispatchThunk into slot 2 (offset 0x8)",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "global:0x00511686",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write method pointer FormatStringWithArgs into slot 3 (offset 0xC)",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "global:0x005116D4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write method pointer ResettableStateClear into slot 4 (offset 0x10)",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "global:0x0051176B",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear slots 5, 26 and 27 (offsets 0x14, 0x68, 0x6C) to 0",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "field:this:0x00000068",
+            "field:this:0x0000006C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the off_5ADE98 table pointer into slot 28 (offset 0x70)",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "global:0x005ADE98",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write element count 119 into slot 29 (offset 0x74)",
+          "evidence_refs": [
+            "field:this:0x00000074",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear slots 30, 31 and 32 (offsets 0x78, 0x7C, 0x80) to 0",
+          "evidence_refs": [
+            "field:this:0x00000078",
+            "field:this:0x0000007C",
+            "field:this:0x00000080",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the initialized struct pointer a1",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by ImageTextureDecompressor (00501722) to install the vtable/format-string-manager struct",
+          "evidence_refs": [
+            "caller:0x00501722"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The struct role (whether a1 is a live vtable or a data/config table) is not established; slot 29 holds the literal 119 cast to a pointer, so the element count / pointer interpretation is ambiguous",
+        "The off_5ADE98 table content and the meaning of the paired pointer (offset 0x70) plus count (offset 0x74) are not resolved by this packet",
+        "Whether the cleared slots 0x14/0x68/0x6C/0x78/0x7C/0x80 are state fields or unused vtable padding is unresolved"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0051184F",
+      "function_ref": "function:0x0051184F",
+      "name": "TripleFieldSetter",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0051184F"
+        ]
+      },
+      "summary": "Writes three consecutive DWORD fields of the receiver object from three parameters with a parameter-to-offset remapping: a2 into this+0x48 (this[18]), a3 into this+0x40 (this[16]), a4 into this+0x44 (this[17]). Returns the original this pointer. All three writes are unconditional and the function performs no guards and no other operations.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Stores parameter a2 into this[18] (offset 0x48)",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Stores parameter a3 into this[16] (offset 0x40)",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Stores parameter a4 into this[17] (offset 0x44)",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the original this pointer (result = a1 at entry)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_5118E6 (005118E6)",
+          "evidence_refs": [
+            "caller:0x005118E6",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The receiver object type and the meaning of the three set fields (offsets 0x40, 0x44, 0x48) are unknown",
+        "The parameter-to-offset remapping (a2 lands at 0x48, a3 at 0x40, a4 at 0x44) has no semantic explanation"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00511869",
+      "function_ref": "function:0x00511869",
+      "name": "GuardedCallWithLongjmp",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Guarded callback dispatch with longjmp recovery: loads the callback pointer stored at a1+0x40 (offset 0x40); when non-null, invokes it with (a1, a2). Then unwinds through LongjmpMSVCCRT(a1, 1) (0x0058A770) before dispatching (a1, a2) to CallbackDispatch as the return value. Shared recovery/dispatch trampoline reused by 15 callers across stream and buffer code; structural twin of GuardedFunctionDispatch (00486aa0) per prelabel.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Load callback v2 from the function pointer stored at a1+0x40 (offset 0x40).",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If v2 is non-null, the stored callback is invoked.",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoke the stored callback v2(a1, a2).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Unwind through LongjmpMSVCCRT(a1, 1) (0x0058A770).",
+          "evidence_refs": [
+            "callee:0x0058A770",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Dispatch (a1, a2) to CallbackDispatch as the final return value.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "CallbackDispatch is named in the raw source but has no callee evidence ref; its target address is absent from the packet callee list.",
+        "LongjmpMSVCCRT unwinds to a saved setjmp frame; the recovery context and the meaning of the value 1 are unknown.",
+        "The context type behind a1 (holding the callback slot at offset 0x40) is unknown; the trampoline is shared by 15 callers."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead",
+        "caller:0x005020BF",
+        "caller:0x0051189C",
+        "caller:0x005118E6",
+        "caller:0x005119E9",
+        "caller:0x00511B7C",
+        "caller:0x0051389E",
+        "caller:0x00513BD1",
+        "caller:0x00517E92",
+        "caller:0x005188B4",
+        "caller:0x00518AAA",
+        "caller:0x00518BD4",
+        "caller:0x00518C1E",
+        "caller:0x00518D29",
+        "caller:0x00518E18",
+        "caller:0x00519019",
+        "function:0x00511869"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0051189C",
+      "function_ref": "function:0x0051189C",
+      "name": "DoubleBufferInit",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0051189C"
+        ]
+      },
+      "summary": "Two-stage buffer initialization. First calls sub_5117C8(a1, a2) to initialize the target object/context a1 from source data a2, then invokes GuardedCallWithLongjmp(a1, v3) with a local 80-byte scratch buffer v3 (longjmp state) and returns its result. Result of the guarded call is propagated to the caller.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call sub_5117C8(a1, a2) to perform the first initialization stage over the target object using the source data.",
+          "evidence_refs": [
+            "callee:0x005117C8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call GuardedCallWithLongjmp(a1, v3) with the target object and the local 80-byte scratch buffer v3; the buffer serves as recoverable longjmp state.",
+          "evidence_refs": [
+            "callee:0x00511869",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of GuardedCallWithLongjmp to the caller.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Type and layout of the target object a1 and the exact meaning of source data a2 are not documented in this function.",
+        "The 80-byte buffer v3 is most plausibly longjmp state for GuardedCallWithLongjmp, but its internal layout is not verifiable here.",
+        "Callers sub_517FD0, sub_518828 and sub_518FCF use this wrapper, but their per-caller buffer-ownership semantics are outside this function."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005119E9",
+      "function_ref": "function:0x005119E9",
+      "name": "PNGFile_ParseChunks",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "source:raw"
+        ]
+      },
+      "summary": "PNG image parser that first validates the 8-byte PNG signature (reading any missing header bytes through CallbackDispatchWithNullGuard and comparing against a reference with BoundedMemcmpAgainstReference), then iteratively reads 4-byte chunk lengths and 4-byte chunk types, dispatching IHDR, PLTE, IEND, gAMA, sRGB, tRNS and unknown chunks to per-chunk handlers. Terminates the loop on IDAT, then validates the chunk-state flags (color type 3 requires PLTE before IDAT) and records the IDAT chunk size. Uses longjmp-based error reporting (GuardedCallWithLongjmp) for signature, PLTE and IHDR violations.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Signature stage: read the byte counter v3 = this+284 and proceed only while fewer than 8 signature bytes have been consumed.",
+          "evidence_refs": [
+            "field:this:0x0000011C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "CallbackDispatchWithNullGuard(a1, a2 + 32 + v3, 8 - v3): fetch the missing signature bytes into the input buffer.",
+          "evidence_refs": [
+            "callee:0x00513BD1",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Mark all 8 signature bytes as consumed: this+284 = 8.",
+          "evidence_refs": [
+            "field:this:0x0000011C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "BoundedMemcmpAgainstReference(a2 + 32, v4, v5): compare the received signature against the expected PNG signature; a non-zero result is a mismatch.",
+          "evidence_refs": [
+            "callee:0x00513C38",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "On signature mismatch, GuardedCallWithLongjmp reports 'Not a PNG file' when fewer than 4 signature bytes were present, otherwise 'PNG file corrupted by ASCII conversion'.",
+          "evidence_refs": [
+            "callee:0x00511869",
+            "global:0x005AF350",
+            "global:0x005AF378",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Chunk iteration loop: repeatedly read a 4-byte length, decode the chunk type into the buffer at this+268 and dispatch to a per-chunk handler until an IDAT chunk terminates the loop.",
+          "evidence_refs": [
+            "field:this:0x0000010C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "CallbackDispatchWithNullGuard(v2, &a1, 4): read the 4-byte chunk length field into the local buffer.",
+          "evidence_refs": [
+            "callee:0x00513BD1",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "ByteArrayToInt(&a1): decode the 4-byte length into the chunk length v7.",
+          "evidence_refs": [
+            "callee:0x00517F35",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "AnimationHandleAlloc(v2): allocate/refresh the per-chunk scratch state.",
+          "evidence_refs": [
+            "callee:0x00513CD8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_517F58(v2, v2 + 268, 4): copy the 4-byte chunk type tag into the chunk-type buffer at this+268.",
+          "evidence_refs": [
+            "callee:0x00517F58",
+            "field:this:0x0000010C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Dispatch the chunk type tag at this+268: when it equals 'IHDR', call sub_5188B4(v2, a2, v7) to parse the header chunk.",
+          "evidence_refs": [
+            "callee:0x005188B4",
+            "field:this:0x0000010C",
+            "global:0x005AF264",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Dispatch on the chunk type tag: when it equals 'PLTE', call sub_518AAA(v2, a2, v7) to parse the palette chunk.",
+          "evidence_refs": [
+            "callee:0x00518AAA",
+            "global:0x005AF27C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Dispatch on the chunk type tag: when it equals 'IEND', call sub_518BD4(v2, a2, v7) to handle the end marker.",
+          "evidence_refs": [
+            "callee:0x00518BD4",
+            "global:0x005AF274",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Dispatch on the chunk type tag: 'IDAT' terminates the loop; otherwise 'gAMA' -> sub_518C1E, 'sRGB' -> sub_518D29, 'tRNS' -> sub_518E18, and any other tag -> sub_518FCF(v2, a2, v7).",
+          "evidence_refs": [
+            "callee:0x00518C1E",
+            "callee:0x00518D29",
+            "callee:0x00518E18",
+            "callee:0x00518FCF",
+            "global:0x005AF26C",
+            "global:0x005AF284",
+            "global:0x005AF28C",
+            "global:0x005AF294",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Post-loop chunk-state validation: read the flags at this+88; when bit 0 (IHDR seen) is set and the color type at this+278 equals 3 (indexed) while bit 1 (PLTE seen) is clear, GuardedCallWithLongjmp reports 'Missing PLTE before IDAT'; otherwise it reports 'Missing IHDR before IDAT'.",
+          "evidence_refs": [
+            "callee:0x00511869",
+            "field:this:0x00000058",
+            "field:this:0x00000116",
+            "global:0x005AF318",
+            "global:0x005AF334",
+            "guard:0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Record chunk parse state: set bit 2 of the flags word (this+88 |= 4) and store the IDAT chunk length into this+252.",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "field:this:0x000000FC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the flags word after validation.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The eight per-chunk handler functions (sub_517F58, sub_5188B4, sub_518AAA, sub_518BD4, sub_518C1E, sub_518D29, sub_518E18, sub_518FCF) are separate functions not analyzed here; their internal behavior is out of scope for this packet.",
+        "The globals named aIhdr, aIdat, aIend, aPlte, aGama, aSrgb, aTrns, aMissingPlteBef, aMissingIhdrBef, aPngFileCorrupt and aNotAPngFile are treated as the 4-byte chunk tags and error strings shown in the raw source; the actual byte contents of the strings are not in the packet.",
+        "The sole static caller sub_50210E (0x0050210E) is not examined here; the enclosing object type is UnknownObject.",
+        "The fill names this function PNGFile_ParseChunks; the chunk-tag comparisons in the raw source use immediate string constants ('IHDR', 'PLTE', etc.) which the extractor has attributed to the a* globals."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x0050210E"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00511B7C",
+      "function_ref": "function:0x00511B7C",
+      "name": "DecodeRowData",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Decodes image row data from an IDAT-chunk compressed stream held by the this object. Initializes buffer sizing when a flag is clear, then either performs a per-pass Huffman decode and returns, or reads/filters row data: guards row-read permission, refills IDAT chunks, inflates rows via sub_517ADC, verifies stream completion, copies pixel-format bytes, computes row geometry, unpacks and copies the row, runs optional post-processing, applies pass-aware horizontal stretch plus a2/a3 Huffman decode passes, finalizes via sub_519019, and invokes an optional callback stored at this+0x16C. Called by sub_511F23. Pass index (this+0x114) drives a 7-way switch of bitmask/threshold checks on (this+0xD4) and (this+0xB8).",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Entry: decode image row data for this object (called by sub_511F23). If init flag (this+0x5C) bit 6 is clear, (re)initialize buffer sizing via AudioBufferSizeCalc(this).",
+          "evidence_refs": [
+            "function:0x00511B7C",
+            "caller:0x00511F23",
+            "source:raw",
+            "field:this:0x0000005C",
+            "callee:0x0051868C"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Dispatch guard: when (this+0x113) is zero or (this+0x60) bit 1 is clear, skip the per-pass switch and go directly to the row-read path.",
+          "evidence_refs": [
+            "field:this:0x00000113",
+            "field:this:0x00000060"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Switch on pass index (this+0x114). Each case tests bit masks of (this+0xD4) against per-pass thresholds of (this+0xB8) to decide whether to run an a3 Huffman decode pass then finalize via sub_519019, or fall through to the row-decode path.",
+          "evidence_refs": [
+            "field:this:0x00000114"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "case 0: if (this+0xD4) & 7 == 0, fall through to row decode; otherwise branch to the shared a3 decode-and-finalize path (LABEL_34).",
+          "evidence_refs": [
+            "field:this:0x000000D4"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "case 1: if (this+0xD4) & 7 != 0 or (this+0xB8) < 5 (guard:0), optionally run JPEGHuffmanDecoder(this, a3, 15) then return sub_519019(this).",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "field:this:0x000000B8",
+            "guard:0",
+            "callee:0x00518032",
+            "callee:0x00519019"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "case 2: if (this+0xD4) & 7 == 4, fall through; if a3 is null return sub_519019(this); else run JPEGHuffmanDecoder(this, a3, 255) then return sub_519019(this).",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "callee:0x00518032",
+            "callee:0x00519019"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "case 3: if (this+0xD4) & 3 != 0 or (this+0xB8) < 3 (guard:1), optionally run JPEGHuffmanDecoder(this, a3, 51) then return sub_519019(this).",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "field:this:0x000000B8",
+            "guard:1",
+            "callee:0x00518032",
+            "callee:0x00519019"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "case 4: if (this+0xD4) & 3 == 2, fall through; if a3 is null return sub_519019(this); else run JPEGHuffmanDecoder(this, a3, 255) then return sub_519019(this).",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "callee:0x00518032",
+            "callee:0x00519019"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "case 5: if (this+0xD4) & 1 != 0 or (this+0xB8) < 2 (guard:2), optionally run JPEGHuffmanDecoder(this, a3, 85) then return sub_519019(this).",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "field:this:0x000000B8",
+            "guard:2",
+            "callee:0x00518032",
+            "callee:0x00519019"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "default: if (this+0x114) == 6 (guard:3) and (this+0xD4) & 1 == 0, return sub_519019(this); otherwise fall through to the row-read path.",
+          "evidence_refs": [
+            "field:this:0x00000114",
+            "field:this:0x000000D4",
+            "guard:3",
+            "callee:0x00519019"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Row-read entry guard: if (this+0x58) bit 2 is clear, raise fatal error via GuardedCallWithLongjmp(this, aInvalidAttempt).",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "callee:0x00511869",
+            "global:0x005AF3CC"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set output row pointer (this+0x70) = row buffer (this+0xDC).",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "field:this:0x000000DC"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set rows remaining (this+0x74) = total row count (this+0xCC).",
+          "evidence_refs": [
+            "field:this:0x00000074",
+            "field:this:0x000000CC"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Decompression loop: while (this+0x68) is nonzero, inflate one row via sub_517ADC(this+0x64, 1); return value 1 means stream complete (exit loop), any other nonzero value means fatal error.",
+          "evidence_refs": [
+            "field:this:0x00000068",
+            "field:this:0x00000064",
+            "callee:0x00517ADC"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Chunk refill loop: while chunk length (this+0xFC) is zero, load the next chunk header: sub_518828(this, 0), CallbackDispatchWithNullGuard(this, &a1, 4), store ByteArrayToInt(&a1) into (this+0xFC), AnimationHandleAlloc(this), sub_517F58(this, this+0x10C, 4); if the 4-byte chunk type at this+0x10C is not 'IDAT' (aIdat), raise fatal 'Not enough image data' (aNotEnoughImage).",
+          "evidence_refs": [
+            "field:this:0x000000FC",
+            "field:this:0x0000010C",
+            "callee:0x00518828",
+            "callee:0x00513BD1",
+            "callee:0x00517F35",
+            "callee:0x00513CD8",
+            "callee:0x00517F58",
+            "callee:0x00511869",
+            "global:0x005AF26C",
+            "global:0x005AF3B4"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Refill active chunk: (this+0x68) = chunk data size (this+0xA0), current pointer (this+0x64) = base (this+0x9C), clamp (this+0x68) to remaining chunk length (this+0xFC), consume bytes via sub_517F58(this, base, count), and subtract the consumed amount from (this+0xFC).",
+          "evidence_refs": [
+            "field:this:0x00000068",
+            "field:this:0x000000A0",
+            "field:this:0x00000064",
+            "field:this:0x0000009C",
+            "field:this:0x000000FC",
+            "callee:0x00517F58"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "On sub_517ADC error, load message pointer (this+0x7C); default to 'Decompression error' (aDecompressionE) when null; raise fatal GuardedCallWithLongjmp(this, message).",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "callee:0x00517ADC",
+            "callee:0x00511869",
+            "global:0x005AF3A0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "After a successful row inflate, if rows remaining (this+0x74) is zero, skip stream-completion verification and jump to post-row processing (LABEL_59).",
+          "evidence_refs": [
+            "field:this:0x00000074"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Stream-completion verification: if rows remaining (this+0x74), bytes remaining (this+0x68), or chunk length (this+0xFC) are nonzero, raise fatal 'Extra compressed data' (aExtraCompresse).",
+          "evidence_refs": [
+            "field:this:0x00000074",
+            "field:this:0x00000068",
+            "field:this:0x000000FC",
+            "callee:0x00511869",
+            "global:0x005AF388"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Mark decompression complete: (this+0x58) |= 0x8 and (this+0x5C) |= 0x20.",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copy pixel-format bytes into output state: (this+0xF8) = (this+0x116), (this+0xF9) = (this+0x117), (this+0xFA) = (this+0x11A), (this+0xFB) = (this+0x119).",
+          "evidence_refs": [
+            "field:this:0x000000F8",
+            "field:this:0x00000116",
+            "field:this:0x000000F9",
+            "field:this:0x00000117",
+            "field:this:0x000000FA",
+            "field:this:0x0000011A",
+            "field:this:0x000000FB",
+            "field:this:0x00000119"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute row geometry: samples = (this+0xD0), bpp = (this+0x119); store (this+0xF0) = samples and (this+0xF4) = (samples * bpp + 7) >> 3.",
+          "evidence_refs": [
+            "field:this:0x000000D0",
+            "field:this:0x00000119",
+            "field:this:0x000000F0",
+            "field:this:0x000000F4"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Unpack/filter the decoded row: sub_518511(this, this+0xF0, rowbuf+1 where rowbuf=(this+0xDC), (this+0xD8)+1, filter-type byte at *(this+0xDC)).",
+          "evidence_refs": [
+            "field:this:0x000000F0",
+            "field:this:0x000000DC",
+            "field:this:0x000000D8",
+            "field:*(this+0xDC):0x00000000",
+            "callee:0x00518511"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Copy the processed row to the output buffer: MemoryCopy(this, row size (this+0xD8), row buffer (this+0xDC), bytes-per-row (this+0xC8) + 1).",
+          "evidence_refs": [
+            "field:this:0x000000D8",
+            "field:this:0x000000DC",
+            "field:this:0x000000C8",
+            "callee:0x00517EE1"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "If (this+0x60) is nonzero, run post-row processing sub_51389E(this).",
+          "evidence_refs": [
+            "field:this:0x00000060",
+            "callee:0x0051389E"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Pass-aware post-decode (enabled when (this+0x113) is nonzero and (this+0x60) bit 1 set): when pass index (this+0x114) < 6, run TextureHorizontalStretch(this+0xF0, (this+0xDC)+1, (this+0x114)); then run JPEGHuffmanDecoder(this, a3, dword_5AF248[(this+0x114)]) and JPEGHuffmanDecoder(this, a2, dword_5AF22C[(this+0x114)]).",
+          "evidence_refs": [
+            "field:this:0x00000113",
+            "field:this:0x00000060",
+            "field:this:0x00000114",
+            "field:this:0x000000F0",
+            "field:this:0x000000DC",
+            "callee:0x00518248",
+            "callee:0x00518032",
+            "global:0x005AF248",
+            "global:0x005AF22C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Fallback post-decode: run JPEGHuffmanDecoder(this, a2, 255) and JPEGHuffmanDecoder(this, a3, 255).",
+          "evidence_refs": [
+            "callee:0x00518032"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Finalize the decoded row / update state: sub_519019(this).",
+          "evidence_refs": [
+            "callee:0x00519019"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Load optional callback pointer (this+0x16C); if non-null, return callback(this, (this+0xD4), (this+0x114)); otherwise return null.",
+          "evidence_refs": [
+            "field:this:0x0000016C",
+            "field:this:0x000000D4",
+            "field:this:0x00000114"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Owner object type unresolved (UNKNOWN); callee semantic names (JPEGHuffmanDecoder, TextureHorizontalStretch, AnimationHandleAlloc, etc.) are prior-analysis labels and are not runtime-verified.",
+        "Whether the pass-index switch (0..6) implements Adam7 interlacing or per-frame Huffman passes is unresolved; the decoded stream is IDAT-chunk compressed image data.",
+        "Semantics of the per-pass constants 15/51/85/255 passed to JPEGHuffmanDecoder and of the lookup tables dword_5AF248 / dword_5AF22C are unknown.",
+        "The function returns a cdecl function pointer (stored at this+0x16C); whether the caller consumes it and its relationship to the a2/a3 arguments is unresolved.",
+        "Bit meanings of state fields (e.g. (this+0x58) bits, (this+0x60) bit 1, (this+0x5C) bits) are inferred from usage, not confirmed."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0051234D",
+      "function_ref": "function:0x0051234D",
+      "name": "FlagBasedSessionModeSelector",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Selects a session mode by a byte flag at this+0x113. If the flag is zero, returns 1 (single session mode) without modifying state. Otherwise OR-sets bit 2 on the flags DWORD at this+0x60 and returns 7 (multi-session mode selector).",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If byte at this+0x113 (a1+275) is zero, return 1 without modifying flags.",
+          "evidence_refs": [
+            "field:this:0x00000113",
+            "source:raw",
+            "function:0x0051234D"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "OR-set bit 2 on the flags DWORD at this+0x60 (a1+96) to mark multi-session mode active.",
+          "evidence_refs": [
+            "field:this:0x00000060",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 7 as the multi-session mode selector.",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x0051234D"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Owner object type for a1/this is unknown.",
+        "Meaning of the returned selector values 1 and 7 beyond the single/multi distinction is unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0051249F",
+      "function_ref": "function:0x0051249F",
+      "name": "StoreCameraRotationState",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0051249F"
+        ]
+      },
+      "summary": "Stores two double-precision camera rotation parameters as floats into the target object (a3 into this+0x130, a2 into this+0x134) and conditionally raises bit 5 of the flags byte at this+0x61 when the product of the two values deviates from 1.0 by more than 0.05. The two float writes are unconditional; only the flag modification is guarded. Returns the target pointer.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Copy the target pointer a1 into result for later return",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: when fabs(a2 * a3 - 1.0) is greater than 0.05, set bit 5 of the flags byte at this+0x61; the constant 1.0 comes from dbl_59E420 and the threshold 0.05 from dbl_5AF428",
+          "evidence_refs": [
+            "field:this:0x00000061",
+            "global:0x0059E420",
+            "global:0x005AF428",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Bitwise OR of 0x20 into the byte at this+0x61, executed only when the product-deviation guard passes",
+          "evidence_refs": [
+            "field:this:0x00000061",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write a3 as a float to this+0x130, unconditionally",
+          "evidence_refs": [
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write a2 as a float to this+0x134, unconditionally",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the target pointer result",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_50210E (0050210E) to apply camera rotation state",
+          "evidence_refs": [
+            "caller:0x0050210E"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The meaning of the guarded 1.0-product invariant (dbl_59E420, dbl_5AF428) and what bit 5 of this+0x61 gates downstream is not established from this packet alone",
+        "Offsets 97, 304, 308 in the raw source correspond to the packet field offsets 0x61, 0x130, 0x134; the exact role of the two stored rotation values is not documented here"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005126D9",
+      "function_ref": "function:0x005126D9",
+      "name": "ConvertPixelBitDepth",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x005126D9",
+          "source:raw"
+        ]
+      },
+      "summary": "Bit-depth down-conversion of pixel data. a1 is a parameter block: *a1 element count, a1[1] buffer size (bytes/rows), byte at +8 a mode byte, byte at +9 the input bit depth. a2 is the destination pixel buffer, a3 a per-channel shift lookup table. If the mode byte is 3 the conversion is skipped. Otherwise per-channel shift amounts are computed as (bit_depth - a3[k]); shifts that are not positive are clamped to zero, and if any shift remains positive the buffer is converted according to the bit depth: 2 bpp (right-shift by 1, mask 0x55), 4 bpp (nibble mask 15/240), 8 bpp (per-channel right-shift), 16 bpp (16-bit load, right-shift, byte store). Channel count depends on mode bit 1 (interleaved vs planar) and mode bit 2 (extra fourth channel).",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Read the mode byte i at a1+8; if i == 3 the entire conversion is skipped (no-op).",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize positive-shift flag v21 = 0 and read the element count v5 = *a1.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Test mode bit 1 ((i & 2) == 0): planar layout uses a single shift from a3[3]; interleaved layout uses per-channel shifts from a3[0..2].",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute per-channel shift amounts v19[k] = (bit depth byte at a1+9) - a3[k]: one value for planar, three for interleaved.",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Test mode bit 2 ((a1[2] & 4) != 0): when set, add a fourth shift v19[v9] = (bit depth) - a3[4] for the extra channel.",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate the v9 shift entries: keep the positive shifts and clamp non-positive ones to zero; set v21 if any shift remains positive.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If v21 (a positive shift exists): dispatch on bit depth at a1+9, first testing depth == 2.",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "guard:3",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Depth 2 path: for a1[1] bytes of the destination buffer, convert each byte as (byte >> 1) & 0x55.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Depth != 2: test depth == 4.",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "guard:2",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Depth 4 path: build nibble mask i = (15 >> v7) | ((240 >> v7) & 0xF0) and for a1[1] bytes store mask & (byte >> v7).",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Depth not 4: test depth == 8.",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "guard:1",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Depth 8 path: for v9 * v5 elements, right-shift each destination byte by its per-channel shift v19[j % v9].",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Depth not 8: test depth == 16.",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "guard:0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Depth 16 path: for v9 * v5 elements, load a 16-bit pixel (v11[1] + (v11[0] << 8)), right-shift by v19[k % v9], and store the result as two bytes.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return i (the mode/depth-derived value in LOBYTE of EAX); semantics of the return value are not established.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by sub_51389E to run pixel bit-depth conversion.",
+          "evidence_refs": [
+            "caller:0x0051389E",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The shift value v7 used by the depth-4 path is a union-derived alias of v19[0]; its exact masking source (15 / 240 nibble masks) is deterministic but the register reuse makes the channel binding ambiguous.",
+        "Return value (EAX low byte) is a mode/depth-derived quantity; its meaning to callers is unknown.",
+        "Layout of a2 (planar planes vs interleaved pixels) depends on the caller's format; only the per-element byte arithmetic is visible here."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00512E1A",
+      "function_ref": "function:0x00512E1A",
+      "name": "BitpackedIndexedToRgbaDecompressor",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00512E1A"
+        ]
+      },
+      "summary": "Two-phase bit-packed indexed texture decoder. Phase 1 (guarded on this+0x8 == 3) unpacks 4-bit, 2-bit or 1-bit planar fields from a packed source buffer into one byte per pixel, then stores this+0x9 = 8 and the processed pixel count into this+0x4. Phase 2 (guarded on this+0x9 == 8) looks each byte up in an RGB palette (base a3, 2 bytes stride per index) writing RGB output, or RGB plus an alpha byte sourced from secondary table a4 when a4 is non-zero. Output format state is recorded in this+0x8 (6=RGBA / 2=RGB), this+0xA (4 / 3 bytes per pixel) and this+0xB (32 / 24 stride), with the final output byte count written to this+0x4.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Enter the bit-unpack phase only when this+0x8 == 3 (phase marker); otherwise the whole body is skipped",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "When this+0x9 < 8, dispatch on bit depth: 4-bit branch (this+0x9 == 4) shifts nibbles out of the packed buffer (offset a2 + (count-1)/2) and writes one byte per pixel, walking the destination backwards",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "2-bit branch (this+0x9 == 2) shifts 2-bit fields out of the packed buffer (offset a2 + (count-1)/4), writing one byte per pixel",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "1-bit branch (this+0x9 == 1) shifts single bits out of the packed buffer (offset a2 + (count-1)/8), writing one byte per pixel",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "After any unpack branch: this+0x9 set to 8, this+0xB set to 8, and this+0x4 set to the pixel count (a1[1] = result)",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "field:this:0x0000000B",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Color-lookup phase entered only when this+0x9 == 8 (the state byte set at the end of unpacking)",
+          "evidence_refs": [
+            "guard:1",
+            "field:this:0x00000009",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "RGBA path (a4 non-zero): per pixel, index below a5 reads an alpha byte from table a4, otherwise writes -1; RGB triple read from the a3 palette at 2*index stride; output advances 4 bytes per pixel",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000009",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "RGB path (a4 zero): per pixel, three palette bytes read from a3 at 2*index stride; output advances 3 bytes per pixel",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Record output format: RGBA path sets this+0xB = 32, this+0x8 = 6, this+0xA = 4; RGB path sets this+0xB = 24, this+0x8 = 2, this+0xA = 3; both set this+0x9 = 8 and this+0x4 = output byte count",
+          "evidence_refs": [
+            "field:this:0x00000009",
+            "field:this:0x0000000B",
+            "field:this:0x00000008",
+            "field:this:0x0000000A",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the pixel count; invoked by sub_51389E (0051389e) as part of the indexed-texture decode path",
+          "evidence_refs": [
+            "function:0x00512E1A",
+            "caller:0x0051389E",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The exact class owning the state object at a1 is not known; the skeleton labels it a texture format/phase descriptor",
+        "The palette entry layout (2-byte stride per index over a3) is inferred from the address arithmetic in the lookup loops"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x00513BF9",
+      "function_ref": "function:0x00513BF9",
+      "name": "SetReadDataCallback",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Configures a data-read callback on a structure. Stores the user data pointer a2 at this+0x54 and the read callback a3 at this+0x50. If the write callback slot this+0x4C was already non-null, it clears that slot to 0 and emits an error through CallbackDispatch (with string fragments aItSAnErrorToSe and aSameStructureR) about setting both read_data_fn and write_data_fn in the same structure. Always clears this+0x120 to 0 and returns the read callback a3.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Read the write callback slot this+0x4C and test whether it is 0 (no existing write callback).",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x0000004C",
+            "guard:0"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the user data pointer a2 into the read-data user-data slot at this+0x54.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000054"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the read callback a3 into the read callback slot at this+0x50.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000050"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "When a write callback was already present (this+0x4C != 0), clear it to 0 and report the conflict by calling CallbackDispatch with the error strings aItSAnErrorToSe (0x005AF520) and aSameStructureR (0x005AF4EC).",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x0000004C",
+            "callee:0x00511887",
+            "global:0x005AF520",
+            "global:0x005AF4EC"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear the state field at this+0x120 to 0.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000120"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the read callback pointer a3.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Owner type of the callback structure is unknown; callers are sub_50210E (0x0050210E) and sub_5118E6 (0x005118E6).",
+        "The exact wording and dispatch semantics of CallbackDispatch (0x00511887) are not defined here."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x0050210E",
+        "caller:0x005118E6"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x00511060",
+    "function:0x005110FC",
+    "function:0x005111D3",
+    "function:0x0051126A",
+    "function:0x00511457",
+    "function:0x005114D5",
+    "function:0x005115EE",
+    "function:0x005116A3",
+    "function:0x005116D4",
+    "function:0x0051176B",
+    "function:0x0051177C",
+    "function:0x0051184F",
+    "function:0x00511869",
+    "function:0x0051189C",
+    "function:0x005119E9",
+    "function:0x00511B7C",
+    "function:0x0051234D",
+    "function:0x0051249F",
+    "function:0x005126D9",
+    "function:0x00512E1A",
+    "function:0x00513BF9"
+  ],
+  "required_material_refs": [
+    "callee:0x0050FF84",
+    "callee:0x00510012",
+    "callee:0x0051030D",
+    "callee:0x00510975",
+    "callee:0x00510ACC",
+    "callee:0x00510D60",
+    "callee:0x00510F89",
+    "callee:0x00511060",
+    "callee:0x005110FC",
+    "callee:0x005111D3",
+    "callee:0x005115C4",
+    "callee:0x005117C8",
+    "callee:0x00511869",
+    "callee:0x00511887",
+    "callee:0x0051389E",
+    "callee:0x00513BD1",
+    "callee:0x00513C38",
+    "callee:0x00513CD8",
+    "callee:0x00517ADC",
+    "callee:0x00517EE1",
+    "callee:0x00517F35",
+    "callee:0x00517F58",
+    "callee:0x00518032",
+    "callee:0x00518248",
+    "callee:0x00518511",
+    "callee:0x0051868C",
+    "callee:0x00518828",
+    "callee:0x005188B4",
+    "callee:0x00518AAA",
+    "callee:0x00518BD4",
+    "callee:0x00518C1E",
+    "callee:0x00518D29",
+    "callee:0x00518E18",
+    "callee:0x00518FCF",
+    "callee:0x00519019",
+    "callee:0x0058815F",
+    "callee:0x0058A770",
+    "field:*(obj+0x70):0x00000000",
+    "field:*(this+0x14):0x00000000",
+    "field:*(this+0x190):0x00000004",
+    "field:*(this+0x190):0x00000008",
+    "field:*(this+0x190):0x0000000C",
+    "field:*(this+0x190):0x00000010",
+    "field:*(this+0x190):0x00000048",
+    "field:*(this+0x4):0x00000000",
+    "field:*(this+0xDC):0x00000000",
+    "field:obj:0x00000000",
+    "field:obj:0x00000004",
+    "field:obj:0x00000008",
+    "field:obj:0x00000014",
+    "field:obj:0x00000018",
+    "field:obj:0x0000001C",
+    "field:obj:0x00000020",
+    "field:obj:0x00000024",
+    "field:obj:0x00000028",
+    "field:obj:0x0000002C",
+    "field:obj:0x00000030",
+    "field:obj:0x00000034",
+    "field:obj:0x00000068",
+    "field:obj:0x0000006C",
+    "field:obj:0x00000070",
+    "field:obj:0x00000074",
+    "field:obj:0x00000078",
+    "field:obj:0x0000007C",
+    "field:obj:0x00000080",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x00000009",
+    "field:this:0x0000000A",
+    "field:this:0x0000000B",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x00000040",
+    "field:this:0x00000044",
+    "field:this:0x00000048",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000054",
+    "field:this:0x00000058",
+    "field:this:0x0000005C",
+    "field:this:0x00000060",
+    "field:this:0x00000061",
+    "field:this:0x00000064",
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x00000074",
+    "field:this:0x00000078",
+    "field:this:0x0000007C",
+    "field:this:0x00000080",
+    "field:this:0x0000009C",
+    "field:this:0x000000A0",
+    "field:this:0x000000B8",
+    "field:this:0x000000C8",
+    "field:this:0x000000CC",
+    "field:this:0x000000D0",
+    "field:this:0x000000D4",
+    "field:this:0x000000D8",
+    "field:this:0x000000DC",
+    "field:this:0x000000F0",
+    "field:this:0x000000F4",
+    "field:this:0x000000F8",
+    "field:this:0x000000F9",
+    "field:this:0x000000FA",
+    "field:this:0x000000FB",
+    "field:this:0x000000FC",
+    "field:this:0x0000010C",
+    "field:this:0x00000113",
+    "field:this:0x00000114",
+    "field:this:0x00000116",
+    "field:this:0x00000117",
+    "field:this:0x00000119",
+    "field:this:0x0000011A",
+    "field:this:0x0000011C",
+    "field:this:0x00000120",
+    "field:this:0x00000130",
+    "field:this:0x00000134",
+    "field:this:0x0000016C",
+    "field:this:0x00000178",
+    "field:this:0x00000190",
+    "field:this:0x0000019C",
+    "field:this:0x000001E0",
+    "field:this:0x000001E4",
+    "field:this:0x000001E8",
+    "global:0x005105BF",
+    "global:0x005107FB",
+    "global:0x00511060",
+    "global:0x0051126A",
+    "global:0x00511457",
+    "global:0x005115C4",
+    "global:0x0051166B",
+    "global:0x00511686",
+    "global:0x005116A3",
+    "global:0x005116D4",
+    "global:0x0051176B",
+    "global:0x0059E420",
+    "global:0x005ADE98",
+    "global:0x005AF22C",
+    "global:0x005AF248",
+    "global:0x005AF264",
+    "global:0x005AF26C",
+    "global:0x005AF274",
+    "global:0x005AF27C",
+    "global:0x005AF284",
+    "global:0x005AF28C",
+    "global:0x005AF294",
+    "global:0x005AF318",
+    "global:0x005AF334",
+    "global:0x005AF350",
+    "global:0x005AF378",
+    "global:0x005AF388",
+    "global:0x005AF3A0",
+    "global:0x005AF3B4",
+    "global:0x005AF3CC",
+    "global:0x005AF428",
+    "global:0x005AF4EC",
+    "global:0x005AF520"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x0050FF84",
+    "callee:0x00510012",
+    "callee:0x0051030D",
+    "callee:0x00510975",
+    "callee:0x00510ACC",
+    "callee:0x00510D60",
+    "callee:0x00510F89",
+    "callee:0x00511060",
+    "callee:0x005110FC",
+    "callee:0x005111D3",
+    "callee:0x005115C4",
+    "callee:0x005117C8",
+    "callee:0x00511869",
+    "callee:0x00511887",
+    "callee:0x0051389E",
+    "callee:0x00513BD1",
+    "callee:0x00513C38",
+    "callee:0x00513CD8",
+    "callee:0x00517ADC",
+    "callee:0x00517EE1",
+    "callee:0x00517F35",
+    "callee:0x00517F58",
+    "callee:0x00518032",
+    "callee:0x00518248",
+    "callee:0x00518511",
+    "callee:0x0051868C",
+    "callee:0x00518828",
+    "callee:0x005188B4",
+    "callee:0x00518AAA",
+    "callee:0x00518BD4",
+    "callee:0x00518C1E",
+    "callee:0x00518D29",
+    "callee:0x00518E18",
+    "callee:0x00518FCF",
+    "callee:0x00519019",
+    "callee:0x0058815F",
+    "callee:0x0058A770",
+    "caller:0x00501722",
+    "caller:0x005020BF",
+    "caller:0x0050210E",
+    "caller:0x0050F632",
+    "caller:0x0051126A",
+    "caller:0x0051189C",
+    "caller:0x005118E6",
+    "caller:0x005119E9",
+    "caller:0x00511B7C",
+    "caller:0x00511F23",
+    "caller:0x0051389E",
+    "caller:0x00513BD1",
+    "caller:0x00517E92",
+    "caller:0x005188B4",
+    "caller:0x00518AAA",
+    "caller:0x00518BD4",
+    "caller:0x00518C1E",
+    "caller:0x00518D29",
+    "caller:0x00518E18",
+    "caller:0x00519019",
+    "field:*(obj+0x70):0x00000000",
+    "field:*(this+0x14):0x00000000",
+    "field:*(this+0x190):0x00000004",
+    "field:*(this+0x190):0x00000008",
+    "field:*(this+0x190):0x0000000C",
+    "field:*(this+0x190):0x00000010",
+    "field:*(this+0x190):0x00000048",
+    "field:*(this+0x4):0x00000000",
+    "field:*(this+0xDC):0x00000000",
+    "field:obj:0x00000000",
+    "field:obj:0x00000004",
+    "field:obj:0x00000008",
+    "field:obj:0x00000014",
+    "field:obj:0x00000018",
+    "field:obj:0x0000001C",
+    "field:obj:0x00000020",
+    "field:obj:0x00000024",
+    "field:obj:0x00000028",
+    "field:obj:0x0000002C",
+    "field:obj:0x00000030",
+    "field:obj:0x00000034",
+    "field:obj:0x00000068",
+    "field:obj:0x0000006C",
+    "field:obj:0x00000070",
+    "field:obj:0x00000074",
+    "field:obj:0x00000078",
+    "field:obj:0x0000007C",
+    "field:obj:0x00000080",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x00000009",
+    "field:this:0x0000000A",
+    "field:this:0x0000000B",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x00000040",
+    "field:this:0x00000044",
+    "field:this:0x00000048",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000054",
+    "field:this:0x00000058",
+    "field:this:0x0000005C",
+    "field:this:0x00000060",
+    "field:this:0x00000061",
+    "field:this:0x00000064",
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x00000074",
+    "field:this:0x00000078",
+    "field:this:0x0000007C",
+    "field:this:0x00000080",
+    "field:this:0x0000009C",
+    "field:this:0x000000A0",
+    "field:this:0x000000B8",
+    "field:this:0x000000C8",
+    "field:this:0x000000CC",
+    "field:this:0x000000D0",
+    "field:this:0x000000D4",
+    "field:this:0x000000D8",
+    "field:this:0x000000DC",
+    "field:this:0x000000F0",
+    "field:this:0x000000F4",
+    "field:this:0x000000F8",
+    "field:this:0x000000F9",
+    "field:this:0x000000FA",
+    "field:this:0x000000FB",
+    "field:this:0x000000FC",
+    "field:this:0x0000010C",
+    "field:this:0x00000113",
+    "field:this:0x00000114",
+    "field:this:0x00000116",
+    "field:this:0x00000117",
+    "field:this:0x00000119",
+    "field:this:0x0000011A",
+    "field:this:0x0000011C",
+    "field:this:0x00000120",
+    "field:this:0x00000130",
+    "field:this:0x00000134",
+    "field:this:0x0000016C",
+    "field:this:0x00000178",
+    "field:this:0x00000190",
+    "field:this:0x0000019C",
+    "field:this:0x000001E0",
+    "field:this:0x000001E4",
+    "field:this:0x000001E8",
+    "function:0x00511060",
+    "function:0x005110FC",
+    "function:0x005111D3",
+    "function:0x0051126A",
+    "function:0x00511457",
+    "function:0x005114D5",
+    "function:0x005115EE",
+    "function:0x005116A3",
+    "function:0x005116D4",
+    "function:0x0051176B",
+    "function:0x0051177C",
+    "function:0x0051184F",
+    "function:0x00511869",
+    "function:0x0051189C",
+    "function:0x005119E9",
+    "function:0x00511B7C",
+    "function:0x0051234D",
+    "function:0x0051249F",
+    "function:0x005126D9",
+    "function:0x00512E1A",
+    "function:0x00513BF9",
+    "global:0x005105BF",
+    "global:0x005107FB",
+    "global:0x00511060",
+    "global:0x0051126A",
+    "global:0x00511457",
+    "global:0x005115C4",
+    "global:0x0051166B",
+    "global:0x00511686",
+    "global:0x005116A3",
+    "global:0x005116D4",
+    "global:0x0051176B",
+    "global:0x0059E420",
+    "global:0x005ADE98",
+    "global:0x005AF22C",
+    "global:0x005AF248",
+    "global:0x005AF264",
+    "global:0x005AF26C",
+    "global:0x005AF274",
+    "global:0x005AF27C",
+    "global:0x005AF284",
+    "global:0x005AF28C",
+    "global:0x005AF294",
+    "global:0x005AF318",
+    "global:0x005AF334",
+    "global:0x005AF350",
+    "global:0x005AF378",
+    "global:0x005AF388",
+    "global:0x005AF3A0",
+    "global:0x005AF3B4",
+    "global:0x005AF3CC",
+    "global:0x005AF428",
+    "global:0x005AF4EC",
+    "global:0x005AF520",
+    "guard:0",
+    "guard:1",
+    "guard:2",
+    "guard:3",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/wave_006/wave_006_generic_runtime_objects_19.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

@@ -1,0 +1,37 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0046A9C0
+// Canonical corpus name: ControllerShifterMapping
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ControllerShifterMapping_0046a9c0.c
+
+void UnknownObject::ControllerShifterMapping()
+{
+    // Registers a controller shifter/gear action pair into the global action tables and, when the first action ID is a gear action, searches the action table for the paired action to seed a force-feedback state value. Clears the old mapping via IDPairMatchAndClear, writes the two-ID pair at a stride-28 slot indexed by this[125], then dispatches on the second ID through a switch to find the counterpart gear, force-feedback index group and flag; a linear scan over the action table writes literal 1056964608 when a matching entry is found.
+    // CALL: Call IDPairMatchAndClear(this + 128) to clear the previous ID pair mapping for this binding slot. [callee:0x0046A980, source:raw]
+    // CALCULATION: Compute the action-table slot offset as 28 * this[125] (field 0x1F4). [field:this:0x000001F4, source:raw]
+    // ASSIGNMENT: Write the first ID (*v2, this[128] at 0x200) into dword_7D1B08 + offset and the second ID (v2[1], this[129] at 0x204) into dword_7D1B0C + offset. [global:0x007D1B08, global:0x007D1B0C, field:this:0x00000200, source:raw]
+    // GUARD: Guard on *v2 (field 0x200) == 1; only gear/shifter actions proceed to pairing and force-feedback setup. [guard:0, field:this:0x00000200, source:raw]
+    // STATE_TRANSITION: Switch on this[129] (field 0x204) via jump table jpt_46AA0C with lookup data byte_46ACDC, pairing each action value with a counterpart (v5), a feedback-index group (v6) and a flag (result 0 or 1); the default case returns result early. [field:this:0x00000204, global:0x0046AC58, global:0x0046ACDC, source:raw]
+    // LOOP: Scan dword_7D1B0C entries stepping 7 dwords until reaching dword_7D1FDC; when the entry's type (previous dword) is 1 and its value equals v5, write literal 1056964608 into dword_7D1490[216 * result + 27 * v6]. [global:0x007D1B0C, global:0x007D1FDC, global:0x007D1490, source:raw]
+    // RETURN: Return result (the flag 0 or 1, or the default-case value). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int ControllerShifterMapping(int *this) {
+    //     IDPairMatchAndClear(this + 128);
+    //     int offset = 28 * this[125];
+    //     *(int*)((char*)dword_7D1B08 + offset) = this[128];
+    //     *(int*)((char*)&dword_7D1B0C + offset) = this[129];
+    //     if (this[128] == 1) {
+    //       switch (this[129]) {
+    //         case 1: case 2: ... : /* map to counterpart, group, flag * /
+    //         default: return result;
+    //       }
+    //       for (int* p = &dword_7D1B0C; (int)p < (int)dword_7D1FDC; p += 7)
+    //         if (*(p - 1) == 1 && *p == counterpart) dword_7D1490[216*flag + 27*group] = 1056964608;
+    //     }
+    //     return result;
+    //   }
+    // UNRESOLVED: Meaning of the stride-28 slot layout and the exact action-ID enum semantics are not established from this function alone.
+    // UNRESOLVED: The force-feedback value written is literal 1056964608; its float interpretation is not derived here.
+    // UNRESOLVED: Whether dword_7D1B08/dword_7D1B0C and dword_7D1490 are per-bind arrays indexed by this[125] depends on caller conventions.
+}

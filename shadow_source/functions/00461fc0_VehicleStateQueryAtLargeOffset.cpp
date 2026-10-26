@@ -1,0 +1,28 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00461FC0
+// Canonical corpus name: VehicleStateQueryAtLargeOffset
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VehicleStateQueryAtLargeOffset_00461fc0.c
+
+void UnknownObject::VehicleStateQueryAtLargeOffset()
+{
+    // State query: when the dword at (obj_base + 112540) is non-zero, where obj_base = *(int*)this, computes v1 = sub_563E70() - 1 and maps v1 == 0 to a return of 1 and v1 in {2, 3} (unsigned (v1 - 1) <= 1) to a return of 2; otherwise returns 0. Called by ShortComputation_1ff0 (0x00461FF0), NetworkFilterSort (0x00462160), and sub_475150 (0x00475150).
+    // GUARD: Proceed only when the dword at (obj_base + 112540) is non-zero, where obj_base = *(int*)this; when it is zero the function falls through to return 0. [field:obj:0x0001B79C, field:this:0x00000000, source:raw]
+    // CALL: v1 = sub_563E70() - 1 — call a state-query function and subtract 1 from its result. [callee:0x00563E70, source:raw]
+    // RETURN: Return 1 when v1 == 0. [source:raw]
+    // RETURN: Return 2 when (unsigned int)(v1 - 1) <= 1, i.e. v1 is 2 or 3. [source:raw]
+    // RETURN: Return 0 when the guard fails or v1 falls outside the handled range. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int v1;
+    //   if (*(int*)(*(int*)this + 112540)) {
+    //     v1 = sub_563E70() - 1;
+    //     if (!v1) return 1;
+    //     if ((unsigned int)(v1 - 1) <= 1) return 2;
+    //   }
+    //   return 0;
+    // UNRESOLVED: Meaning of the checked object dword at offset 112540 (0x1B79C) is unknown.
+    // UNRESOLVED: Semantics and full return domain of sub_563E70 are unknown beyond the handled cases.
+    // UNRESOLVED: The object class is unknown; this+0 dereference supplies the object base.
+    // UNRESOLVED: Semantic meaning of the return codes 1 and 2 is not confirmed.
+}

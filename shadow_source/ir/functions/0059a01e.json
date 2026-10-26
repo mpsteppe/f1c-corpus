@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "address": "0x0059A01E",
+  "proposed_name": "PutbackOrValidateCharWithStreamRead",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0059A01E"]
+  },
+  "summary": "Validates a character (a2) for putback or output against an encoding-table length tracked via the pointer at this+0x1C. On the table-matching putback path it adjusts the offset pointer and returns the character (or 0 for the end sentinel 0xFFFF). Otherwise, when an output device is present at this+0x50, it either validates a backward buffer scan and truncates the stream (copying this+0x3C into this+0x40) or writes the byte through StreamReadWrapperWithLockUnlock. Returns the character on success and -1 on failure.",
+  "local_names": {
+    "this": "stream/encoding object holding the putback and output state",
+    "a2": "character to validate or output (0xFFFF denotes the end sentinel)",
+    "v3": "encoding-table length value read through the pointer at this+0x1C",
+    "v4": "character copy used by the output paths",
+    "v7": "stream buffer pointer read from this+0x44",
+    "v8": "buffer capacity/limit value read at offset 8 of the stream buffer"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Reads v3 as the value at offset 0 of the structure pointed to by this+0x1C; interpreted as the encoding-table length used by the putback validation.",
+      "evidence_refs": ["field:this:0x0000001C", "field:*(this+0x1C):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Enters the encoding-table path only when v3 is non-zero and the putback state value at offset 0 of the pointer at this+0xC is below v3.",
+      "evidence_refs": ["field:this:0x0000000C", "field:*(this+0xC):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Matches the putback when a2 equals 0xFFFF (end sentinel) or when the byte at v3 - 2 equals a2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls PointerOffsetAdjuster(this) on the matched putback path, adjusting the object's offset/position state.",
+      "evidence_refs": ["callee:0x0059A407", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns a2 when it is not 0xFFFF, otherwise returns 0; the putback of the matched character or the end-sentinel value.",
+      "evidence_refs": ["function:0x0059A01E", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Output path requires a non-null output device at this+0x50 and a character (v4) that is not 0xFFFF; otherwise the failure return -1 is taken.",
+      "evidence_refs": ["field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the stream buffer pointer at this+0x38 is set, dereference the buffer pointer stored at this+0x44 and read its capacity v8 at offset 8.",
+      "evidence_refs": ["field:this:0x00000038", "field:this:0x00000044", "field:*(this+0x44):0x00000008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Proceeds with the backward scan only when the buffer capacity v8 is non-zero.",
+      "evidence_refs": ["field:*(this+0x44):0x00000008", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls BufferBoundaryMarkerCheckSet on the stream buffer pointer stored at this+0x44 before scanning.",
+      "evidence_refs": ["callee:0x00599534", "field:this:0x00000044", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Runs CharByCharBackwardScanWithValidation over the buffered data (start at offset 4 of the stream buffer), the output device at this+0x50 and the capacity v8; the character is considered present when it returns non-zero.",
+      "evidence_refs": ["callee:0x00599707", "field:*(this+0x44):0x00000004", "field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls BufferTruncationShrink(*(this+0x44), 0, 0xFFFFFFFF) to shrink the stream buffer after the backward validation succeeds.",
+      "evidence_refs": ["callee:0x00599348", "field:this:0x00000044", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copies the position/state value at this+0x3C into this+0x40, updating stream position tracking after the successful backward validation.",
+      "evidence_refs": ["field:this:0x0000003C", "field:this:0x00000040", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns a2 when the backward validation path consumed the character from the buffered stream.",
+      "evidence_refs": ["function:0x0059A01E", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns -1 when the buffered path fails to validate the character.",
+      "evidence_refs": ["function:0x0059A01E", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When no buffered scan applies, writes the byte v4 to the output device at this+0x50 via StreamReadWrapperWithLockUnlock.",
+      "evidence_refs": ["callee:0x0059BCD2", "field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns v4, or -1 when the device write returned 0xFFFF (failure).",
+      "evidence_refs": ["function:0x0059A01E", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v3 = **(this + 0x1C);",
+    "if (v3 && **(this + 0xC) < v3) {",
+    "  if (a2 == 0xFFFF || *(v3 - 2) == a2) {",
+    "    PointerOffsetAdjuster(this);",
+    "    return a2 == 0xFFFF ? 0 : a2;",
+    "  }",
+    "}",
+    "if (*(this + 0x50) && v4 != 0xFFFF) {",
+    "  if (*(this + 0x38)) {",
+    "    v7 = *(this + 0x44);",
+    "    v8 = *(v7 + 8);",
+    "    if (v8) {",
+    "      BufferBoundaryMarkerCheckSet(*(this + 0x44));",
+    "      if (CharByCharBackwardScanWithValidation(*(v7 + 4), *(this + 0x50), v8)) {",
+    "        BufferTruncationShrink(*(this + 0x44), 0, 0xFFFFFFFF);",
+    "        *(this + 0x40) = *(this + 0x3C);",
+    "        return a2;",
+    "      }",
+    "    }",
+    "    return -1;",
+    "  }",
+    "  v6 = (StreamReadWrapperWithLockUnlock(v4, *(this + 0x50)) == 0xFFFF);",
+    "  return v6 ? -1 : v4;",
+    "}",
+    "return -1;"
+  ],
+  "unresolved": [
+    "The global dword_5B9C38 (0x005B9C38) is listed as a read global but does not appear in the raw function body; its role here is unknown.",
+    "The prelabel cluster_copy identifies this as the structural twin of PutbackOrValidateCharWithCodecvt (00598fd4); the output path here writes through StreamReadWrapperWithLockUnlock rather than a direct file write.",
+    "0xFFFF is overloaded: it selects the end-of-putback path, disables the output path, and is the failure return from the device write; the exact enum semantics are not resolved.",
+    "this+0x50 is treated by prior analysis as the output stream/device; the full object contract (encoding table, putback state and stream buffer) is DERIVED from the raw body, not independently confirmed."
+  ],
+  "unresolved_evidence_refs": ["global:0x005B9C38"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

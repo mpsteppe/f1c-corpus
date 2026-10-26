@@ -1,0 +1,77 @@
+# TextureVertexConverter
+
+Scope: `generic_runtime_objects`  
+Trust: `DERIVED`
+
+A family of 22 __thiscall helpers operating on one shared state object (owner type UNKNOWN in every packet entry) that read a source/tile/data base, one or two stride fields, an element count, and a format-conversion flag, and emit packed or float color output. Encoding members convert float RGBA vertex data into fixed-width packed words (16-bit R5G5A6, 2x8-bit, RGB10A2; 32-bit RGBA8888, RGA24, R10G11B11, luminance16+alpha16, RGB10A2; 64-bit 4x16-bit quadword) or into luminance/alpha byte/nibble/16-bit values, optionally after remapping the input buffer through callee 0x00506CE2 when field this+0x1048 is set, and after an unconditional call to callee 0x00507473. Decoding members read packed texels (3-byte RGB888, 4-byte RGBA8888, 16-bit RGB565/RGB555/RGB5A1/RGBA4, 32-bit RGB10A2) selected from field this+0x18 by a2/a3 scaled by stride fields this+0x1050/0x1054, emit four float channels per pixel, and invoke callee 0x00507845 on the decoded buffer when field this+0x10 is non-zero. Most members return the conversion-state global dword_8B009C. Scale constants (1/31, 1/15, 1/3, 1/255, 65535.0, 512.0, 1024.0, BT.709 luminance weights) are folded into the raw source as literals while a matching set of read-only float globals is recorded as evidence; the exact global-to-literal bindings are not proven by any write site.
+
+## Function roles
+
+- `0x005083D2` **TextureVertexConverter** — Encode per-vertex float RGBA into packed 32-bit RGB10A2 (R/G scaled by 1023.0, A by 3.0); optional 0x00506CE2 format-conversion pre-pass gated by field 0x1048; iterates the count at field 0x1058; returns conversion-state global.
+- `0x005086DD` **TextureVertexConverter** — Vertex-buffer weight matcher: for each of the field 0x1058 input vertices, scan the fixed 0x100-entry 4-float table at float field 0x38 for the entry with minimum squared Euclidean distance and write its byte index to an output pointer derived from field 0x18 and stride fields 0x1050/0x1054; optional 0x00506CE2 pre-pass gated by field 0x1048.
+- `0x005087A2` **TextureVertexConverter** — Encode float RGB vertex colors into one BT.709 luminance byte per vertex (scale 255.0 plus tile sample from field 0x2C); optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x0050895D` **TextureVertexConverter** — Encode float RGBA samples into one byte per sample: 4-bit BT.709 luminance in the low nibble and 4-bit alpha in the high nibble, each plus a tile sample from field 0x2C; optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x00508A48` **TextureVertexConverter** — Encode two float color channels per vertex into one 16-bit word with two 8-bit channels (scale 128.0) plus a channel-base sample from field 0x2C; optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x00508B1D` **TextureVertexConverter** — Encode float RGBA vertex colors into one packed 16-bit word: R in bits 0-4 (scale 16.0), G in bits 5-9 (scale 16.0), A in bits 10-15 (scale 63.0); B unused; plus tile sample from field 0x2C; optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x00508C22` **TextureVertexConverter** — Encode float RGBA vertex colors into one packed 32-bit word: R, G and A each 8 bits (scales 128.0/128.0/255.0); B unused; plus tile sample from field 0x2C; optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x00508D2D` **TextureVertexConverter** — Encode four float color channels per vertex into one packed 32-bit RGBA8888 word (scale 128.0 per channel) plus a shared base sample from field 0x2C; optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x00508F3D` **TextureVertexConverter** — Encode float RGB vertex colors into one packed 32-bit word: R scaled by 512.0 (10 bits, mask 0x3FF), G and B scaled by 1024.0 (11 bits each); optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x00509047` **TextureVertexConverter** — Encode per-vertex float RGBA into packed 32-bit RGB10A2: R/G/B scaled by 512.0 plus a shared sub-tile offset from field 0x2C, truncated and masked to 10 bits (0x3FF); alpha doubled; optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x0050917D` **TextureVertexConverter** — Encode float RGB samples into one 16-bit BT.709 luminance value per sample (scale 65535.0) plus a palette sample from field 0x2C; optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x00509244` **TextureVertexConverter** — Encode float RGB samples into one 16-bit BT.709 luminance value per sample; structural twin of 0x0050917D (identical raw source) with the same fields, calls and return contract; iterates field 0x1058.
+- `0x0050930B` **TextureVertexConverter** — Encode one texel as a 32-bit word: 16-bit BT.709 luminance (low) and 16-bit alpha (high), both scaled by 65535.0 plus a per-vertex bias float from field 0x2C; optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x005094E8` **TextureVertexConverter** — Encode four float color channels per vertex into one 64-bit quadword (four 16-bit channels, scale 65535.0) plus a per-texel bias float from field 0x2C; output quadword pointer derived from field 0x18 and stride fields 0x1050/0x1054; optional 0x00506CE2 pre-pass gated by field 0x1048; iterates field 0x1058; returns conversion-state global.
+- `0x00509644` **TextureVertexConverter** — Decode packed 24-bit RGB888 texels (3 bytes per pixel) to float RGBA, alpha fixed at 1.0, each byte scaled by 0.0039215689; source run selected from field 0x18 by a2/a3 strides 0x1050/0x1054; loop bound is the byte span at field 0x1064; when field 0x10 is non-zero invoke 0x00507845 on the decoded buffer.
+- `0x005096D0` **TextureVertexConverter** — Decode packed 32-bit RGBA8888 texels (4 bytes per pixel) to float RGBA, every byte channel including alpha scaled by 0.0039215689; source run selected from field 0x18 by a2/a3 strides 0x1050/0x1054; iterates the count at field 0x1058; when field 0x10 is non-zero invoke 0x00507845 on the decoded buffer.
+- `0x00509776` **TextureVertexConverter** — Decode 24-bit packed RGB888 source texels (one byte per channel plus one ignored byte) to float RGBA, alpha written as 1.0, each color byte scaled by 0.0039215689; source address from field 0x18 plus a2/a3 strides 0x1050/0x1054; iterates the count at field 0x1058; when field 0x10 is non-zero invoke 0x00507845 on the decoded buffer.
+- `0x00509812` **TextureVertexConverter** — Decode 16-bit packed RGB565 texels to float RGBA, alpha written as 1.0; R=(word>>11)&0x1F scaled by 0.032258064, G=(word>>5)&0x3F scaled by 0.015873017, B=word&0x1F scaled by 0.032258064; source address from field 0x18 plus a2/a3 strides 0x1050/0x1054; iterates the count at field 0x1058; when field 0x10 is non-zero invoke 0x00507845 on the decoded buffer.
+- `0x005098B7` **TextureVertexConverter** — Decode 16-bit packed words to float RGBA with three 5-bit channels (R=(word>>10)&0x1F, G=(word>>5)&0x1F, B=word&0x1F, top bit unused), each scaled by 0.032258064, alpha fixed to 1.0; source pointer from field 0x18 plus a2/a3 strides 0x1050/0x1054; iterates the count at field 0x1058; when field 0x10 is non-zero invoke 0x00507845 on the decoded buffer.
+- `0x00509959` **TextureVertexConverter** — Decode 16-bit packed RGB5-5-5-1 texels to float RGBA: 5-bit R/G/B each scaled by 0.032258064, 1-bit alpha stored unscaled as the raw bit; source pointer from field 0x18 plus a2/a3 strides 0x1050/0x1054; iterates the count at field 0x1058; when field 0x10 is non-zero invoke 0x00507845 on the decoded buffer.
+- `0x00509A09` **TextureVertexConverter** — Decode 16-bit packed RGBA4 texels (4 bits per channel) to float RGBA, each channel scaled by 0.06666667; source pointer from field 0x18 plus a2/a3 strides 0x1050/0x1054; iterates the count at field 0x1058; when field 0x10 is non-zero invoke 0x00507845 on the decoded buffer.
+- `0x00509AB8` **TextureVertexConverter** — Decode packed 32-bit RGB10/10/10/2 texels to float RGBA: 10-bit R/G/B each scaled by 0.00097751711, 2-bit alpha scaled by 0.33333334; source pointer from field 0x18 plus a2/a3 strides 0x1050/0x1054; iterates the count at field 0x1058; when field 0x10 is non-zero invoke 0x00507845 on the decoded buffer.
+
+## Proposed classes
+
+### TextureVertexConverter
+
+Shared state object for a family of vertex/texture color format conversion helpers. Exposes the source/data base, a per-4x4-block sample or bias base, a 0x100-entry weight table, two dimension strides, an element count, a byte-span loop bound, and a format-conversion flag, and drives optional format remapping (0x00506CE2) and gated post-processing (0x00507845). The owner type is UNKNOWN per every packet entry; this class is a DERIVED grouping of the shared field layout, not a proven original type.
+
+Methods: `0x005083D2`, `0x005086DD`, `0x005087A2`, `0x0050895D`, `0x00508A48`, `0x00508B1D`, `0x00508C22`, `0x00508D2D`, `0x00508F3D`, `0x00509047`, `0x0050917D`, `0x00509244`, `0x0050930B`, `0x005094E8`, `0x00509644`, `0x005096D0`, `0x00509776`, `0x00509812`, `0x005098B7`, `0x00509959`, `0x00509A09`, `0x00509AB8`
+
+- `this+0x00000010` `int postProcessFlag` (read, DERIVED)
+- `this+0x00000018` `unsigned char* dataBasePtr` (read, DERIVED)
+- `this+0x0000002C` `float* tileSampleBase` (read, DERIVED)
+- `this+0x00000038` `float[0x100][4] weightTableBase` (read, DERIVED)
+- `this+0x0000003C` `float weightTableFirstRowSecondFloat` (read, GUESS)
+- `this+0x00001048` `int formatConversionFlag` (read, DERIVED)
+- `this+0x00001050` `int strideA` (read, DERIVED)
+- `this+0x00001054` `int strideB` (read, DERIVED)
+- `this+0x00001058` `int elementCount` (read, DERIVED)
+- `this+0x00001064` `int byteSpan` (read, DERIVED)
+
+## Compatibility contracts
+
+- **EncoderOutputWidths** — Encoding helpers emit one fixed-width packed word per vertex: 16-bit (2x8-bit, R5G5A6) or 32-bit (RGB10A2, RGBA8888, RGA24, R10G11B11, luminance16+alpha16) or a 64-bit quadword (4x16-bit). A replacement must preserve the per-vertex output widths and the documented channel bit layouts and masks.
+- **DecoderInputWidths** — Decoding helpers consume fixed source texel widths selected from field 0x18 by a2/a3 scaled by stride fields 0x1050/0x1054: 3 bytes per RGB888 texel, 4 bytes per RGBA8888 texel, 2 bytes per RGB565/RGB555/RGB5A1/RGBA4 texel, 4 bytes per RGB10A2 texel, and emit four float channels per pixel. A replacement must consume the same widths and emit the same float RGBA layout.
+- **FormatConversionPrePass** — When field this+0x1048 is non-zero every converter remaps the input vertex buffer through callee 0x00506CE2 and uses the returned pointer as the source base. A replacement must reproduce the flag-gated conversion call and the replaced-pointer semantics.
+- **PostDecodeCleanup** — When field this+0x10 is non-zero, decoders invoke callee 0x00507845 with the start of the decoded float RGBA buffer, recovered from the current output pointer and the element count at field 0x1058. A replacement must keep this gated post-process call.
+- **UnconditionalUtilityCall** — All encoding converters invoke callee 0x00507473 unconditionally before their packing loop. A replacement must either preserve the call or prove it has no observable effect on the conversion result.
+- **ConversionStateReturn** — Most converters return the conversion-state global dword_8B009C (0x008B009C) as their function result. A replacement must preserve the return-value contract even though the meaning of the global is not yet established.
+
+## Unresolved
+
+- The owning object type is UNKNOWN in every packet entry; TextureVertexConverter is a DERIVED grouping of a shared field layout, not a proven original class.
+- In several encoders the packed-output pointer is used uninitialized in the decompiled text (v6/v7/v5 across 0x005083D2, 0x00508A48, 0x00508B1D, 0x00508C22, 0x00508D2D, 0x00508F3D, 0x00509047, 0x0050930B); the real destination buffers are not established by the packet.
+- The mapping from folded float literals to the read-only coefficient globals is not proven by any write site: 1023.0/3.0 vs flt_59E478/flt_5ADBA0 (RGB10A2 pack), 128.0 vs flt_59E6FC (2x8-bit/RGA24/RGBA8888 pack), 16.0/63.0 vs flt_59EED0/flt_5ACCD8 (R5G5A6), 255.0/128.0 vs flt_59FEC8 (luminance-byte/RGA24), 360.0-wrap label vs flt_5ADB14 (decode paths), the BT.709 weight pairing vs flt_5ADB18/flt_5ADB1C/flt_5ADB20, and 65535.0 vs flt_59F120.
+- The purpose and side effects of UtilityFunction_7473 (0x00507473) are unknown; it is called unconditionally before every encoding loop.
+- ContactManifoldCleanup (0x00507845) is a domain-mismatched legacy name for a collision/contact routine, yet here it post-processes decoded texture buffers; its actual effect is unknown.
+- The meaning of the conversion-state global dword_8B009C (0x008B009C), returned by most members, is unknown (state flag vs HResult-style status).
+- The semantics of the a2/a3 low-two-bit block coordinates and the layout behind field this+0x2C (4x4 block sample/bias base) are unconfirmed.
+- Which stride field multiplies a2 versus a3 (row pitch 0x1050 vs slice stride 0x1054) is DERIVED from raw-source operand order, not a named struct contract.
+- Field this+0x3C is flagged read and is interpreted as the second float of the first weight-table entry; this association is DERIVED, not stated by the packet.
+- The purpose of the 0x100-entry 4-float weight table (field 0x38) and how FindNearestVertexWeight (0x005086DD) relates to the texture color-conversion role of the other members are unknown.
+- Field this+0x1064 (loop bound in TextureByteToFloatConverter) has unresolved byte-count vs pixel-count semantics.
+- Naming conflicts within the packet: VertexColorToRGA565 emits R/G/A (5/5/6) with B unused, and TextureDecode16BitRGB565Format is actually an RGB555 layout (top bit unused); the exact 16-bit bit-orderings are established per member but the canonical names disagree with the observed layouts.
+- In FloatVertexColorToRGBA64Packed the exact bit ordering inside the 64-bit quadword, including sign extension of the third channel, is not resolved; which input float maps to which physical channel is not established for the RGBA64 and RGA24 encoders.
+- 1-bit alpha in RGB5A1 decoding is emitted as the raw bit (0 or 1), not normalized to [0,1] like the color channels; the RGBA4 decoder's byte ordering (red read from the high byte) is implied by the raw source but not independently corroborated.
+- 0x0050917D and 0x00509244 are structurally identical (identical raw source per the packet prelabel); they may be near-duplicates for distinct call sites, but the caller relationship is unknown.

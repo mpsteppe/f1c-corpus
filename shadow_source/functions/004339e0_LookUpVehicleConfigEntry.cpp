@@ -1,0 +1,72 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004339E0
+// Canonical corpus name: LookUpVehicleConfigEntry
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LookUpVehicleConfigEntry_004339e0.c
+
+void UnknownObject::LookUpVehicleConfigEntry()
+{
+    // Searches the auto-load entry list for a vehicle config entry matching the settings folder and the session-type filter. Loads the entry list on demand (this+0x18 flag), resolves the filter record and settings folder, walks the linked list head at this+0x1C via the iterator at this+0x24, and picks the first candidate (preferring one whose entry+0x10 session value equals the mapped value). On a match copies the result path at entry+0x14 into the caller's buffer and returns 0; otherwise copies the default path byte_5EA438 and returns 1.
+    // ASSIGNMENT: Clear the caller's output buffer: *a2 = 0. [source:raw]
+    // GUARD: If the loaded byte at this+0x18 is zero, call AutoLoadEntryListLoader(this) to load the entry list. [field:this:0x00000018, callee:0x00432E70, source:raw]
+    // ASSIGNMENT: Resolve the filter path from dword_7CE64C, falling back to &byte_5EA438 when empty. [global:0x007CE64C, global:0x005EA438, source:raw]
+    // CALL: ConditionalDispatch_40b0(path) resolves the filter dispatch record used later for car-name comparison. [callee:0x004C40B0, source:raw]
+    // GUARD: Early exit when the list is not loaded (this+0x18 flag clear) or the entry count at this+0x28 is <= 0. [field:this:0x00000018, field:this:0x00000028, guard:0, source:raw]
+    // CALL: IterationCountMap(dword_7C56A4) maps the session-type global to the expected session value for matching. [callee:0x00432E50, global:0x007C56A4, source:raw]
+    // CALL: SettingsFolderResolver(path from dword_7CE5EC, fall back &byte_5EA438) resolves the settings folder path. [callee:0x004326A0, global:0x007CE5EC, global:0x005EA438, source:raw]
+    // ASSIGNMENT: Load the list head pointer from this+0x1C and store it into the iterator field at this+0x24. [field:this:0x0000001C, field:this:0x00000024, field:*(this+0x1C):0x00000000, source:raw]
+    // GUARD: If the head pointer or the head node's data pointer is null, skip traversal and write the default path. [field:this:0x0000001C, field:*(this+0x1C):0x00000000, source:raw]
+    // LOOP: Walk the linked list: each iteration advances through the iterator at this+0x24 via the next pointer at iterator+0x4 and dereferences the next node's data pointer. [field:*(this+0x24):0x00000004, field:*(*(this+0x24)+0x4):0x00000000, source:raw]
+    // ASSIGNMENT: Read the entry path string at entry+0x0, falling back to &byte_5EA438 when empty. [field:*(*(this+0x1C)+0x0):0x00000000, global:0x005EA438, source:raw]
+    // GUARD: Skip the entry when sub_588410(settingsFolder, path) matches (the entry path equals the settings folder). [callee:0x00588410, source:raw]
+    // GUARD: The entry is a candidate when its second string at entry+0x8 is empty or the filter dispatch record is null. [field:*(*(this+0x1C)+0x0):0x00000008, field:*(*(*(this+0x1C)+0x0)+0x8):0x00000000, source:raw]
+    // GUARD: The entry is excluded when its second string at entry+0x8 matches the filter name at dispatch + 444 via sub_588410. [callee:0x00588410, field:*(*(this+0x1C)+0x0):0x00000008, source:raw]
+    // ASSIGNMENT: Track the first candidate, and prefer any candidate whose session value at entry+0x10 equals the mapped value v20 when the current best does not. [field:*(*(this+0x1C)+0x0):0x00000010, source:raw]
+    // CALCULATION: Advance the iterator: read the next pointer at iterator+0x4 into this+0x24 and stop when it or the next node's data pointer is null. [field:*(this+0x24):0x00000004, field:*(*(this+0x24)+0x4):0x00000000, source:raw]
+    // GUARD: If no candidate was found, fall through to the default-path write. [source:raw]
+    // CALL: sub_587DD0(a2, &byte_5EA438, a3 - 1) copies the default path into the caller's buffer, null-terminated at a3 - 1. [callee:0x00587DD0, global:0x005EA438, source:raw]
+    // RETURN: Return 1 to signal no match found (default path written into the caller's buffer). [source:raw]
+    // ASSIGNMENT: Read the matched entry's result path at entry+0x14, falling back to &byte_5EA438 when empty. [field:*(*(this+0x1C)+0x0):0x00000014, global:0x005EA438, source:raw]
+    // CALL: sub_587DD0(a2, resultPath, a3 - 1) copies the matched path into the caller's buffer, null-terminated at a3 - 1. [callee:0x00587DD0, source:raw]
+    // RETURN: Return 0 to signal a match found (matched path written into the caller's buffer). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int LookUpVehicleConfigEntry(int this, char* out, int maxLen) {
+    //     out[0] = 0;
+    //     if (!*(char*)(this + 24)) AutoLoadEntryListLoader(this);
+    //     const char* filterPath = dword_7CE64C ? (char*)dword_7CE64C : (char*)&byte_5EA438;
+    //     int dispatch = ConditionalDispatch_40b0(filterPath);
+    //     if (!*(char*)(this + 24) || *(int*)(this + 40) <= 0) goto defaultPath;
+    //     int want = IterationCountMap(dword_7C56A4);
+    //     const char* folderPath = dword_7CE5EC ? (char*)dword_7CE5EC : (char*)&byte_5EA438;
+    //     int folder = SettingsFolderResolver(folderPath);
+    //     int* node = *(int**)(this + 28);
+    //     int best = 0;
+    //     *(int*)(this + 36) = node;
+    //     if (!node || !*node) goto defaultPath;
+    //     do {
+    //       char* entry = *(char**)node;
+    //       const char* path = entry ? *(const char**)entry : (const char*)&byte_5EA438;
+    //       if (!sub_588410(folder, path)) {
+    //         const char* name = *(const char**)(entry + 8);
+    //         if (!name) name = (const char*)&byte_5EA438;
+    //         if (!*name || !dispatch) { candidate(); continue; }
+    //         const char* name2 = *(const char**)(entry + 8);
+    //         if (!name2) name2 = (const char*)&byte_5EA438;
+    //         if (!sub_588410(dispatch + 444, name2)) candidate();
+    //       }
+    //     } while ((node = *(int**)(*(int*)(this + 36) + 4)) && (*(int*)(this + 36) = node, *node));
+    //     if (!best) goto defaultPath;
+    //     const char* result = *(const char**)(best + 20);
+    //     if (!result) result = (const char*)&byte_5EA438;
+    //     sub_587DD0(out, result, maxLen - 1);
+    //     out[maxLen - 1] = 0;
+    //     return 0;
+    //   defaultPath:
+    //     sub_587DD0(out, &byte_5EA438, maxLen - 1);
+    //     out[maxLen - 1] = 0;
+    //     return 1;
+    //   }
+    // UNRESOLVED: unk_8AC388 is listed as an accessed global but does not appear in the raw source; its role is unknown.
+    // UNRESOLVED: The meaning of the filter name compared at dispatch + 444 and the exact semantics of the session value at entry+0x10 depend on the auto-load entry and dispatch record layouts.
+}

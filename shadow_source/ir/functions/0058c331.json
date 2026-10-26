@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "address": "0x0058C331",
+  "proposed_name": "_close",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "CRT-style file-handle close. Validates that handle a1 is below uNumber (0x008D4A20) and that the open bit (bit 0) at the per-handle slot in dword_8D4920 (0x008D4920) is set; if valid, enters the per-handle critical section, closes via HandleCloseWithErrorReporting and returns its result. Otherwise writes 9 to the TLS errno slot and 0 to the TLS doserrno slot and returns -1.",
+  "local_names": {},
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Proceed to close only if a1 < uNumber and the byte at dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 4 has bit 0 set (handle is open).",
+      "evidence_refs": ["global:0x008D4A20", "global:0x008D4920", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Enter the per-handle critical section via CriticalSectionEnterWithLazyInit(a1).",
+      "evidence_refs": ["callee:0x00595A61", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Close the OS handle via HandleCloseWithErrorReporting(a1); capture its return value in v1.",
+      "evidence_refs": ["callee:0x0058C38E", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Leave the per-handle critical section via FileCriticalSectionLeave(a1).",
+      "evidence_refs": ["callee:0x00595AC0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v1 (the close result) on the valid-handle path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On the invalid-handle path, write 9 to the TLS errno slot obtained from TLSOffsetGetter().",
+      "evidence_refs": ["callee:0x0058AFCF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On the invalid-handle path, write 0 to the TLS doserrno slot obtained from TLSOffsetGetter_afd8().",
+      "evidence_refs": ["callee:0x0058AFD8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return -1 on the invalid-handle path.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (a1 < uNumber && (dword_8D4920[a1 >> 5][36 * (a1 & 0x1F) + 4] & 1)) {",
+    "    CriticalSectionEnterWithLazyInit(a1);",
+    "    v1 = HandleCloseWithErrorReporting(a1);",
+    "    FileCriticalSectionLeave(a1);",
+    "    return v1;",
+    "}",
+    "*TLSOffsetGetter() = 9;",
+    "*TLSOffsetGetter_afd8() = 0;",
+    "return -1;"
+  ],
+  "unresolved": [
+    "The 9 written to the TLS errno slot is conventionally EBADF, but the errno enum is not evidenced in this packet.",
+    "The 36-byte stride of the per-handle slot in dword_8D4920 is a derived constant from the array index expression; its structure is not further evidenced."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x00406A70",
+    "caller:0x00449A20",
+    "caller:0x00587D33",
+    "caller:0x00595AF9"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

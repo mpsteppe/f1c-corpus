@@ -1,0 +1,15 @@
+void __thiscall sub_541040(_DWORD *this, int a2)
+{
+  int v3; // eax
+
+  if ( a2 && *(_DWORD *)(a2 + 24) )
+  {
+    while ( *(int *)(a2 + 12) > 0 )
+      GuardedVirtualDecrement(a2);
+    v3 = *(_DWORD *)(a2 + 24);
+    *(_DWORD *)(a2 + 12) = 0;
+    *this = (*(int (__stdcall **)(int))(*(_DWORD *)v3 + 8))(v3);
+    *(_DWORD *)(a2 + 24) = 0;
+  }
+}
+

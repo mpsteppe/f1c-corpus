@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "address": "0x0058E4D2",
+  "proposed_name": "FormattedInputScanFromIO",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0058E4D2"]
+  },
+  "summary": "vfscanf-style formatter that parses input characters from a buffered I/O context (a1) against a format string (a2), writing converted values through a variable-argument pointer (a3). Supports integer conversions (%d/%i/%u/%o/%x/%p), float conversions (%f/%e/%g), string (%s) and character-set (%{...}) scans, assignment suppression ('*'), width limits, length modifiers (h/l/w/I64), and %n. Returns the count of successful conversions, or -1 on EOF with no conversions.",
+  "local_names": {
+    "a1": "buffered I/O context handle whose next bytes are read via BufferedByteReader",
+    "a2": "format string pointer, advanced as format tokens are consumed",
+    "a3": "variable-argument list pointer; each non-suppressed conversion consumes one destination argument",
+    "v76": "tracked count of characters consumed from the input stream (also the refcount that IncrementWrapperAroundCallLoop/ConditionalFreeIfHandleNot1 maintain per read)",
+    "v60": "count of successful conversions",
+    "v63": "64-bit integer accumulator used by I64 and integer conversions",
+    "v11": "32-bit integer accumulator used by default-width integer conversions",
+    "v54": "32-byte character bit-table built for %{...} scan sets",
+    "v62": "current output destination pointer advanced as values are stored",
+    "v61": "length marker: non-null when the I64 modifier selects the 64-bit storage path"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Character classification: for each pending format/input char, look up cbMultiByte (charset mode) to choose either the direct off_5E69C8 charset table or CharacterEncodingConvertViaLookupTableFallback; bit masks 8 (whitespace) and 4 (digit) drive whitespace-skip and digit accumulation",
+      "evidence_refs": ["global:0x005E6BD4", "global:0x005E69C8", "callee:0x0058C674", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Whitespace skip: while the classified char is whitespace, consume the next format byte and skip matching input via sub_589BF3, tracking each consumed byte through IncrementWrapperAroundCallLoop and ConditionalFreeIfHandleNot1 on the context refcount",
+      "evidence_refs": ["callee:0x00589BF3", "callee:0x0058EF5F", "callee:0x0058EF48", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Non-conversion branch: when the next format char is not '%', read one input byte (BufferedByteReader), compare it to the expected literal, and on mismatch unwind the refcount via ConditionalFreeIfHandleNot1 and break the scan loop",
+      "evidence_refs": ["callee:0x0058EF2E", "callee:0x0058EF48", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Format-prefix parse: consume width digits into v74, handle '*' (suppress assignment), 'N'/'F' flags, the 'I64' modifier (advances v61, zeroes v63), and h/l/w length modifiers until a non-prefix char appears",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Unless assignment is suppressed ('*'), consume one destination pointer from the argument list (a3 advances by 4) into v62 for the current conversion",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "First input read: for %c and %{ a BufferedByteReader call increments the consumed count, otherwise IncrementWrapperAroundCallLoop acquires the context; the read char is staged in the CharType slot",
+      "evidence_refs": ["callee:0x0058EF2E", "callee:0x0058EF5F", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Width guard: if a width was specified (v64 set) but is zero (v74 == 0), push the read char back with ConditionalFreeIfHandleNot1 and break the scan",
+      "evidence_refs": ["callee:0x0058EF48", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Integer conversions (%o/%u/%x/%p/%d/%i): accumulate digits using Allmul (x10 on the 64-bit accumulator), CRTAllshl (x8 octal, x16 hex, x4 when accumulating base-4), and sub_58EEF7 for hex-digit decoding; handle leading 0x/0X and octal prefixes, sign flags, width exhaustion and, on completion, store to v62 as QWORD (v61 set), DWORD (v73 length) or WORD",
+      "evidence_refs": ["callee:0x0058C6F0", "callee:0x00596840", "callee:0x0058EEF7", "callee:0x0058EF2E", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "String and char conversions (%s, %S, %c): in wide mode (v68) convert each input byte to a wide char via sub_596716 before storing, using asc_5E6D50 as the wide-string format source and asc_5E6D58 for the %c path; otherwise store bytes directly through v62, NUL-terminating non-%c results",
+      "evidence_refs": ["callee:0x00596716", "callee:0x0058EF2E", "global:0x005E6D50", "global:0x005E6D58", "global:0x005E6BD4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Scan-set conversion (%{...}): zero the 32-byte bit table v54 with sub_58BB10, expand character ranges and a leading '^' negation into bits, then read matching input bytes, honoring width and optional per-char wide conversion, until a non-matching byte is pushed back",
+      "evidence_refs": ["callee:0x0058BB10", "callee:0x0058EF2E", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Float conversions (%f/%e/%g): accumulate digit/exponent characters into a stack buffer, honoring the decimal separator byte_5E6BD8 and an e/E exponent with optional sign, then NUL-terminate and convert through the off_5E6738 function pointer, storing the result into the destination",
+      "evidence_refs": ["callee:0x0058EF2E", "global:0x005E6BD8", "global:0x005E6738", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "%n conversion: store the current consumed-input count v76 into the destination argument instead of parsing input",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "On EOF (staged CharType == -1) return -1 when no conversions and no advances occurred; otherwise return the conversion count v60. Invoked by StrlenFormatCallWrapper (005887ED)",
+      "evidence_refs": ["function:0x0058E4D2", "caller:0x005887ED", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "count = 0; consumed = 0;",
+    "for (pos = format; *pos; ) {",
+    "  skip_whitespace(&pos, &consumed);",
+    "  if (*pos != '%') { read literal, compare, else break; continue; }",
+    "  parse width/digits, '*', 'N'/'F', 'I64', h/l/w modifiers;",
+    "  if (!suppressed) dst = *args++;",
+    "  switch (tolower(*pos)) {",
+    "    case 'c': case '{': read one input char; break;",
+    "  }",
+    "  if (width_specified && width == 0) break;",
+    "  switch (conv) {",
+    "    case 'o': case 'u': case 'x': case 'p': case 'd': case 'i':",
+    "      accumulate digits (base 8/10/16, hex decode, sign, 0x prefix) into acc;",
+    "      store acc to dst (8/4/2 bytes by length);",
+    "    case 'f': case 'e': case 'g':",
+    "      build numeric string (digits, separator byte_5E6BD8, exponent), convert via off_5E6738;",
+    "    case 's': case 'S': case 'c':",
+    "      read chars into dst, wide-convert if needed, NUL-terminate unless %c;",
+    "    case '{': build scan-set bits, read matching chars;",
+    "    case 'n': store consumed count into dst;",
+    "  }",
+    "  if (converted) count++;",
+    "}",
+    "return (EOF && !count) ? -1 : count;"
+  ],
+  "unresolved": [
+    "Packet lists a callee AmsgExitRuntimeError (0x00595733) but it appears nowhere in the raw decompiled source; likely a fatal-error/abort path not represented in this decompilation, unverifiable here",
+    "The wide-string globals asc_5E6D50 and asc_5E6D58 are referenced only as label pointers in the raw source; their actual contents and the full wide/char-mode semantics are outside this packet"
+  ],
+  "unresolved_evidence_refs": [
+    "callee:0x00595733"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

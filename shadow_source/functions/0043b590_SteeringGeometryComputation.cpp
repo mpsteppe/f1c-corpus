@@ -1,0 +1,57 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0043B590
+// Canonical corpus name: SteeringGeometryComputation
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SteeringGeometryComputation_0043b590.c
+
+void UnknownObject::SteeringGeometryComputation()
+{
+    // Computes steering geometry for both front wheels. Looks up left/right-front steering suspension bars (aFlSteering/aFrSteering) and fore upper/lower suspension points (aFlForeUpper/aFlForeLower/aFrForeUpper/aFrForeLower) through SuspensionBarLookup, transforms the lookup vectors by the steering-geometry rotation matrix block at this+0x15F0, copies steering datum pairs out of the left/right steering data objects, derives two steering factors from the second object a2, and stores left/right steering angles at this+0x163C and this+0x1650. Runs on the per-frame physics path; sole caller is VehiclePhysicsInitializer.
+    // CALL: Look up left-front steering suspension data: SuspensionBarLookup(aFlSteering, this+0x3EC, out v25). [callee:0x0043AF50, global:0x005C41C8, field:this:0x000003EC, source:raw]
+    // CALL: Look up right-front steering suspension data: SuspensionBarLookup(aFrSteering, this+0x850, out v20). [callee:0x0043AF50, global:0x005C41BC, field:this:0x00000850, source:raw]
+    // CALL: Transform the left (v25) and right (v20) lookup vectors through the steering-geometry matrix block pointed to by this+0x15F0 using F_3DVectorTransformBy33Matrix (matrix rows at block+4, position at block+28). [callee:0x004361D0, field:this:0x000015F0, source:raw]
+    // ASSIGNMENT: Copy two DWORDs from the left steering data object at this+0x1630 into this+0x1634 and this+0x1638. [field:*(this+0x1630):0x00000000, field:*(this+0x1630):0x00000004, field:this:0x00001630, field:this:0x00001634, field:this:0x00001638, source:raw]
+    // ASSIGNMENT: Copy two DWORDs from the right steering data object at this+0x1644 into this+0x1648 and this+0x164C. [field:*(this+0x1644):0x00000000, field:*(this+0x1644):0x00000004, field:this:0x00001644, field:this:0x00001648, field:this:0x0000164C, source:raw]
+    // CALCULATION: First steering factor: v8 = (double)(a2+5188) * (a2+5176) + (a2+5168). When v8 <= 0.0 zero this+0x8C and this+0x90, otherwise store 1.0 / v8 at this+0x8C. [field:this:0x0000008C, field:this:0x00000090, source:raw]
+    // CALCULATION: Second steering ratio factor: v9 = (a2+5184 - 1) * (a2+5176) + (a2+5168). When v9 <= 0.0 zero this+0x84 and this+0x88, otherwise store v8 / v9 at this+0x84. [field:this:0x00000084, field:this:0x00000088, source:raw]
+    // ASSIGNMENT: Zero this+0xA4 and this+0xA8 (steering zero-init pair). [field:this:0x000000A4, field:this:0x000000A8, source:raw]
+    // CALCULATION: Half-angle offset: store v8 * -0.5 at this+0x94, and compute v16 = fabs(sin(v8)). The compiled double constant pool (dbl_59E420, dbl_59E428, dbl_59E430, dbl_59EC10) supplies the scalar constants used by the trig and normalization arithmetic. [field:this:0x00000094, global:0x0059E420, global:0x0059E428, global:0x0059E430, global:0x0059EC10, source:raw]
+    // CALL: Look up left-front upper/lower fore suspension points: SuspensionBarLookup(aFlForeUpper, this+0x3EC, out v17) and SuspensionBarLookup(aFlForeLower, this+0x3EC, out v21), then subtract lower from upper into the vector v20. [callee:0x0043AF50, global:0x005C42E4, global:0x005C42D4, field:this:0x000003EC, source:raw]
+    // CALCULATION: Normalize the left fore vector: length via 1.0 / sqrt(v20[2]^2 + v20[1]^2 + v20[0]^2), scale the copied v15 components, and build the cross-product component v20[1] from v15. [source:raw]
+    // CALCULATION: Store the left steering angle at this+0x163C: -(fabs((v24[2]-v19) * (v15[0]*0.0 - v15[1]*-1.0) + (v24[1]-v18) * v20[1] + (v24[0]-v17) * (v15[1]*0.0 - v15[2]*0.0)) * v16). [field:this:0x0000163C, source:raw]
+    // CALL: Look up right-front upper/lower fore suspension points: SuspensionBarLookup(aFrForeUpper, this+0x850, out v17) and SuspensionBarLookup(aFrForeLower, this+0x850, out v21), then subtract lower from upper into the vector v24. [callee:0x0043AF50, global:0x005C42C4, global:0x005C42B4, field:this:0x00000850, source:raw]
+    // CALCULATION: Normalize the right fore vector: length via 1.0 / sqrt(v24[2]^2 + v24[1]^2 + v24[0]^2), scale the copied v15 components, and build the cross-product component v20[1] from v15. [source:raw]
+    // CALCULATION: Store the right steering angle at this+0x1650: -(fabs((v25[2]-v19) * (v15[0]*0.0 - v15[1]*-1.0) + (v25[1]-v18) * v20[1] + (v25[0]-v17) * (v15[1]*0.0 - v15[2]*0.0)) * v16). [field:this:0x00001650, source:raw]
+    // RETURN: Return the result of the final SuspensionBarLookup call (the aFrForeLower lookup). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int SteeringGeometryComputation(int this, int a2, int a3) {
+    //     double v25[3], v20[3], v24[3], v17, v18, v19, v21, v22, v23;
+    //     SuspensionBarLookup(aFlSteering, *(this+0x3EC), v25);
+    //     SuspensionBarLookup(aFrSteering, *(this+0x850), v20);
+    //     int m = *(this+0x15F0);
+    //     F_3DVectorTransformBy33Matrix(m+28, m+4, v25, v24);
+    //     F_3DVectorTransformBy33Matrix(m+28, m+4, v20, v25);
+    //     *(this+0x1634) = **(this+0x1630); *(this+0x1638) = *(*(this+0x1630)+4);
+    //     *(this+0x1648) = **(this+0x1644); *(this+0x164C) = *(*(this+0x1644)+4);
+    //     double v8 = (double)*(int*)(a2+5188) * *(double*)(a2+5176) + *(double*)(a2+5168);
+    //     if (v8 <= 0.0) { *(this+0x8C) = 0; *(this+0x90) = 0; } else *(double*)(this+0x8C) = 1.0 / v8;
+    //     double v9 = (double)(*(int*)(a2+5184) - 1) * *(double*)(a2+5176) + *(double*)(a2+5168);
+    //     if (v9 <= 0.0) { *(this+0x84) = 0; *(this+0x88) = 0; } else *(double*)(this+0x84) = v8 / v9;
+    //     *(this+0xA4) = 0; *(this+0xA8) = 0;
+    //     double v16 = fabs(sin(v8)); *(double*)(this+0x94) = v8 * -0.5;
+    //     SuspensionBarLookup(aFlForeUpper, *(this+0x3EC), &v17); SuspensionBarLookup(aFlForeLower, *(this+0x3EC), &v21);
+    //     v20[0]=v17-v21; v20[1]=v18-v22; v20[2]=v19-v23;
+    //     normalize(v20, v15); v20[1] = v15[2]*-1.0 - v15[0]*0.0;
+    //     *(double*)(this+0x163C) = -(fabs((v24[2]-v19)*(v15[0]*0.0 - v15[1]*-1.0) + (v24[1]-v18)*v20[1] + (v24[0]-v17)*(v15[1]*0.0 - v15[2]*0.0)) * v16);
+    //     SuspensionBarLookup(aFrForeUpper, *(this+0x850), &v17); int result = SuspensionBarLookup(aFrForeLower, *(this+0x850), &v21);
+    //     v24[0]=v17-v21; v24[1]=v18-v22; v24[2]=v19-v23;
+    //     normalize(v24, v15); v20[1] = v15[2]*-1.0 - v15[0]*0.0;
+    //     *(double*)(this+0x1650) = -(fabs((v25[2]-v19)*(v15[0]*0.0 - v15[1]*-1.0) + (v25[1]-v18)*v20[1] + (v25[0]-v17)*(v15[1]*0.0 - v15[2]*0.0)) * v16);
+    //     return result;
+    //   }
+    // UNRESOLVED: Semantic role of the second object a2 and of its fields a2+5168, a2+5176, a2+5184, a2+5188; the two steering factors at this+0x84/0x88 and this+0x8C/0x90 are produced from them without a confirmed meaning.
+    // UNRESOLVED: The exact mapping between the compiled double constants (dbl_59E420, dbl_59E428, dbl_59E430, dbl_59EC10) and the individual literals (-1.0, 0.0, -0.5, reciprocal) is not recoverable from this packet.
+    // UNRESOLVED: Which precise suspension points the FlSteering/FrSteering lookups target versus the ForeUpper/ForeLower lookups, and how the stored angles at this+0x163C/this+0x1650 feed the wheel, is not established here.
+    // UNRESOLVED: Sole caller is VehiclePhysicsInitializer (0x00439210); no other callers are present in this packet.
+}

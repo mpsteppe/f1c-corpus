@@ -1,0 +1,39 @@
+## ImageResampleFilter_0051c2db — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Frame-path:** NOT_FOUND  
+**Call frequency:** UNKNOWN (no static path from tick root)
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| obj | 0x0 | R | — | [LLM] |
+| obj | 0x1 | R | — | [LLM] |
+| obj | 0x2 | R | — | [LLM] |
+| this | 0x0 | R | — | [LLM] |
+| this | 0x4 | R | — | [LLM] |
+| this | 0x5 | R | — | [LLM] |
+| this | 0x6 | R | — | [LLM] |
+| this | 0x110 | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+
+**Guard conditions (deterministic — field vs literal):**
+
+| Base | Offset | Test | Value | Field / meaning |
+|------|--------|------|-------|-----------------|
+| this | 0x110 | > | 0 | [LLM] |
+
+**Guard interpretation:** [LLM: from the table — what PASSES vs what is BLOCKED]

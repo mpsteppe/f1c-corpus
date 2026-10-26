@@ -1,0 +1,39 @@
+int __thiscall sub_565E20(LPVOID ****this)
+{
+  int result; // eax
+  LPVOID ***v3; // ebx
+  LPVOID **v4; // esi
+  LPVOID **v5; // edi
+  LPVOID *v6; // ebp
+
+  result = EnhancedListCleanupWithSubObjectDelete(*this);
+  v3 = *this;
+  if ( *this )
+  {
+    if ( v3[132] )
+      FreeWrapper_7bcf(v3[132]);
+    v4 = *v3;
+    while ( v4 )
+    {
+      v5 = v4;
+      v4 = (LPVOID **)v4[1];
+      if ( *((_BYTE *)v5 + 8) )
+      {
+        v6 = *v5;
+        if ( *v5 )
+        {
+          ShortComputation_4370(v6 + 81);
+          FreeWrapper_7bcf(v6);
+        }
+      }
+      FreeWrapper_7bcf(v5);
+    }
+    *v3 = 0;
+    v3[1] = 0;
+    v3[2] = 0;
+    v3[3] = 0;
+    return FreeWrapper_7bcf(v3);
+  }
+  return result;
+}
+

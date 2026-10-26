@@ -1,0 +1,56 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00430A50
+// Canonical corpus name: BrakeTemperatureFadeModel
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/BrakeTemperatureFadeModel_00430a50.c
+
+void UnknownObject::ComputeBrakeTemperatureFade()
+{
+    // Brake temperature fade force model. Early-exits to 0 when TireBrandLookup(&unk_8ADB88) or CompoundIndexLookup(*(this+3012)) fails; blends axle brake temperature/scale/wear fields (front this+0xC30/+0xC38/+0xC44, rear this+0xCB0/+0xCB8/+0xCC4) and selects compound-specific constants plus a QuaternionTransformComputation per the global dword_8AEEC0 compound branch (0/1/2); multiplies v28 by 0.98 and returns 0 when non-positive; calls WheelForceAggregate(this, &dword_8ADB00, &v26, &v29); computes a normalized brake force v33 from the rear-axle fields plus dbl_8ADB40 and an initial ratio v12 clamped to v40; then loops wheels 44..50, gated by the per-wheel flag at (wheel<<6)+this+3020, using SessionStateIndexedLookup and ParameterizedCurveInterpolation against per-wheel temperature/scale/wear fields (this+0x1570/+0x1578/+0x1584) with a sampling sub-loop bounded by dbl_8AE194, accumulating the max fade ratio v29. Returns (v29 - v26 * a2 * a2) / v33.
+    // GUARD: Early exit: if !TireBrandLookup(&unk_8ADB88) return 0.0 [callee:0x004D7880, global:0x008ADB88, source:raw]
+    // GUARD: Early exit: v4 = CompoundIndexLookup(*(this + 3012)); if !v4 return 0.0 [callee:0x004D7570, field:this:0x00000BC4, source:raw]
+    // CALCULATION: v26 = (double)*(this + 3140) * *(this + 3128) + *(this + 3120) blends front-axle brake temperature fields; v21 = 1.0 - v26 [field:this:0x00000C30, field:this:0x00000C38, field:this:0x00000C44, source:raw]
+    // GUARD: Compound branch dispatch on the global dword_8AEEC0: 0 and 1 use dedicated blends, 2 uses a third blend, and any other value returns 0.0 [global:0x008AEEC0, source:raw]
+    // CALCULATION: Compound==1 branch: v7 = *(v4 + 384) + *(v4 + 56); v28 = v7 * 0.5; v23 = 0.5 / (v21 * 0.82 + v26 * 1.18) * (v26 * *(v4 + 360) * 1.18 + v21 * *(v4 + 32) * 0.82); then QuaternionTransformComputation of the midpoints of compound+432/+104, +440/+112 and +448/+120; v21 forced to 1.0 [callee:0x004D5C70, source:raw]
+    // CALCULATION: Compound==2 branch: v28 assembled from *(v4 + 56)/*(v4 + 60), v23 from *(v4 + 32)/*(v4 + 36), and QuaternionTransformComputation of *(v4 + 104)/*(v4 + 112)/*(v4 + 120) [callee:0x004D5C70, source:raw]
+    // CALCULATION: Compound==0 branch: v28 = *(v4 + 384) * 0.98; v23/v20 assembled from *(v4 + 360)/*(v4 + 364) and v25 from *(v4 + 452)/*(v4 + 448)/*(v4 + 444)/*(v4 + 440)/*(v4 + 432); QuaternionTransformComputation of those components; v21 = v26 [callee:0x004D5C70, source:raw]
+    // CALCULATION: v28 = v28 * 0.98; if v28 <= 0.0 return 0.0 [source:raw]
+    // CALL: WheelForceAggregate(this, (int)&dword_8ADB00, (float*)&v26, (float*)&v29) aggregates per-wheel force state into v26/v29 [callee:0x00430600, global:0x008ADB00, source:raw]
+    // CALCULATION: v33 = ((double)*(this + 3268) * *(this + 3256) + *(this + 3248)) * 0.75 + dbl_8ADB40 normalizes the force; v12 = (v33 * *(double*)v25 * 9.81 - *(float*)&v29 * v21 * a2 * a2) / v11, then clamped to v40 [field:this:0x00000CB0, field:this:0x00000CB8, field:this:0x00000CC4, global:0x008ADB40, source:raw]
+    // CALCULATION: v32 = (((v36 * v13 + v37) * v13 + v38) * v13 + v39) * v12 * v11 * v23 builds a polynomial force term used as the fade ceiling [source:raw]
+    // LOOP: Wheel loop v14 from 44 to 50: breaks when the per-wheel flag at (v14 << 6) + this + 3020 is clear; v31 = SessionStateIndexedLookup((int*)this, v14) and returns 0.0 when v31 <= 0; v22 = (1.0 / v28) * v31 * a2; i = (double)*(this + 5508) * *(this + 5496) + *(this + 5488); when v22 <= i, ParameterizedCurveInterpolation(v22, v35, v25) samples the fade curve, and for wheel 44 an inner loop steps v24 by (i - v22) * 0.04 up to dbl_8AE194 keeping the maximum of v25 vs v27; v15 = (1.0 / v28) * v25 * v31 is clamped to v32 and v29 = max(v29, v15) [callee:0x0042ED00, callee:0x004F6720, field:this:0x00001570, field:this:0x00001578, field:this:0x00001584, global:0x008AE194, source:raw]
+    // RETURN: Returns (v29 - *(float*)&v26 * a2 * a2) / v33, the normalized fade force ratio [source:raw]
+    // CALL: Called from VehicleStatsEstimationDisplay (00430f00) [caller:0x00430F00, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (!TireBrandLookup(&unk_8ADB88)) return 0.0;
+    //   v4 = CompoundIndexLookup(*(this + 3012)); if (!v4) return 0.0;
+    //   v26 = (double)*(this + 3140) * *(this + 3128) + *(this + 3120); v21 = 1.0 - v26;
+    //   switch (dword_8AEEC0) {
+    //     case 1: v28 = (*(v4+384) + *(v4+56)) * 0.5; v23 = blend(0.82/1.18 weights); QuaternionTransformComputation(midpoints); v21 = 1.0; break;
+    //     case 2: v28/v23 from v4+56/+60 and v4+32/+36; QuaternionTransformComputation(v4+104/112/120); break;
+    //     case 0: v28 = *(v4+384) * 0.98; v23/v20/v25 from v4+360..+452; QuaternionTransformComputation(...); v21 = v26; break;
+    //     default: return 0.0;
+    //   }
+    //   v28 *= 0.98; if (v28 <= 0.0) return 0.0;
+    //   WheelForceAggregate(this, &dword_8ADB00, &v26, &v29);
+    //   v33 = ((double)*(this+3268) * *(this+3256) + *(this+3248)) * 0.75 + dbl_8ADB40;
+    //   v12 = (v33 * v25 * 9.81 - v29 * v21 * a2 * a2) / v27[0]; if (v12 > v40) v12 = v40;
+    //   v32 = polynomial(v12) * v11 * v23;
+    //   for (v14 = 44; v14 <= 50; ++v14) {
+    //     if (!*(_BYTE*)((v14 << 6) + this + 3020)) break;
+    //     v31 = SessionStateIndexedLookup(this, v14); if (v31 <= 0) return 0.0;
+    //     v22 = (1.0 / v28) * v31 * a2;
+    //     i = (double)*(this+5508) * *(this+5496) + *(this+5488);
+    //     if (v22 <= i) {
+    //       ParameterizedCurveInterpolation(v22, v35, v25);
+    //       if (v14 == 44) sample_curve_max(v25, v27, (i - v22) * 0.04, dbl_8AE194);
+    //       v15 = (1.0 / v28) * v25 * v31; if (v15 > v32) v15 = v32;
+    //       if (v29 < v15) v29 = v15;
+    //     }
+    //   }
+    //   return (v29 - v26 * a2 * a2) / v33;
+    // UNRESOLVED: The 0x59E420/0x59E430/0x59E880 and 0x59EA58..0x59EA80 double constants plus dword_8AD254 are listed in extracted facts but do not appear as named operands in the raw source text; exact roles unresolved.
+    // UNRESOLVED: The compound-struct fields dereferenced at v4+32..+452 and the polynomial coefficients v36..v39 are read but not covered by extracted field evidence.
+    // UNRESOLVED: The exact meaning of the return ratio denominator v33 (normalized brake force) and the clamp constant v40 are not confirmed.
+}

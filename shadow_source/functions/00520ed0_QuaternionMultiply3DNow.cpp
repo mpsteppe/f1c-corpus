@@ -1,0 +1,33 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00520ED0
+// Canonical corpus name: sub_520ED0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_520ED0_00520ed0.c
+
+void UnknownObject::QuaternionMultiply3DNow()
+{
+    // Straight-line 3DNow! packed-quaternion multiply. Reads the two packed 2-float halves of inputs a2 and a3, expands the first input's halves into duplicated lanes with MMX unpacks, forms the cross/dot product terms with sign-bit XOR (0x80000000) negation and pfsub/pfadd, combines them with pfacc into the two packed output halves, stores the result to a1, and exits the MMX state with _m_femms.
+    // ASSIGNMENT: Read the second packed half of input a3 into v3 (a3[1]) and of input a2 into v4 (a2[1]). [field:this:0x00000008, source:raw]
+    // CALCULATION: Expand the first input's first half a3->m64_u64 into duplicated lanes v6 and its second half v3 into duplicated lanes v7 using MMX unpack operations. [field:this:0x00000000, field:this:0x00000008, source:raw]
+    // CALCULATION: Form the first output packed half v8 by combining pfsub(pfmul(v6, v4), pfmul(pxor(v7, sign), a2->m64_u64)) with pfadd(pxor(pfmul(a3->m64_u64, v4), sign), pfmul(v3, a2->m64_u64)) via pfacc, where sign is the sign-bit XOR mask 0x80000000. [source:raw]
+    // CALCULATION: Form the second output packed half from the products v9 (pfmul(pxor(v6, sign), a2->m64_u64)), v10 (pxor(v3, sign)) and v11 (pfmul(a3->m64_u64, a2->m64_u64)) combined by pfadd/pfsub/pfacc. [source:raw]
+    // ASSIGNMENT: Store the first output half v8 to a1->m64_u64 and the second output half to a1[1].m64_u64. [field:this:0x00000000, field:this:0x00000008, source:raw]
+    // CALL: Exit the MMX/3DNow! execution state with _m_femms. [source:raw]
+    // RETURN: Return the output pointer a1. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   __m64 *QuaternionMultiply3DNow(__m64 *out, const __m64 *a, const __m64 *b) {
+    //     __m64 a0 = a[0], a1 = a[1], b0 = b[0], b1 = b[1];
+    //     __m64 sign = 0x80000000LL;
+    //     // cross/dot product terms with sign-bit negation, combined by pfacc
+    //     out[0] = pfacc(pfsub(pfmul(splat(a0), b1), pfmul(pxor(splat(a1), sign), b0)),
+    //                     pfadd(pxor(pfmul(a0, b1), sign), pfmul(a1, b0)));
+    //     out[1] = pfacc(pfadd(pfmul(pxor(splat(a0), sign), b0), pfmul(splat(a1), b1)),
+    //                     pfsub(pfmul(pxor(a1, sign), b1), pfmul(a0, b0)));
+    //     _m_femms();
+    //     return out;
+    //   }
+    // UNRESOLVED: qword_5AF918 appears in the packet globals but is absent from the raw decompiled text; its role (the existing analysis suggests an MMX packed constant) is unproven.
+    // UNRESOLVED: The quaternion-multiply interpretation is carried by the existing analysis file, which is DERIVED prose, not runtime-verified.
+    // UNRESOLVED: Packed-element ordering (which two of the four quaternion components each half holds) is not independently established.
+}

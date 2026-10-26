@@ -1,0 +1,42 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00406BA0
+// Canonical corpus name: ComplexDestructorWith4LinkedLists
+// Owner: UnknownObject [DERIVED]
+// Raw source: functions/ComplexDestructorWith4LinkedLists_00406ba0.c
+
+void UnknownObject::ComplexDestructorWith4LinkedLists()
+{
+    // Destructor that tears down four intrusive linked lists hanging off the object: a first list whose nodes are passed to UtilityFunction then freed, and three lists whose nodes carry a flag byte at +8 and a data pointer at +0, invoking either ConditionalFreeWithBit0Flag or a virtual destructor (vtable[0](data, 1)) on the data when the flag is clear and the data is non-null. After each list is walked its four header fields are zeroed, and the vtable pointer is swapped from off_59E530 to off_59E598 at the end. The result of AudioSystemShutdown is returned.
+    // ASSIGNMENT: Install vtable pointer off_59E530 into the object (field +0). [field:this:0x00000000, global:0x0059E530]
+    // CALL: Call AudioSystemShutdown(); its return value is carried as the function result and returned at the end. [callee:0x00406E50]
+    // LOOP: Walk the first list starting at this+0x38: for each node call UtilityFunction(node), advance via the next pointer at node+4, and free the node with FreeWrapper_7bcf. [field:this:0x00000038, callee:0x004081E0, callee:0x00587BCF]
+    // ASSIGNMENT: Zero the four header fields of the first list (this+0x38, +0x3C, +0x40, +0x44). [field:this:0x00000038, field:this:0x0000003C, field:this:0x00000040, field:this:0x00000044]
+    // GUARD: Guard associated with the second list cleanup: header field at this+0x30 is compared to 0. [guard:2, field:this:0x00000030]
+    // LOOP: Walk the second list starting at this+0x28, advancing via the next pointer at node+4; when the node flag byte at +8 is 0 and the node data pointer (first DWORD) is non-null, call ConditionalFreeWithBit0Flag(data, 1), then free the node with FreeWrapper_7bcf. [field:this:0x00000028, field:*(this+0x2C):0x00000004, callee:0x00404F70, callee:0x00587BCF]
+    // ASSIGNMENT: Zero the four header fields of the second list (this+0x28, +0x2C, +0x30, +0x34). [field:this:0x00000028, field:this:0x0000002C, field:this:0x00000030, field:this:0x00000034]
+    // GUARD: Guard associated with the third list cleanup: header field at this+0x20 is compared to 0. [guard:1, field:this:0x00000020]
+    // LOOP: Walk the third list starting at this+0x18, advancing via the next pointer at node+4; when the node flag byte at +8 is 0 and the node data pointer is non-null, invoke the data object's virtual destructor as vtable[0](data, 1), then free the node with FreeWrapper_7bcf. [field:this:0x00000018, field:*(this+0x18):0x00000000, field:*(this+0x1C):0x00000004, field:*(*(this+0x18)+0x0):0x00000000, callee:0x00587BCF]
+    // ASSIGNMENT: Zero the four header fields of the third list (this+0x18, +0x1C, +0x20, +0x24). [field:this:0x00000018, field:this:0x0000001C, field:this:0x00000020, field:this:0x00000024]
+    // GUARD: Guard associated with the fourth list cleanup: header field at this+0x10 is compared to 0. [guard:0, field:this:0x00000010]
+    // LOOP: Walk the fourth list starting at this+0x8, advancing via the next pointer at node+4; when the node flag byte at +8 is 0 and the node data pointer is non-null, invoke the data object's virtual destructor as vtable[0](data, 1), then free the node with FreeWrapper_7bcf. [field:this:0x00000008, field:*(this+0x8):0x00000000, field:*(this+0xC):0x00000004, field:*(*(this+0x8)+0x0):0x00000000, callee:0x00587BCF]
+    // ASSIGNMENT: Zero the four header fields of the fourth list (this+0x8, +0xC, +0x10, +0x14). [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014]
+    // ASSIGNMENT: Restore the object vtable pointer to off_59E598 (field +0). [field:this:0x00000000, global:0x0059E598]
+    // RETURN: Return the result captured from AudioSystemShutdown. [callee:0x00406E50, function:0x00406BA0]
+
+    // Conservative worker pseudocode:
+    //   vtable = off_59E530;
+    //   result = AudioSystemShutdown();
+    //   for (i = list1_head; i; i = i[1]) { UtilityFunction(i); free(i); }
+    //   zero4(list1_head);
+    //   for (j = list2_head; j; j = j[1]) { if (flag8(j)==0 && j[0]) ConditionalFreeWithBit0Flag(j[0], 1); free(j); }
+    //   zero4(list2_head);
+    //   for (k = list3_head; k; k = k[1]) { if (flag8(k)==0 && k[0]) k[0]->vtbl[0](k[0], 1); free(k); }
+    //   zero4(list3_head);
+    //   for (m = list4_head; m; m = m[1]) { if (flag8(m)==0 && m[0]) m[0]->vtbl[0](m[0], 1); free(m); }
+    //   zero4(list4_head);
+    //   vtable = off_59E598;
+    //   return result;
+    // UNRESOLVED: The node layout beyond the next pointer at +4 and the flag byte at +8 is not evidenced.
+    // UNRESOLVED: The single known caller ConditionalDestructor (0x00406B80) is not referenced inside the operation list.
+    // UNRESOLVED: The exact class/owner type is unknown; owner is an anonymous object with a swapped vtable.
+}

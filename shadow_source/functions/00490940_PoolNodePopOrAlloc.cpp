@@ -1,0 +1,63 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00490940
+// Canonical corpus name: ResourcePoolNodeAllocDealloc
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ResourcePoolNodeAllocDealloc_00490940.c
+
+void UnknownObject::PoolNodePopOrAlloc()
+{
+    // Pool node pop-or-alloc over a global container read via GlobalDataRead. Tries to pop the free-list head: saves its value, clears the in-use flag byte, and unlinks it with LinkedListNodeRemovalByValue; if the removal fails the node is not reused. When nothing is popped, allocates a node struct (4 bytes) and a data block (68 bytes), initializes four DWORDs of the block via ThunkToFUN00491330, appends the node to a doubly linked list, and clears 64 bytes of it with sub_4BB490. Then runs a dealloc-walk that searches the list for a node matching the head's value, unlinks it, decrements the list count, and destroys/frees it via sub_491E40 and FreeWrapper_7bcf. Ends by running ShortComputation_16e0 over the four inputs and returns the resulting node pointer (or 0).
+    // CALL: GlobalDataRead() returns the global container whose sub-structure holds the pool list. [callee:0x00490930, source:raw]
+    // ASSIGNMENT: Record free-list head v4[4], save container, mirror head into list slot v6[2], and clear result v7 to 0. [source:raw]
+    // GUARD: Pop path only runs while the free-list head v4[4] is non-null. [source:raw]
+    // CALL: LinkedListNodeRemovalByValue(head value, 1) attempts to unlink the head node; the byte at node+8 is cleared first, and on a zero return the reuse is abandoned (v7 = 0). [callee:0x00491D30, source:raw]
+    // GUARD: Alloc path runs when no node was successfully popped (v7 == 0). [source:raw]
+    // CALL: OperatorNewNhMallocWrapper(4) allocates the node struct; OperatorNewNhMallocWrapper(68) allocates its data block; failure of the first yields a null node, failure of the second nulls the node's payload pointer. [callee:0x00587C03, source:raw]
+    // LOOP: do-while over 4 iterations calling ThunkToFUN00491330 to initialize the four DWORDs of the data block. [callee:0x004912F0, source:raw]
+    // CALL: DoublyLinkedListAppend(container, node, 1) appends the freshly allocated node to the pool list. [callee:0x00434030, source:raw]
+    // LOOP: for i in 0..63 step 16, sub_4BB490(i + node, 0) clears a 64-byte region inside the node. [callee:0x004BB490, source:raw]
+    // LOOP: Dealloc-walk: start from the list tail slot v6[2] (mirrored head), iterate nodes by their +4 next pointer searching for a node whose value equals the head value; guard requires the head value and list to be non-null. [source:raw]
+    // STATE_TRANSITION: Unlink the matched node: fix predecessor's +4 next (or list head), fix tail slot v6[2] when the tail is removed, fix tail pointer v6[1] when removing the last node, and decrement the list count v6[3]. [source:raw]
+    // CALL: sub_491E40(node) runs the node destructor, then FreeWrapper_7bcf(node) releases its heap memory. [callee:0x00491E40, callee:0x00587BCF, source:raw]
+    // CALL: ShortComputation_16e0(a1, a2, a3, a4) runs over the four input parameters after the pop/alloc/dealloc logic. [callee:0x004916E0, source:raw]
+    // RETURN: Return the result node pointer v7 (0 when the pop failed and no node was returned). Called by the collision broadphase builder, rectangle clipping, proxy-list builder and related collision helpers. [caller:0x00490EE0, caller:0x00491350, caller:0x004919C0, caller:0x00491AD0, caller:0x00491C70, caller:0x00491CB0, function:0x00490940, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_490940(i16 a1, i16 a2, i16 a3, i16 a4) {
+    //     PoolContainer* c = GlobalDataRead();
+    //     List* l = &c->list;
+    //     Node* out = 0;
+    //     l->tail = l->head;
+    //     if (l->head) {
+    //       out = l->head;
+    //       l->head->flag = 0;
+    //       if (!LinkedListNodeRemovalByValue(out->value, 1)) out = 0;
+    //     }
+    //     if (!out) {
+    //       Node* n = OperatorNewNhMallocWrapper(4);
+    //       if (n) {
+    //         void* blk = OperatorNewNhMallocWrapper(68);
+    //         if (blk) { n->data = blk; for (i=0;i<4;++i) ThunkToFUN00491330(blk+i); }
+    //         else n->data = 0;
+    //       }
+    //       DoublyLinkedListAppend(c, n, 1);
+    //       for (i=0; i<64; i+=16) sub_4BB490(i + n, 0);
+    //       /* dealloc-walk: find node whose value == head value, unlink, destroy, free * /
+    //       Node* h = l->head; int val = 0;
+    //       l->tail = l->head;
+    //       if (h) { h->flag = 0; val = h->value;
+    //         if (val) { for (Node* p=0, q=l->head; q; p=q, q=q->next) {
+    //             if (q->value == val) {
+    //               if (q == l->tail) l->tail = q->next;
+    //               if (p) p->next = q->next; else l->head = q->next;
+    //               if (l->last == q) l->last = p;
+    //               --l->count; sub_491E40(q); FreeWrapper_7bcf(q); break; } } }
+    //       out = val ? val : 0;
+    //     }
+    //     ShortComputation_16e0(a1, a2, a3, a4);
+    //     return out;
+    //   }
+    // UNRESOLVED: Exact layout of the global container and its list header offsets is inferred from pointer arithmetic only.
+    // UNRESOLVED: Purpose of the four inputs a1-a4 and their consumption by ShortComputation_16e0 is unknown.
+    // UNRESOLVED: Relation of the dealloc-walk (which destroys a node) to the pop-or-alloc purpose is unclear from static evidence alone.
+}

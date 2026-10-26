@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "address": "0x0053CFE0",
+  "proposed_name": "ResourceCacheLookupOrAllocInit",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0053CFE0"]
+  },
+  "summary": "String-keyed resource registry lookup-or-create. Copies the filename argument into a stack buffer, transforms it with sub_589901, and strips the file extension by scanning backward for a '.' and null-terminating there. Walks the global registry linked list headed at dword_8B8E20, comparing the stored name (node+20) with the stripped string; the next-node pointer lives at node+2160. On a match it writes the node into *a1 (when a1 is non-null) and returns 0. On no match it allocates a 2164-byte entry via OperatorNewNhMallocWrapper and initializes it with HashTable; if sub_552470(a2, a3) reports registration failure (non-zero) the entry is cleaned up with EmptyStub_7470 and FreeWrapper_7bcf and -1 is returned; otherwise the entry is appended via LinkedListAppend_d340, written to *a1, and 0 is returned.",
+  "local_names": {
+    "a1": "optional output pointer for the found/allocated registry entry",
+    "a2": "input filename (copied and stripped of extension before comparison)",
+    "a3": "registration argument forwarded to sub_552470",
+    "SrcStr": "stack buffer holding the transformed, extension-stripped filename",
+    "v4": "linked-list walk pointer over the registry",
+    "v6": "newly allocated 2164-byte registry entry"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "strcpy(SrcStr, a2) copies the input filename into the 256-byte stack buffer.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_589901(SrcStr) transforms the buffer before comparison.",
+      "evidence_refs": ["callee:0x00589901", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Extension strip: scan backward from strlen(SrcStr)-1 while the byte is not '.' (0x2E); when found, truncate at that position; scan only while the index stays above 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the registry from the global head dword_8B8E20 while strcmp(node+20, SrcStr) is non-zero, advancing through the next-node pointer at node+2160; loop guard requires a non-null head.",
+      "evidence_refs": ["global:0x008B8E20", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On a name match, write the found node into *a1 when a1 is non-null.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On no match, OperatorNewNhMallocWrapper(2164) allocates a new registry entry.",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "HashTable(v5) initializes the new entry's internal table when allocation succeeded.",
+      "evidence_refs": ["callee:0x005523E0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "sub_552470(a2, a3) == 0 selects the registration-success path; a non-zero result selects the failure/cleanup path.",
+      "evidence_refs": ["callee:0x00552470", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On registration success, LinkedListAppend_d340(entry) appends it to the registry and the entry is written into *a1 when a1 is non-null.",
+      "evidence_refs": ["callee:0x0053D340", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On registration failure, EmptyStub_7470(entry) then FreeWrapper_7bcf(entry) clean up the allocated entry.",
+      "evidence_refs": ["callee:0x00557470", "callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 on found or appended entries, -1 when registration failed. Used by collision node allocation, cockpit gauge setup and scene-file parsing paths.",
+      "evidence_refs": ["caller:0x00494DE0", "caller:0x0049CA00", "caller:0x004D8AB0", "caller:0x004F8D70", "caller:0x0055B200", "function:0x0053CFE0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_53CFE0(int* out, const char* filename, int regArg) {",
+    "  char key[256];",
+    "  strcpy(key, filename);",
+    "  sub_589901(key);",
+    "  for (int i = strlen(key) - 1; i > 0 && key[i] != '.'; --i) {}",
+    "  if (key[i] == '.') key[i] = 0;",
+    "  for (Entry* e = dword_8B8E20; e; e = *(Entry**)(e + 2160)) {",
+    "    if (strcmp(e->name, key) == 0) { if (out) *out = e; return 0; }",
+    "  }",
+    "  Entry* n = OperatorNewNhMallocWrapper(2164);",
+    "  if (n) HashTable(n);",
+    "  if (sub_552470(filename, regArg) == 0) {",
+    "    LinkedListAppend_d340(n);",
+    "    if (out) *out = n;",
+    "    return 0;",
+    "  }",
+    "  if (n) { EmptyStub_7470(n); FreeWrapper_7bcf(n); }",
+    "  return -1;",
+    "}"
+  ],
+  "unresolved": [
+    "Node layout is only partially evidenced: name at +20, next pointer at +2160, total size 2164 bytes.",
+    "Purpose of the sub_589901 string transform and the semantics of sub_552470's registration check are unconfirmed.",
+    "The ABI lead name suggests extension fallback behavior but the raw source strips the extension before matching, which is not fully reconciled."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

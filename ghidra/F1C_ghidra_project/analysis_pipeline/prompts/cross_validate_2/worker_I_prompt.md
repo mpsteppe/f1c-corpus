@@ -1,0 +1,1105 @@
+# WORKER I — F1C Cross-Validation Round 2
+
+You are auditing ALL documented function entries across all docs/ files.
+Round 2 uses updated docs/12 (2,356 globals) and docs/13 (6,910 lines) as ground truth.
+Worker I of 20, items 2809–3159.
+
+## STEP 1 — LOAD REFERENCES
+1. `%USERPROFILE%\Desktop\F1C_ghidra_project\docs\12-globals-reference.md` — global names
+2. `%USERPROFILE%\Desktop\F1C_ghidra_project\docs\13-struct-offsets.md` — struct fields
+3. `%USERPROFILE%\Desktop\F1C_ghidra_project\knowledge_graph\call_graph.json` — call edges
+
+## OUTPUT FILE
+Write ALL output to: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\output\cross_validate_2\worker_I.md
+
+## YOUR FUNCTIONS (351)
+
+2809. FUN_00455BF0
+   doc: docs/00-source-tree.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x00455bf0__FUN_00455bf0.c
+2810. FUN_004D7660
+   doc: docs/00-source-tree.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x004d7660__FUN_004d7660.c
+2811. FUN_00455F00
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x00455f00__FUN_00455f00.c
+2812. FUN_0042C690
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0042c690__FUN_0042c690.c
+2813. FUN_004C2E20
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c2e20__FUN_004c2e20.c
+2814. FUN_0059A728
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059a728__FUN_0059a728.c
+2815. FUN_005870E0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005870e0__FUN_005870e0.c
+2816. FUN_00553DB0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00553db0__FUN_00553db0.c
+2817. FUN_0059C43C
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059c43c__Unwind_0059c43c.c
+2818. FUN_00587230
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00587230__FUN_00587230.c
+2819. FUN_0046A530
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0046a530__FUN_0046a530.c
+2820. FUN_004F23B0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004f23b0__FUN_004f23b0.c
+2821. FUN_0058D82C
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0058d82c__FUN_0058d82c.c
+2822. FUN_0055C7D0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0055c7d0__FUN_0055c7d0.c
+2823. FUN_005905DD
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005905dd__FUN_005905dd.c
+2824. FUN_0056CF10
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0056cf10__FUN_0056cf10.c
+2825. FUN_0059A8D8
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059a8d8__FUN_0059a8d8.c
+2826. FUN_00597218
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00597218__FUN_00597218.c
+2827. FUN_00471860
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00471860__FUN_00471860.c
+2828. FUN_004975B0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004975b0__FUN_004975b0.c
+2829. FUN_004FC650
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004fc650__FUN_004fc650.c
+2830. FUN_00583AA0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00583aa0__FUN_00583aa0.c
+2831. FUN_0059A980
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059a980__FUN_0059a980.c
+2832. FUN_005874D0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005874d0__FUN_005874d0.c
+2833. FUN_0059A407
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059a407__FUN_0059a407.c
+2834. FUN_00554C30
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00554c30__FUN_00554c30.c
+2835. FUN_0059A428
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059a428__FUN_0059a428.c
+2836. FUN_005861E0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005861e0__FUN_005861e0.c
+2837. FUN_0057EE80
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0057ee80__FUN_0057ee80.c
+2838. FUN_00599C58
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00599c58__FUN_00599c58.c
+2839. FUN_0059AD3D
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059ad3d__FUN_0059ad3d.c
+2840. FUN_0057A910
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0057a910__FUN_0057a910.c
+2841. FUN_0059CB48
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059cb48__Unwind_0059cb48.c
+2842. FUN_004780D0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004780d0__FUN_004780d0.c
+2843. FUN_004BB460
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004bb460__FUN_004bb460.c
+2844. FUN_00559A30
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00559a30__FUN_00559a30.c
+2845. FUN_00587930
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00587930__FUN_00587930.c
+2846. FUN_00587090
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00587090__FUN_00587090.c
+2847. FUN_0059C706
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059c706__Unwind_0059c706.c
+2848. FUN_0059C670
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059c670__Unwind_0059c670.c
+2849. FUN_0059CC88
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059cc88__Unwind_0059cc88.c
+2850. FUN_0059CD80
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059cd80__Unwind_0059cd80.c
+2851. FUN_004C8CA0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x004c8ca0__FUN_004c8ca0.c
+2852. FUN_0057E410
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0057e410__FUN_0057e410.c
+2853. FUN_0040D2CA
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0040d2ca__sub_40D2CA.c
+2854. FUN_004BC2E8
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004bc2e8__sub_4BC2E8.c
+2855. FUN_0048B024
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048b024__sub_48B024.c
+2856. FUN_0051126A
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0051126a__sub_51126A.c
+2857. FUN_00408868
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00408868__sub_408868.c
+2858. FUN_004472A8
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004472a8__sub_4472A8.c
+2859. FUN_004D4A58
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d4a58__sub_4D4A58.c
+2860. FUN_004D1027
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d1027__sub_4D1027.c
+2861. FUN_0048A650
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048a650__sub_48A650.c
+2862. FUN_0053C1B0
+   doc: docs/01-engine-architecture.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0053c1b0__FUN_0053c1b0.c
+2863. FUN_00418EE0
+   doc: docs/02-ai-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00418ee0__FUN_00418ee0.c
+2864. FUN_00425920
+   doc: docs/02-ai-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00425920__FUN_00425920.c
+2865. FUN_004BF390
+   doc: docs/02-ai-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004bf390__FUN_004bf390.c
+2866. FUN_004C9BA0
+   doc: docs/02-ai-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c9ba0__sub_4C9BA0.c
+2867. FUN_004D7150
+   doc: docs/04-tire-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x004d7150__FUN_004d7150.c
+2868. FUN_0047E4B0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x0047e4b0__FUN_0047e4b0.c
+2869. FUN_004C0CC0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x004c0cc0__FUN_004c0cc0.c
+2870. FUN_004A0430
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x004a0430__FUN_004a0430.c
+2871. FUN_0041B250
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0041b250__FUN_0041b250.c
+2872. FUN_0049E7B0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0049e7b0__FUN_0049e7b0.c
+2873. FUN_004C01A0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c01a0__FUN_004c01a0.c
+2874. FUN_004D4580
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d4580__FUN_004d4580.c
+2875. FUN_004D2300
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d2300__FUN_004d2300.c
+2876. FUN_00478390
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00478390__FUN_00478390.c
+2877. FUN_00598E9E
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00598e9e__FUN_00598e9e.c
+2878. FUN_00596007
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00596007__FUN_00596007.c
+2879. FUN_0059249B
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059249b__FUN_0059249b.c
+2880. FUN_00565CA0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00565ca0__FUN_00565ca0.c
+2881. FUN_00588931
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00588931____NLG_Notify1.c
+2882. FUN_0045C0C0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0045c0c0__FUN_0045c0c0.c
+2883. FUN_004E4500
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004e4500__FUN_004e4500.c
+2884. FUN_00515ECD
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00515ecd__FUN_00515ecd.c
+2885. FUN_0042DBF0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0042dbf0__FUN_0042dbf0.c
+2886. FUN_0051D1DB
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0051d1db__FUN_0051d1db.c
+2887. FUN_00507779
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00507779__FUN_00507779.c
+2888. FUN_004EBC60
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004ebc60__FUN_004ebc60.c
+2889. FUN_004B15D0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004b15d0__FUN_004b15d0.c
+2890. FUN_0050A223
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0050a223__FUN_0050a223.c
+2891. FUN_0051A4B7
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0051a4b7__FUN_0051a4b7.c
+2892. FUN_00519986
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00519986__FUN_00519986.c
+2893. FUN_00544EF0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00544ef0__FUN_00544ef0.c
+2894. FUN_004C7BF0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c7bf0__FUN_004c7bf0.c
+2895. FUN_004C6980
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c6980__FUN_004c6980.c
+2896. FUN_00545670
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00545670__FUN_00545670.c
+2897. FUN_0054FA50
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0054fa50__FUN_0054fa50.c
+2898. FUN_00542540
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00542540__FUN_00542540.c
+2899. FUN_004B3AF0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004b3af0__FUN_004b3af0.c
+2900. FUN_005457C0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005457c0__FUN_005457c0.c
+2901. FUN_00509776
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00509776__FUN_00509776.c
+2902. FUN_0050A3CE
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0050a3ce__FUN_0050a3ce.c
+2903. FUN_0051D166
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0051d166__FUN_0051d166.c
+2904. FUN_004C11D0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c11d0__FUN_004c11d0.c
+2905. FUN_00544E20
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00544e20__FUN_00544e20.c
+2906. FUN_0054F710
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0054f710__FUN_0054f710.c
+2907. FUN_004E2230
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004e2230__FUN_004e2230.c
+2908. FUN_0046D270
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0046d270__FUN_0046d270.c
+2909. FUN_004970E0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004970e0__FUN_004970e0.c
+2910. FUN_005472B0
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005472b0__FUN_005472b0.c
+2911. FUN_004D9420
+   doc: docs/06-session-race-logic.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d9420__sub_4D9420.c
+2912. FUN_004D2E50
+   doc: docs/07-pit-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x004d2e50__FUN_004d2e50.c
+2913. FUN_004C18B0
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x004c18b0__FUN_004c18b0.c
+2914. FUN_004C2A80
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x004c2a80__FUN_004c2a80.c
+2915. FUN_0041F8A0
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x0041f8a0__FUN_0041f8a0.c
+2916. FUN_004C5CB0
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x004c5cb0__FUN_004c5cb0.c
+2917. FUN_00409440
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00409440__FUN_00409440.c
+2918. FUN_00433290
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00433290__FUN_00433290.c
+2919. FUN_004BFCD0
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004bfcd0__FUN_004bfcd0.c
+2920. FUN_004F81D0
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004f81d0__FUN_004f81d0.c
+2921. FUN_0046D060
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0046d060__FUN_0046d060.c
+2922. FUN_005903DA
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005903da__FUN_005903da.c
+2923. FUN_00599958
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00599958__FUN_00599958.c
+2924. FUN_004630C0
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004630c0__FUN_004630c0.c
+2925. FUN_005668F0
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005668f0__FUN_005668f0.c
+2926. FUN_00559A70
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00559a70__FUN_00559a70.c
+2927. FUN_004C2830
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c2830__FUN_004c2830.c
+2928. FUN_0059D004
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059d004__Unwind_0059d004.c
+2929. FUN_005939CF
+   doc: docs/08-file-formats.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005939cf__sub_5939CF.c
+2930. FUN_0049CA00
+   doc: docs/09-track-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x0049ca00__FUN_0049ca00.c
+2931. FUN_0046B0C0
+   doc: docs/09-track-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x0046b0c0__FUN_0046b0c0.c
+2932. FUN_0040ADB0
+   doc: docs/09-track-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0040adb0__FUN_0040adb0.c
+2933. FUN_0040B710
+   doc: docs/09-track-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0040b710__FUN_0040b710.c
+2934. FUN_004C5830
+   doc: docs/09-track-system.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c5830__FUN_004c5830.c
+2935. FUN_00435410
+   doc: docs/10-vehicle-physics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x00435410__FUN_00435410.c
+2936. FUN_0042F260
+   doc: docs/10-vehicle-physics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\decompiled_all\0x0042f260__FUN_0042f260.c
+2937. FUN_0042AD20
+   doc: docs/10-vehicle-physics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0042ad20__FUN_0042ad20.c
+2938. FUN_004326E0
+   doc: docs/10-vehicle-physics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004326e0__FUN_004326e0.c
+2939. FUN_004E2540
+   doc: docs/10-vehicle-physics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004e2540__FUN_004e2540.c
+2940. FUN_00476060
+   doc: docs/10-vehicle-physics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00476060__sub_476060.c
+2941. FUN_004EA040
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004ea040__FUN_004ea040.c
+2942. FUN_004497E0
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004497e0__FUN_004497e0.c
+2943. FUN_0044C950
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044c950__FUN_0044c950.c
+2944. FUN_0044D130
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044d130__FUN_0044d130.c
+2945. FUN_0044DB80
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044db80__FUN_0044db80.c
+2946. FUN_0044D250
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044d250__FUN_0044d250.c
+2947. FUN_0044A070
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044a070__FUN_0044a070.c
+2948. FUN_0044EC00
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044ec00__FUN_0044ec00.c
+2949. FUN_0044D430
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044d430__FUN_0044d430.c
+2950. FUN_0044FC20
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044fc20__FUN_0044fc20.c
+2951. FUN_0044F070
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044f070__FUN_0044f070.c
+2952. FUN_0044E4B0
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044e4b0__FUN_0044e4b0.c
+2953. FUN_00498740
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00498740__FUN_00498740.c
+2954. FUN_0044C770
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044c770__FUN_0044c770.c
+2955. FUN_0044D340
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044d340__FUN_0044d340.c
+2956. FUN_0044DF70
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044df70__FUN_0044df70.c
+2957. FUN_00490EE0
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00490ee0__FUN_00490ee0.c
+2958. FUN_004070E0
+   doc: docs/17-physics-collision.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004070e0__FUN_004070e0.c
+2959. FUN_004F6B40
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004f6b40__FUN_004f6b40.c
+2960. FUN_0052B561
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0052b561__FUN_0052b561.c
+2961. FUN_004E4F40
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004e4f40__FUN_004e4f40.c
+2962. FUN_004F01B0
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004f01b0__FUN_004f01b0.c
+2963. FUN_004E2760
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004e2760__FUN_004e2760.c
+2964. FUN_004485D0
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004485d0__FUN_004485d0.c
+2965. FUN_00431390
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00431390__FUN_00431390.c
+2966. FUN_00432920
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00432920__FUN_00432920.c
+2967. FUN_00433E60
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00433e60__FUN_00433e60.c
+2968. FUN_00441600
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00441600__FUN_00441600.c
+2969. FUN_00438100
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00438100__FUN_00438100.c
+2970. FUN_004E3050
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004e3050__FUN_004e3050.c
+2971. FUN_004C2CB0
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c2cb0__FUN_004c2cb0.c
+2972. FUN_004EFB20
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004efb20__FUN_004efb20.c
+2973. FUN_0058F6FE
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0058f6fe__sub_58F6FE.c
+2974. FUN_0051F98E
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0051f98e__sub_51F98E.c
+2975. FUN_004F8440
+   doc: docs/18-physics-dynamics.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004f8440__FUN_004f8440.c
+2976. FUN_00411B50
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00411b50__FUN_00411b50.c
+2977. FUN_004862A0
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004862a0__FUN_004862a0.c
+2978. FUN_00489BA0
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00489ba0__FUN_00489ba0.c
+2979. FUN_004957A0
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004957a0__FUN_004957a0.c
+2980. FUN_0045BC10
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0045bc10__FUN_0045bc10.c
+2981. FUN_00560410
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00560410__FUN_00560410.c
+2982. FUN_0053D4F0
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0053d4f0__FUN_0053d4f0.c
+2983. FUN_00540250
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00540250__FUN_00540250.c
+2984. FUN_00459330
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00459330__FUN_00459330.c
+2985. FUN_00504731
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00504731__FUN_00504731.c
+2986. FUN_00530840
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00530840__FUN_00530840.c
+2987. FUN_0054B570
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0054b570__FUN_0054b570.c
+2988. FUN_00554CC0
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00554cc0__FUN_00554cc0.c
+2989. FUN_0045BD10
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0045bd10__FUN_0045bd10.c
+2990. FUN_004CD8D0
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004cd8d0__FUN_004cd8d0.c
+2991. FUN_005604C0
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005604c0__FUN_005604c0.c
+2992. FUN_00409970
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00409970__FUN_00409970.c
+2993. FUN_00489530
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00489530__FUN_00489530.c
+2994. FUN_0053C360
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0053c360__FUN_0053c360.c
+2995. FUN_0048BC70
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048bc70__FUN_0048bc70.c
+2996. FUN_00553A20
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00553a20__FUN_00553a20.c
+2997. FUN_0048E3A0
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048e3a0__FUN_0048e3a0.c
+2998. FUN_004CB860
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004cb860__sub_4CB860.c
+2999. FUN_00519361
+   doc: docs/19-renderer.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00519361__FUN_00519361.c
+3000. FUN_00563870
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00563870__FUN_00563870.c
+3001. FUN_00595135
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00595135__FUN_00595135.c
+3002. FUN_00582780
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00582780__FUN_00582780.c
+3003. FUN_00564C70
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00564c70__FUN_00564c70.c
+3004. FUN_0055CF50
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0055cf50__FUN_0055cf50.c
+3005. FUN_005665B0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005665b0__FUN_005665b0.c
+3006. FUN_005990AE
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005990ae__FUN_005990ae.c
+3007. FUN_00592BAD
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00592bad__FUN_00592bad.c
+3008. FUN_0044A170
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0044a170__FUN_0044a170.c
+3009. FUN_0040E6A0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0040e6a0__FUN_0040e6a0.c
+3010. FUN_004DC2D0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004dc2d0__FUN_004dc2d0.c
+3011. FUN_00587720
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00587720__FUN_00587720.c
+3012. FUN_0040E6D0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0040e6d0__FUN_0040e6d0.c
+3013. FUN_00472D00
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00472d00__FUN_00472d00.c
+3014. FUN_0048D660
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048d660__FUN_0048d660.c
+3015. FUN_004B1F50
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004b1f50__FUN_004b1f50.c
+3016. FUN_004DCF50
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004dcf50__FUN_004dcf50.c
+3017. FUN_0052466C
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0052466c__FUN_0052466c.c
+3018. FUN_0057A760
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0057a760__FUN_0057a760.c
+3019. FUN_0058A380
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0058a380__FUN_0058a380.c
+3020. FUN_004530A0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004530a0__FUN_004530a0.c
+3021. FUN_00479D00
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00479d00__FUN_00479d00.c
+3022. FUN_0049A990
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0049a990__FUN_0049a990.c
+3023. FUN_004C8D60
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c8d60__FUN_004c8d60.c
+3024. FUN_0050E7CB
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0050e7cb__FUN_0050e7cb.c
+3025. FUN_0054C290
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0054c290__FUN_0054c290.c
+3026. FUN_00556650
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00556650__FUN_00556650.c
+3027. FUN_00474C70
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00474c70__FUN_00474c70.c
+3028. FUN_004D0F00
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d0f00__FUN_004d0f00.c
+3029. FUN_00561FF0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00561ff0__FUN_00561ff0.c
+3030. FUN_00598E39
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00598e39__FUN_00598e39.c
+3031. FUN_0045BE70
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0045be70__FUN_0045be70.c
+3032. FUN_004855A0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004855a0__FUN_004855a0.c
+3033. FUN_0049A9E0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0049a9e0__FUN_0049a9e0.c
+3034. FUN_004C8180
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c8180__FUN_004c8180.c
+3035. FUN_005076FE
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005076fe__FUN_005076fe.c
+3036. FUN_00556700
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00556700__FUN_00556700.c
+3037. FUN_0059A86C
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059a86c__FUN_0059a86c.c
+3038. FUN_00408500
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00408500__FUN_00408500.c
+3039. FUN_00587BDC
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00587bdc____ftol.c
+3040. FUN_0049A190
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0049a190__FUN_0049a190.c
+3041. FUN_004C4CB0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c4cb0__FUN_004c4cb0.c
+3042. FUN_00503CE3
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00503ce3__FUN_00503ce3.c
+3043. FUN_0053C900
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0053c900__FUN_0053c900.c
+3044. FUN_0058C674
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0058c674__FUN_0058c674.c
+3045. FUN_0040BDE0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0040bde0__FUN_0040bde0.c
+3046. FUN_004672C0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004672c0__FUN_004672c0.c
+3047. FUN_0048DFF0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048dff0__FUN_0048dff0.c
+3048. FUN_004B1970
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004b1970__FUN_004b1970.c
+3049. FUN_004DC600
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004dc600__FUN_004dc600.c
+3050. FUN_0053C9C0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0053c9c0__FUN_0053c9c0.c
+3051. FUN_0055685A
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0055685a__FUN_0055685a.c
+3052. FUN_00564B80
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00564b80__FUN_00564b80.c
+3053. FUN_00463760
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00463760__FUN_00463760.c
+3054. FUN_00488BD0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00488bd0__FUN_00488bd0.c
+3055. FUN_004A1DC0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004a1dc0__FUN_004a1dc0.c
+3056. FUN_004D2260
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d2260__FUN_004d2260.c
+3057. FUN_0050DC90
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0050dc90__FUN_0050dc90.c
+3058. FUN_00547420
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00547420__FUN_00547420.c
+3059. FUN_0059C6E8
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059c6e8__Unwind_0059c6e8.c
+3060. FUN_00461530
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00461530__FUN_00461530.c
+3061. FUN_0050C042
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0050c042__FUN_0050c042.c
+3062. FUN_0058DCCC
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0058dccc__FUN_0058dccc.c
+3063. FUN_004258C0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004258c0__FUN_004258c0.c
+3064. FUN_00479910
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00479910__FUN_00479910.c
+3065. FUN_00499160
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00499160__FUN_00499160.c
+3066. FUN_004BDE20
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004bde20__FUN_004bde20.c
+3067. FUN_004FC850
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004fc850__FUN_004fc850.c
+3068. FUN_005361D0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005361d0__FUN_005361d0.c
+3069. FUN_00587200
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00587200__FUN_00587200.c
+3070. FUN_004080F0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004080f0__FUN_004080f0.c
+3071. FUN_0054EAF0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0054eaf0__FUN_0054eaf0.c
+3072. FUN_00536260
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00536260__FUN_00536260.c
+3073. FUN_004D5C40
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d5c40__FUN_004d5c40.c
+3074. FUN_004A3FE0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004a3fe0__FUN_004a3fe0.c
+3075. FUN_0048B560
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048b560__FUN_0048b560.c
+3076. FUN_0046E170
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0046e170__FUN_0046e170.c
+3077. FUN_005679A5
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005679a5__FUN_005679a5.c
+3078. FUN_004F62E6
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004f62e6__FUN_004f62e6.c
+3079. FUN_00534E70
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00534e70__FUN_00534e70.c
+3080. FUN_005881F0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005881f0__FUN_005881f0.c
+3081. FUN_00585FB0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00585fb0__FUN_00585fb0.c
+3082. FUN_00401090
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00401090__FUN_00401090.c
+3083. FUN_00463DC0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00463dc0__FUN_00463dc0.c
+3084. FUN_00489450
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00489450__FUN_00489450.c
+3085. FUN_004A1FD0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004a1fd0__FUN_004a1fd0.c
+3086. FUN_004D4790
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d4790__FUN_004d4790.c
+3087. FUN_0050E04F
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0050e04f__FUN_0050e04f.c
+3088. FUN_005478B0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005478b0__FUN_005478b0.c
+3089. FUN_0059CF70
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059cf70__Unwind_0059cf70.c
+3090. FUN_0040AC00
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0040ac00__FUN_0040ac00.c
+3091. FUN_00466250
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00466250__FUN_00466250.c
+3092. FUN_0048D2B0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048d2b0__FUN_0048d2b0.c
+3093. FUN_004A8B10
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004a8b10__FUN_004a8b10.c
+3094. FUN_004D7E30
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004d7e30__FUN_004d7e30.c
+3095. FUN_00511869
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00511869__FUN_00511869.c
+3096. FUN_0054BC60
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0054bc60__FUN_0054bc60.c
+3097. FUN_0059D806
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059d806__FUN_0059d806.c
+3098. FUN_0040DD80
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0040dd80__FUN_0040dd80.c
+3099. FUN_0046E7D0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0046e7d0__FUN_0046e7d0.c
+3100. FUN_00490920
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00490920__FUN_00490920.c
+3101. FUN_004B43E0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004b43e0__FUN_004b43e0.c
+3102. FUN_004DD7C0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004dd7c0__FUN_004dd7c0.c
+3103. FUN_0051C3E2
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0051c3e2__FUN_0051c3e2.c
+3104. FUN_005645B0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005645b0__FUN_005645b0.c
+3105. FUN_00597CC0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00597cc0__FUN_00597cc0.c
+3106. FUN_0045E5F0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0045e5f0__FUN_0045e5f0.c
+3107. FUN_0048FD80
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048fd80__FUN_0048fd80.c
+3108. FUN_004B2750
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004b2750__FUN_004b2750.c
+3109. FUN_004DCD80
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004dcd80__FUN_004dcd80.c
+3110. FUN_00517EE1
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00517ee1__FUN_00517ee1.c
+3111. FUN_0055CEB0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0055ceb0__FUN_0055ceb0.c
+3112. FUN_005952E9
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005952e9__FUN_005952e9.c
+3113. FUN_00499AE0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00499ae0__FUN_00499ae0.c
+3114. FUN_004F9F60
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004f9f60__FUN_004f9f60.c
+3115. FUN_0057A330
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0057a330__FUN_0057a330.c
+3116. FUN_00414490
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00414490__FUN_00414490.c
+3117. FUN_005648B0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005648b0__FUN_005648b0.c
+3118. FUN_004082B0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004082b0__FUN_004082b0.c
+3119. FUN_00470CC0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00470cc0__FUN_00470cc0.c
+3120. FUN_004919C0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004919c0__FUN_004919c0.c
+3121. FUN_004B5E30
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004b5e30__FUN_004b5e30.c
+3122. FUN_004E2A60
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004e2a60__FUN_004e2a60.c
+3123. FUN_0051C813
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0051c813__FUN_0051c813.c
+3124. FUN_00564A00
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00564a00__FUN_00564a00.c
+3125. FUN_0058A2EF
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0058a2ef__FUN_0058a2ef.c
+3126. FUN_00452780
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00452780__FUN_00452780.c
+3127. FUN_00479C80
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00479c80__FUN_00479c80.c
+3128. FUN_00499560
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00499560__FUN_00499560.c
+3129. FUN_004BFD40
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004bfd40__FUN_004bfd40.c
+3130. FUN_004FEAA0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004feaa0__FUN_004feaa0.c
+3131. FUN_005397A0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005397a0__FUN_005397a0.c
+3132. FUN_005876D0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005876d0__FUN_005876d0.c
+3133. FUN_00458020
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00458020__FUN_00458020.c
+3134. FUN_0048B7E0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0048b7e0__FUN_0048b7e0.c
+3135. FUN_004B2480
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004b2480__FUN_004b2480.c
+3136. FUN_0059CF21
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059cf21__Unwind_0059cf21.c
+3137. FUN_0059CD1E
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059cd1e__Unwind_0059cd1e.c
+3138. FUN_0059CEAD
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059cead__Unwind_0059cead.c
+3139. FUN_0059C8B2
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059c8b2__Unwind_0059c8b2.c
+3140. FUN_0059C4F0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0059c4f0__Unwind_0059c4f0.c
+3141. FUN_0050E0D9
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0050e0d9__FUN_0050e0d9.c
+3142. FUN_00591574
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00591574__sub_591574.c
+3143. FUN_0051FC80
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0051fc80__sub_51FC80.c
+3144. FUN_0050C5D0
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0050c5d0__sub_50C5D0.c
+3145. FUN_0052273B
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0052273b__sub_52273B.c
+3146. FUN_0050CE79
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0050ce79__sub_50CE79.c
+3147. FUN_0054A340
+   doc: docs/20-math-utilities.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0054a340__FUN_0054a340.c
+3148. FUN_00568910
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00568910__FUN_00568910.c
+3149. FUN_00568320
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00568320__FUN_00568320.c
+3150. FUN_00500210
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00500210__FUN_00500210.c
+3151. FUN_004A35F0
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004a35f0__FUN_004a35f0.c
+3152. FUN_005642B0
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x005642b0__FUN_005642b0.c
+3153. FUN_0057C860
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0057c860__FUN_0057c860.c
+3154. FUN_0057D8D0
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0057d8d0__FUN_0057d8d0.c
+3155. FUN_004C8D70
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c8d70__FUN_004c8d70.c
+3156. FUN_004C85D0
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x004c85d0__FUN_004c85d0.c
+3157. FUN_0052DD50
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x0052dd50__sub_52DD50.c
+3158. FUN_00501711
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00501711__sub_501711.c
+3159. FUN_00565080
+   doc: docs/21-audio-network-internals.md
+   source: %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\analyzed\0x00565080__FUN_00565080.c
+
+## FOR EACH FUNCTION
+1. Find `## FUN_XXXXXXXX` in the doc file
+2. Read the actual .c source
+3. Compare EVERY claim:
+   - **Globals:** correct DAT_ address? correct name from docs/12?
+   - **Direction:** reads vs writes?
+   - **Types:** claimed double vs `*(int *)(ptr + 0xXXX)` in .c?
+   - **Calls:** does .c actually call each claimed FUN_?
+   - **Constants:** thresholds accurate?
+   - **Moddability:** "configurable" requires config string literal in .c
+
+If CORRECT: `## FUN_XXXXXXXX — PASS`
+
+If ERRORS:
+```
+## FUN_XXXXXXXX — FAIL
+Source: docs/XX-name.md
+
+**Errors:**
+- [WRONG_GLOBAL] / [WRONG_NAME] / [WRONG_TYPE] / [WRONG_DIRECTION]
+- [MISSING_GLOBAL] / [WRONG_CALL] / [WRONG_CONST] / [WRONG_MODDABILITY]
+
+**Corrected entry:**
+<!-- target: docs/XX-name.md -->
+## FUN_XXXXXXXX — Corrected Name
+[full corrected entry]
+```
+
+Write to disk after EVERY function.
+
+## RULES
+0. NEVER modify any files except %USERPROFILE%\Desktop\F1C_ghidra_project\analysis_pipeline\output\cross_validate_2\worker_I.md.
+1. Check EVERY function — no skipping.
+2. Only flag REAL errors, not style differences.
+3. FAIL entries must include all error tags AND a full corrected entry.

@@ -1,0 +1,44 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00495A20
+// Canonical corpus name: DoublyLinkedListNodeUnlink
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/DoublyLinkedListNodeUnlink_00495a20.c
+
+void UnknownObject::DoublyLinkedListNodeUnlink()
+{
+    // Unlinks node a2 from a doubly linked list owned by this. Walks from the list head at this+0x14 following node next pointers (node+100) until a2 or the end of the list is found. If a2 has a previous node (node+104), that node's next pointer is set to a2's next; otherwise the head at this+0x14 is replaced by a2's next. If a2 has a next node, that node's previous pointer (node+104) is set to a2's previous; otherwise the tail at this+0x18 is replaced by a2's previous.
+    // GUARD: NULL target node a2 causes an immediate return; nothing is unlinked. [source:raw]
+    // ASSIGNMENT: Start traversal at the list head stored at this+0x14. [source:raw, field:this:0x00000014]
+    // GUARD: Empty list (head at this+0x14 is NULL) skips the traversal and returns without unlinking. [source:raw, field:this:0x00000014]
+    // LOOP: Walk nodes by following each node's next pointer at node+100 until the current node equals the target a2. [source:raw, field:*(this+0x78):0x00000064]
+    // GUARD: If the walk reaches a NULL next pointer before finding a2, the target is not in the list and the function returns without unlinking. [source:raw]
+    // ASSIGNMENT: Read the target node's previous pointer stored at a2+104. [source:raw]
+    // GUARD: Branch on whether the target has a previous node. [source:raw]
+    // ASSIGNMENT: Target has a previous node: set that previous node's next pointer (node+100) to the target's next pointer, splicing the target out. [source:raw]
+    // ASSIGNMENT: Target has no previous node and is the head: replace the head at this+0x14 with the target's next pointer. [source:raw, field:this:0x00000014]
+    // ASSIGNMENT: Read the target node's next pointer stored at a2+100. [source:raw, field:*(this+0x78):0x00000064]
+    // GUARD: Branch on whether the target has a next node. [source:raw]
+    // ASSIGNMENT: Target has a next node: set that next node's previous pointer (node+104) to the target's previous pointer. [source:raw]
+    // ASSIGNMENT: Target has no next node and is the tail: replace the tail at this+0x18 with the target's previous pointer. [source:raw, field:this:0x00000018]
+
+    // Conservative worker pseudocode:
+    //   void sub_495A20(_DWORD *this, _DWORD *target) {
+    //     if (!target) return;
+    //     _DWORD *node = (_DWORD *)this[5];            // this+0x14 head
+    //     if (!node) return;
+    //     while (node != target) {
+    //       node = *(_DWORD **)((char *)node + 100);   // next
+    //       if (!node) return;
+    //     }
+    //     if (*(_DWORD *)((char *)target + 104))       // previous exists
+    //       *(_DWORD *)(*(_DWORD *)((char *)target + 104) + 100) = *(_DWORD *)((char *)target + 100);
+    //     else if (this[5] == target)
+    //       this[5] = *(_DWORD *)((char *)target + 100);
+    //     if (*(_DWORD *)((char *)target + 100))       // next exists
+    //       *(_DWORD *)(*(_DWORD *)((char *)target + 100) + 104) = *(_DWORD *)((char *)target + 104);
+    //     else if (this[6] == target)
+    //       this[6] = *(_DWORD *)((char *)target + 104);
+    //   }
+    // UNRESOLVED: The owning object type is unknown; offsets this+0x14 and this+0x18 are treated as list head and tail based on the splice logic, not proven by an external contract.
+    // UNRESOLVED: Node layout (next at +100, previous at +104) is only evidenced by this function's pointer math.
+}

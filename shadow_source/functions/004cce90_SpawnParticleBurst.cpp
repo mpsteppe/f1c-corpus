@@ -1,0 +1,46 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004CCE90
+// Canonical corpus name: ParticleSpawnFunction
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ParticleSpawnFunction_004cce90.c
+
+void UnknownObject::SpawnParticleBurst()
+{
+    // Spawns a burst of particles when the emitter has available slot capacity. Computes spread/velocity scales from a5 and the a4 spread vector, selects a time scale through the scoring gate or a fallback global, obtains a collision normal from feature data, fetches a base velocity through virtual dispatch, then loops over the detail-adjusted particle count allocating slots from a circular buffer, seeding randomized position and velocity from a noise table, and setting up a billboard quad for each slot.
+    // GUARD: Skip emission entirely when the emitter slot capacity at this+0x58 is not positive [guard:0, field:this:0x00000058]
+    // CALCULATION: Convert the particle count a5 into a scale and a half-scale, and halve each axis of the a4 spread vector [source:raw, function:0x004CCE90]
+    // CALCULATION: Choose the emission time scale: when the scoring gate dword_8AB6E4 equals 2, read vehicle data via VehicleDataAccessor on dword_8AB6EC and use FloatDifference unless the result is 5 (then 0); otherwise fall back to the global dbl_8AFE98 [global:0x008AB6E4, global:0x008AB6EC, callee:0x004B9E30, callee:0x004B9CF0, global:0x008AFE98]
+    // CALCULATION: Multiply the scaled a4 axes by the chosen scale to form per-axis velocity offsets and copy the a2 position into the local context [source:raw, function:0x004CCE90]
+    // CALL: Compute a collision normal for position a2 against the feature data global dbl_7C9360 via CollisionNormalFromFeature [callee:0x0044C550, global:0x007C9360]
+    // ASSIGNMENT: On collision success derive a feature alignment value from the normal and the a2 axes; on failure default the normal to (0,1,0) and the alignment marker to -3.4028235e38 [source:raw]
+    // CALL: Fetch the base velocity from the session manager dword_5EA510 via VirtualDispatchHelper and read three velocity components from the returned data [callee:0x0040C870, global:0x005EA510]
+    // CALL: Set the emission time base: when the scoring gate equals 2 delegate via Delegation on dword_8AB6EC, otherwise take the session time global dbl_8AFEA0 [callee:0x004B9CE0, global:0x008AB6EC, global:0x008AB6E4, global:0x008AFEA0]
+    // CALCULATION: Compute the actual particle count by right-shifting a3 by the emitter detail level at this+0x8 [field:this:0x00000008]
+    // LOOP: Loop over the computed particle count, allocating one slot per particle via CircularBufferSlotAlloc [callee:0x004CB540, source:raw]
+    // ASSIGNMENT: Seed each slot: store the emission time base, then derive randomized position and velocity components from the noise table flt_8AB274, advancing the counter dword_8AAE70 [global:0x008AB274, global:0x008AAE70]
+    // ASSIGNMENT: Write the collision normal components and the alignment marker into the slot fields [source:raw]
+    // CALCULATION: Compute the billboard quad axis vector from the difference between the spawned velocity and the base velocity, scaled by 0.03125 [source:raw]
+    // CALL: Set up the billboard quad for the slot via ParticleEffectBillboardQuadSetup [callee:0x004CC500]
+
+    // Conservative worker pseudocode:
+    //   if (this->slotCapacity <= 0) return;
+    //   scale = a5 * 0.0078125;
+    //   halfScale = a5 * 0.015625;
+    //   halfSpread = a4 * 0.5;
+    //   if (dword_8AB6E4 == 2)
+    //     timeScale = VehicleDataAccessor(&dword_8AB6EC) == 5 ? 0.0 : FloatDifference(&dword_8AB6EC);
+    //   else
+    //     timeScale = dbl_8AFE98;
+    //   normal = CollisionNormalFromFeature(dbl_7C9360, a2);
+    //   baseVelocity = VirtualDispatchHelper(&dword_5EA510);
+    //   emitTime = (dword_8AB6E4 == 2) ? Delegation(&dword_8AB6EC) : dbl_8AFEA0;
+    //   count = a3 >> this->detailLevel;
+    //   for (i = 0; i < count; i++) {
+    //     slot = CircularBufferSlotAlloc(this);
+    //     seed slot position/velocity from noise table flt_8AB274 and counter dword_8AAE70;
+    //     ParticleEffectBillboardQuadSetup(this, slot, axis);
+    //   }
+    // UNRESOLVED: Globals flt_59E440, flt_59E450, flt_59E774, flt_59E778 and flt_59ED18 are listed as referenced but no surviving use appears in the decompiled source; their proposed roles (thresholds and scale factors) are DERIVED.
+    // UNRESOLVED: The exact contract of the scoring-gate helpers VehicleDataAccessor, FloatDifference and Delegation in this context is unconfirmed.
+    // UNRESOLVED: The concrete particle-emitter owner type is unknown; the two listed callers only relate it to the particle effect subsystem.
+}

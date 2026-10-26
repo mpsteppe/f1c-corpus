@@ -1,0 +1,35 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004672C0
+// Canonical corpus name: ObjectInitializerWithVtableIndex
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ObjectInitializerWithVtableIndex_004672c0.c
+
+void UnknownObject::ConstructorWithGridDataTableIndex()
+{
+    // __thiscall constructor. Calls sub_48C070(this, 0) for base setup, computes a grid-indexed data table pointer (char*)unk_7C5770 + 64 * (a3 + 11 * a2) where the grid combines column a2 and row a3 with an 11-wide row stride, stores it at this[200] (+0x320), stores a2 at this[203] (+0x32C) and a3 at this[202] (+0x328) as the grid coordinates, installs vtable off_59F4F8 at +0x0, stores a4 at this[199] (+0x31C), initializes this[201] (+0x324) to the literal 55, and returns this. Object class is unknown; the skeleton analysis labels it a grid-indexed window-manager constructor (DERIVED prose only).
+    // CALL: Base-initialization sub_48C070 invoked with this and argument 0. [callee:0x0048C070]
+    // CALCULATION: Combine grid coordinates into a linear cell index a3 + 11 * a2 (11-wide row stride, a2 as column, a3 as row), then derive the table pointer (char*)unk_7C5770 + 64 * cellIndex. [global:0x007C5770]
+    // ASSIGNMENT: Store the grid-indexed data table pointer into this[200] at offset 0x320. [field:this:0x00000320]
+    // ASSIGNMENT: Store parameter a2 into this[203] at offset 0x32C (grid coordinate, candidate column index). [field:this:0x0000032C]
+    // ASSIGNMENT: Install vtable pointer: *this = &off_59F4F8 at offset 0x0. [field:this:0x00000000, global:0x0059F4F8]
+    // ASSIGNMENT: Store parameter a4 into this[199] at offset 0x31C. [field:this:0x0000031C]
+    // ASSIGNMENT: Initialize this[201] at offset 0x324 to the literal 55. [field:this:0x00000324]
+    // ASSIGNMENT: Store parameter a3 into this[202] at offset 0x328 (grid coordinate, candidate row index). [field:this:0x00000328]
+    // RETURN: Return the constructed this pointer. [function:0x004672C0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   void* sub_4672C0(void* this, int a2, int a3, int a4) {
+    //     sub_48C070(this, 0);
+    //     this->slot200 = (char*)&unk_7C5770 + 64 * (a3 + 11 * a2);
+    //     this->slot203 = a2;
+    //     this->vtable = &off_59F4F8;
+    //     this->slot199 = a4;
+    //     this->slot201 = 55;
+    //     this->slot202 = a3;
+    //     return this;
+    //   }
+    // UNRESOLVED: Object class is unknown (owner packet trust UNKNOWN); the grid-indexed window-manager label is DERIVED skeleton prose, not evidence.
+    // UNRESOLVED: Whether a2/a3 are truly column/row coordinates and why the row stride is 11 is unproven.
+    // UNRESOLVED: Semantics of parameter a4 stored at +0x31C and the literal 55 at +0x324 are unknown.
+    // UNRESOLVED: Element layout and purpose of the unk_7C5770 grid table are unresolved here.
+}

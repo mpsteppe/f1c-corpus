@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "address": "0x0044BB60",
+  "proposed_name": "CollisionGeometryOperationSelector",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0044BB60", "source:raw"]
+  },
+  "summary": "Dispatches a collision-geometry processing pipeline on the current global collision geometry handle (dword_8AFE88) based on an operation id in a2. When the handle is null, only the final sweep-and-prune is run on a3. With a2==0 the animation playback path alone runs on a3. With a2==1 the animation path is followed by contact response then sweep-and-prune on a3. With a2==2 a full pipeline runs: shape init into a local buffer v6, animation playback on v6, contact response on v6, bezier patch tessellation from v6 into a3, physics buffer free of v6, then sweep-and-prune on a3. Every path converges on returning the sweep-and-prune overlap-detection result on a3.",
+  "local_names": {
+    "v3": "cached copy of the global collision geometry handle (dword_8AFE88) used by the a2==2 path",
+    "v6": "stack buffer holding a temporary collision shape/pipeline structure for the a2==2 path",
+    "a2": "operation selector: 0 = animation only, 1 = animation+contact+sweep, 2 = full pipeline with bezier tessellation",
+    "a3": "output/geometry pointer passed through to the collision pipeline calls"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "v3 = dword_8AFE88: cache the global collision geometry handle into the register variable used by the a2==2 path.",
+      "evidence_refs": ["global:0x008AFE88", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on dword_8AFE88 != 0: when the global collision geometry handle is null, skip all pipeline calls and fall through to the final sweep-and-prune on a3.",
+      "evidence_refs": ["global:0x008AFE88", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the handle is present, branch on a2: a2==0 takes the animation-only path; a2==1 takes the animation+contact+sweep path; a2==2 takes the full bezier-tessellation pipeline.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2==1 path: AnimationPlaybackSequence(this, dword_8AFE88, a3) - run the animation-driven collision mesh generation on the global geometry handle, writing to a3.",
+      "evidence_refs": ["callee:0x0044ACB0", "global:0x008AFE88", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2==1 path: CollisionContactResponse((int*)a3) - compute the contact response from the animation output in a3.",
+      "evidence_refs": ["callee:0x00449700", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "a2==1 path: return SweepAndPruneAABBOverlapDetection((int*)a3).",
+      "evidence_refs": ["callee:0x004497E0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2==2 path: CollisionShapeInit(v6) - initialize the local collision shape structure for the bezier pipeline.",
+      "evidence_refs": ["callee:0x004492B0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2==2 path: AnimationPlaybackSequence(this, v3, v6) - run the animation-driven collision mesh generation on the cached handle, writing into the local shape buffer v6.",
+      "evidence_refs": ["callee:0x0044ACB0", "global:0x008AFE88", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2==2 path: CollisionContactResponse((int*)v6) - compute the contact response from the shape buffer v6.",
+      "evidence_refs": ["callee:0x00449700", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2==2 path: BezierPatchTessellation(this, (int*)v6, a3) - tessellate bezier patches from the shape buffer v6 into the output a3.",
+      "evidence_refs": ["callee:0x0044B370", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2==2 path: PhysicsBufferFree(v6) - free the local physics pipeline buffer after tessellation.",
+      "evidence_refs": ["callee:0x00449340", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "a2==2 path: return SweepAndPruneAABBOverlapDetection((int*)a3).",
+      "evidence_refs": ["callee:0x004497E0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2==0 path: AnimationPlaybackSequence(this, dword_8AFE88, a3) - run animation-only collision mesh generation.",
+      "evidence_refs": ["callee:0x0044ACB0", "global:0x008AFE88", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Fall-through (a2==0 and null-handle paths): return SweepAndPruneAABBOverlapDetection((int*)a3).",
+      "evidence_refs": ["callee:0x004497E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int CollisionGeometryOperationSelector(void* this, int op, void** a3) {",
+    "  int handle = dword_8AFE88;",
+    "  if (handle) {",
+    "    if (op == 1) {",
+    "      AnimationPlaybackSequence(this, handle, a3);",
+    "      CollisionContactResponse(a3);",
+    "      return SweepAndPruneAABBOverlapDetection(a3);",
+    "    }",
+    "    if (op == 2) {",
+    "      void* shape[5];",
+    "      CollisionShapeInit(shape);",
+    "      AnimationPlaybackSequence(this, handle, shape);",
+    "      CollisionContactResponse(shape);",
+    "      BezierPatchTessellation(this, shape, a3);",
+    "      PhysicsBufferFree(shape);",
+    "      return SweepAndPruneAABBOverlapDetection(a3);",
+    "    }",
+    "    if (op == 0) AnimationPlaybackSequence(this, handle, a3);",
+    "  }",
+    "  return SweepAndPruneAABBOverlapDetection(a3);",
+    "}"
+  ],
+  "unresolved": [
+    "The nature of the a3 pointer (collision output buffer, world geometry set, or scalar result holder) is not established by the packet; each callee consumes it as an int*.",
+    "The semantic meaning of the operation ids 0/1/2 (animation-only, contact+sweep, full bezier pipeline) comes from the existing analysis prose and is not independently provable from the raw source.",
+    "The owning object is not established; the packet's known caller SceneTrackFileLoader (0x0044C0E0) does not reveal the dispatch context.",
+    "The shape buffer v6 element layout passed to CollisionShapeInit / PhysicsBufferFree is not described by the packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

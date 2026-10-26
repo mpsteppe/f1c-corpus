@@ -1,0 +1,45 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00460520
+// Canonical corpus name: NetComm_SetSelfAsReady
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/NetComm_SetSelfAsReady_00460520.c
+
+void UnknownObject::SetSelfAsReady()
+{
+    // NetComm self-readiness setup (canonical name NetComm_SetSelfAsReady): updates session readiness flags on the object, assigns a free slot via array search when the session phase is active (this[4081] == 1 or 2) and no slot is yet assigned, records the caller-provided or searched slot, and emits source-gated debug log messages. Wrapped in a local state buffer initialized by ThunkToFUN00461480 and torn down through ShortComputation_23b0.
+    // CALL: ThunkToFUN00461480(v9) initializes the local state buffer, then FunctionCallWrapper_23e0(v9) wraps it for the surrounding call pattern. [callee:0x00461470, callee:0x004623E0, source:raw]
+    // GUARD: Guard on this[4081] (offset 0x3FC4) != 1: when the session phase is not 1, set bitfield flag pair (2, 1); afterwards clear flag (4, 0). [field:this:0x00003FC4, guard:0, callee:0x004614F0, source:raw]
+    // CALL: BitfieldSetClearAt0x88(4, 0) clears the flag-4 state unconditionally. [callee:0x004614F0, source:raw]
+    // GUARD: Source-gated debug log: if dword_7C569C != 5 and StringSplitLoop(1, aDDevF119992002_1, 4394) yields true, DebugLogWrite(&dword_8AD25C, aNetcommSetself). [global:0x007C569C, global:0x005C5CE4, callee:0x004D7A50, global:0x008AD25C, global:0x005C6060, callee:0x004D7AA0, source:raw]
+    // ASSIGNMENT: Read session phase into v3 = this[4081] (offset 0x3FC4) and copy the readiness flag into the local v11 = dword_7D0E50. [field:this:0x00003FC4, global:0x007D0E50, source:raw]
+    // STATE_TRANSITION: Active branch (this[4081] == 2 or 1): when the local slot v10 is still -1, search for a free slot with ArraySearchFor1Sentinel(this), read this[4078] (offset 0x3FB8) as the interface argument, call SingleFunctionCallWrapper_a810 on it, and store the result through ShortComputation_e5d0(this, slot, computed); a second gated debug log emits aNetcommSetself_0. [field:this:0x00003FC4, field:this:0x00003FB8, callee:0x0045E5B0, callee:0x0057A810, callee:0x0045E5D0, source:raw]
+    // STATE_TRANSITION: Set bitfield flag (1, 1) after slot assignment, then a source-gated debug log emits aNetcommSetself_2. [callee:0x004614F0, global:0x005C5F98, global:0x007C569C, global:0x008AD25C, global:0x005C5CE4, callee:0x004D7AA0, callee:0x004D7A50, source:raw]
+    // GUARD: Inactive branch when a2 == -1: only a source-gated debug log emitting aNetcommSetself_1 is produced. [global:0x005C5FD0, global:0x007C569C, global:0x005C5CE4, callee:0x004D7A50, global:0x008AD25C, callee:0x004D7AA0, source:raw]
+    // ASSIGNMENT: Inactive branch when a2 != -1: the local slot v10 is set to the caller-supplied a2, then a source-gated debug log emits aNetcommSetself_0. [global:0x005C602C, global:0x007C569C, global:0x005C5CE4, callee:0x004D7A50, global:0x008AD25C, callee:0x004D7AA0, source:raw]
+    // CALL: ShortComputation_23b0(v9) tears the local state buffer down, and the result of EmptyStub_0170(v9) is returned. [callee:0x004623B0, callee:0x004B0170, source:raw]
+    // CALL: Invoked by NetCommSessionMessageDispatcher (0x0045D890) and SendServerOKRequest (0x00460470) during session phase transitions. [caller:0x0045D890, caller:0x00460470, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int SetSelfAsReady(this, int slot) {
+    //     init_local_buffer(v9); wrap(v9);
+    //     if (this[0x3FC4] != 1) set_flag(2, 1);
+    //     set_flag(4, 0);
+    //     if (session != 5 && gate(1, source_dev, 4394)) log(buf, msg0);
+    //     int phase = this[0x3FC4]; ready = dword_7D0E50;
+    //     if (phase == 2 || phase == 1) {
+    //       if (my_slot == -1) {
+    //         my_slot = ArraySearchFor1Sentinel(this);
+    //         ShortComputation_e5d0(this, my_slot, SingleFunctionCallWrapper_a810(this[0x3FB8]));
+    //       }
+    //       set_flag(1, 1); log_2();
+    //     } else if (slot == -1) {
+    //       log_1();
+    //     } else {
+    //       my_slot = slot; log_0();
+    //     }
+    //     ShortComputation_23b0(v9);
+    //     return EmptyStub_0170(v9);
+    //   }
+    // UNRESOLVED: Meaning of the readiness flag dword_7D0E50 copied into local v11 is unresolved; v11 is not observed again in this function.
+    // UNRESOLVED: Semantics of the flag bits managed by BitfieldSetClearAt0x88 and the role of the value returned by SingleFunctionCallWrapper_a810 when consumed by ShortComputation_e5d0 are not grounded beyond the call shapes.
+}

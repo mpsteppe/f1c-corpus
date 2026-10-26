@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "address": "0x00457EE0",
+  "proposed_name": "KeyframeArcLengthPrecompute",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00457EE0"]
+  },
+  "summary": "Pre-computes cumulative arc length over a 3D keyframe array. The array base pointer is read from this+0x0 and the keyframe count from this+0x4; keyframes use a 28-byte stride (7 floats: 3D position at elements 0..2, accumulated distance at element 6). The first keyframe has its element at +0x18 (accumulated distance) set to 0; each later keyframe writes element +0x18 as the 3D Euclidean distance from the previous keyframe added to the previous keyframe's accumulated value. After the loop this+0x8 is assigned from the array at byte offset 28*i-60 (i being the loop-exit count), and the keyframe array pointer is returned. Called by sub_457F90 (00457f90) and BufferAllocCopy (004582e0).",
+  "local_names": {
+    "this": "descriptor holding the keyframe array pointer (+0x0), keyframe count (+0x4) and the precomputed path-length result (+0x8)",
+    "base": "keyframe array pointer read from this+0x0, 28-byte stride",
+    "count": "keyframe count read from this+0x4",
+    "keyframe": "current keyframe at base + 28*i",
+    "accumulated": "per-keyframe accumulated arc length stored at element +0x18"
+  },
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Walks the keyframe array pointed to by this+0x0, once per keyframe for the count in this+0x4",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "First keyframe (index 0) takes the separate zero-initialization branch because it has no predecessor; later keyframes take the distance-accumulation branch",
+      "evidence_refs": ["field:obj:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "First keyframe's element at +0x18 (6th float of the 28-byte stride) is set to 0",
+      "evidence_refs": ["field:obj:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "For each later keyframe, computes the 3D deltas against the previous keyframe: differences of the x/y/z floats at the current element minus the preceding 28-byte stride",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Writes the keyframe element at +0x18 as the 3D Euclidean distance (square root of the summed squared deltas) added to the previous keyframe's accumulated value at the same relative slot",
+      "evidence_refs": ["field:obj:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "After the loop, assigns this+0x8 from the keyframe array at byte offset 28*i-60 where i is the loop-exit count; the skeleton fill reads this as the total accumulated path length",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the keyframe array pointer read from this+0x0",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by sub_457F90 (00457f90) and BufferAllocCopy (004582e0) to pre-compute cumulative keyframe distances",
+      "evidence_refs": ["caller:0x00457F90", "caller:0x004582E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "base = *(_DWORD*)this;            // keyframe array, 28-byte stride",
+    "count = *((_DWORD*)this + 1);     // keyframe count",
+    "for (i = 0; i < count; ++i) {",
+    "  if (i == 0) {",
+    "    *(base + 24) = 0;             // first keyframe accumulated distance = 0",
+    "  } else {",
+    "    k = base + 28*i;",
+    "    dx = k[0] - (k-7)[0];",
+    "    dy = k[1] - (k-6)[1];",
+    "    dz = k[2] - (k-5)[2];",
+    "    k[6] = sqrt(dx*dx + dy*dy + dz*dz) + (k-1)[6];",
+    "  }",
+    "}",
+    "this[2] = *(float*)(base + 28*i - 60);   // i is the loop-exit count",
+    "return base;"
+  ],
+  "unresolved": [
+    "The final read at byte offset 28*i-60 (i = loop-exit count) lands on a keyframe element whose exact meaning is ambiguous: it is not the last keyframe's +0x18 slot (which would sit at 28*i-4); the skeleton fill claims it stores the total path length, unverifiable from the raw expression",
+    "The keyframe element layout beyond the 7-float stride (3D position + accumulated distance) is not defined by this packet; the x/y/z and accumulated slots are inferred only from the raw arithmetic"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

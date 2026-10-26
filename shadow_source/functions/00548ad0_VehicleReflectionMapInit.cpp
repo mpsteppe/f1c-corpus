@@ -1,0 +1,47 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00548AD0
+// Canonical corpus name: sub_548AD0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_548AD0_00548ad0.c
+
+void UnknownObject::VehicleReflectionMapInit()
+{
+    // Reflection-map view initializer. Scans an entry array at a3+168 (stride 148, count at a3+164) for an entry whose +96 dword has bit 0x800000 set and whose +64 byte has bit 2 set, logging 'No Reflection Map' or 'Reflection Map' errors (StringFormatWithBufferOverflowCheck + sub_53C590) and returning -1 on failure. When the a2 argument equals 2 it copies the entry +140 source-data pointer into this+0x4, clears this+0xC, allocates and ConstructorInit-s a 444-byte object into this+0x0, then sets up its sound instance, two float fields (1065353216 / 1148846080), colour, scale parameters, suspension physics parameter and final flag, returning 0. For a2 != 2 it clears this+0x14 and this+0x18 and continues scanning.
+    // GUARD: Load the reflection-entry count from a3+164; if it is zero, take the error path and return -1. [source:raw]
+    // LOOP: Scan the entry array at a3+168 (stride 148, count a3+164) for an entry whose +96 dword has bit 0x800000 set; the scan continues past non-matching entries until a match or the array is exhausted. [global:0x00800000, source:raw]
+    // CALL: Error path when no matching entry is found: format the 'No Reflection Map' string with StringFormatWithBufferOverflowCheck, log it with sub_53C590(-1, buffer) and return -1. [callee:0x0058815F, callee:0x0053C590, global:0x005DBEC8, source:raw]
+    // GUARD: Require the matching entry's +64 byte bit 2 to be set; otherwise format the 'Reflection Map' string with StringFormatWithBufferOverflowCheck, log it with sub_53C590(-1, buffer) and return -1. [callee:0x0058815F, callee:0x0053C590, global:0x005DBE94, source:raw]
+    // STATE_TRANSITION: When a2 != 2, clear this+0x14 and this+0x18 and continue scanning to the next candidate entry; no reflection view is built on this pass. [field:this:0x00000014, field:this:0x00000018, source:raw]
+    // ASSIGNMENT: On the a2 == 2 path: copy the entry +140 source-data pointer into this+0x4 and clear this+0xC. [field:this:0x00000004, field:this:0x0000000C, source:raw]
+    // CALL: Allocate 444 bytes with OperatorNewNhMallocWrapper, run ConstructorInit on the allocation and store the constructed object pointer into this+0x0. [callee:0x00587C03, callee:0x005418B0, field:this:0x00000000, source:raw]
+    // CALL: Format the 'RefView' name with StringFormatWithBufferOverflowCheck and call SoundInstanceInit(*this, name). [callee:0x0058815F, callee:0x005418E0, global:0x005DBEC0, source:raw]
+    // CALL: Configure two float fields on the new object with TwoFieldSetterCall(*this, 1065353216, 1148846080) (1.0f and 1000.0f as raw dwords). [callee:0x005423C0, source:raw]
+    // CALL: Set the object colour to black with ColorPack(*this, 0, 0, 0). [callee:0x005423E0, source:raw]
+    // CALL: Call sub_542050(*this, 2.967236, 2.967236, 1), a parameter setter on the new object. [callee:0x00542050, source:raw]
+    // CALL: Pass the source-data value at (this+0x4)+84 into SuspensionPhysicsParameterSet(*this, value). [callee:0x00542560, field:this:0x00000004, source:raw]
+    // CALL: Finalize the new object with sub_541CA0(*this, 1). [callee:0x00541CA0, source:raw]
+    // RETURN: Return 0 on the successful init path; the scan and validation failures return -1. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   count = *(a3+164); if (!count) { log(aNoReflectionMa); return -1; }
+    //   p = *(a3+168);
+    //   for (i = 0; i < count; p += 148, i++) {
+    //     if (!(*(p+96) & 0x800000)) continue;
+    //     if (!(*(p+64) & 2)) { log(aReflectionMapp); return -1; }
+    //     if (a2 != 2) { this[5] = 0; this[6] = 0; continue; }
+    //     this[1] = *(p+140); this[3] = 0;
+    //     *this = ConstructorInit(OperatorNewNhMallocWrapper(444));
+    //     SoundInstanceInit(*this, aRefview);
+    //     TwoFieldSetterCall(*this, 1065353216, 1148846080);
+    //     ColorPack(*this, 0, 0, 0);
+    //     sub_542050(*this, 2.967236, 2.967236, 1);
+    //     SuspensionPhysicsParameterSet(*this, *(this[1]+84));
+    //     sub_541CA0(*this, 1);
+    //     return 0;
+    //   }
+    //   log(aNoReflectionMa); return -1;
+    // UNRESOLVED: Field this+0x58 (read) does not appear in the raw decompiled body; purpose unknown.
+    // UNRESOLVED: Globals aReflectionMapp/aRefview/aNoReflectionMa are string literals; their exact contents are not shown in the packet.
+    // UNRESOLVED: The a2 argument semantics (a2 == 2 selects the full init path) are inferred from the control flow only.
+    // UNRESOLVED: Caller is LinkedListNodeAppenderWithLazyAllocation (0x00548D40); the caller-side invocation context is not analyzed here.
+}

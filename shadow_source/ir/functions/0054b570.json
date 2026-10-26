@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "address": "0x0054B570",
+  "proposed_name": "BuildSceneNodeTransformMatrix",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes a 4x4 world transform for a scene node. Optionally applies Euler-angle sign adjustments from a caller-supplied vector under flag bits 0x2000/0x100, rebuilds the rotation matrix from stored Euler angles when the dirty bit 0x20 is set, fills a selected 3x4 rotation-plus-translation buffer (scratch stack, alternate, or primary), sets the computed bit 0x40, updates the transform through TransformationMatrixUpdate, copies the primary matrix to a second slot, and clears dirty bits in a caller object. Returns 0 when the matrix was already computed, otherwise 1.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If the transform flags at this+60 (field 0x3C) have bits 0x2100 set, clear them via BitmaskClear(this, 64, 0, 0).",
+      "evidence_refs": ["field:this:0x0000003C", "callee:0x0054B330", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the computed bit 0x40 is already set in the transform flags (field 0x3C), return 0 immediately.",
+      "evidence_refs": ["field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "When the optional Euler vector a2 is present and flag 0x2000 is set, write PI minus a2[13] into the Y rotation angle field 0x30.",
+      "evidence_refs": ["field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Else, when flag 0x100 is set, also write the negated a2[12] and a2[14] into the X rotation angle field 0x2C and Z rotation angle field 0x34 respectively.",
+      "evidence_refs": ["field:this:0x0000002C", "field:this:0x00000034", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the needs-rebuild bit 0x20 is set in the flags (field 0x3C), clear that bit, rebuild the rotation matrix at this+108 from the Euler-angle fields 0x60/0x64/0x68 via EulerAngleToRotationMatrix, then propagate source fields 0x54/0x58/0x5C through MultiFieldSetter.",
+      "evidence_refs": ["field:this:0x0000003C", "field:this:0x00000060", "field:this:0x00000064", "field:this:0x00000068", "field:this:0x00000054", "field:this:0x00000058", "field:this:0x0000005C", "callee:0x0053B240", "callee:0x0053B200", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Select the output buffer: stack scratch when the low bit of the flags byte is set; otherwise the alternate buffer when the parent/alternate pointer field 0x40 is non-null; otherwise the primary buffer.",
+      "evidence_refs": ["field:this:0x0000003C", "field:this:0x00000040", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute sin/cos of the Euler angles at fields 0x2C/0x30/0x34 and fill the three rotation rows of the selected buffer; write the translation column from fields 0x20/0x24/0x28 and the constant 1065353216 as the homogeneous component. The matrix element computation reads the shared constant at global flt_59E660.",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000024", "field:this:0x00000028", "field:this:0x0000002C", "field:this:0x00000030", "field:this:0x00000034", "global:0x0059E660", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set the computed bit 0x40 in the transform flags at field 0x3C.",
+      "evidence_refs": ["field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Update the transformation matrix through TransformationMatrixUpdate(0).",
+      "evidence_refs": ["callee:0x0054B770", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Copy the first half of the computed 4x4 matrix (output-matrix fields 0x114..0x130) into the second matrix slot starting at field 0x154.",
+      "evidence_refs": ["field:this:0x00000114", "field:this:0x00000118", "field:this:0x0000011C", "field:this:0x00000120", "field:this:0x00000124", "field:this:0x00000128", "field:this:0x0000012C", "field:this:0x00000130", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Copy the second half of the computed 4x4 matrix (output-matrix fields 0x134..0x150) into the second matrix slot starting at field 0x154.",
+      "evidence_refs": ["field:this:0x00000134", "field:this:0x00000138", "field:this:0x0000013C", "field:this:0x00000140", "field:this:0x00000144", "field:this:0x00000148", "field:this:0x0000014C", "field:this:0x00000150", "field:this:0x00000154", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the caller object a3 is present, clear its dirty bits: *(a3 + 20) &= 0xDFFFFFD7.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 to signal a freshly computed transform.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int BuildSceneNodeTransformMatrix(int this, float *eulerAdjust, int caller) {",
+    "    if (*(int*)(this+60) & 0x2100) BitmaskClear((int*)this, 64, 0, 0);",
+    "    int flags = *(int*)(this+60);",
+    "    if (flags & 0x40) return 0;",
+    "    if (eulerAdjust) {",
+    "        if (flags & 0x2000) *(float*)(this+48) = 3.1415927f - eulerAdjust[13];",
+    "        else if (flags & 0x100) {",
+    "            *(float*)(this+48) = 3.1415927f - eulerAdjust[13];",
+    "            *(float*)(this+44) = -eulerAdjust[12];",
+    "            *(float*)(this+52) = -eulerAdjust[14];",
+    "        }",
+    "    }",
+    "    if (flags & 0x20) {",
+    "        *(int*)(this+60) = flags & 0xFFFFFFDF;",
+    "        EulerAngleToRotationMatrix(this+108, *(float*)(this+96), *(float*)(this+100), *(float*)(this+104));",
+    "        MultiFieldSetter((int*)(this+108), *(int*)(this+84), *(int*)(this+88), *(int*)(this+92));",
+    "    }",
+    "    // select scratch / alternate / primary buffer, fill 3 rotation rows from sin/cos of the",
+    "    // Euler angles at this+44/48/52, write translation from this+32/36/40, homogeneous 1065353216",
+    "    *(int*)(this+60) |= 0x40;",
+    "    TransformationMatrixUpdate(0);",
+    "    // copy the 16 dwords of the computed matrix into the second matrix slot at this+340",
+    "    if (caller) *(int*)(caller+20) &= 0xDFFFFFD7;",
+    "    return 1;",
+    "}"
+  ],
+  "unresolved": [
+    "Semantics of flag bits 0x2100, 0x2000 and 0x100 and of the buffer-selection state (scratch vs alternate vs primary) are inferred from raw source only; no external contract confirms them.",
+    "Field 0x40 is read only as a non-null selector; the alternate matrix at fields 0xD4-0x104 is not otherwise described by the packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

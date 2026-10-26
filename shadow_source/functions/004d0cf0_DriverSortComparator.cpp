@@ -1,0 +1,57 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004D0CF0
+// Canonical corpus name: DriverSortComparator
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/DriverSortComparator_004d0cf0.c
+
+void UnknownObject::DriverSortComparator()
+{
+    // qsort-style comparator for two drivers given as byte indices a1 and a2 into a per-driver entry array based at unk_5F070C with stride 18624 bytes. Entries with status dword 3 (retired marker) sort last; among non-3 entries a primary rank dword (index 2) is compared, then the status-1 (racing) subgroup compares a float time (index 33) while other statuses compare a secondary rank dword (index 3) and a float time (index 4). A shared tiebreaker on the dword at index 11 and a final pointer-order fallback break remaining ties. Returns -1/0/1 comparator convention.
+    // ASSIGNMENT: Dereference the driver byte indices a1/a2 and compute each entry base pointer: v2 = unk_5F070C + 18624 * *a1 and v4 = unk_5F070C + 18624 * *a2, then load each entry's status dword (DWORD index 12, byte offset 0x30) into v3 and v9. [field:this:0x00000000, global:0x005F070C, source:raw]
+    // GUARD: Both-retired case: when both statuses equal 3, compare the tiebreak dword at index 11 (byte offset 0x2C) of each entry; a smaller first value returns -1, otherwise fall to the pointer-order fallback. [source:raw]
+    // GUARD: Retired-versus-active ordering: if the first entry is status 3 and the second is not, return 1 (a1 sorts after a2); if the first is not status 3 and the second is, return -1 (a1 sorts before a2). [source:raw]
+    // GUARD: Primary rank comparison when both entries are non-3: compare the dword at index 2 (byte offset 0x08); a strictly smaller first value returns 1 (a1 sorts after a2), and a strictly larger one falls through to the later return -1. [source:raw]
+    // GUARD: Status-1 (racing) subgroup: when the first entry is status 1 and the second is not, return 1; when both are status 1, compare the float at index 33 (byte offset 0x84) and return -1 when the second time is greater, with equality going to the shared tiebreaker. [source:raw]
+    // GUARD: Other-status subgroup: when both statuses are non-1 and non-3, compare the dword at index 3 (byte offset 0x0C) then the float at index 4 (byte offset 0x10), returning 1 on a strictly smaller first value and -1 on a strictly greater one, with equality going to the shared tiebreaker. [source:raw]
+    // CALCULATION: Shared tiebreaker (LABEL_15): compare the dword at index 11 (byte offset 0x2C) of each entry; a strictly smaller first value returns -1, otherwise proceed to the pointer-order fallback. [source:raw]
+    // RETURN: Final fallback: return 1 when the tiebreak comparison marks the first entry greater, otherwise return -1 when the second entry pointer is greater, else return the pointer-order comparison (decompiler spells the last term as v4 < v3, see unresolved). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int DriverSortComparator(const unsigned __int8* a1, const unsigned __int8* a2) {
+    //     char* p1 = (char*)&unk_5F070C + 18624 * *a1;
+    //     char* p2 = (char*)&unk_5F070C + 18624 * *a2;
+    //     int st1 = *(DWORD*)(p1 + 0x30);
+    //     int st2 = *(DWORD*)(p2 + 0x30);
+    //     if (st1 == 3) {
+    //       if (st2 != 3) return 1;
+    //       if (*(DWORD*)(p1 + 0x2C) < *(DWORD*)(p2 + 0x2C)) return -1;
+    //       goto tiebreak;
+    //     }
+    //     if (st2 != 3) {
+    //       if (*(DWORD*)(p1 + 0x08) < *(DWORD*)(p2 + 0x08)) return 1;
+    //       if (*(DWORD*)(p1 + 0x08) > *(DWORD*)(p2 + 0x08)) return -1;
+    //       if (st1 == 1) {
+    //         if (st2 != 1) return 1;
+    //         if (*(float*)(p2 + 0x84) > *(float*)(p1 + 0x84)) return -1;
+    //         if (*(float*)(p2 + 0x84) >= *(float*)(p1 + 0x84)) goto tiebreak;
+    //         return 1;
+    //       }
+    //       if (st2 != 1) {
+    //       if (*(DWORD*)(p1 + 0x0C) < *(DWORD*)(p2 + 0x0C)) return 1;
+    //       if (*(DWORD*)(p1 + 0x0C) > *(DWORD*)(p2 + 0x0C)) return -1;
+    //         if (*(float*)(p2 + 0x10) < *(float*)(p1 + 0x10)) return -1;
+    //         if (*(float*)(p2 + 0x10) <= *(float*)(p1 + 0x10)) goto tiebreak;
+    //         return 1;
+    //       }
+    //     }
+    //     return -1;
+    //   tiebreak:
+    //     if (*(DWORD*)(p1 + 0x2C) > *(DWORD*)(p2 + 0x2C)) return 1;
+    //     if (p2 > p1) return -1;
+    //     return p2 < p1;
+    //   }
+    // UNRESOLVED: Exact meaning of the status enum (3 = retired, 1 = racing) is inferred from the existing_analysis prose, not from the raw source alone.
+    // UNRESOLVED: Meanings of the dwords at offsets 0x08, 0x0C, 0x2C and the floats at 0x10, 0x84 (position/rank/lap-time candidates) are unproven.
+    // UNRESOLVED: The decompiler's final line reads `return v4 < v3;`, comparing the second entry pointer against the first entry's status value; this is treated as a pointer-order tiebreaker, but the exact spelling is ambiguous.
+    // UNRESOLVED: The identity of the per-driver array based at unk_5F070C beyond its 18624-byte stride is unknown here.
+}

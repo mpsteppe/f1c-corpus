@@ -1,0 +1,33 @@
+char __thiscall sub_415BF0(_DWORD **this)
+{
+  int v2; // eax
+  char result; // al
+
+  switch ( (unsigned int)*this )
+  {
+    case 0xFFFFFFFF:
+    case 0u:
+    case 1u:
+    case 5u:
+      goto LABEL_5;
+    case 2u:
+    case 3u:
+      v2 = sub_40DCE0(this[1]);
+      this[35] = (_DWORD *)v2;
+      this[36] = (_DWORD *)v2;
+      this[37] = (_DWORD *)dword_91E078;
+      *this = (_DWORD *)4;
+      *((_BYTE *)this + 172) = 0;
+      goto LABEL_3;
+    case 4u:
+LABEL_3:
+      result = 1;
+      break;
+    default:
+      *this = (_DWORD *)-1;
+LABEL_5:
+      result = 0;
+      break;
+  }
+  return result;
+}

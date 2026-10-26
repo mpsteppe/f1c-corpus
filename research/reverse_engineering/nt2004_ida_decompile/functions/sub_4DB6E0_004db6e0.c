@@ -1,0 +1,60 @@
+int *__thiscall sub_4DB6E0(int **this)
+{
+  int *v1; // edx
+  int *result; // eax
+  bool v3; // zf
+  int v4; // ebx
+  int *v5; // esi
+  int *v6; // edx
+  void *v7; // edi
+
+  v1 = *this;
+  result = 0;
+  v3 = *this == 0;
+  this[2] = *this;
+  if ( !v3 )
+  {
+    v4 = *v1;
+    v3 = *v1 == 0;
+    *((_BYTE *)v1 + 8) = 0;
+    if ( v3 )
+      return 0;
+    v5 = *this;
+    if ( !*this )
+    {
+      return 0;
+    }
+    else
+    {
+      while ( *v5 != v4 )
+      {
+        result = v5;
+        v5 = (int *)v5[1];
+        if ( !v5 )
+          return 0;
+      }
+      if ( v5 == this[2] )
+        this[2] = (int *)v5[1];
+      v6 = (int *)v5[1];
+      if ( result )
+        result[1] = (int)v6;
+      else
+        *this = v6;
+      if ( this[1] == v5 )
+        this[1] = result;
+      this[3] = (int *)((char *)this[3] - 1);
+      if ( *((_BYTE *)v5 + 8) )
+      {
+        v7 = (void *)*v5;
+        if ( *v5 )
+        {
+          nullsub_6((void *)*v5);
+          sub_5BE8AE(v7);
+        }
+      }
+      sub_5BE8AE(v5);
+      return (int *)v4;
+    }
+  }
+  return result;
+}

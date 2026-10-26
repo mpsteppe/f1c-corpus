@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "address": "0x00583050",
+  "proposed_name": "DestroyLinkedListWithSEHCallDestructors",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Destroys a singly-linked list owned by this[0] (head, offset 0x0). Iterates over 12-byte nodes: reads each node's next pointer (node+4) before freeing, and when the node flag byte at node+8 is non-zero and the node data pointer (node+0) is non-null, calls the data object's virtual destructor/release through the vtable entry at vtable+4 with argument 1. Frees each node with FreeWrapper_7bcf (0x00587BCF). The destruction is SEH-protected via handler 0x0059CE08. Finally zeroes this[0]..this[3] (head, tail, iterator, node count).",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Loop guard: if the list head pointer *this (offset 0x0) is non-null enter the node-destruction loop; otherwise skip directly to zeroing the list fields.",
+      "evidence_refs": ["source:raw", "field:this:0x00000000"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the singly-linked list: capture the next node from the node's next-pointer field (node+4) before the current node is freed; the current node's first dword (offset 0x0) is its data pointer.",
+      "evidence_refs": ["source:raw", "field:*(obj+0x4):0x00000004", "field:obj:0x00000000"]
+    },
+    {
+      "kind": "guard",
+      "description": "Per-node flag check: if byte at node offset 0x8 is non-zero and the node's data pointer (offset 0x0) is non-null, invoke the data object's virtual destructor.",
+      "evidence_refs": ["source:raw", "field:obj:0x00000008", "field:obj:0x00000000"]
+    },
+    {
+      "kind": "call",
+      "description": "Indirect call through the data object's vtable entry at offset 0x4 (field *(*(obj+0x0)+0x0)) with argument 1 — virtual destructor/release of the node's data.",
+      "evidence_refs": ["source:raw", "field:*(*(obj+0x0)+0x0):0x00000004", "field:*(obj+0x0):0x00000000"]
+    },
+    {
+      "kind": "call",
+      "description": "Free the node via FreeWrapper_7bcf (0x00587BCF) after it has been processed.",
+      "evidence_refs": ["source:raw", "callee:0x00587BCF"]
+    },
+    {
+      "kind": "guard",
+      "description": "The node-destruction loop is compiled with SEH exception protection; the handler is registered at global 0x0059CE08.",
+      "evidence_refs": ["source:raw", "global:0x0059CE08"]
+    },
+    {
+      "kind": "assignment",
+      "description": "After the walk, zero the list bookkeeping fields this[0..3]: head at 0x0, tail at 0x4, iterator at 0x8, node count at 0xC.",
+      "evidence_refs": ["source:raw", "field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result of the last FreeWrapper_7bcf call (loop update expression).",
+      "evidence_refs": ["source:raw", "callee:0x00587BCF"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_583050(int* this) {",
+    "  int result;",
+    "  for (int i = *this; i; result = FreeWrapper_7bcf(v3)) {",
+    "    _BYTE* node = (_BYTE*)i;",
+    "    i = *(_DWORD*)(node + 4);",
+    "    if (node[8] && *(_DWORD*)node)",
+    "      (*(void (__thiscall**)(_DWORD, int))(**(_DWORD**)node + 4))(*(_DWORD*)node, 1);",
+    "  }",
+    "  *this = 0; this[1] = 0; this[2] = 0; this[3] = 0;",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Owner class of the linked-list object and the data object is unknown; node layout (12 bytes: data, next, flag byte) is inferred from this packet only.",
+    "Argument 1 to the vtable+4 call is assumed to mean a destroy/release mode, but its exact semantic is not proven by the packet.",
+    "FreeWrapper_7bcf wraps which underlying allocator is not established here."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

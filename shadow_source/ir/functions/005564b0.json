@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "address": "0x005564B0",
+  "proposed_name": "QueryPerformanceCounterWrapperWithModeDispatch",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Timer-mode dispatcher on a __thiscall timer object. Always returns 0. If the timer is initialized (first dword at offset 0x0 non-zero) it loads the mode flags dword at offset 0x48; when bit 0 is set it queries QueryPerformanceCounter and stores HighPart/LowPart into the caller-provided output pointers a2/a3; when bit 1 is set it fills those same outputs via RDTSCTimestampRead.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard on the timer object being initialized: read the first dword at offset 0x0; when it is zero, skip the mode dispatch and fall through to the final return of 0.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Load the timer mode flags dword at offset 0x48 (this[18]) into a working register.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Test mode bit 0 (flags & 1); when set, dispatch through the QueryPerformanceCounter path.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call QueryPerformanceCounter (import address at global 0x0059E23C) with a stack LARGE_INTEGER to receive the performance counter value.",
+      "evidence_refs": ["global:0x0059E23C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store PerformanceCount.HighPart into the caller-provided output pointer a2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store PerformanceCount.LowPart into the caller-provided output pointer a3.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 after the QueryPerformanceCounter branch.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Test mode bit 1 (flags & 2); when set, dispatch to the RDTSC path.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call RDTSCTimestampRead(a2, a3) to fill the output pointers from the CPU timestamp counter.",
+      "evidence_refs": ["callee:0x0055687B", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Final unconditional return of 0 when the timer is uninitialized or neither mode bit is set.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_5564B0(Obj *this, long *outHigh, unsigned long *outLow) {",
+    "  if (!this->field_0) return 0;",
+    "  unsigned flags = this->field_48;",
+    "  if (flags & 1) {",
+    "    LARGE_INTEGER c;",
+    "    QueryPerformanceCounter(&c);",
+    "    *outHigh = c.HighPart;",
+    "    *outLow = c.LowPart;",
+    "    return 0;",
+    "  }",
+    "  if (flags & 2) RDTSCTimestampRead(outHigh, outLow);",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "Purpose of the read of byte_FF00000000005406 is unknown; possibly processor feature flags the compiler folded into the mode decision.",
+    "Owner object behind `this` is unknown; only offsets 0x0 (initialized/frequency marker) and 0x48 (mode flags) are observed here."
+  ],
+  "unresolved_evidence_refs": ["global:0xFF00000000005406"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

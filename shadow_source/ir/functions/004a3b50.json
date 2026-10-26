@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "address": "0x004A3B50",
+  "proposed_name": "Camera",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Camera position/yaw update for a 3D object (vehicle/pit-crew camera). Reads the current camera state via RenderCallWithGuard into a float vector and retrieves a scene/camera record through sub_403640(dword_5EA2C0, ...). Depending on a mode field at record+300 (== 1), either tracks a target at record+272 (vector from target to base, optionally normalized, then clamped camera offset computed against the base orientation vectors and perturbed by a ring-buffer noise table flt_8AB274 indexed by dword_8AAE70), or applies a rotation-matrix camera transform (EulerToRotationMatrix) combined with noise. Yaw is computed with atan2. When the object's sound-source handle this[25] (this+0x64) is non-null, computes a bounding box, builds a spatial query against dbl_7C9360 (SpatialGridQuery) and adjusts the camera height on collision. Writes the final position/yaw back with Vec3CopyToStruct.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "RenderCallWithGuard(dword_7C54E8, &v37, v41) reads the current camera state vector into the local v37..v41 block.",
+      "evidence_refs": ["callee:0x004D1140", "global:0x007C54E8"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_403640(dword_5EA2C0, &v37, 0) resolves the scene/camera record for the camera position input.",
+      "evidence_refs": ["callee:0x00403640", "global:0x005EA2C0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the mode field at record+300 (dword index 75): == 1 selects the target-tracking path, otherwise the rotation-matrix path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the offset vector between the target at record+272 (dword index 68) and the record base (v23/v27/v29 = target - base, per component).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "When the squared offset magnitude is > 0, normalize the offset via 1/sqrt(dot).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v40 = dot of (camera position - base) with the normalized offset (view alignment).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute a clamped parameter v10 = dot(camera-base, base orientation +0x20..0x28) * 0.3, clamped to the [-2.75, 2.75] window.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Recompute the camera position v37/v38/v39 along the normalized offset scaled by v40 and the clamped orientation terms.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Apply per-frame noise jitter to v37/v39 from the ring buffer flt_8AB274, advancing the counter dword_8AAE70.",
+      "evidence_refs": ["global:0x008AAE70", "global:0x008AB274"]
+    },
+    {
+      "kind": "calculation",
+      "description": "When v10 < 0, flip the sign of the horizontal offset components v34/v36.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute yaw v17 = atan2(v36, v34) for the target-tracking path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Rotation-matrix path: EulerToRotationMatrix(v41, v45) builds a rotation matrix from the camera angles.",
+      "evidence_refs": ["callee:0x00566E40"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Rotation-matrix path: combine noise terms (v33/v26 from flt_8AB274) with the matrix rows to update v37/v38/v39 and compute yaw v17 via atan2.",
+      "evidence_refs": ["global:0x008AAE70", "global:0x008AB274"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the object's sound-source handle this[25] (this+0x64) is non-null, run the spatial collision query path.",
+      "evidence_refs": ["field:this:0x00000064"]
+    },
+    {
+      "kind": "call",
+      "description": "BoundingBoxComputation(v43) computes the bounding box of the offset vector.",
+      "evidence_refs": ["callee:0x004DD550"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Pack the spatial query: position v53[0..2] = current camera position, plus query fields v54..v59 (integers).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "SpatialGridQuery(dbl_7C9360, v53) queries the spatial grid at the camera position.",
+      "evidence_refs": ["callee:0x0044C4C0", "global:0x007C9360"]
+    },
+    {
+      "kind": "calculation",
+      "description": "On a grid hit, adjust the camera height v38 by (v58 - v41[4] - 0.08).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Assemble the yaw output block: v41[0] = 0, v41[1] = v16 - v17, v41[2] = 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return Vec3CopyToStruct(this, &v37, v41) which writes the computed position and yaw back to the camera object.",
+      "evidence_refs": ["callee:0x004A2800"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int Camera(_DWORD *this) {",
+    "  float cam[3]; int ang[5];",
+    "  RenderCallWithGuard(dword_7C54E8, cam, ang);",
+    "  float *rec = sub_403640(dword_5EA2C0, cam, 0);",
+    "  float pos[3], yaw;",
+    "  if (((_DWORD*)rec)[75] == 1) {",
+    "    float *tgt = (float*)((_DWORD*)rec)[68];",
+    "    float dx = tgt[0]-rec[0], dy = tgt[1]-rec[1], dz = tgt[2]-rec[2];",
+    "    float len = dx*dx+dy*dy+dz*dz;",
+    "    if (len > 0) { float s = 1/sqrt(len); dx*=s; dy*=s; dz*=s; }",
+    "    float align = (cam[0]-rec[0])*dx + (cam[1]-rec[1])*dy + (cam[2]-rec[2])*dz;",
+    "    float t = (dz*rec[10] + dy*rec[9] + dx*rec[8]) * 0.3;",
+    "    if (t < 0 || t >= 2.75) { if (t <= 0 && t > -2.75) t = -2.75; } else t = 2.75;",
+    "    pos[0] = t*rec[8] + rec[0] + dx*align;",
+    "    pos[1] = t*rec[9] + rec[1] + dy*align;",
+    "    pos[2] = t*rec[10] + rec[2] + dz*align;",
+    "    int idx = dword_8AAE70;",
+    "    pos[0] += flt_8AB274[(unsigned char)dword_8AAE70++] * 0.05;",
+    "    pos[2] += flt_8AB274[(unsigned char)dword_8AAE70++] * 0.05;",
+    "    if (t < 0) { dx = -dx; dz = -dz; }",
+    "    yaw = atan2(dz, dx);",
+    "  } else {",
+    "    float n0 = flt_8AB274[(unsigned char)dword_8AAE70++];",
+    "    float n1 = flt_8AB274[(unsigned char)dword_8AAE70++] * 0.1;",
+    "    float n2 = n0 * 0.1 - 6.0;",
+    "    float m[3][3]; EulerToRotationMatrix(ang, m);",
+    "    pos[0] = m[0][0]*n2 + n1*m[0][1] + cam[0];",
+    "    pos[1] = m[1][2]*n2 + m[1][1]*n1 + cam[1];",
+    "    pos[2] = m[2][2]*n2 + m[2][1]*n1 + cam[2];",
+    "    yaw = atan2(m[1][0], m[0][0] - 1.0);",
+    "  }",
+    "  int angOut[5] = { 0, *(int*)(&yaw), 0 };",
+    "  if (this[25]) {",
+    "    BoundingBoxComputation(pos);",
+    "    double q[3] = { pos[0], pos[1], pos[2] };",
+    "    if (SpatialGridQuery(dbl_7C9360, q)) pos[1] = v58 - *(float*)&ang[4] - 0.08;",
+    "  }",
+    "  return Vec3CopyToStruct(this, pos, angOut);",
+    "}"
+  ],
+  "unresolved": [
+    "The 16 global float/int constants in the packet (flt_59E43C, flt_59E440, flt_59E448, flt_59E670, flt_59E84C, flt_59E8B4, flt_59E940, flt_5ACB28, flt_5ACB2C, flt_5ACB30, dword_8ACEE0) do not appear in this function's source text; they are presumed read by callees or compiler-hoisted, semantics unknown.",
+    "Mode semantics of record+300 (dword index 75) and the target at record+272 are not grounded here.",
+    "The v58 result and v41[4] used in the spatial-grid height adjustment come from local stack fields whose producers are outside this packet's visible operations.",
+    "Record type returned by sub_403640 and the meaning of its base-orientation vectors are not established."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E448",
+    "global:0x0059E670",
+    "global:0x0059E84C",
+    "global:0x0059E8B4",
+    "global:0x0059E940",
+    "global:0x005ACB28",
+    "global:0x005ACB2C",
+    "global:0x005ACB30",
+    "global:0x008ACEE0",
+    "caller:0x004A00A0",
+    "caller:0x004A3910"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

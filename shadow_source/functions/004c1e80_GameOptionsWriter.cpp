@@ -1,0 +1,97 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C1E80
+// Canonical corpus name: GameOptionsWriter
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/GameOptionsWriter_004c1e80.c
+
+void UnknownObject::GameOptionsWriter()
+{
+    // Game-options and career-stats file parser. Gated on *a2 being non-zero, it loops over config tokens dispatched from the shared state object unk_8AC1E8 via ConditionalDispatchBasedOnFlag. Each token is classified with sub_5651B0; token kinds 1 and 4 stop the parse (return 0). The "Careerseason" section allocates and constructs a career-season state object (AudioSubsystemInitializer), reads it with CareerSeasonStateFileReader, wraps it in a 12-byte node, and appends it to a linked list owned by this (head this+0, tail this+4, tail-copy this+8, count this+12); on read failure the object is cleaned up and freed. The "Playertracksta" section delegates to PlayerCareerStatsGameOptionsLoader. Any other section falls through to a default key=value loader that fills the options struct at this+32..140 (totals/records, average floats via sub_58850F, mech-fail rate, race-condition and game-option settings). Called by FAILWRONGTRIAGECATEGORY (004C22A0).
+    // GUARD: Entry gate: parsing proceeds only while *a2 is non-zero (input data present); otherwise the whole body is skipped and 0 is returned. [source:raw]
+    // LOOP: Loop over config tokens: iterate while ConditionalDispatchBasedOnFlag(&unk_8AC1E8, 256) returns true (the dispatch state object still yields data); 256 is the token/buffer size argument. [callee:0x00566CC0, global:0x008AC1E8, source:raw]
+    // CALL: Classify the current token: v3 = sub_5651B0(&unk_8AC050); the shared token object unk_8AC050 supplies the line being classified. [callee:0x005651B0, global:0x008AC050, source:raw]
+    // CALCULATION: v4 = v3 - 1; re-bases the classifier result so kinds 1 and 4 become 0 and 3 for one compact branch test. [source:raw]
+    // GUARD: When the classifier returns 1 or 4 (v4 == 0 or v4 == 3) the token is a section/end-of-data marker: stop parsing and return 0 immediately. [source:raw]
+    // CALL: Dispatch: sub_587C20(&unk_8AC1E8, aCareerseason) tests whether the current token names the career-season section; non-zero selects the career-state path. [callee:0x00587C20, global:0x008AC1E8, global:0x005D2B28, source:raw]
+    // CALL: Allocate the career-season state object: v6 = OperatorNewNhMallocWrapper(45396). [callee:0x00587C03, source:raw]
+    // CALL: Construct the state object: if v6 is non-null, v7 = AudioSubsystemInitializer(v6), else v7 = 0 (allocation failure yields a null object). [callee:0x004C0AB0, source:raw]
+    // CALL: Read career-season state from the input into v7: CareerSeasonStateFileReader((int)v7, a2); non-zero result selects the success path, zero the cleanup path. [callee:0x004C0B70, source:raw]
+    // CALL: Allocate a 12-byte list node: v8 = OperatorNewNhMallocWrapper(12); on allocation failure v8 is forced to 0. [callee:0x00587C03, source:raw]
+    // ASSIGNMENT: Initialize node v8: v8[0] = v7 (pointer to the parsed state), v8[4] = 0 (next link), v8[8] = 1 (valid/active flag). Layout grounded in raw source only. [source:raw]
+    // STATE_TRANSITION: Append the node to the career-state linked list owned by this: if head (this+0) is non-null link the current tail's next pointer (*(this+4)+4) to v8; otherwise set head (this+0) and tail-copy (this+8) to v8; then set tail (this+4) = v8 and increment the entry count (this+12). [field:this:0x00000000, field:this:0x00000004, field:*(this+0x4):0x00000004, field:this:0x00000008, field:this:0x0000000C, source:raw]
+    // CALL: On failed parse with a live object: PitStopMemoryCleanup(v7) releases the state, then FreeWrapper_7bcf(v7) frees the allocation. [callee:0x004C0B10, callee:0x00587BCF, source:raw]
+    // CALL: Dispatch: sub_587C20(&unk_8AC1E8, aPlayertracksta) tests whether the token names the player-track-stats section. [callee:0x00587C20, global:0x008AC1E8, global:0x005D2B14, source:raw]
+    // CALL: Load player career stats into the options struct: PlayerCareerStatsGameOptionsLoader((float*)this, a2). [callee:0x004C18B0, source:raw]
+    // CALL: Default section - integer totals/records: sub_565760 parses aAbortedseasons..aTotallaprecord into this+32..64. Fact-listed offsets correspond to total races with (44), points scored (48), championships (4C), wins (50), poles (54). [global:0x005D2B04, global:0x005D2AF8, global:0x005D2AEC, global:0x005D2AD8, global:0x005D2AC4, global:0x005D2AB0, global:0x005D2AA4, global:0x005D2A98, global:0x005D2A88, callee:0x00565760, field:this:0x00000044, field:this:0x00000048, field:this:0x0000004C, field:this:0x00000050, field:this:0x00000054, source:raw]
+    // CALL: Default section - average floats: for each of aAvgstartpositi, aAvgfinishposit, aAvgracedistanc, aAvgopponentstr, sub_565520 fills the 256-byte token buffer v10; on success the buffer is converted by sub_58850F(v10) and stored as a float at this+68/72/76/80 (68 and 6C are fact-listed fields). [global:0x005D2A74, global:0x005D2A60, global:0x005D2A50, global:0x005D2A3C, callee:0x00565520, callee:0x0058850F, field:this:0x00000068, field:this:0x0000006C, source:raw]
+    // CALL: Default section - mechanical failure rate: sub_565760(aMechfailRate, &v9, ...) parses into scratch v9; on success store v9 into this+84. [global:0x005D2A2C, callee:0x00565760, source:raw]
+    // CALL: Default section - race-condition integer settings: sub_565760 parses aRacecondReconn, aRacecondWalkth, aRacecondFormat, aRacecondFlagRu into this+88..100. [global:0x005D2A14, global:0x005D29FC, global:0x005D29E8, global:0x005D29D4, callee:0x00565760, source:raw]
+    // CALL: Default section - weather: sub_565760(aRacecondWeathe, &v9, ...) parses into scratch v9; on success store v9 into this+104. [global:0x005D29C0, callee:0x00565760, source:raw]
+    // CALL: Default section - time scale: sub_565760(aRacecondTimesc, &v9, ...) parses into scratch v9; on success store (v9 != 0) as a byte flag into this+108. [global:0x005D29A4, callee:0x00565760, source:raw]
+    // CALL: Default section - game-option settings: sub_565760 parses aGameoptQualify, aGameoptRaceLap, aGameoptRaceTim, aGameoptOpponen, aGameoptFuelMul, aGameoptTireMul, aGameoptSpeedCo and the extended loader sub_565870 parses aGameoptRaceLen, writing into this+112..140. [global:0x005D298C, global:0x005D2978, global:0x005D2964, global:0x005D2950, global:0x005D293C, global:0x005D2928, global:0x005D2914, global:0x005D2900, callee:0x00565760, callee:0x00565870, source:raw]
+    // RETURN: Return 0 on the end-of-loop path (and on the section-marker early exit); the function returns success/failure status and does not modify a2. [function:0x004C1E80, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (*a2 == 0) return 0;
+    //   while (ConditionalDispatchBasedOnFlag(&unk_8AC1E8, 256)) {
+    //       lineKind = sub_5651B0(&unk_8AC050);
+    //       if (lineKind != 0) {
+    //           if (lineKind == 1 || lineKind == 4) return 0;
+    //       } else if (sub_587C20(&unk_8AC1E8, aCareerseason)) {
+    //           raw = OperatorNewNhMallocWrapper(45396);
+    //           state = raw ? AudioSubsystemInitializer(raw) : 0;
+    //           if (CareerSeasonStateFileReader(state, a2)) {
+    //               if (state) {
+    //                   node = OperatorNewNhMallocWrapper(12);
+    //                   if (node) { node[0] = state; node[1] = 0; node[2] = 1; }
+    //                   else node = 0;
+    //                   if (this[0]) { this[1][1] = node; }
+    //                   else { this[0] = node; this[2] = node; }
+    //                   this[1] = node;
+    //                   ++this[3];
+    //               }
+    //           } else if (state) {
+    //               PitStopMemoryCleanup(state);
+    //               FreeWrapper_7bcf(state);
+    //           }
+    //       } else if (sub_587C20(&unk_8AC1E8, aPlayertracksta)) {
+    //           PlayerCareerStatsGameOptionsLoader(this, a2);
+    //       } else {
+    //           sub_565760(aAbortedseasons, this + 32, 0, 0, 0);
+    //           sub_565760(aTotallaps, this + 36, 0, 0, 0);
+    //           sub_565760(aTotalraces, this + 40, 0, 0, 0);
+    //           sub_565760(aTotalraceswith, this + 44, 0, 0, 0);
+    //           sub_565760(aTotalpointssco, this + 48, 0, 0, 0);
+    //           sub_565760(aTotalchampions, this + 52, 0, 0, 0);
+    //           sub_565760(aTotalwins, this + 56, 0, 0, 0);
+    //           sub_565760(aTotalpoles, this + 60, 0, 0, 0);
+    //           sub_565760(aTotallaprecord, this + 64, 0, 0, 0);
+    //           if (sub_565520(aAvgstartpositi, v10, 0)) this[17] = sub_58850F(v10);
+    //           if (sub_565520(aAvgfinishposit, v10, 0)) this[18] = sub_58850F(v10);
+    //           if (sub_565520(aAvgracedistanc, v10, 0)) this[19] = sub_58850F(v10);
+    //           if (sub_565520(aAvgopponentstr, v10, 0)) this[20] = sub_58850F(v10);
+    //           if (sub_565760(aMechfailRate, &v9, 0, 0, 0)) this[21] = v9;
+    //           sub_565760(aRacecondReconn, this + 88, 0, 0, 0);
+    //           sub_565760(aRacecondWalkth, this + 92, 0, 0, 0);
+    //           sub_565760(aRacecondFormat, this + 96, 0, 0, 0);
+    //           sub_565760(aRacecondFlagRu, this + 100, 0, 0, 0);
+    //           if (sub_565760(aRacecondWeathe, &v9, 0, 0, 0)) this[26] = v9;
+    //           if (sub_565760(aRacecondTimesc, &v9, 0, 0, 0)) this[27] = (v9 != 0);
+    //           sub_565760(aGameoptQualify, this + 112, 0, 0, 0);
+    //           sub_565760(aGameoptRaceLap, this + 116, 0, 0, 0);
+    //           sub_565760(aGameoptRaceTim, this + 120, 0, 0, 0);
+    //           sub_565870(aGameoptRaceLen, this + 124, 0, 0, 0, 0, 0, 0, 0);
+    //           sub_565760(aGameoptOpponen, this + 128, 0, 0, 0);
+    //           sub_565760(aGameoptFuelMul, this + 132, 0, 0, 0);
+    //           sub_565760(aGameoptTireMul, this + 136, 0, 0, 0);
+    //           sub_565760(aGameoptSpeedCo, this + 140, 0, 0, 0);
+    //       }
+    //   }
+    //   return 0;
+    // UNRESOLVED: Semantics of the dispatch objects unk_8AC050 and unk_8AC1E8 are unknown; only their read-only use here is evidenced.
+    // UNRESOLVED: Type of *a2 is unknown; the non-zero guard plus CareerSeasonStateFileReader((int)v7, a2) suggest a file/reader handle, unproven.
+    // UNRESOLVED: Meaning of sub_5651B0 results other than 1 and 4 (including the zero/fallthrough path) is unverified; only the 1/4 early-exit is evidenced.
+    // UNRESOLVED: The options fields at this+32..140 and the v8 node layout (offsets 0/4/8) are grounded in raw source only, not in the deterministic fact table.
+    // UNRESOLVED: Whether unk_8AC1E8 is the same object handed to sub_587C20 for prefix matching is inferred from the shared first argument; not separately verified.
+    // UNRESOLVED: The integer vs float storage width of the this+32..140 fields is taken from Hex-Rays types in the raw source and is not independently confirmed.
+}

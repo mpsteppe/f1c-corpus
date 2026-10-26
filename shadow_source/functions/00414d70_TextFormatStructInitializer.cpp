@@ -1,0 +1,37 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00414D70
+// Canonical corpus name: TextFormatStructInitializer_4d70
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TextFormatStructInitializer_4d70_00414d70.c
+
+void UnknownObject::TextFormatStructInitializer()
+{
+    // Resets a text-format struct: before each of eight slot blocks the global string buffer byte_5EA438 is reinitialized via StringCopyWithBufferRealloc, then each slot block has its two dword fields set to -1 and its byte field cleared to 0. Slots 0 through 7 are written through the this pointer (offsets 0x8..0x94); after the pointer advances by 152 bytes a final block is written with the same -1/-1/0 pattern. Returns the result of the last StringCopyWithBufferRealloc call.
+    // CALL: Reinitialize the global string buffer byte_5EA438 via StringCopyWithBufferRealloc before each slot block; the final call's return value becomes the function result. [callee:0x00566650, global:0x005EA438, source:raw]
+    // ASSIGNMENT: Reset slot block 0: set dword fields 0x8 and 0xC to -1 and clear byte field 0x10 to 0. [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010]
+    // ASSIGNMENT: Reset slot block 1: set dword fields 0x14 and 0x18 to -1 and clear byte field 0x1C to 0. [field:this:0x00000014, field:this:0x00000018, field:this:0x0000001C]
+    // ASSIGNMENT: Reset slot block 2: set dword fields 0x28 and 0x2C to -1 and clear byte field 0x30 to 0. [field:this:0x00000028, field:this:0x0000002C, field:this:0x00000030]
+    // ASSIGNMENT: Reset slot block 3: set dword fields 0x3C and 0x40 to -1 and clear byte field 0x44 to 0. [field:this:0x0000003C, field:this:0x00000040, field:this:0x00000044]
+    // ASSIGNMENT: Reset slot block 4: set dword fields 0x50 and 0x54 to -1 and clear byte field 0x58 to 0. [field:this:0x00000050, field:this:0x00000054, field:this:0x00000058]
+    // ASSIGNMENT: Reset slot block 5: set dword fields 0x64 and 0x68 to -1 and clear byte field 0x6C to 0. [field:this:0x00000064, field:this:0x00000068, field:this:0x0000006C]
+    // ASSIGNMENT: Reset slot block 6: set dword fields 0x78 and 0x7C to -1 and clear byte field 0x80 to 0. [field:this:0x00000078, field:this:0x0000007C, field:this:0x00000080]
+    // ASSIGNMENT: Reset slot block 7 through base pointer this+132: set dword fields 0x8C and 0x90 to -1 and clear byte field 0x94 to 0. [field:this:0x0000008C, field:this:0x00000090, field:this:0x00000094]
+    // CALCULATION: Advance the this pointer by 152 bytes before writing the final block. [source:raw]
+    // ASSIGNMENT: Write the trailing block with the same -1/-1/0 pattern; its effective offsets (160/164/168) are absent from the deterministic field list. [source:raw]
+    // RETURN: Return the result of the final StringCopyWithBufferRealloc call. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   void TextFormatStructInitializer(this) {
+    //     for each slot block 0..7:
+    //       StringCopyWithBufferRealloc(&byte_5EA438);
+    //       this->slot.k = -1; this->slot.j = -1; this->slot.flag = 0;
+    //     this += 152;
+    //     StringCopyWithBufferRealloc(&byte_5EA438);
+    //     write trailing block with -1/-1/0;
+    //     return result_of_last_string_reinit;
+    //   }
+    // UNRESOLVED: Owner type and struct layout (text-format slot array) are unconfirmed; slots appear as (dword, dword, byte) triples.
+    // UNRESOLVED: Purpose of the global byte_5EA438 path-string reinitialization is unknown.
+    // UNRESOLVED: Whether the trailing block at effective offsets 160/164/168 belongs to the same slot array is unverified; those offsets are not in the deterministic field list.
+    // UNRESOLVED: The -1 sentinel value semantics and the meaning of the per-slot byte flag are unknown.
+}

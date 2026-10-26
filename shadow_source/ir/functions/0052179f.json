@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "address": "0x0052179F",
+  "proposed_name": "F_3DVectorBlend",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["source:raw"]
+  },
+  "summary": "Blends two vector pairs into an output vector using SIMDVectorNormalization with a smoothness weighting. First normalizes/combines (a2, a5) into temporary v8 and (a3, a4) into temporary v9 using factor a6; then computes a per-lane coefficient from a6 as 2.0 * (a6 - a6*a6) using the packed constant 0x4000000040000000LL (two 2.0f floats, backed by qword_5AF908), and performs a final SIMDVectorNormalization of v8 and v9 into a1 with that coefficient. Flushes the MMX state (_m_femms) before returning.",
+  "local_names": {
+    "v8": "first normalized/combined intermediate",
+    "v9": "second normalized/combined intermediate",
+    "v6": "scalar blend coefficient derived from a6",
+    "a6": "blend factor (unsigned int)"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Call SIMDVectorNormalization(v8, a2, a5, a6) to produce the first intermediate vector v8 from inputs a2 and a5 under factor a6.",
+      "evidence_refs": ["callee:0x005215DB", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call SIMDVectorNormalization(v9, a3, a4, a6) to produce the second intermediate vector v9 from inputs a3 and a4 under factor a6.",
+      "evidence_refs": ["callee:0x005215DB", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the blend coefficient per lane as 2.0 * (a6 - a6*a6): _m_pfsub(a6, _m_pfmul(a6, a6)) multiplied by the packed constant 0x4000000040000000LL (two 2.0f floats) loaded from qword_5AF908; a6 is moved into 64-bit SIMD lanes via _mm_cvtsi32_si64.",
+      "evidence_refs": ["source:raw", "global:0x005AF908"]
+    },
+    {
+      "kind": "call",
+      "description": "Call SIMDVectorNormalization(a1, v8, v9, coefficient) to combine the two intermediates into the final output vector stored at a1.",
+      "evidence_refs": ["callee:0x005215DB", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Flush the MMX/SIMD state with _m_femms() and return the pointer to the output at a1.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v8 = SIMDVectorNormalization(a2, a5, a6);",
+    "v9 = SIMDVectorNormalization(a3, a4, a6);",
+    "coef = packed2(2.0) * (a6 - a6*a6);",
+    "out = SIMDVectorNormalization(v8, v9, coef);",
+    "_m_femms();",
+    "return out;"
+  ],
+  "unresolved": [
+    "Exact semantics of SIMDVectorNormalization's fourth argument (how the factor/coefficient affects the combine) are unknown; only the call shape is visible in this function.",
+    "Purpose of the two-stage structure (pair-wise combination followed by a weighted combine) is inferred from argument order and the a6-derived coefficient; not confirmed.",
+    "No existing analysis or fill for this function; owner and subsystem remain unverified."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

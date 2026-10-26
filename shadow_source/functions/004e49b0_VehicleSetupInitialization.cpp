@@ -1,0 +1,51 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004E49B0
+// Canonical corpus name: VehicleSetupInitialization
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VehicleSetupInitialization_004e49b0.c
+
+void UnknownObject::VehicleSetupInitialization()
+{
+    // Per-frame setup/rendering snapshot copy. Copies vehicle dynamics state from global physics globals into a local setup struct: runs TransformApply3D to produce a steering-geometry result, copies the 3x3 orientation matrix, computes pitch/roll angles with a gimbal-lock guarded atan2, copies world position, computes camera-projection rows and a 4-entry camera-data copy loop from unk_7C7918, averages suspension deflections by a mode field, and finishes with camera scale/offset calculations. Returns the physics-global base pointer.
+    // CALL: TransformApply3D(dword_7C8A18+28, dword_7C8A18+4, dbl_7C8A24, v24) computes the steering-geometry result into the v24 scratch buffer. [callee:0x0043AEE0, global:0x007C8A18, global:0x007C8A24]
+    // ASSIGNMENT: Write the TransformApply3D result v24[0..2] into this+0x34D4, this+0x34D8, this+0x34DC (steering geometry result X/Y/Z). [field:this:0x000034D4, field:this:0x000034D8, field:this:0x000034DC]
+    // LOOP: Copy 9 doubles (72 bytes) from dword_7C8A18+28 into the orientation matrix at this+0x34B0.. (9 doubles = 18 floats covering the matrix rows). [global:0x007C8A18, field:this:0x000034B0, field:this:0x000034B4, field:this:0x000034B8, field:this:0x000034BC, field:this:0x000034C0, field:this:0x000034C4, field:this:0x000034C8, field:this:0x000034CC, field:this:0x000034D0]
+    // CALCULATION: FloatConvertWrapper(this+0x34B0 area); then store this+0x34E0 = -(float)(this+0x34C4), negating the m21 matrix element. [callee:0x00588570, field:this:0x000034E0, field:this:0x000034C4]
+    // GUARD: Gimbal-lock check: if fabs(this+0x34C4) == 1.0 take the locked branch (pitch/roll from one pair), else the general branch. [field:this:0x000034C4]
+    // CALCULATION: Gimbal-lock branch: this+0x34E4 = atan2(-(float)(this+0x34C8), (float)(this+0x34B0)); this+0x34E8 = 0. [field:this:0x000034E4, field:this:0x000034E8, field:this:0x000034C8, field:this:0x000034B0]
+    // CALCULATION: General branch: this+0x34E4 = atan2(this+0x34B8, this+0x34D0); this+0x34E8 = atan2(this+0x34BC, this+0x34C0). [field:this:0x000034E4, field:this:0x000034E8, field:this:0x000034B8, field:this:0x000034D0, field:this:0x000034BC, field:this:0x000034C0]
+    // ASSIGNMENT: qmemcpy 0x18 bytes from dword_7C8A18+100 into v24; write v24[0..2] into this+0x34EC, this+0x34F0, this+0x34F4 (vehicle world position X/Y/Z). [global:0x007C8A18, field:this:0x000034EC, field:this:0x000034F0, field:this:0x000034F4]
+    // CALCULATION: this+0x34F8 = dot product of orientation row (this+0x34B0, this+0x34BC, this+0x34C8) with world position (this+0x34EC, this+0x34F0, this+0x34F4). [field:this:0x000034F8, field:this:0x000034B0, field:this:0x000034BC, field:this:0x000034C8, field:this:0x000034EC, field:this:0x000034F0, field:this:0x000034F4]
+    // CALCULATION: Second dot product: this+0x34FC = this+0x34B4*this+0x34F4 + this+0x34CC*this+0x34F8 + this+0x34C0*this+0x34F0; this+0x3500 = this+0x34B8*this+0x34F4 + this+0x34D0*this+0x34F8 + this+0x34C4*this+0x34F0. [field:this:0x000034FC, field:this:0x00003500, field:this:0x000034B4, field:this:0x000034CC, field:this:0x000034C0, field:this:0x000034B8, field:this:0x000034D0, field:this:0x000034C4]
+    // CALCULATION: Camera vector transform: v24[0..2] = matrix*vector terms from dword_7C8A18 offsets (76,52,124)x(140,132,28), (84,60,36)x(140,132,124), (92,68,44)x(140,132,124); write into this+0x3504, this+0x3508, this+0x350C. [global:0x007C8A18, field:this:0x00003504, field:this:0x00003508, field:this:0x0000350C]
+    // LOOP: 4-iteration copy from unk_7C7918 (source stride 1124 bytes) into this, writing six fields per iteration; the stride-248 destination writes land on this+0x35B0, this+0x36A8, this+0x37A0, this+0x3898 (per-wheel/corner camera data). [global:0x007C7918, field:this:0x000035B0, field:this:0x000036A8, field:this:0x000037A0, field:this:0x00003898]
+    // CALCULATION: Suspension-ride-height average selected by this+0x39B4: mode 0 -> this+0x3964 = (this+0x3898 + this+0x37A0)*0.5; mode 1 -> (this+0x36A8 + this+0x35B0)*0.5; mode 2 -> (this+0x3898 + this+0x37A0 + this+0x36A8 + this+0x35B0)*0.25. [field:this:0x000039B4, field:this:0x00003964, field:this:0x00003898, field:this:0x000037A0, field:this:0x000036A8, field:this:0x000035B0]
+    // ASSIGNMENT: this+0x39F0 = dword_7C9318 (global value copied verbatim). [field:this:0x000039F0, global:0x007C9318]
+    // CALCULATION: Clamp dbl_7C9084 into [0.0, dbl_7C911C] and store into this+0x3994. [global:0x007C9084, global:0x007C911C, field:this:0x00003994]
+    // ASSIGNMENT: this+0x3570 = dbl_7C7430; this+0x3574 = dbl_7C74AC * dbl_7C7428; this+0x3578 = dbl_7C7438. [field:this:0x00003570, field:this:0x00003574, field:this:0x00003578, global:0x007C7430, global:0x007C74AC, global:0x007C7428, global:0x007C7438]
+    // GUARD: If dbl_7C91DC <= 0.0: when this+0x3D64 >= 0.0 set it to -1.0, then this+0x3D48 = dbl_7C920C, this+0x3D4C = dbl_7C9214, this+0x3D50 = dbl_7C921C. [global:0x007C91DC, field:this:0x00003D64, field:this:0x00003D48, field:this:0x00003D4C, field:this:0x00003D50, global:0x007C920C, global:0x007C9214, global:0x007C921C]
+    // CALCULATION: this+0x3978 = dbl_7C75C4; this+0x3514 = dbl_7C75C4*0.75 + (float)(this+0x3510); this+0x3518 = 1.0 / this+0x3514. [global:0x007C75C4, field:this:0x00003978, field:this:0x00003514, field:this:0x00003510, field:this:0x00003518]
+    // CALCULATION: Final camera transform: matrix rows from dword_7C8A18 offsets (76,52,28)x(324,316,308), (36,84,60)x(308,324,316), (44,92,68)x(308,324,316), scaled by dword_7C8A18+180; write into this+0x3540, this+0x3544, this+0x3548, then dot products into this+0x3534, this+0x3538, this+0x353C. [global:0x007C8A18, field:this:0x00003540, field:this:0x00003544, field:this:0x00003548, field:this:0x00003534, field:this:0x00003538, field:this:0x0000353C]
+    // RETURN: Return the physics-global base pointer dword_7C8A18 as result. [global:0x007C8A18, source:raw]
+
+    // Conservative worker pseudocode:
+    //   TransformApply3D(phys+28, phys+4, dbl_7C8A24, v24);
+    //   this[0x34D4..0x34DC] = v24[0..2];
+    //   for (i = 0; i < 72; i += 8) *matPtr++ = *(double*)(phys + 28 + i);  // 9 doubles -> orientation matrix
+    //   this[0x34E0] = -(float)this[0x34C4];
+    //   if (fabs((float)this[0x34C4]) == 1.0) { this[0x34E4] = atan2(-(float)this[0x34C8], (float)this[0x34B0]); this[0x34E8] = 0; }
+    //   else { this[0x34E4] = atan2((float)this[0x34B8], (float)this[0x34D0]); this[0x34E8] = atan2((float)this[0x34BC], (float)this[0x34C0]); }
+    //   memcpy(v24, phys+100, 0x18); this[0x34EC..0x34F4] = v24[0..2];
+    //   this[0x34F8..0x3500] = dot rows (orientation x position);
+    //   v24[0..2] = matMul(phys); this[0x3504..0x350C] = v24[0..2];
+    //   // 4-iteration camera copy from unk_7C7918 stride 1124 -> this stride 248
+    //   this[0x3964] = rideHeightAverage(selected by this[0x39B4]);
+    //   this[0x39F0] = dword_7C9318; this[0x3994] = clamp(dbl_7C9084, 0.0, dbl_7C911C);
+    //   this[0x3570] = dbl_7C7430; this[0x3574] = dbl_7C74AC * dbl_7C7428; this[0x3578] = dbl_7C7438;
+    //   if (dbl_7C91DC <= 0.0) { if (this[0x3D64] >= 0.0) this[0x3D64] = -1.0; this[0x3D48..0x3D50] = dbl_7C920C/0x7C9214/0x7C921C; }
+    //   this[0x3978] = dbl_7C75C4; this[0x3514] = dbl_7C75C4*0.75 + this[0x3510]; this[0x3518] = 1.0 / this[0x3514];
+    //   // final camera matrix multiply -> this[0x3540..0x3548], then dot -> this[0x3534..0x353C]
+    //   return dword_7C8A18;
+    // UNRESOLVED: The read-only float globals dbl_59E420, dbl_59E430, flt_59E43C, flt_59E440, flt_59E450, flt_59E7F8, flt_59E7FC have no visible use in the decompiled body; they are likely consumed indirectly by TransformApply3D/FloatConvertWrapper or belong to omitted table setup.
+    // UNRESOLVED: Semantic names for the many RW fields (0x3534-0x3548 camera transform, 0x3D48-0x3D64, 0x34F8-0x3500 dot rows) were not in the packet; they are left as offsets.
+}

@@ -1,0 +1,1913 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_005_generic_runtime_objects_25",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Container, timing, synchronization and dispatch primitives shared across startup, thread and network paths: SEH-managed singly-linked-list containers with 12-byte nodes, a high-resolution QueryPerformanceCounter timer object, mutex-gated state, guarded static-init scaffolding, and vtable-slot dispatch helpers for worker/trigger objects.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "abi:lead",
+      "function:0x00582FD0",
+      "function:0x00583660",
+      "function:0x00585EA0",
+      "function:0x00585BF0",
+      "source:raw"
+    ]
+  },
+  "summary": "This scope covers generic runtime infrastructure rather than domain gameplay. The strongest structural signal is a repeated singly-linked-list idiom: a 16-byte control block (head@+0x0, tail@+0x4, cursor@+0x8, count@+0xC) over 12-byte nodes (data@+0x0, next@+0x4, owns-data flag@+0x8), destroyed by a family of SEH-protected walkers that run a callback on flagged data before freeing it (0x00582FD0, 0x005833E0, 0x00585FB0, 0x00586240, 0x00586170), a variant that releases via the data object's vtable slot +4 (0x00583050), a block-releasing variant driven by NTimeCallbackLoopWithSEH (0x00583570), plus node removal (0x00583430) and node append (0x00586000). A second thread around a high-resolution timer object (float value@+0x0, QPC double base@+0x4) is evidenced by 0x00583660, 0x00583680 and 0x00583690 calling the QPC helpers 0x00568C60/0x00568CF0/0x00568D90. Synchronization appears as a mutex pair/list initializer (0x00585EA0), a 1 ms mutex flush/yield gate (0x005840D0, mutex at this+0xD4) and guarded OS-handle close slots inside a large complex object destroyed by 0x00583AE0 and whose node pool is managed by 0x00584130 (with the dual-list sub-object built by 0x00586320). Loose virtual dispatch helpers (0x005853B0, 0x00585400, 0x00585BF0) route work through fixed vtable slots; 0x00585BF0 is the only function whose owner the packet classifies DERIVED (TriggerDispatcher). Everything else in this packet carries an UNKNOWN owner, so every class here is a DERIVED/GUESS grouping justified by shared offsets, shared callees and shared control flow, never by proven identity.",
+  "function_roles": [
+    {
+      "address": "0x00582FD0",
+      "role": "Destroy the linked list: for each node with the flag byte set, run SEHGuardedFunctionWithExceptionHandling on the node data, free the data when non-null, free the node, then clear head/tail/iterator/count and return 0.",
+      "owner": "SinglyLinkedList",
+      "evidence_refs": [
+        "function:0x00582FD0",
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "global:0x0059CDE8",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583050",
+      "role": "Destroy the linked list: for each flagged node with non-null data, invoke the data object's virtual release at vtable+4 with argument 1, free the node via FreeWrapper_7bcf, under SEH handler 0x0059CE08, then zero head/tail/iterator/count.",
+      "owner": "SinglyLinkedList",
+      "evidence_refs": [
+        "function:0x00583050",
+        "callee:0x00587BCF",
+        "global:0x0059CE08",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000008",
+        "field:*(*(obj+0x0)+0x0):0x00000004",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005833E0",
+      "role": "Destroy the linked list (SEH-cleanup variant): free flagged node data via the SEH-guarded callback then FreeWrapper_7bcf, free every node, zero the container fields and return 0; called by 0x00583AE0.",
+      "owner": "SinglyLinkedList",
+      "evidence_refs": [
+        "function:0x005833E0",
+        "abi:lead",
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583430",
+      "role": "Remove the first node whose data pointer matches the key; fix up head/tail/cursor/count, optionally clear the node flag, run the SEH-guarded cleanup on flagged data, free data and node; called by the network packet queue reader path.",
+      "owner": "SinglyLinkedList",
+      "evidence_refs": [
+        "function:0x00583430",
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "field:obj:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583570",
+      "role": "Destroy the linked list (block-release variant): for each flagged node, run NTimeCallbackLoopWithSEH over the data block with entry size 4156, count read from block-4 and the EmptyStub_aa60 callback, then free block and node; zero the four container dwords.",
+      "owner": "SinglyLinkedList",
+      "evidence_refs": [
+        "function:0x00583570",
+        "abi:lead",
+        "callee:0x0058A5F7",
+        "callee:0x00587BCF",
+        "global:0x0047AA60",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000008",
+        "field:*(obj+0x0):0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583660",
+      "role": "Store the value parameter into the object's first dword and reset the high-precision timer sub-object at this+4 via TimerResetUsingQueryPerformanceCounter; called by timer-init and thread-resume paths.",
+      "owner": "HiResTimer",
+      "evidence_refs": [
+        "function:0x00583660",
+        "abi:lead",
+        "callee:0x00568C60",
+        "caller:0x005835F0",
+        "caller:0x005837F0",
+        "caller:0x00583D90",
+        "caller:0x00585680",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583680",
+      "role": "Read the accumulated timer as float at this+0 plus the scaled QPC difference on the double at this+4; used by the mutex-guarded and thread-resume timer read paths.",
+      "owner": "HiResTimer",
+      "evidence_refs": [
+        "function:0x00583680",
+        "abi:lead",
+        "callee:0x00568D90",
+        "caller:0x00583D90",
+        "caller:0x00584F90",
+        "caller:0x00585680",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583690",
+      "role": "Wrapper that forwards the object's timer-delta double member at this+4 to HighResolutionTimerDelta; called by the thread start path.",
+      "owner": "HiResTimer",
+      "evidence_refs": [
+        "function:0x00583690",
+        "abi:lead",
+        "callee:0x00568CF0",
+        "caller:0x00583D90",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005836A0",
+      "role": "Constructor-style initializer that zero-fills a large object (explicit dwords/word/byte clears plus a 0xFC-byte memset at this+8) and returns this; called by 0x005837F0.",
+      "owner": "LargeInitializedState",
+      "evidence_refs": [
+        "function:0x005836A0",
+        "caller:0x005837F0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x0000011C",
+        "field:this:0x0000011E",
+        "field:this:0x00000120",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005836E0",
+      "role": "Counter helper: store two latched values into this+4/this+8, increment the counter at this+0, write it out through the output pointer and return it; called by the animation-timing update path 0x0057A5A0.",
+      "owner": "CounterLatchState",
+      "evidence_refs": [
+        "function:0x005836E0",
+        "abi:lead",
+        "caller:0x0057A5A0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583AE0",
+      "role": "Complex object destructor: install destructor vtable 0x005B8B60, migrate a sub-object list, close and zero eight guarded OS handle slots, re-initialize a sub-object, destroy linked lists, clean up sub-object lists, then run a timed SEH-protected callback loop.",
+      "owner": "ComplexResourceObject",
+      "evidence_refs": [
+        "function:0x00583AE0",
+        "global:0x005B8B60",
+        "global:0x0059D046",
+        "global:0x00583AA0",
+        "callee:0x00583210",
+        "callee:0x005870D0",
+        "callee:0x005833E0",
+        "callee:0x00585FB0",
+        "callee:0x00586460",
+        "callee:0x00582310",
+        "callee:0x00583650",
+        "callee:0x0058A5F7",
+        "field:this:0x00000000",
+        "field:this:0x0000011C",
+        "field:this:0x00000124",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005840D0",
+      "role": "Mutex flush/yield gate: wait on the mutex handle at this+0xD4 with a 1 ms timeout and, on success, release it and return the release result; called by the thread start path 0x00583D90.",
+      "owner": "WorkerMutexGate",
+      "evidence_refs": [
+        "function:0x005840D0",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "caller:0x00583D90",
+        "field:this:0x000000D4",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00584130",
+      "role": "Search a node list for a node whose id matches a3, else take a node from the pool list (with pool reset on validation failure), set the node back-pointer, append it, record a3 at +0x410 and run the per-node step; invoked by 0x00585270.",
+      "owner": "ComplexResourceObject",
+      "evidence_refs": [
+        "function:0x00584130",
+        "caller:0x00585270",
+        "callee:0x00587720",
+        "callee:0x00586670",
+        "callee:0x00586320",
+        "callee:0x00586000",
+        "callee:0x00587710",
+        "callee:0x00587730",
+        "field:this:0x0000010C",
+        "field:this:0x00000114",
+        "field:this:0x0000011C",
+        "field:this:0x00000124",
+        "field:this:0x00000128",
+        "field:*(this+0x10C):0x00000000",
+        "field:*(this+0x10C):0x00000008",
+        "field:*(this+0x11C):0x00000000",
+        "field:*(this+0x124):0x00000004",
+        "field:*(*(this+0x10C)+0x0):0x00000414",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00584FF0",
+      "role": "Copy up to 16 characters from the source into the internal buffer at this+0x64 via the capped copy helper and force a null terminator at this+0x74; returns the source pointer.",
+      "owner": "NameBufferHolder",
+      "evidence_refs": [
+        "function:0x00584FF0",
+        "callee:0x00587DD0",
+        "caller:0x0057A4F0",
+        "field:this:0x00000064",
+        "field:this:0x00000074",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585030",
+      "role": "Forwarding wrapper: copy the stack argument block into the object region at this+0x2C via ByteAlignedMemoryCopyWithOffset and return the callee pointer result; dispatched by 0x0057A4F0.",
+      "owner": "VirtualDispatchOperationHandler",
+      "evidence_refs": [
+        "function:0x00585030",
+        "abi:lead",
+        "callee:0x0057A0F0",
+        "caller:0x0057A4F0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005853B0",
+      "role": "Asynchronous work-pipeline step: invoke vtable slot +0x3C, queue an APC, pop a node from a list, process it and hand it to vtable slot +0x5C; returns 0 when the pop fails; called by 0x0057A760.",
+      "owner": "AsyncWorkItem",
+      "evidence_refs": [
+        "function:0x005853B0",
+        "abi:lead",
+        "callee:0x00585DE0",
+        "callee:0x00584E30",
+        "callee:0x00586E50",
+        "caller:0x0057A760",
+        "field:obj:0x0000003C",
+        "field:obj:0x0000005C",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585400",
+      "role": "Conditional dispatcher: on a successful bitmap-range occupancy test append via a list helper, otherwise route through vtable slot +0x2C, a processing helper and vtable slot +0x5C; always returns 1.",
+      "owner": "BitmapSlotRouter",
+      "evidence_refs": [
+        "function:0x00585400",
+        "callee:0x00586D00",
+        "callee:0x00584DD0",
+        "callee:0x00584230",
+        "field:obj:0x0000002C",
+        "field:obj:0x0000005C",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585860",
+      "role": "Single-field setter: store a2 into the object field at this+0x60 and return 1; dispatched by 0x0057A4F0.",
+      "owner": "VirtualDispatchOperationHandler",
+      "evidence_refs": [
+        "function:0x00585860",
+        "abi:lead",
+        "caller:0x0057A4F0",
+        "field:this:0x00000060",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585BF0",
+      "role": "Per-tick trigger dispatch: iterate a trigger collection through the object's vtable (slots +0xC8/+0x1C/+0xA4/+0xAC), build handler arguments from query and field helpers, invoke the handler table slot, release and end iteration; called by 0x0057A800.",
+      "owner": "TriggerDispatcher",
+      "evidence_refs": [
+        "function:0x00585BF0",
+        "abi:lead",
+        "caller:0x0057A800",
+        "callee:0x005871C0",
+        "callee:0x00585CC0",
+        "callee:0x00587220",
+        "callee:0x005871F0",
+        "callee:0x004B0170",
+        "field:this:0x00000000",
+        "field:obj:0x000000C8",
+        "field:obj:0x0000001C",
+        "field:obj:0x000000A4",
+        "field:obj:0x000000AC",
+        "field:obj:0x00000020",
+        "field:obj:0x000000CC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585E50",
+      "role": "Compiler-style guarded static-initialization wrapper: register an SEH frame from the handler table at 0x008D3E2C, run a one-time guard on the init counter and construct seven static objects linked into the parent exception frame.",
+      "owner": "GuardedStaticInitScope",
+      "evidence_refs": [
+        "function:0x00585E50",
+        "global:0x008D3E2C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585EA0",
+      "role": "Initialize a mutex-pair/list object: clear two pointer slots and two state flags, set two INFINITE timeouts, create two anonymous inheritable mutexes via CreateMutexA storing handles and created flags; returns this.",
+      "owner": "MutexProtectedList",
+      "evidence_refs": [
+        "function:0x00585EA0",
+        "abi:lead",
+        "global:0x0059E1AC",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585FB0",
+      "role": "Clean up a linked list: per flagged node call the stub then free data when non-null, free every node, clear head/tail/iterator/count and return 0; called by 0x00583AE0.",
+      "owner": "SinglyLinkedList",
+      "evidence_refs": [
+        "function:0x00585FB0",
+        "abi:lead",
+        "callee:0x004B0170",
+        "callee:0x00587BCF",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00586000",
+      "role": "Singly-linked list append: allocate a 12-byte node, store payload, zero next, set the flag byte, link as new tail, bump the count and return 1 (0 when the payload is null).",
+      "owner": "SinglyLinkedList",
+      "evidence_refs": [
+        "function:0x00586000",
+        "callee:0x00587C03",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00586170",
+      "role": "Teardown: close the owned handle at this+0x10 when the flag at this+0x18 is set, then walk-destroy the list with the SEH-guarded data cleanup and zero the list fields.",
+      "owner": "HandleGuardedList",
+      "evidence_refs": [
+        "function:0x00586170",
+        "abi:lead",
+        "global:0x0059E1A8",
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:obj:0x00000000",
+        "field:obj:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00586240",
+      "role": "Destroy a linked list under SEH record 0x0059D138: per flagged node call the stub then free data, free every node, zero the four list-management fields and return 0.",
+      "owner": "SinglyLinkedList",
+      "evidence_refs": [
+        "function:0x00586240",
+        "abi:lead",
+        "callee:0x004B0170",
+        "callee:0x00587BCF",
+        "global:0x0059D138",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00586320",
+      "role": "Build two intrusive linked lists over a 2100-byte buffer: allocate a wrapper and the buffer, run NTimeCallbackLoopWithSEH_a6eb with the buffer init callback, link one flagged node into list 1 and two nodes into list 2; called once by 0x00584130.",
+      "owner": "DoubleListBuffer",
+      "evidence_refs": [
+        "function:0x00586320",
+        "caller:0x00584130",
+        "callee:0x0058A6EB",
+        "callee:0x00587C03",
+        "global:0x005876F0",
+        "global:0x004B0170",
+        "global:0x0059D166",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "SinglyLinkedListNode",
+      "responsibility": "12-byte node element used by the list containers in this scope: payload pointer, next link and an owns-data flag byte that selects SEH-guarded cleanup.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "data_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:obj:0x00000000", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000004",
+          "name": "next",
+          "type_guess": "SinglyLinkedListNode*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:obj:0x00000004", "field:*(obj+0x4):0x00000004", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000008",
+          "name": "owns_data_flag",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x00000008", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000000C",
+          "name": "metadata_or_padding",
+          "type_guess": "void*",
+          "trust": "UNKNOWN",
+          "access": "unknown",
+          "evidence_refs": ["field:obj:0x0000000C"]
+        }
+      ],
+      "evidence_refs": [
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "field:obj:0x0000000C",
+        "field:*(obj+0x4):0x00000004",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SinglyLinkedList",
+      "responsibility": "SEH-managed singly-linked list: 16-byte control block (head/tail/cursor/count) over 12-byte nodes; destruction walks free flagged node data under an exception guard before releasing nodes.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00582FD0",
+        "0x00583050",
+        "0x005833E0",
+        "0x00583430",
+        "0x00583570",
+        "0x00585FB0",
+        "0x00586000",
+        "0x00586240"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "head",
+          "type_guess": "SinglyLinkedListNode*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000000", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "tail",
+          "type_guess": "SinglyLinkedListNode*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000004", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "cursor",
+          "type_guess": "SinglyLinkedListNode*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000008", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "count",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "callee:0x0058A5F7",
+        "global:0x0047AA60",
+        "global:0x004B0170",
+        "global:0x0059CDE8",
+        "global:0x0059CE08",
+        "global:0x0059D138",
+        "field:*(obj+0x0):0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "HandleGuardedList",
+      "responsibility": "List container extended with a guarded OS handle at +0x10 (validity flag at +0x18) that is closed before the list is destroyed.",
+      "trust": "GUESS",
+      "methods": ["0x00586170"],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "head",
+          "type_guess": "SinglyLinkedListNode*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": ["field:this:0x00000000", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "tail",
+          "type_guess": "SinglyLinkedListNode*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:this:0x00000004", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "cursor",
+          "type_guess": "SinglyLinkedListNode*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:this:0x00000008", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "count",
+          "type_guess": "unsigned int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "owned_handle",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000010", "global:0x0059E1A8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "handle_valid_flag",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": ["field:this:0x00000018", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "global:0x0059E1A8",
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MutexProtectedList",
+      "responsibility": "Object pairing two anonymous mutexes (handles at +0xC/+0x1C, created flags at +0x14/+0x24, INFINITE timeouts at +0x10/+0x20) with two list/pointer slots and state flags, initialized by 0x00585EA0.",
+      "trust": "DERIVED",
+      "methods": ["0x00585EA0"],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "list1_head",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000000", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "list1_aux",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000004", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "list1_state_flag",
+          "type_guess": "bool",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000008", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "mutex1_handle",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x0000000C", "global:0x0059E1AC", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "mutex1_timeout",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000010", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "mutex1_created_flag",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000014", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "list2_state_flag",
+          "type_guess": "bool",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000018", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "mutex2_handle",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x0000001C", "global:0x0059E1AC", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "mutex2_timeout",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000020", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "mutex2_created_flag",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000024", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "global:0x0059E1AC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DoubleListBuffer",
+      "responsibility": "Sub-object holding two intrusive linked lists (list 1 at +0x0..+0xC, list 2 at +0x10..+0x1C) built over a 2100-byte buffer initialized through the timed callback loop; 0x00586320 is its constructor and the pool lists used by ComplexResourceObject at parent+0xFC.",
+      "trust": "GUESS",
+      "methods": ["0x00586320"],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "list1_head",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000000", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "list1_tail",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000004", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "list1_cursor",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000008", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "list1_count",
+          "type_guess": "unsigned int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "list2_head",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000010", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "list2_tail",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000014", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "list2_cursor",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000018", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "list2_count",
+          "type_guess": "unsigned int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:this:0x0000001C", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "callee:0x0058A6EB",
+        "callee:0x00587C03",
+        "global:0x005876F0",
+        "global:0x004B0170",
+        "global:0x0059D166",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ComplexResourceObject",
+      "responsibility": "Large multi-sub-object resource owner: eight guarded OS handle slots (each with a paired validity flag), a node-pool list and sub-object list with iterators, a destructor that migrates/closes/cleans everything (0x00583AE0) and a node search-or-allocate path (0x00584130).",
+      "trust": "DERIVED",
+      "methods": ["0x00583AE0", "0x00584130"],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000000", "global:0x005B8B60", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "handle_slot_0",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x000000D4", "global:0x0059E1A8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000DC",
+          "name": "handle_flag_0",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x000000DC", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F0",
+          "name": "handle_slot_1",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x000000F0", "global:0x0059E1A8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F8",
+          "name": "handle_flag_1",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x000000F8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000570",
+          "name": "handle_slot_2",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000570", "global:0x0059E1A8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000578",
+          "name": "handle_flag_2",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000578", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000058C",
+          "name": "handle_slot_3",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x0000058C", "global:0x0059E1A8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000594",
+          "name": "handle_flag_3",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000594", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005A8",
+          "name": "handle_slot_4",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x000005A8", "global:0x0059E1A8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005B0",
+          "name": "handle_flag_4",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x000005B0", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005B8",
+          "name": "handle_slot_5",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x000005B8", "global:0x0059E1A8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005C0",
+          "name": "handle_flag_5",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x000005C0", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000618",
+          "name": "handle_slot_6",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000618", "global:0x0059E1A8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000620",
+          "name": "handle_flag_6",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000620", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000640",
+          "name": "handle_slot_7",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000640", "global:0x0059E1A8", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000648",
+          "name": "handle_flag_7",
+          "type_guess": "bool",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000648", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000010C",
+          "name": "node_pool_list",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x0000010C", "field:*(this+0x10C):0x00000000", "field:*(this+0x10C):0x00000008", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000114",
+          "name": "node_pool_cursor",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000114", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000011C",
+          "name": "subobject_list",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x0000011C", "field:*(this+0x11C):0x00000000", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000124",
+          "name": "subobject_list_cursor",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000124", "field:*(this+0x124):0x00000004", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000128",
+          "name": "unknown_field",
+          "type_guess": "void*",
+          "trust": "UNKNOWN",
+          "access": "unknown",
+          "evidence_refs": ["field:this:0x00000128"]
+        }
+      ],
+      "evidence_refs": [
+        "global:0x005B8B60",
+        "global:0x0059E1A8",
+        "global:0x0059D046",
+        "global:0x00583AA0",
+        "callee:0x00583210",
+        "callee:0x00583650",
+        "callee:0x005870D0",
+        "callee:0x00586460",
+        "callee:0x00586670",
+        "callee:0x00586320",
+        "callee:0x00587710",
+        "callee:0x00587720",
+        "callee:0x00587730",
+        "callee:0x00582310",
+        "callee:0x0058A5F7",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "HiResTimer",
+      "responsibility": "High-resolution timer object: float value/accumulator at +0x0 and a QPC-based double base at +0x4, manipulated through the QPC helpers 0x00568C60/0x00568CF0/0x00568D90.",
+      "trust": "DERIVED",
+      "methods": ["0x00583660", "0x00583680", "0x00583690"],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "value_or_accumulator",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000000", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "qpc_base_double",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000004", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "callee:0x00568C60",
+        "callee:0x00568CF0",
+        "callee:0x00568D90",
+        "field:this:0x00000000",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "WorkerMutexGate",
+      "responsibility": "Mutex flush/yield gate: waits on a mutex handle at this+0xD4 with a 1 ms timeout and releases when acquired; used by the thread start path.",
+      "trust": "GUESS",
+      "methods": ["0x005840D0"],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "mutex_handle",
+          "type_guess": "HANDLE",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": ["field:this:0x000000D4", "global:0x0059E1A0", "global:0x0059E1A4", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "field:this:0x000000D4",
+        "caller:0x00583D90",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AsyncWorkItem",
+      "responsibility": "Asynchronous worker step that dispatches through vtable slot +0x3C, queues an APC, pops a node from a list, processes it and hands it to vtable slot +0x5C.",
+      "trust": "GUESS",
+      "methods": ["0x005853B0"],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x0000003C",
+          "name": "dispatch_slot",
+          "type_guess": "void (*)(void*)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x0000003C", "abi:lead", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000005C",
+          "name": "consume_slot",
+          "type_guess": "void (*)(void*, void*)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x0000005C", "abi:lead", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "field:obj:0x0000003C",
+        "field:obj:0x0000005C",
+        "callee:0x00585DE0",
+        "callee:0x00584E30",
+        "callee:0x00586E50",
+        "caller:0x0057A760",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "BitmapSlotRouter",
+      "responsibility": "Conditional dispatcher that appends on a successful bitmap-range occupancy test or routes through vtable slots +0x2C and +0x5C otherwise.",
+      "trust": "GUESS",
+      "methods": ["0x00585400"],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x0000002C",
+          "name": "route_slot",
+          "type_guess": "void (*)(void*, unsigned int)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x0000002C", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000005C",
+          "name": "consume_slot",
+          "type_guess": "void (*)(void*, unsigned int)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x0000005C", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "field:obj:0x0000002C",
+        "field:obj:0x0000005C",
+        "callee:0x00586D00",
+        "callee:0x00584DD0",
+        "callee:0x00584230",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TriggerDispatcher",
+      "responsibility": "Per-tick trigger iteration and handler dispatch over a collection reached through the object's vtable (begin/current/count/predicate/release/end slots); the only owner in this scope the packet classifies DERIVED.",
+      "trust": "DERIVED",
+      "methods": ["0x00585BF0"],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "vtable_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x00000000", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000001C",
+          "name": "current_item_slot",
+          "type_guess": "void* (*)(void*)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x0000001C", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000020",
+          "name": "release_item_slot",
+          "type_guess": "void (*)(void*)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x00000020", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000000A4",
+          "name": "item_count_slot",
+          "type_guess": "int (*)(void*)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x000000A4", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000000AC",
+          "name": "predicate_slot",
+          "type_guess": "bool (*)(void*, int)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x000000AC", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000000C8",
+          "name": "begin_iteration_slot",
+          "type_guess": "void (*)(void*)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x000000C8", "source:raw"]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000000CC",
+          "name": "end_iteration_slot",
+          "type_guess": "void (*)(void*)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": ["field:obj:0x000000CC", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:obj:0x0000001C",
+        "field:obj:0x00000020",
+        "field:obj:0x000000A4",
+        "field:obj:0x000000AC",
+        "field:obj:0x000000C8",
+        "field:obj:0x000000CC",
+        "callee:0x005871C0",
+        "callee:0x005871F0",
+        "callee:0x00587220",
+        "callee:0x00585CC0",
+        "callee:0x004B0170",
+        "caller:0x0057A800",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VirtualDispatchOperationHandler",
+      "responsibility": "Dispatched virtual operations on a common object, both invoked by VirtualFunctionDispatchWithStackFrames: copy the stack argument block into +0x2C, or store a scalar into +0x60.",
+      "trust": "GUESS",
+      "methods": ["0x00585030", "0x00585860"],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x0000002C",
+          "name": "copy_region",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": ["field:obj:0x0000002C", "callee:0x0057A0F0", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000060",
+          "name": "field_60",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000060", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "callee:0x0057A0F0",
+        "field:this:0x00000060",
+        "caller:0x0057A4F0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "NameBufferHolder",
+      "responsibility": "Object with an internal 16-byte name buffer at +0x64 (null terminator forced at +0x74) filled through the capped copy helper.",
+      "trust": "GUESS",
+      "methods": ["0x00584FF0"],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "name_buffer",
+          "type_guess": "char[16]",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000064", "callee:0x00587DD0", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000074",
+          "name": "name_null_terminator",
+          "type_guess": "char",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000074", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "field:this:0x00000064",
+        "field:this:0x00000074",
+        "callee:0x00587DD0",
+        "caller:0x0057A4F0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CounterLatchState",
+      "responsibility": "Small counter object holding a counter at +0x0 and two latched values at +0x4/+0x8, updated by the animation-timing helper 0x005836E0.",
+      "trust": "GUESS",
+      "methods": ["0x005836E0"],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "counter",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": ["field:this:0x00000000", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "latch_a",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000004", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "latch_b",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000008", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "caller:0x0057A5A0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "LargeInitializedState",
+      "responsibility": "Large object whose constructor-style initializer zero-fills a set of scattered fields and a 0xFC-byte block; the fields' semantic roles are not established in this scope.",
+      "trust": "GUESS",
+      "methods": ["0x005836A0"],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "dword_0",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000000", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "dword_1",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000004", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "dword_2",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000008", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "byte_0C",
+          "type_guess": "unsigned char",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "dword_4",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000010", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "dword_5",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000014", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "dword_6",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000018", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "dword_7",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x0000001C", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000011C",
+          "name": "word_11C",
+          "type_guess": "unsigned short",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x0000011C", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000011E",
+          "name": "byte_11E",
+          "type_guess": "unsigned char",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x0000011E", "source:raw"]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000120",
+          "name": "dword_120",
+          "type_guess": "unsigned int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": ["field:this:0x00000120", "source:raw"]
+        }
+      ],
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x0000011C",
+        "field:this:0x0000011E",
+        "field:this:0x00000120",
+        "caller:0x005837F0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "GuardedStaticInitScope",
+      "responsibility": "Compiler-style guarded one-time static-initialization scaffolding: SEH frame setup, a one-time guard on a global init counter, and construction of seven static objects linked into the parent exception frame.",
+      "trust": "GUESS",
+      "methods": ["0x00585E50"],
+      "fields": [],
+      "evidence_refs": [
+        "global:0x008D3E2C",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "ListContainerEmptyToNonEmpty",
+      "owner": "SinglyLinkedList",
+      "states": ["empty", "non_empty"],
+      "transitions": [
+        {
+          "from": "empty",
+          "to": "non_empty",
+          "trigger": "LinkedListNodeAppend_6000 links the first node and sets head/tail/cursor",
+          "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "callee:0x00586000"]
+        },
+        {
+          "from": "non_empty",
+          "to": "empty",
+          "trigger": "destroy/cleanup walk or node removal clears head and count to zero",
+          "evidence_refs": ["field:this:0x00000000", "field:this:0x0000000C", "callee:0x005833E0", "callee:0x00585FB0"]
+        }
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "callee:0x00586000", "source:raw"]
+    },
+    {
+      "name": "MutexCreatedState",
+      "owner": "MutexProtectedList",
+      "states": ["uncreated", "created"],
+      "transitions": [
+        {
+          "from": "uncreated",
+          "to": "created",
+          "trigger": "CreateMutexA returns a non-null handle; the created flag at +0x14/+0x24 is set to 1",
+          "evidence_refs": ["field:this:0x0000000C", "field:this:0x00000014", "field:this:0x0000001C", "field:this:0x00000024", "global:0x0059E1AC"]
+        }
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": ["field:this:0x0000000C", "field:this:0x00000014", "field:this:0x0000001C", "field:this:0x00000024", "global:0x0059E1AC", "source:raw"]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "IListContainerOps",
+      "purpose": "Common singly-linked-list container operations over the 16-byte head/tail/cursor/count control block: append, remove-by-key, and SEH-protected destruction with per-node data cleanup.",
+      "functions": [
+        "0x00582FD0",
+        "0x00583050",
+        "0x005833E0",
+        "0x00583430",
+        "0x00583570",
+        "0x00585FB0",
+        "0x00586000",
+        "0x00586170",
+        "0x00586240"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IVTableDispatchSink",
+      "purpose": "Object that routes work through fixed vtable slots; the concrete slot semantics are object-type dependent and are not resolvable from this scope.",
+      "functions": ["0x005853B0", "0x00585400", "0x00585BF0"],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:obj:0x0000002C",
+        "field:obj:0x0000003C",
+        "field:obj:0x0000005C",
+        "field:obj:0x000000C8",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IHighResolutionTimerSource",
+      "purpose": "High-resolution timer source backed by QPC scaling, exposing store-and-reset, accumulated read and delta update operations on a shared timer object.",
+      "functions": ["0x00583660", "0x00583680", "0x00583690"],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00568C60",
+        "callee:0x00568CF0",
+        "callee:0x00568D90",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "SinglyLinkedList",
+      "to": "SEHGuardedFunctionWithExceptionHandling (0x005867B0)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x005867B0", "global:0x0059CDE8"]
+    },
+    {
+      "from": "SinglyLinkedList",
+      "to": "FreeWrapper (0x00587BCF)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00587BCF"]
+    },
+    {
+      "from": "SinglyLinkedList",
+      "to": "Node allocator (0x00587C03)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "from": "SinglyLinkedList",
+      "to": "Timed SEH callback loop (0x0058A5F7)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x0058A5F7", "global:0x0047AA60"]
+    },
+    {
+      "from": "SinglyLinkedList",
+      "to": "EmptyStub (0x004B0170)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x004B0170", "global:0x004B0170"]
+    },
+    {
+      "from": "SinglyLinkedList",
+      "to": "Data object virtual release at vtable+4",
+      "kind": "indirect_call",
+      "trust": "GUESS",
+      "evidence_refs": ["field:*(*(obj+0x0)+0x0):0x00000004", "field:*(obj+0x0):0x00000000"]
+    },
+    {
+      "from": "HiResTimer",
+      "to": "Timer reset helper (0x00568C60)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00568C60"]
+    },
+    {
+      "from": "HiResTimer",
+      "to": "QPC diff scaling helper (0x00568D90)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00568D90"]
+    },
+    {
+      "from": "HiResTimer",
+      "to": "HighResolutionTimerDelta (0x00568CF0)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00568CF0"]
+    },
+    {
+      "from": "WorkerMutexGate",
+      "to": "WaitForSingleObject and ReleaseMutex imports",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["global:0x0059E1A0", "global:0x0059E1A4"]
+    },
+    {
+      "from": "ComplexResourceObject",
+      "to": "SinglyLinkedList destroy/cleanup/append helpers",
+      "kind": "uses",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x005833E0", "callee:0x00585FB0", "callee:0x00586000", "callee:0x00586460"]
+    },
+    {
+      "from": "ComplexResourceObject",
+      "to": "DoubleListBuffer sub-object constructor (0x00586320)",
+      "kind": "embed",
+      "trust": "GUESS",
+      "evidence_refs": ["callee:0x00586320", "caller:0x00584130"]
+    },
+    {
+      "from": "ComplexResourceObject",
+      "to": "CloseHandle import and CloseHandleWrapper (0x00582310)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["global:0x0059E1A8", "callee:0x00582310"]
+    },
+    {
+      "from": "ComplexResourceObject",
+      "to": "LinkedListNodeAllocPrepend (0x00583210)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00583210"]
+    },
+    {
+      "from": "ComplexResourceObject",
+      "to": "Pool validation and reset helpers (0x00586670 / 0x00586320)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00586670", "callee:0x00586320"]
+    },
+    {
+      "from": "ComplexResourceObject",
+      "to": "Sub-object re-initializer (0x005870D0)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x005870D0"]
+    },
+    {
+      "from": "ComplexResourceObject",
+      "to": "Node id/field helpers (0x00587710 / 0x00587720 / 0x00587730)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00587710", "callee:0x00587720", "callee:0x00587730"]
+    },
+    {
+      "from": "ComplexResourceObject",
+      "to": "Timed SEH callback loop and single-function wrapper",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x0058A5F7", "callee:0x00583650", "global:0x0059D046", "global:0x00583AA0"]
+    },
+    {
+      "from": "DoubleListBuffer",
+      "to": "Buffer init loop (0x0058A6EB) and node allocator (0x00587C03)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x0058A6EB", "callee:0x00587C03", "global:0x005876F0", "global:0x004B0170", "global:0x0059D166"]
+    },
+    {
+      "from": "MutexProtectedList",
+      "to": "CreateMutexA import",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["global:0x0059E1AC"]
+    },
+    {
+      "from": "TriggerDispatcher",
+      "to": "Query and field argument helpers (0x005871C0 / 0x005871F0 / 0x00587220 / 0x00585CC0)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x005871C0", "callee:0x005871F0", "callee:0x00587220", "callee:0x00585CC0"]
+    },
+    {
+      "from": "TriggerDispatcher",
+      "to": "EmptyStub (0x004B0170)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x004B0170"]
+    },
+    {
+      "from": "BitmapSlotRouter",
+      "to": "Bitmap occupancy, list append and processing helpers (0x00586D00 / 0x00584DD0 / 0x00584230)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00586D00", "callee:0x00584DD0", "callee:0x00584230"]
+    },
+    {
+      "from": "AsyncWorkItem",
+      "to": "APC queue, list pop and value processing helpers (0x00585DE0 / 0x00584E30 / 0x00586E50)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00585DE0", "callee:0x00584E30", "callee:0x00586E50"]
+    },
+    {
+      "from": "VirtualDispatchOperationHandler",
+      "to": "ByteAlignedMemoryCopyWithOffset (0x0057A0F0)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x0057A0F0"]
+    },
+    {
+      "from": "NameBufferHolder",
+      "to": "Capped copy helper (0x00587DD0)",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00587DD0"]
+    },
+    {
+      "from": "GuardedStaticInitScope",
+      "to": "Guarded-region enter/leave helpers (sub_59A54D / sub_59A5E9)",
+      "kind": "call",
+      "trust": "GUESS",
+      "evidence_refs": ["global:0x008D3E2C", "source:raw"]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "SinglyLinkedListNodeLayout",
+      "category": "memory_layout",
+      "description": "Replacement code that owns these lists must preserve the 12-byte node layout: payload pointer at +0x0, next pointer at +0x4, owns-data flag byte at +0x8; flagged nodes have their data released through the SEH-guarded callback before the node is freed.",
+      "trust": "DERIVED",
+      "evidence_refs": ["field:obj:0x00000000", "field:obj:0x00000004", "field:obj:0x00000008", "callee:0x005867B0", "callee:0x00587BCF"]
+    },
+    {
+      "name": "ListContainerControlBlock",
+      "category": "memory_layout",
+      "description": "The list container control block is four dwords at base+0x0 (head), +0x4 (tail), +0x8 (cursor) and +0xC (count); destroy paths clear all four after the walk and append/remove update them.",
+      "trust": "DERIVED",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "callee:0x00586000"]
+    },
+    {
+      "name": "OSHandleLifecycle",
+      "category": "win32_contract",
+      "description": "Handles are created through CreateMutexA (0x0059E1AC), waited on through WaitForSingleObject (0x0059E1A0), released through ReleaseMutex (0x0059E1A4) and closed through CloseHandle (0x0059E1A8); guarded handle slots pair the handle with a validity byte that gates closing.",
+      "trust": "DERIVED",
+      "evidence_refs": ["global:0x0059E1AC", "global:0x0059E1A0", "global:0x0059E1A4", "global:0x0059E1A8"]
+    },
+    {
+      "name": "SEHRegisteredFrames",
+      "category": "exception_contract",
+      "description": "Several container and init functions register SEH frames whose handler records are the globals 0x0059CDE8, 0x0059CE08, 0x0059D046, 0x0059D138, 0x0059D166 and 0x00583AA0; a replacement must keep the destruction/cleanup exception-safe against the same failure points.",
+      "trust": "DERIVED",
+      "evidence_refs": ["global:0x0059CDE8", "global:0x0059CE08", "global:0x0059D046", "global:0x0059D138", "global:0x0059D166", "global:0x00583AA0"]
+    },
+    {
+      "name": "HiResTimerQPCBase",
+      "category": "timing_contract",
+      "description": "The timer object stores a float value at +0x0 and a double QPC base at +0x4; accumulated reads add the scaled QPC difference to the float and resets re-arm the base through the 0x00568C60/0x00568CF0/0x00568D90 helpers.",
+      "trust": "GUESS",
+      "evidence_refs": ["callee:0x00568C60", "callee:0x00568CF0", "callee:0x00568D90", "field:this:0x00000000"]
+    }
+  ],
+  "unresolved": [
+    "Almost every owner in this packet is UNKNOWN; every class here is a DERIVED/GUESS grouping justified by shared offsets, shared callees and shared control flow. Equal offsets on different bases are structural parallels, not proven identity.",
+    "this+0xD4 is read as a mutex handle by 0x005840D0 and closed as a guarded handle slot by 0x00583AE0's destructor; the two functions may share an owner but the packet does not prove common ownership, so they are modeled as separate classes.",
+    "The 16-byte list control layout (head/tail/cursor/count) recurs in SinglyLinkedList, HandleGuardedList, MutexProtectedList and DoubleListBuffer at overlapping offsets; the packet proves each function walks the same node idiom but not that the containing classes are identical.",
+    "The vtable slot semantics at obj+0x1C/0x20/0x2C/0x3C/0x5C/0xA4/0xAC/0xC8/0xCC and the data-object vtable+4 release are object-type dependent and unresolved.",
+    "The node field at +0xC is recorded by the corpus but has no direct access in the raw sources of this scope; it is modeled as UNKNOWN metadata/padding.",
+    "The double at HiResTimer+0x4 has no packet field evidence reference, only raw source text; whether the float at +0x0 is a running accumulator or a fixed offset is unproven.",
+    "The 0xFC-byte memset block in 0x005836A0 overlaps the explicitly cleared fields; the relationship between the memset region and the fields at 0x11C/0x11E/0x120 is not established.",
+    "0x00586320's list offsets (+0x0..+0x1C) are relative to the sub-object at parent+0xFC, not to the parent base; the embedding of DoubleListBuffer inside ComplexResourceObject is inferred from 0x00584130 calling 0x00586320 with this+63.",
+    "Three write-only globals 0xFF00000000005450/0xFF00000000005451/0xFF00000000005452 appear in the 0x00585EA0 packet with write access but never in the decompiled source; their purpose is unexplained.",
+    "The guarded static-init helpers sub_59A54D and sub_59A5E9 and the seven constructed static objects in 0x00585E50 are opaque at this scope.",
+    "The count passed to NTimeCallbackLoopWithSEH by 0x00583570 is read from the 4 bytes preceding the data block base; that offset is not in the packet field evidence.",
+    "0x00583050's argument 1 to the vtable+4 call and the exact semantics of the node flag byte and SEH cleanup callback are defined by the data owner, not by these list functions.",
+    "The list append count dword at +0xC is classified read in the packet field table although 0x00586000 increments it; the classification may predate the write.",
+    "Callers outside this scope (0x0057A4F0, 0x0057A5A0, 0x0057A760, 0x0057A800, 0x005835F0, 0x005837F0, 0x00583D90, 0x00584F90, 0x00585270, 0x00585680) are referenced by evidence only; their object ownership is not resolved here."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0xFF00000000005450",
+    "global:0xFF00000000005451",
+    "global:0xFF00000000005452",
+    "field:*(*(this+0x10C)+0x0):0x00000414"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

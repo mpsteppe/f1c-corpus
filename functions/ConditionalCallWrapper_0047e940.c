@@ -1,0 +1,9 @@
+int __stdcall sub_47E940(int a1)
+{
+  int result; // eax
+
+  result = a1;
+  if ( a1 )
+    return StringCopyWithBufferRealloc(a1);
+  return result;
+}

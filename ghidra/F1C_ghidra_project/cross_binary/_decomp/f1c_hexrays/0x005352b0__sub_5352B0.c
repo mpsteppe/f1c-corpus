@@ -1,0 +1,5 @@
+// f1c  0x005352b0  size=27
+int __fastcall sub_5352B0(int a1, const char *a2)
+{
+  return sub_535220(a1, (int)a2, strlen(a2));
+}

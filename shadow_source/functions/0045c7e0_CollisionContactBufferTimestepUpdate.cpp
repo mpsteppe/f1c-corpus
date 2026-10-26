@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0045C7E0
+// Canonical corpus name: CollisionContactBufferTimestepUpdate
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/CollisionContactBufferTimestepUpdate_0045c7e0.c
+
+void UnknownObject::CollisionContactBufferTimestepUpdate()
+{
+    // Advances a collision contact buffer by timestep a2. Accumulates the timestep into the contact time accumulator at this+0. When the accumulated time exceeds the overflow threshold flt_59E43C, the contact impulse accumulators (this+4, this+8) are normalized by the reciprocal of the accumulated time, the scaled outputs are written to this+0xC and this+0x10, and all three accumulators are reset to zero. A final loop of 104 iterations adds the timestep to each contact-pair timer entry. Returns a pointer past the timer block.
+    // CALCULATION: Accumulate the timestep: *(this+0) += a2 and store back into this+0. [field:this:0x00000000, source:raw]
+    // GUARD: Overflow guard: compare the accumulated time at this+0 against the threshold flt_59E43C; the normalization block runs only when the accumulated time exceeds it (evaluated via FP compare flags). [global:0x0059E43C, field:this:0x00000000, source:raw]
+    // CALCULATION: Compute the reciprocal of the accumulated time: v6 = 1.0 / *(this+0). [source:raw]
+    // ASSIGNMENT: Reset the accumulators to zero: this+0, this+4, this+8. [field:this:0x00000000, field:this:0x00000004, field:this:0x00000008, source:raw]
+    // CALCULATION: Normalize the impulse accumulators into the scaled outputs: *(this+0xC) = (double)this+4 * reciprocal and *(this+0x10) = (double)this+8 * reciprocal. [field:this:0x0000000C, field:this:0x00000010, field:this:0x00000004, field:this:0x00000008, source:raw]
+    // LOOP: Loop of 104 iterations that adds the timestep a2 to each contact-pair timer entry (two float timers per pair). [source:raw]
+    // RETURN: Return the pointer one past the end of the contact-pair timer block. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   float* sub_45C7E0(float* this, float dt) {
+    //     this[0] += dt;
+    //     if (this[0] > flt_59E43C) {
+    //       float inv = 1.0f / this[0];
+    //       this[3] = this[1] * inv;
+    //       this[4] = this[2] * inv;
+    //       this[0] = 0; this[1] = 0; this[2] = 0;
+    //     }
+    //     for (int i = 0; i < 104; ++i) {
+    //       timerA[i] += dt;
+    //       timerB[i] += dt;
+    //     }
+    //     return this + 214;
+    //   }
+    // UNRESOLVED: The numeric value of the overflow threshold flt_59E43C is not present in the packet.
+    // UNRESOLVED: Exact offsets and semantic meaning of the 104 contact-pair timer entries are not in the packet field list.
+    // UNRESOLVED: The caller relationship to the collision response system (impulse normalization use) is inferred from the existing analysis only.
+}

@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "address": "0x00595F11",
+  "proposed_name": "sub_595F11",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Checked file-handle seek wrapper. If a1 is a valid open file index (a1 below the uNumber count and the record's flag byte, at offset 4 of the per-file record, having bit 0 set), it enters the per-file critical section, performs a seek via FilePointerSeekWithErrorHandling, leaves the critical section and returns the seek result. Otherwise it writes error code 9 into the primary TLS slot, zeroes the secondary TLS slot and returns -1.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Validity guard: a1 < uNumber (count of file records) AND the byte at dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 4 has bit 0 set (record open).",
+      "evidence_refs": ["global:0x008D4A20", "global:0x008D4920", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CriticalSectionEnterWithLazyInit(a1) enters the per-file critical section before seeking.",
+      "evidence_refs": ["callee:0x00595A61", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FilePointerSeekWithErrorHandling(a1, a2, a3, dwMoveMethod) performs the seek and returns the result stored in v4.",
+      "evidence_refs": ["callee:0x00595F82", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FileCriticalSectionLeave(a1) releases the per-file critical section.",
+      "evidence_refs": ["callee:0x00595AC0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the seek result v4 on the success path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "On the invalid-handle path, store 9 into the dword at TLSOffsetGetter() (TLS error code).",
+      "evidence_refs": ["callee:0x0058AFCF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store 0 into the dword at TLSOffsetGetter_afd8() (secondary TLS slot).",
+      "evidence_refs": ["callee:0x0058AFD8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return -1 on the invalid-handle path.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_595F11(int a1, int a2, int a3, DWORD dwMoveMethod) {",
+    "  if (a1 < uNumber && (*(_BYTE *)(dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 4) & 1) != 0) {",
+    "    CriticalSectionEnterWithLazyInit(a1);",
+    "    int v4 = FilePointerSeekWithErrorHandling(a1, a2, a3, dwMoveMethod);",
+    "    FileCriticalSectionLeave(a1);",
+    "    return v4;",
+    "  } else {",
+    "    *(_DWORD *)TLSOffsetGetter() = 9;",
+    "    *(_DWORD *)TLSOffsetGetter_afd8() = 0;",
+    "    return -1;",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The 36-byte per-file record layout and the exact meaning of the bit-0 open flag at record offset 4 are inferred, not separately evidenced.",
+    "Meaning of TLS error code 9 and the purpose of the secondary TLS slot are unknown.",
+    "Relation to the structural twin sub_58C331 is proposed by clustering, not independently confirmed."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

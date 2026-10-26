@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "address": "0x00517F72",
+  "proposed_name": "AnimationStateCheck",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Evaluates animation/state flag bytes to decide whether a stored-state comparison runs, then always dispatches a callback and returns whether the current state bytes differ from the stored value. A local gate v2 starts at 1; it is cleared to 0 only when the flag path selected by control byte this+0x10C bit 0x20 satisfies its condition (either this+0x5C holds the full 0x300 mask, or this+0x5D has bit 0x8 set). CallbackDispatchWithNullGuard is invoked unconditionally, after which the function returns v2 AND (ByteArrayToInt of the argument-slot bytes != this+0x100).",
+  "local_names": {
+    "a1": "animation/state object (this)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard: control flags byte (this+0x10C) bit 0x20 selects the primary flag path; when clear, the alternate flag path (this+0x5D) is evaluated instead.",
+      "evidence_refs": [
+        "abi:lead",
+        "caller:0x00518828",
+        "field:this:0x0000010C",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when control bit 0x20 is set, the flags register (this+0x5C) must have both bits of the 0x300 mask set; otherwise execution jumps past the gate-clear and v2 stays 1.",
+      "evidence_refs": [
+        "field:this:0x0000005C",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when control bit 0x20 is clear, the low byte (this+0x5D) must have bit 0x8 set; if clear, execution jumps past the gate-clear and v2 stays 1.",
+      "evidence_refs": [
+        "field:this:0x0000005D",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Gate decision: v2 is cleared to 0 (disabling the state-change comparison) only when the active flag path passes its guard, i.e. (this+0x10C bit 0x20 set AND this+0x5C has the 0x300 mask) OR (bit clear AND this+0x5D has bit 0x8).",
+      "evidence_refs": [
+        "field:this:0x0000010C",
+        "field:this:0x0000005C",
+        "field:this:0x0000005D",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Unconditional dispatch: call CallbackDispatchWithNullGuard(a1, (int)&a1, 4), passing the object pointer, the address of the parameter slot, and the value 4.",
+      "evidence_refs": [
+        "callee:0x00513BD1",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "Return v2 AND (ByteArrayToInt over the four bytes of the a1 argument slot != stored value this+0x100), i.e. report a state change only when the gate is enabled and the assembled byte value differs from the stored value.",
+      "evidence_refs": [
+        "callee:0x00517F35",
+        "field:this:0x00000100",
+        "function:0x00517F72",
+        "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "BOOL AnimationStateCheck(int a1)",
+    "{",
+    "  int gate = 1;",
+    "  if ( (*(unsigned char *)(a1 + 0x10C) & 0x20) != 0 )",
+    "  {",
+    "    if ( (*(int *)(a1 + 0x5C) & 0x300) == 0x300 )",
+    "      gate = 0;",
+    "  }",
+    "  else if ( (*(unsigned char *)(a1 + 0x5D) & 8) != 0 )",
+    "  {",
+    "    gate = 0;",
+    "  }",
+    "  CallbackDispatchWithNullGuard(a1, (int)&a1, 4);",
+    "  return gate && ByteArrayToInt((unsigned char *)&a1) != *(int *)(a1 + 0x100);",
+    "}"
+  ],
+  "unresolved": [
+    "Both (int)&a1 arguments are the stack address of the parameter slot, so the four bytes assembled by ByteArrayToInt equal the pointer value a1 itself; whether the intended input is the pointer value or a decompiler artifact is unconfirmed.",
+    "The exact semantics of the flag bits (this+0x10C bit 0x20, the two bits covered by the this+0x5C 0x300 mask, and this+0x5D bit 0x8) are not established.",
+    "this+0x100 is described in the existing analysis as a stored CRC32 accumulator, but its write site and computation are outside this function.",
+    "The object owner is unknown; the field layout between offsets 0x5C and 0x10C is unconfirmed."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

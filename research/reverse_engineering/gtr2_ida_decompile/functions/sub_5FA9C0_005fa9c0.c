@@ -1,0 +1,61 @@
+int __usercall sub_5FA9C0@<eax>(int a1@<ecx>, __int32 a2@<ebp>)
+{
+  int v4; // [esp+0h] [ebp-1Ch]
+
+  sub_5F6E20(a2, v4);
+  sub_630A11(a1 + 348, 24, 8, sub_5E8980, nullsub_7);
+  *(_DWORD *)(a1 + 540) = 0;
+  *(_DWORD *)(a1 + 544) = 0;
+  *(_DWORD *)(a1 + 548) = 0;
+  *(_DWORD *)(a1 + 552) = 0;
+  *(_DWORD *)(a1 + 556) = 0;
+  *(_DWORD *)(a1 + 560) = 0;
+  *(_DWORD *)(a1 + 564) = 0;
+  *(_DWORD *)(a1 + 568) = 0;
+  memset((void *)(a1 + 204), 0, 0x3Cu);
+  *(_WORD *)(a1 + 264) = 0;
+  *(_BYTE *)(a1 + 266) = 0;
+  memset((void *)(a1 + 268), 0, 0x3Cu);
+  *(_WORD *)(a1 + 328) = 0;
+  *(_BYTE *)(a1 + 330) = 0;
+  *(_DWORD *)(a1 + 332) = 0;
+  *(_DWORD *)(a1 + 336) = 0;
+  *(_DWORD *)(a1 + 340) = 0;
+  *(_DWORD *)(a1 + 344) = 0;
+  memset((void *)(a1 + 572), 0, 0x3Cu);
+  *(_WORD *)(a1 + 632) = 0;
+  *(_BYTE *)(a1 + 634) = 0;
+  memset((void *)(a1 + 636), 0, 0x3Cu);
+  *(_WORD *)(a1 + 696) = 0;
+  *(_BYTE *)(a1 + 698) = 0;
+  *(_DWORD *)(a1 + 700) = 0;
+  *(_WORD *)(a1 + 704) = 0;
+  *(_DWORD *)(a1 + 708) = 0;
+  *(_DWORD *)(a1 + 712) = 0;
+  *(_DWORD *)(a1 + 716) = 0;
+  *(_DWORD *)(a1 + 720) = 0;
+  *(_DWORD *)(a1 + 724) = 0;
+  *(_DWORD *)(a1 + 728) = 0;
+  *(_DWORD *)(a1 + 732) = 0;
+  *(_DWORD *)(a1 + 736) = 0;
+  *(_DWORD *)(a1 + 740) = 0;
+  *(_DWORD *)(a1 + 744) = 0;
+  *(_DWORD *)(a1 + 748) = 0;
+  *(_DWORD *)(a1 + 752) = 0;
+  *(_DWORD *)(a1 + 756) = 0;
+  *(_DWORD *)(a1 + 760) = 0;
+  *(_DWORD *)(a1 + 764) = 0;
+  *(_DWORD *)(a1 + 768) = 0;
+  *(_DWORD *)(a1 + 772) = 0;
+  *(_DWORD *)(a1 + 776) = 0;
+  *(_DWORD *)(a1 + 780) = 0;
+  *(_DWORD *)(a1 + 784) = 0;
+  *(_DWORD *)(a1 + 788) = 0;
+  *(_DWORD *)(a1 + 792) = 0;
+  *(_DWORD *)(a1 + 796) = 0;
+  *(_DWORD *)(a1 + 800) = 0;
+  *(_DWORD *)(a1 + 804) = 0;
+  *(_BYTE *)(a1 + 809) = 0;
+  *(_BYTE *)(a1 + 808) = 1;
+  return a1;
+}

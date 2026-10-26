@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "address": "0x00418AC0",
+  "proposed_name": "CompactExpiredSlotsWithGapFill",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Maintains an array of 20 slots (32 bytes each, stride 8 dwords) anchored at this+537 (byte offset 0x864), treating each slot's first dword as an id (-1 = empty) and its dword[3] (offset +0xC) as an expiry float. Phase 1 scans all 20 slots and resets any slot whose expiry float is not the -1.0f sentinel (0xBF800000) and is older than the value dbl_8AFEA8, while recording the first empty slot index and the last non-empty slot index. Phase 2, when a gap exists before the last non-empty slot, shifts each later non-empty slot leftward into the nearest preceding empty slot (StructCopy) and resets the vacated slot (StructInitWithSentinelValues). Called by TextOverlayDisplayTimer (0x004186F0).",
+  "local_names": {
+    "v1": "current_time",
+    "v2": "slot_cursor",
+    "v3": "first_empty_index",
+    "v4": "last_nonempty_index",
+    "v5": "slot_index"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Reads v1 = dbl_8AFEA8 and initializes v3 (first empty index) and v4 (last non-empty index) to -1.",
+      "evidence_refs": ["global:0x008AFEA8", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Phase 1 loop: iterates 20 slots (indices 0..19) of the 32-byte slot array at this+537, stepping v6 by 8 dwords; slot 0 starts at field 0x864.",
+      "evidence_refs": ["field:this:0x00000864", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Per-slot expiry guard: the slot's dword[3] float (offset +0xC, e.g. 0x870 for slot 0) must not equal the -1.0f sentinel value -1082130432 (0xBF800000) and v1 (current time) must be greater than that float value.",
+      "evidence_refs": ["field:this:0x00000870", "guard:1", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "StructInitWithSentinelValues(slot) resets an expired slot to its empty/default state.",
+      "evidence_refs": ["callee:0x004144D0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Slot id test: when the slot's first dword equals -1 (0xFFFFFFFF) it is empty and v3 records the first such index; otherwise the slot is non-empty and v4 records its index.",
+      "evidence_refs": ["field:this:0x00000864", "guard:0", "field:this:0x00000884", "guard:2", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Phase 2 runs only when there is at least one non-empty slot (v4 != -1) and a gap exists before the last non-empty slot (v3 < v4).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Compaction loop: scans slots from index 1 to 19 through the cursor v2 (starting at this+537, stepping 8 dwords); slot 1's id field (0x884) is read here.",
+      "evidence_refs": ["field:this:0x00000884", "guard:2", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "On finding an empty slot (*v2 == -1), a forward inner scan locates the next non-empty slot (j); if the scan reaches index 20 the function returns early.",
+      "evidence_refs": ["field:this:0x00000884", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "StructCopy(empty_slot, next_nonempty_slot) copies the filled slot's 32 bytes into the gap.",
+      "evidence_refs": ["callee:0x004145C0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "StructInitWithSentinelValues(next_nonempty_slot) resets the vacated source slot to its empty/default state.",
+      "evidence_refs": ["callee:0x004144D0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Implicit return: exits when the forward scan in Phase 2 finds no non-empty slot to fill the gap.",
+      "evidence_refs": ["function:0x00418AC0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v1 = dbl_8AFEA8; v3 = -1; v4 = -1;",
+    "for (v5 = 0; v5 < 20; ++v5) {",
+    "    slot = (float*)(this + 537) + 8 * v5;",
+    "    if (slot[3] != -1.0f && v1 > slot[3]) StructInitWithSentinelValues(slot);",
+    "    if (*(int*)slot == -1) { if (v3 == -1) v3 = v5; } else v4 = v5;",
+    "}",
+    "if (v4 != -1 && v3 < v4)",
+    "    for (i = 1; i < 20; ++i) {",
+    "        cur = this + 537 + 8 * (i - 1);",
+    "        if (*(int*)cur == -1) {",
+    "            j = i; while (*(int*)(this + 537 + 8*j) == -1) if (++j >= 20) return;",
+    "            StructCopy(cur, this + 537 + 8*j); StructInitWithSentinelValues(this + 537 + 8*j);",
+    "        }",
+    "    }"
+  ],
+  "unresolved": [
+    "dbl_8AFEA8 is labelled InputAxisDeadZone (DERIVED) in existing analysis but the raw source compares it against slot expiry floats, implying a current-time value; its true meaning is unconfirmed.",
+    "The slot layout (dword[0] id, dword[3] expiry float) and the -1.0f sentinel are derived from source; the slot struct type and owning class are not confirmed.",
+    "The compaction loop starts at index 1, leaving slot 0 in place; whether slot 0 is a reserved/non-movable slot is unconfirmed.",
+    "The 'overlay display' reading of the 20 slots comes from the caller name TextOverlayDisplayTimer and is DERIVED, not proven by this packet."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x004186F0"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,36 @@
+## ShortComputation_d360_0040d360 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Frame-path:** NOT_FOUND  
+**Call frequency:** UNKNOWN (no static path from tick root)
+
+**Called by:** RaceModeSetup (00404890), ConditionalSoundRenderDispatchOnParamCheck (00404970), RandomStateMachineWithTimerAndTrigger (0040c070)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0x2E | RW | 1 | [LLM] |
+| this | 0x30 | RW | 0 | [LLM] |
+| this | 0x34 | RW | — | [LLM] |
+| this | 0x3C | RW | — | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x2E: [LLM: once/conditional? does external poke survive?]
+- this 0x30: [LLM: once/conditional? does external poke survive?]
+- this 0x34: [LLM: once/conditional? does external poke survive?]
+- this 0x3C: [LLM: once/conditional? does external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 005884ed | RandLCGRandomNumberGenerator | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

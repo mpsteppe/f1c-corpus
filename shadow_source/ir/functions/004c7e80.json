@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "address": "0x004C7E80",
+  "proposed_name": "DestroyLinkedList",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004C7E80"]
+  },
+  "summary": "Destroys a linked list rooted at the object's list-header pointer (this+0xC). The header holds head (0x0), tail (0x4), cursor (0x8) and count (0xC). The walk frees every node with FreeWrapper_7bcf; each node whose alive-flag byte at +8 is non-zero (and whose content pointer at +0 is non-null) has its vtable destructor invoked with argument 1 first. After a defensive second traversal, the header itself is freed, its four fields are zeroed, and this+0xC is set to NULL. Called by Sound_Post (004C8CA0).",
+  "local_names": {
+    "a1": "object whose +0xC holds the list-header pointer",
+    "v1": "list header (head/tail/cursor/count quad)",
+    "v2": "next node pointer while walking the chain via +4",
+    "v3": "node being freed in the first traversal",
+    "v6": "re-read list header before the defensive second traversal",
+    "v7": "next node pointer in the second traversal",
+    "v8": "node being freed in the second traversal",
+    "v4": "zero-test of the node alive-flag byte at +8"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Read the list header v1 = *(this+0xC); if it is NULL the function does nothing.",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the header's head pointer *v1 is non-null, enter the first traversal over the node chain.",
+      "evidence_refs": ["field:*(*(this+0xC)+0x0):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "First traversal: for each node read its next pointer at +4 and alive-flag byte at +8; when the flag is non-zero (guard v4 false) and the content pointer at +0 is non-null, invoke the content vtable destructor with argument 1; then free the node with FreeWrapper_7bcf and continue while the next pointer is non-null.",
+      "evidence_refs": ["field:*(*(*(*(this+0xC)+0x0)+0x0)+0x0):0x00000000", "field:*(*(*(this+0xC)+0x0)+0x0):0x00000000", "field:*(*(*(this+0xC)+0x0)+0x4):0x00000004", "field:*(*(this+0xC)+0x0):0x00000008", "guard:0", "callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the list-header fields: head, tail, cursor and count at header offsets 0x0, 0x4, 0x8 and 0xC are all zeroed.",
+      "evidence_refs": ["field:*(this+0xC):0x00000000", "field:*(this+0xC):0x00000004", "field:*(this+0xC):0x00000008", "field:*(this+0xC):0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Defensive second traversal over the re-read header: for each remaining node call the content vtable destructor with argument 1 when the +8 alive flag is non-zero and the +0 content pointer is non-null, free the node with FreeWrapper_7bcf, then zero the header fields again and free the header itself.",
+      "evidence_refs": ["field:*(*(*(*(this+0xC)+0x0)+0x0)+0x0):0x00000000", "field:*(*(*(this+0xC)+0x0)+0x0):0x00000000", "field:*(*(*(this+0xC)+0x0)+0x4):0x00000004", "field:*(*(this+0xC)+0x0):0x00000008", "guard:0", "callee:0x00587BCF", "field:*(this+0xC):0x00000000", "field:*(this+0xC):0x00000004", "field:*(this+0xC):0x00000008", "field:*(this+0xC):0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set this+0xC to 0 so the object no longer references the freed header, and return the header-free result.",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result of FreeWrapper_7bcf on the freed list header (the second traversal path), which is garbage-initialized on paths that do not reach that call.",
+      "evidence_refs": ["function:0x004C7E80", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by Sound_Post (004C8CA0) to tear down the object's node list.",
+      "evidence_refs": ["caller:0x004C8CA0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "hdr = *(this + 0xC);",
+    "if (!hdr) return garbage;",
+    "node = *hdr;",
+    "while (node) {",
+    "  n = node;",
+    "  alive = *(node + 8) != 0;",
+    "  node = *(node + 4);",
+    "  if (alive && *n) (*(**n))(*n, 1);",
+    "  FreeWrapper_7bcf(n);",
+    "}",
+    "hdr[0] = 0; hdr[1] = 0; hdr[2] = 0; hdr[3] = 0;",
+    "hdr = *(this + 0xC);",
+    "if (hdr) {",
+    "  node = *hdr;",
+    "  while (node) {",
+    "    n = node;",
+    "    alive = *(node + 8) != 0;",
+    "    node = *(node + 4);",
+    "    if (alive && *n) (*(**n))(*n, 1);",
+    "    FreeWrapper_7bcf(n);",
+    "  }",
+    "  hdr[0] = 0; hdr[1] = 0; hdr[2] = 0; hdr[3] = 0;",
+    "  result = FreeWrapper_7bcf(hdr);",
+    "}",
+    "*(this + 0xC) = 0;",
+    "return result;"
+  ],
+  "unresolved": [
+    "The first traversal already frees every node, making the second traversal and header-free appear redundant; this is treated as defensive/residual logic rather than a two-tier list model because no structural difference between the passes is evident",
+    "The vtable destructor call signature (content object + integer argument 1) and the meaning of the +8 alive flag are inferred from the field layout only; no class contract is documented",
+    "The return value on the header-NULL early path is an uninitialized register, visible in the decompiler as a garbage read"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

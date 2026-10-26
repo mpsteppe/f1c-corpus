@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "address": "0x0045A8E0",
+  "proposed_name": "sub_45A8E0",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Vehicle physics body update: writes the requested speed limit into +0x24, clamps it against the stored limits, and when the request is within bounds and physics integration is enabled runs the velocity/angular-velocity integrator, computes attitude angles from atan2 of velocity components, emits the 3D position via sub_54B4D0, and conditionally zeroes the 24-byte state block and commits it. Out-of-range requests take a clamp path or a vtable-dispatched reset path that seeds a 'knN' pattern into position/attitude fields.",
+  "local_names": {
+    "v5": "upperSpeedBound",
+    "v6": "relaxedSpeedBound",
+    "v31": "attitudeAndStateBuffer"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Write the requested speed limit parameter a2 into field +0x24.",
+      "evidence_refs": [
+        "field:this:0x00000024",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the effective speed bound v5 as min(field +0x20, field +0x1C).",
+      "evidence_refs": [
+        "field:this:0x00000020",
+        "field:this:0x0000001C",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "When a2 <= v5 and the integration-enabled flag at +0xD0 is non-zero: run VehiclePhysicsVelocityAngularVelocityIntegrator twice with step 0.0125, then read the 3D position doubles (+0xD8, +0xE0, +0xE8) into the output triple pointed to by a3.",
+      "evidence_refs": [
+        "field:this:0x000000D0",
+        "callee:0x00459AE0",
+        "field:this:0x000000D8",
+        "field:this:0x000000E0",
+        "field:this:0x000000E8",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute attitude angles: v14 = -(+0x118); if |+0x118| == 1.0 then v15 = atan2(-(+0x120), +0xF0) and v16 = 0.0, else v15 = atan2(+0x100, +0x130) and v16 = atan2(+0x108, +0x110); call FloatConvertWrapper, store the three angles into the v31 buffer and call sub_54B4D0 with the position and the three angles.",
+      "evidence_refs": [
+        "field:this:0x00000118",
+        "field:this:0x00000120",
+        "field:this:0x000000F0",
+        "field:this:0x00000100",
+        "field:this:0x00000130",
+        "field:this:0x00000108",
+        "field:this:0x00000110",
+        "callee:0x00588570",
+        "callee:0x0054B4D0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "If field +0x140 < -100.0 (or the FPU comparison flags report a condition): zero the 24-byte buffer, copy it into the state block, commit it via Copy6DwordsToStructCall, copy +0x24 into +0x20, and return 1; otherwise return 1 without the reset.",
+      "evidence_refs": [
+        "field:this:0x00000140",
+        "callee:0x00569280",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Out-of-range request path: compute the relaxed bound v6 = min(field +0x1C, flt_7D0AB0 + field +0x20).",
+      "evidence_refs": [
+        "field:this:0x0000001C",
+        "global:0x007D0AB0",
+        "field:this:0x00000020",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "When a2 <= v6: zero the 24-byte buffer, copy it into the state block, commit via Copy6DwordsToStructCall, write the position doubles (+0xD8, +0xE0, +0xE8) into the output triple, and return 1.",
+      "evidence_refs": [
+        "callee:0x00569280",
+        "field:this:0x000000D8",
+        "field:this:0x000000E0",
+        "field:this:0x000000E8",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Otherwise dispatch a virtual method through the vtable (field obj+0x4); if it returns non-zero, strcpy the '(knN(knN(knN' pattern into the buffer, call ThreeFieldSetterWithSubCall and FlagFieldBitManipulation, zero/commit the state block via Copy6DwordsToStructCall, seed fields +0xC0/+0xC4/+0xC8 from the buffer words, and write the position doubles into the output triple; then return 0.",
+      "evidence_refs": [
+        "field:obj:0x00000004",
+        "field:this:0x00000000",
+        "callee:0x0054B3B0",
+        "callee:0x0054C030",
+        "callee:0x00569280",
+        "field:this:0x000000C0",
+        "field:this:0x000000C4",
+        "field:this:0x000000C8",
+        "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "this->+0x24 = a2;",
+    "bound = min(this->+0x20, this->+0x1C);",
+    "if (a2 <= bound) {",
+    "  if (this->+0xD0) {",
+    "    VehiclePhysicsVelocityAngularVelocityIntegrator(this, 0.0125);",
+    "    VehiclePhysicsVelocityAngularVelocityIntegrator(this, 0.0125);",
+    "    output = readPosDoubles(+0xD8, +0xE0, +0xE8);",
+    "    angles = computeAttitude(this, +0x118, +0xF0..+0x130);",
+    "    sub_54B4D0(output, angles);",
+    "    if (this->+0x140 < -100.0 || fpuFlags) { zeroCommitState(); this->+0x20 = this->+0x24; }",
+    "    return 1;",
+    "  }",
+    "  return 0;",
+    "}",
+    "relaxed = min(this->+0x1C, flt_7D0AB0 + this->+0x20);",
+    "if (a2 <= relaxed) { zeroCommitState(); output = readPosDoubles(); return 1; }",
+    "if (vtableDispatch(+0x4)(this)) { seedKnNPattern(this, +0xC0/+0xC4/+0xC8); }",
+    "output = readPosDoubles(); return 0;"
+  ],
+  "unresolved": [
+    "The double constants dbl_59E420, dbl_59E430, dbl_59F060, dbl_59F068, dbl_59F070 are listed as read globals but do not appear in the raw decompiled body; they are likely consumed inside callees (sub_54B4D0, ThreeFieldSetterWithSubCall, FloatConvertWrapper).",
+    "The FPU comparison flags in the +0x140 guard (v18/v19/v21/v22/v24/v25/v27/v28) encode an unordered/NaN comparison whose exact meaning is not resolved."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059F060",
+    "global:0x0059F068",
+    "global:0x0059F070",
+    "abi:lead",
+    "caller:0x0040F1C0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

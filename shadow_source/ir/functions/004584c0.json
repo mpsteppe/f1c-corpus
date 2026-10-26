@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "address": "0x004584C0",
+  "proposed_name": "CollisionResponseFilter",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Filters an angular collision response by comparing the total wrapped angular difference between a source orientation (a2, three Euler angles) and a target orientation (a3) against a scaled threshold. If the total difference is zero or does not exceed the threshold (this[0xA4] * a5 * total), the source Euler angles are copied unchanged to the output buffer a4. Otherwise both orientations are converted to quaternions, slerped by a factor clamped between threshold/total and 1.0, and the result is converted back to Euler angles written into a4. Called by sub_458DF0 (00458DF0).",
+  "local_names": {
+    "a2": "source Euler-angle triple (wrapped in place, passed through on the early-out path)",
+    "a3": "target Euler-angle triple, also reused as the threshold accumulator",
+    "a4": "output buffer receiving three Euler angles",
+    "a5": "external multiplier scaling the response threshold",
+    "v5": "float pointer view of the source orientation a2",
+    "v7": "float pointer view of the target orientation a3",
+    "v14": "quaternion staging buffer for the target orientation",
+    "v13": "quaternion staging buffer for the source orientation"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize local source/target float pointers from the integer-typed arguments; function is invoked by sub_458DF0 (00458DF0).",
+      "evidence_refs": ["caller:0x00458DF0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "AngleWrap each component of the source Euler triple (offset 0 and offset 4 of the source pointer).",
+      "evidence_refs": ["callee:0x00455F90", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "AngleWrap each component of the target Euler triple (offset 0 and offset 1 of the target pointer).",
+      "evidence_refs": ["callee:0x00455F90", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute per-component absolute differences between the wrapped source and target Euler angles, storing them back into the a3/a2 accumulator slots.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "AngleNormalization of both accumulated angular differences to bring them into the canonical range.",
+      "evidence_refs": ["callee:0x00455FD0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Sum the two normalized differences into the total angular difference carried in a2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the response threshold = total_angular_difference * this[0xA4] * a5.",
+      "evidence_refs": ["field:this:0x000000A4", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the total angular difference is at most the threshold, or at most 0.0, skip quaternion interpolation entirely.",
+      "evidence_refs": ["field:this:0x000000A4", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Early-out path: copy the three source Euler dwords into the output buffer a4 and return it unchanged.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Interpolation factor = threshold / total_angular_difference, clamped to 1.0 when the ratio exceeds 1.0.",
+      "evidence_refs": ["field:this:0x000000A4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "QuaternionFromEulerAngles converts the target Euler triple into quaternion staging buffer v14.",
+      "evidence_refs": ["callee:0x00567030", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "QuaternionFromEulerAngles converts the source Euler triple into quaternion staging buffer v13.",
+      "evidence_refs": ["callee:0x00567030", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_567580 performs spherical linear interpolation between the two quaternions with the computed factor.",
+      "evidence_refs": ["callee:0x00567580", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_567010 converts the interpolated quaternion back to Euler angles in the output buffer a4 and returns it.",
+      "evidence_refs": ["callee:0x00567010", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the output buffer pointer a4 on both paths.",
+      "evidence_refs": ["function:0x004584C0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "float *sub_4584C0(this, float *src, float *tgt, _DWORD *out, float a5) {",
+    "  AngleWrap(&src[0]); AngleWrap(&src[1]);",
+    "  AngleWrap(&tgt[0]); AngleWrap(&tgt[1]);",
+    "  float d0 = fabs(src[0] - tgt[0]);",
+    "  float d1 = fabs(src[1] - tgt[1]);",
+    "  AngleNormalization(&d0); AngleNormalization(&d1);",
+    "  float total = d0 + d1;",
+    "  float threshold = total * this[0xA4/4] * a5;",
+    "  if (total <= threshold || total <= 0.0) {",
+    "    out[0] = src[0]; out[1] = src[1]; out[2] = src[2];",
+    "    return (float *)out;",
+    "  }",
+    "  float f = threshold / total;",
+    "  if (f > 1.0) f = 1.0;",
+    "  QuaternionFromEulerAngles(tgt, qTgt);",
+    "  QuaternionFromEulerAngles(src, qSrc);",
+    "  sub_567580(qTgt, qSrc, f);",
+    "  return sub_567010(qResult, out);",
+    "}"
+  ],
+  "unresolved": [
+    "flt_59E43C and flt_59E440 are flagged by packet facts but appear nowhere in the raw source text; their roles (contact-aging threshold, zero threshold per prior analysis) cannot be verified from this packet.",
+    "The 0xA4 field is read as a raw scale inside the threshold; its meaning as a stiffness/damping parameter is prior-analysis prose, not packet evidence.",
+    "Which of a2/a3 is the current vs desired orientation is inferred from the early-out copy path and is not stated by the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

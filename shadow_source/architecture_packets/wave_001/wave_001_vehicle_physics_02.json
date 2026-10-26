@@ -1,0 +1,3278 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_001_vehicle_physics_02",
+  "scope": "vehicle_physics",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x0044C550",
+      "function_ref": "function:0x0044C550",
+      "name": "CollisionNormalFromFeature",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Queries the spatial grid for the collision feature containing a2; when a feature is found, derives an oriented collision normal from the feature's plane coefficients and writes it into the output vector a3. Returns the spatial-grid query result. Used by suspension force, orientation, tire contact and particle collision paths.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "SpatialGridQuery(this, a2) looks up the collision feature associated with the query position a2; a non-null result drives the normal computation.",
+          "evidence_refs": [
+            "callee:0x0044C4C0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "The collision normal is computed only when the spatial-grid query returns a non-null feature pointer.",
+          "evidence_refs": [
+            "callee:0x0044C4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Assemble plane coefficients from a2 components and result elements [0..4]: v6 = a2.x*result[0] + a2.x*result[0] + a2.z*result[2] + result[3]; v7 = a2.z*result[1] + a2.z*result[1] + a2.x*result[2] + result[4].",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Normalization: v8 = 1.0 / sqrt(v7*v7 + v6*v6 + 1.0); the 1.0 constant is supplied by the read global dbl_59E420 (the only plausible consumer of that read).",
+          "evidence_refs": [
+            "global:0x0059E420",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the normalized collision normal into a3: a3[0] = -(v8*v6), a3[1] = v8, a3[2] = -(v8*v7).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the spatial-grid query result pointer (the feature, or NULL when no feature was found).",
+          "evidence_refs": [
+            "function:0x0044C550",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "dbl_59E420 is read somewhere in this function but does not appear by name in the decompiled arithmetic; the 1.0 normalization constant is the only visible candidate consumer -- unverified.",
+        "The layout of the feature plane returned by SpatialGridQuery (elements result[0..4]) is not enumerated as packet fields."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead",
+        "caller:0x00401340",
+        "caller:0x004B2DD0",
+        "caller:0x004CB620",
+        "caller:0x004CBC50",
+        "caller:0x004CCE90",
+        "caller:0x004E3AA0",
+        "caller:0x004EF180"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00454DA0",
+      "function_ref": "function:0x00454DA0",
+      "name": "VehicleInputSmoothingAndGearSelect",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00454DA0",
+          "abi:lead",
+          "source:raw"
+        ]
+      },
+      "summary": "Per-frame vehicle input processor. For each axis (throttle, brake, clutch, steering, handbrake) it either copies a direct target value when the mode field == 2, or ramps a smoothed accumulator toward 1.0 / 0.0 using a per-axis decay constant times the input scalar a2 times 10.0, clamped to the float 1.0 / 0.0 bit patterns. Steering adds a sign-aware return-to-center ramp gated by an input-active flag and a neutral flag. Writes the six smoothed outputs back through output pointers a3 (steering), a4 (throttle), a5 (brake), a6 (clutch), a7 (handbrake), a8 (gear). The gear output is selected from a ladder of seven gear-input flags (reverse -1, gears 1..7) gated by a byte flag at this+0x2428 and a neutral override at 0x20F0 == 0, with a global byte_7D1370 == 1 forcing neutral. Called per frame from VehicleMainPhysicsUpdate and CollisionConfigurationSync.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Throttle mode gate: if this+0x1B20 == 2 (guard:0) take the direct-passthrough path, bypassing the smoothing ramp.",
+          "evidence_refs": [
+            "field:this:0x00001B20",
+            "guard:0"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Throttle direct target: this+0x2410 (float) = this+0x1B48.",
+          "evidence_refs": [
+            "field:this:0x00002410",
+            "field:this:0x00001B48"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Throttle decay step: v8 = flt_7D12C8 * a2 * 10.0.",
+          "evidence_refs": [
+            "global:0x007D12C8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Throttle input-active check: if this+0x1B44 is nonzero the throttle ramps upward, otherwise it decays.",
+          "evidence_refs": [
+            "field:this:0x00001B44"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Throttle ramp up: this+0x2410 (float) += v8; if the result exceeds 1.0 force the dword 1065353216 (float 1.0 bit pattern).",
+          "evidence_refs": [
+            "field:this:0x00002410",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Throttle decay: if this+0x1B70 is nonzero subtract v8 * 1.5 from this+0x2410, else subtract v8; if the result is below 0.0 force the dword 0.",
+          "evidence_refs": [
+            "field:this:0x00002410",
+            "field:this:0x00001B70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Commit throttle output: *a4 = this+0x2410.",
+          "evidence_refs": [
+            "field:this:0x00002410",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Brake mode gate: if this+0x1B4C == 2 (guard:1) take the direct-passthrough path.",
+          "evidence_refs": [
+            "field:this:0x00001B4C",
+            "guard:1"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Brake direct target: this+0x2414 (float) = this+0x1B74.",
+          "evidence_refs": [
+            "field:this:0x00002414",
+            "field:this:0x00001B74"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Brake decay step: v10 = flt_7D12EC * a2 * 10.0.",
+          "evidence_refs": [
+            "global:0x007D12EC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Brake input-active check: if this+0x1B70 is nonzero the brake ramps upward, otherwise it decays.",
+          "evidence_refs": [
+            "field:this:0x00001B70"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Brake ramp up: this+0x2414 (float) += v10; clamp above 1.0 to dword 1065353216.",
+          "evidence_refs": [
+            "field:this:0x00002414",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Brake decay: this+0x2414 (float) -= v10; clamp below 0.0 to dword 0.",
+          "evidence_refs": [
+            "field:this:0x00002414",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Commit brake output: *a5 = this+0x2414.",
+          "evidence_refs": [
+            "field:this:0x00002414",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Clutch mode gate: if this+0x21D4 == 2 (guard:6) take the direct-passthrough path.",
+          "evidence_refs": [
+            "field:this:0x000021D4",
+            "guard:6"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clutch direct target: this+0x2418 (float) = this+0x21FC.",
+          "evidence_refs": [
+            "field:this:0x00002418",
+            "field:this:0x000021FC"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Clutch decay step: v13 = flt_7D12EC * a2 * 10.0.",
+          "evidence_refs": [
+            "global:0x007D12EC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Clutch input-active check: if this+0x21F8 is nonzero the clutch ramps upward, otherwise it decays.",
+          "evidence_refs": [
+            "field:this:0x000021F8"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Clutch ramp: if active this+0x2418 (float) += v13 with a 1.0 clamp (dword 1065353216); else this+0x2418 -= v13 with a 0.0 clamp.",
+          "evidence_refs": [
+            "field:this:0x00002418",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Commit clutch output: *a6 = this+0x2418.",
+          "evidence_refs": [
+            "field:this:0x00002418",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Steering direct gate: if this+0x1B78 == 2 AND this+0x1BA4 == 2 (guards:2 and 3) copy the steering target directly and skip the smoothing ramp.",
+          "evidence_refs": [
+            "field:this:0x00001B78",
+            "field:this:0x00001BA4",
+            "guard:2",
+            "guard:3"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Steering direct value: if float this+0x1BA0 <= 0.0 then this+0x241C = float this+0x1BCC, else this+0x241C = -(float this+0x1BA0); then jump to the steering commit label.",
+          "evidence_refs": [
+            "field:this:0x0000241C",
+            "field:this:0x00001BA0",
+            "field:this:0x00001BCC"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Steering decay step: v17 = flt_7D12A4 * a2 * 10.0; snapshot current steering v19 = float this+0x241C and its sign flags v20 (negative) / v22 (zero).",
+          "evidence_refs": [
+            "global:0x007D12A4",
+            "field:this:0x0000241C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Steering input-active check: if this+0x1B9C is nonzero the steering is being driven by input; otherwise it returns toward center.",
+          "evidence_refs": [
+            "field:this:0x00001B9C"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Steering ramp while input active and neutral flag clear: if this+0x1BC8 (v16) == 0 and the current value is positive, subtract 3.0 * v17 then v17, clamping below -1.0 to dword -1082130432 (float -1.0 bit pattern).",
+          "evidence_refs": [
+            "field:this:0x0000241C",
+            "field:this:0x00001BC8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Steering return-to-center while input inactive and neutral flag set: if this+0x1BC8 (v16) != 0 and the current value is negative, add 3.0 * v17 then v17, clamping above 1.0 to dword 1065353216.",
+          "evidence_refs": [
+            "field:this:0x0000241C",
+            "field:this:0x00001BC8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Steering fallthrough ramp: when input is active with the neutral flag set, or inactive without it, apply a sign-dependent v17 ramp toward zero; when the accumulator crosses its sign boundary force this+0x241C = 0. The ramp direction is chosen by a decompiler FPU-status flag (v24 & 0x41) whose origin is ambiguous (see unresolved).",
+          "evidence_refs": [
+            "field:this:0x0000241C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Commit steering output: *a3 = this+0x241C.",
+          "evidence_refs": [
+            "field:this:0x0000241C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Gear-selection gate: the gear ladder only runs when byte this+0x2428 is nonzero.",
+          "evidence_refs": [
+            "field:this:0x00002428"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Gear ladder init: this+0x2424 = -2; if this+0x20F0 == 0 (guard:5) the ladder chooses a gear from the gear-input flags, otherwise this+0x2424 = 7.",
+          "evidence_refs": [
+            "field:this:0x00002424",
+            "field:this:0x000020F0",
+            "guard:5"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Gear-flag ladder (descending if/else chain): this+0x20C4 set -> gear 6; this+0x2098 -> 5; this+0x206C -> 4; this+0x2040 -> 3; this+0x2014 -> 2; this+0x1FE8 -> 1; this+0x1FBC -> reverse -1; none set leaves the initial -2.",
+          "evidence_refs": [
+            "field:this:0x000020C4",
+            "field:this:0x00002098",
+            "field:this:0x0000206C",
+            "field:this:0x00002040",
+            "field:this:0x00002014",
+            "field:this:0x00001FE8",
+            "field:this:0x00001FBC"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Gear neutral override: if this+0x2424 still == -2 (dword 0xFFFFFFFE, guard:7) and global byte_7D1370 == 1, force this+0x2424 = 0 (neutral).",
+          "evidence_refs": [
+            "field:this:0x00002424",
+            "global:0x007D1370",
+            "guard:7"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Commit gear output: *a8 = this+0x2424.",
+          "evidence_refs": [
+            "field:this:0x00002424",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Handbrake mode gate: if this+0x1C54 == 2 (guard:4) take the direct-passthrough path.",
+          "evidence_refs": [
+            "field:this:0x00001C54",
+            "guard:4"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Handbrake direct target: this+0x2420 (float) = this+0x1C7C; *a7 = this+0x2420 and return.",
+          "evidence_refs": [
+            "field:this:0x00002420",
+            "field:this:0x00001C7C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Handbrake engage: if this+0x1C78 is nonzero set this+0x2420 = dword 1065353216 (float 1.0), write *a7 = same.",
+          "evidence_refs": [
+            "field:this:0x00001C78",
+            "field:this:0x00002420",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Handbrake decay: v29 = float this+0x2420 - flt_7D1310 * a2 * 10.0; if >= 0.0 commit and *a7 = this+0x2420, else set this+0x2420 = 0 and *a7 = 0.",
+          "evidence_refs": [
+            "field:this:0x00002420",
+            "global:0x007D1310",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Six read-only globals (0x0059E43C, 0x0059E440, 0x0059E478, 0x0059E5FC, 0x0059E670, 0x0059E8A4) appear in the fact table as read but Hex-Rays folds them into FPU instructions, so they never appear as named references in the .c.",
+        "The steering fallthrough branch tests (v24 & 0x41) on the decompiler artifact char v18 (an FPU status byte carried over from a prior compare); its origin is unverifiable in the .c, so the exact ramp direction in that path is ambiguous.",
+        "The float bit-pattern dword literals 1065353216 (1.0f) and -1082130432 (-1.0f) are preserved as written; the gear-field semantics (which of this+0x1FBC/0x1FE8/0x2014/0x2040/0x206C/0x2098/0x20C4 maps to which gear) come from the fills' DERIVED naming, not from the .c."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E478",
+        "global:0x0059E5FC",
+        "global:0x0059E670",
+        "global:0x0059E8A4"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x00459AE0",
+      "function_ref": "function:0x00459AE0",
+      "name": "VehiclePhysicsVelocityAngularVelocityIntegrator",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00459AE0"
+        ]
+      },
+      "summary": "Per-frame vehicle physics integrator invoked from sub_45A8E0: reads drag, gravity, force and restitution coefficients, position and orientation state, and the angular-velocity inputs; branches on the contact-point count at +0x50 to choose a single-body path or a multi-vehicle contact-force path; writes angular-velocity outputs at +0xC0..+0xC8; reads the rotation/attitude state; zeroes a 12-dword working block at +0x208..+0x234; composes the transform via F_3DVectorTransformBy33Matrix and TransformApply3D, runs the physics state integration, renders the sprite grid, exchanges remote-vehicle state through the network packet writer/reader with buffer-entry cleanup, accumulates angular momentum, converts floats, and reads a block of data-segment double constants. Raw body is large and decompiler-dense (long double/FPU comparison temporaries).",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Branch on the contact-point/collision count at this+0x50: proceed down the multi-vehicle contact-force path only when this+0x50 <= 1, otherwise take the alternate integration path.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x00000050"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read the vehicle physics coefficients: velocity drag coefficient at +0x28, gravity acceleration scale at +0x30, longitudinal force component at +0x38, lateral force component at +0x40, and collision restitution / force-transfer ratio at +0x48.",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "field:this:0x00000030",
+            "field:this:0x00000038",
+            "field:this:0x00000040",
+            "field:this:0x00000048",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read the current position components X/Y/Z at this+0x54/0x58/0x5C.",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "field:this:0x00000058",
+            "field:this:0x0000005C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read orientation matrix elements at this+0x64 (element [0][0]) and this+0x68 (element [1][0]).",
+          "evidence_refs": [
+            "field:this:0x00000064",
+            "field:this:0x00000068",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read the angular-velocity inputs (previous state) at this+0xCC/0xD0/0xD8, plus the vtable pointer at this+0x0 and the physics step-callback function pointer at obj+0x8 used for virtual dispatch.",
+          "evidence_refs": [
+            "field:this:0x000000CC",
+            "field:this:0x000000D0",
+            "field:this:0x000000D8",
+            "field:this:0x00000000",
+            "field:obj:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read rotation data at this+0xE0 (orientation quaternion / matrix element) and the following rotation components at +0xE8, +0xF0, +0x100, +0x108, +0x110.",
+          "evidence_refs": [
+            "field:this:0x000000E0",
+            "field:this:0x000000E8",
+            "field:this:0x000000F0",
+            "field:this:0x00000100",
+            "field:this:0x00000108",
+            "field:this:0x00000110",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read attitude/rotation state at this+0x118, +0x120, +0x130, +0x138, +0x140, +0x148.",
+          "evidence_refs": [
+            "field:this:0x00000118",
+            "field:this:0x00000120",
+            "field:this:0x00000130",
+            "field:this:0x00000138",
+            "field:this:0x00000140",
+            "field:this:0x00000148",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read further transform-column state at this+0x150, +0x158, +0x160, +0x180.",
+          "evidence_refs": [
+            "field:this:0x00000150",
+            "field:this:0x00000158",
+            "field:this:0x00000160",
+            "field:this:0x00000180",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the angular-velocity outputs X/Y/Z at this+0xC0/0xC4/0xC8 (written per integration sub-step).",
+          "evidence_refs": [
+            "field:this:0x000000C0",
+            "field:this:0x000000C4",
+            "field:this:0x000000C8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero the 12-dword working block at this+0x208..+0x234 (runtime accumulator/scratch run).",
+          "evidence_refs": [
+            "field:this:0x00000208",
+            "field:this:0x0000020C",
+            "field:this:0x00000210",
+            "field:this:0x00000214",
+            "field:this:0x00000218",
+            "field:this:0x0000021C",
+            "field:this:0x00000220",
+            "field:this:0x00000224",
+            "field:this:0x00000228",
+            "field:this:0x0000022C",
+            "field:this:0x00000230",
+            "field:this:0x00000234",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Combine integration constants read from the data segment: doubles dbl_59E420, dbl_59E430, dbl_59E880, dbl_59ED50, dbl_59F038, dbl_59F040, dbl_59F048, dbl_59F050, dbl_59F058 and dword dword_8AB710.",
+          "evidence_refs": [
+            "global:0x0059E420",
+            "global:0x0059E430",
+            "global:0x0059E880",
+            "global:0x0059ED50",
+            "global:0x0059F038",
+            "global:0x0059F040",
+            "global:0x0059F048",
+            "global:0x0059F050",
+            "global:0x0059F058",
+            "global:0x008AB710",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Transform a 3D vector by the 3x3 matrix (F_3DVectorTransformBy33Matrix).",
+          "evidence_refs": [
+            "callee:0x004361D0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Apply the 3D transform (TransformApply3D).",
+          "evidence_refs": [
+            "callee:0x0043AEE0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Run the physics state integration step (PhysicsStateIntegration).",
+          "evidence_refs": [
+            "callee:0x00459A40"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Render the sprite grid for the vehicle (SpriteGridRender).",
+          "evidence_refs": [
+            "callee:0x004BE4E0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Emit the 3D position/attitude via sub_54B4D0.",
+          "evidence_refs": [
+            "callee:0x0054B4D0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Pack and write the local vehicle state into the network packet buffer (NetworkPacketDataWriter).",
+          "evidence_refs": [
+            "callee:0x0054FA00"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Unpack remote-vehicle state from the network packet buffer (NetworkPacketDataReader).",
+          "evidence_refs": [
+            "callee:0x0054FA90"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Clear a network buffer entry (BufferEntryClear).",
+          "evidence_refs": [
+            "callee:0x0054FAE0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Accumulate angular momentum (AccumulateAngularMomentum).",
+          "evidence_refs": [
+            "callee:0x00569AD0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_569C10.",
+          "evidence_refs": [
+            "callee:0x00569C10"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_569DE0.",
+          "evidence_refs": [
+            "callee:0x00569DE0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Convert a value through the float-conversion wrapper (FloatConvertWrapper).",
+          "evidence_refs": [
+            "callee:0x00588570"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the integer status; invoked on the frame path from sub_45A8E0 (0x0045A8E0).",
+          "evidence_refs": [
+            "function:0x00459AE0",
+            "caller:0x0045A8E0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The raw decompiled body is truncated in the packet; exact ordering and FPU/long-double comparison semantics of the many intermediate steps are not recoverable from this packet alone.",
+        "The branching meaning of the guard at +0x50 (contact-point count <= 1) versus the multi-vehicle network contact-force path is inferred from prior analysis; the guard itself is not interpreted in the raw source excerpt.",
+        "The double constants dbl_59E420/59E430/59E880/59ED50/59F038/59F040/59F048/59F050/59F058 and dword_8AB710 are read-only globals; their exact roles in the integration are not pinned down here.",
+        "The step size (a2, a double parameter) is passed through to the integration but its value is not present in the packet evidence."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x00490EE0",
+      "function_ref": "function:0x00490EE0",
+      "name": "CollisionBroadphaseBuilder",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "source:raw"
+        ]
+      },
+      "summary": "Builds/updates a broadphase collision list a1 against a new AABB (a2-a5): allocates a pool AABB node, filters existing list nodes via sub_491680, clips overlapping AABBs into subdivisions via RectangleClipping, appends subdivision nodes to the list, unlinks and re-prepends the consumed node, then partitions the result via sub_490D00 and re-appends nodes through DoublyLinkedListAppend before destroying the temporary partition list.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Allocate a pool AABB node from the input coordinates a2-a5 via ResourcePoolNodeAllocDealloc.",
+          "evidence_refs": [
+            "callee:0x00490940",
+            "function:0x00490EE0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the input list head a1[0] is null, skip the iteration phase; otherwise snapshot a1[2] to the current head before walking.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x00000000",
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate the input list from the head, testing each stored node's AABB against the new AABB via sub_491680.",
+          "evidence_refs": [
+            "callee:0x00491680"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For each overlapping node, run RectangleClipping to produce subdivisions; for each subdivision allocate a 12-byte node via OperatorNewNhMallocWrapper and link it into the a1 list updating head, tail, current and count.",
+          "evidence_refs": [
+            "callee:0x00491350",
+            "callee:0x00587C03",
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the list to locate the processed node, unlink it by fixing the previous node's next pointer, the head and tail pointers, and decrement the count, then free it via ConditionalResourceCleanup(1).",
+          "evidence_refs": [
+            "callee:0x00491E10",
+            "field:obj:0x00000000",
+            "field:obj:0x00000004",
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Re-add the unlinked node v8 to another list via LinkedListNodePrepend.",
+          "evidence_refs": [
+            "callee:0x00490AA0",
+            "field:obj:0x00000000"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Build a local partition list: wrap the pool AABB node v5 in a 12-byte node allocated via OperatorNewNhMallocWrapper and ShortComputation_ac20(v5, 0).",
+          "evidence_refs": [
+            "callee:0x00587C03",
+            "callee:0x004BAC20"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Finalize partitioning of the input list a1 against the local partition list via sub_490D00.",
+          "evidence_refs": [
+            "callee:0x00490D00"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate the partition list with LinkedListNodeAdvance and append each node back to a1 via DoublyLinkedListAppend(a1, node, 0).",
+          "evidence_refs": [
+            "callee:0x00581780",
+            "callee:0x00434030"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Destroy the temporary partition list via LinkedListDestructor_1db0.",
+          "evidence_refs": [
+            "callee:0x00491DB0"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 (char result) to signal completion.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of the node flags byte at obj+0x8 (field is read by the raw source but no operation here consumes it).",
+        "Semantics of sub_490D00 partitioning and the argument 0 to DoublyLinkedListAppend.",
+        "Called from RenderSurfaceFillCopy (0x004918D0) and DualDispatchWithGuard (0x00491960); caller-side semantics not in this packet."
+      ],
+      "unresolved_evidence_refs": [
+        "field:obj:0x00000008",
+        "caller:0x004918D0",
+        "caller:0x00491960"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004AF3A0",
+      "function_ref": "function:0x004AF3A0",
+      "name": "TrackPhysicsParameterInit",
+      "owner": {
+        "type": "TrackEnvironmentManager",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004AF3A0",
+          "caller:0x004ADE20",
+          "field:this:0x00003B40"
+        ]
+      },
+      "summary": "Selects one of four track-environment physics profiles by the track-type selector at this+0x3B40 and initializes a dense run of per-parameter slots on the object. In each of the first two profiles every slot is written with a profile-specific default literal, read against its lower/upper bound fields, and clamped via FloatClamp or ClampByRange; a nested 2x8 per-wheel array (element base this+0x402C, 36-byte stride) is initialized the same way. The remaining two profiles push the same defaults through the ClampedFloatSetter_1de0 / ArithmeticComparison_20d0 helper pair instead of direct field writes, then repeat a per-wheel 2x8 loop of setter calls. A profile outside 0-3 returns immediately without touching any field.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Dispatch on track-type selector this+0x3B40 via jump table jpt_4AF3B4 (global 0x4B0154); cases 0-3 run their profile, default case returns immediately.",
+          "evidence_refs": [
+            "field:this:0x00003B40",
+            "global:0x004B0154",
+            "function:0x004AF3A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3BAC, clamp against lower this+0x3BB4 and upper this+0x3BB8 via ClampByRange.",
+          "evidence_refs": [
+            "field:this:0x00003BAC",
+            "field:this:0x00003BB4",
+            "field:this:0x00003BB8",
+            "callee:0x0047F1F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3BD0, clamp against lower this+0x3BD8 and upper this+0x3BDC via ClampByRange.",
+          "evidence_refs": [
+            "field:this:0x00003BD0",
+            "field:this:0x00003BD8",
+            "field:this:0x00003BDC",
+            "callee:0x0047F1F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3BF4, clamp against lower this+0x3BFC and upper this+0x3C00 via FloatClamp (packet records default 1056964608 = 0.5f used by other profiles).",
+          "evidence_refs": [
+            "field:this:0x00003BF4",
+            "field:this:0x00003BFC",
+            "field:this:0x00003C00",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 1039516303 (0.12f) to this+0x3C18, clamp against lower this+0x3C20 and upper this+0x3C24 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003C18",
+            "field:this:0x00003C20",
+            "field:this:0x00003C24",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3C3C, clamp against lower this+0x3C44 and upper this+0x3C48 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003C3C",
+            "field:this:0x00003C44",
+            "field:this:0x00003C48",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3C60, clamp against lower this+0x3C68 and upper this+0x3C6C via ClampByRange.",
+          "evidence_refs": [
+            "field:this:0x00003C60",
+            "field:this:0x00003C68",
+            "field:this:0x00003C6C",
+            "callee:0x0047F1F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1058642330 (0.6f) to this+0x3C84, clamp against lower this+0x3C8C and upper this+0x3C90 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003C84",
+            "field:this:0x00003C8C",
+            "field:this:0x00003C90",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1061997773 (0.8f) to this+0x3CA8, clamp against lower this+0x3CB0 and upper this+0x3CB4 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003CA8",
+            "field:this:0x00003CB0",
+            "field:this:0x00003CB4",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 1177792512 (11500.0f) to this+0x3CCC, clamp against lower this+0x3CD4 and upper this+0x3CD8 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003CCC",
+            "field:this:0x00003CD4",
+            "field:this:0x00003CD8",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1072064102 (1.8f) to this+0x3CF0, clamp against lower this+0x3CF8 and upper this+0x3CFC via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003CF0",
+            "field:this:0x00003CF8",
+            "field:this:0x00003CFC",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1063675494 (0.9f) to this+0x3D14, clamp against lower this+0x3D1C and upper this+0x3D20 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003D14",
+            "field:this:0x00003D1C",
+            "field:this:0x00003D20",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 1014350479 (0.015f) to this+0x3D38, clamp against lower this+0x3D40 and upper this+0x3D44 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003D38",
+            "field:this:0x00003D40",
+            "field:this:0x00003D44",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1043542835 (0.175f) to this+0x3D5C, clamp against lower this+0x3D64 and upper this+0x3D68 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003D5C",
+            "field:this:0x00003D64",
+            "field:this:0x00003D68",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 1065353216 (1.0f) to this+0x3D80, clamp against lower this+0x3D88 and upper this+0x3D8C via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003D80",
+            "field:this:0x00003D88",
+            "field:this:0x00003D8C",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1043542835 (0.175f) to this+0x3DA4, clamp against lower this+0x3DAC and upper this+0x3DB0 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003DA4",
+            "field:this:0x00003DAC",
+            "field:this:0x00003DB0",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1065353216 (1.0f) to this+0x3DC8, clamp against lower this+0x3DD0 and upper this+0x3DD4 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003DC8",
+            "field:this:0x00003DD0",
+            "field:this:0x00003DD4",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1043207291 (0.17f) to this+0x3DEC, clamp against lower this+0x3DF4 and upper this+0x3DF8 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003DEC",
+            "field:this:0x00003DF4",
+            "field:this:0x00003DF8",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1035489772 (0.09f) to this+0x3E10, clamp against lower this+0x3E18 and upper this+0x3E1C via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003E10",
+            "field:this:0x00003E18",
+            "field:this:0x00003E1C",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3E34, clamp against lower this+0x3E3C and upper this+0x3E40 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003E34",
+            "field:this:0x00003E3C",
+            "field:this:0x00003E40",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3E58, clamp against lower this+0x3E60 and upper this+0x3E64 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003E58",
+            "field:this:0x00003E60",
+            "field:this:0x00003E64",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 1034147594 (0.08f) to this+0x3E7C, clamp against lower this+0x3E84 and upper this+0x3E88 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003E7C",
+            "field:this:0x00003E84",
+            "field:this:0x00003E88",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1063675494 (0.9f) to this+0x3EA0, clamp against lower this+0x3EA8 and upper this+0x3EAC via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003EA0",
+            "field:this:0x00003EA8",
+            "field:this:0x00003EAC",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1036831949 (0.1f) to this+0x3EC4, clamp against lower this+0x3ECC and upper this+0x3ED0 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003EC4",
+            "field:this:0x00003ECC",
+            "field:this:0x00003ED0",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3EE8, clamp against lower this+0x3EF0 and upper this+0x3EF4 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003EE8",
+            "field:this:0x00003EF0",
+            "field:this:0x00003EF4",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3F0C, clamp against lower this+0x3F14 and upper this+0x3F18 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003F0C",
+            "field:this:0x00003F14",
+            "field:this:0x00003F18",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 1028443341 (0.05f) to this+0x3F30, clamp against lower this+0x3F38 and upper this+0x3F3C via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003F30",
+            "field:this:0x00003F38",
+            "field:this:0x00003F3C",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1051931443 (0.35f) to this+0x3F54, clamp against lower this+0x3F5C and upper this+0x3F60 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003F54",
+            "field:this:0x00003F5C",
+            "field:this:0x00003F60",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1058642330 (0.6f) to this+0x3F78, clamp against lower this+0x3F80 and upper this+0x3F84 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003F78",
+            "field:this:0x00003F80",
+            "field:this:0x00003F84",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 0 to this+0x3F9C, clamp against lower this+0x3FA4 and upper this+0x3FA8 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003F9C",
+            "field:this:0x00003FA4",
+            "field:this:0x00003FA8",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1069547520 (1.5f) to this+0x3FC0, clamp against lower this+0x3FC8 and upper this+0x3FCC via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003FC0",
+            "field:this:0x00003FC8",
+            "field:this:0x00003FCC",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 0 slot: write 1033476506 (0.075f) to this+0x3FE4, clamp against lower this+0x3FEC and upper this+0x3FF0 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00003FE4",
+            "field:this:0x00003FEC",
+            "field:this:0x00003FF0",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Profile 1 slot: write 1065353216 (1.0f) to this+0x4008, clamp against lower this+0x4010 and upper this+0x4014 via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x00004008",
+            "field:this:0x00004010",
+            "field:this:0x00004014",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Per-wheel array init (profiles 0 and 1): nested 2x8 loop over element base this+0x402C with 36-byte stride; each slot writes element A this+0x402C (1.0f, clamped vs bounds this+0x4034/0x4038), element B this+0x426C (0.5f in profile 0 / 0.0f in profile 1, clamped vs this+0x4274/0x4278), element C this+0x44AC (1.0f, clamped vs this+0x44B4/0x44B8), element D this+0x46EC (0.5f / 0.0f, clamped vs this+0x46F4/0x46F8), all via FloatClamp.",
+          "evidence_refs": [
+            "field:this:0x0000402C",
+            "field:this:0x00004034",
+            "field:this:0x00004038",
+            "field:this:0x0000426C",
+            "field:this:0x00004274",
+            "field:this:0x00004278",
+            "field:this:0x000044AC",
+            "field:this:0x000044B4",
+            "field:this:0x000044B8",
+            "field:this:0x000046EC",
+            "field:this:0x000046F4",
+            "field:this:0x000046F8",
+            "callee:0x004646C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Profile 2: initialize the same parameter run through helper calls — a leading ArithmeticComparison_20d0(0), then a sequence of ClampedFloatSetter_1de0 literal writes (1058642330, 0x40000000, 1177792512, 1072483533, 1060320051, 1014350479, 1033476506, 1065353216, 1033476506, 1065353216, 1036831949, 1041865114, 0, ...) interleaved with ArithmeticComparison_20d0 calls, followed by a nested 2x8 loop of setter pairs over element base this+16984 with 36-byte stride.",
+          "evidence_refs": [
+            "callee:0x004B1DE0",
+            "callee:0x004B20D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Profile 3: same helper-based init with a distinct literal sequence (0, 1039516303, 0, 1065353216, ... and 0x40000000 as final wheel element value) and ArithmeticComparison_20d0 selectors, then a nested 2x8 loop of setter pairs over element base this+16984 with 36-byte stride.",
+          "evidence_refs": [
+            "callee:0x004B1DE0",
+            "callee:0x004B20D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Default case (selector outside 0-3) returns immediately without modifying any field.",
+          "evidence_refs": [
+            "function:0x004AF3A0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Concrete target offsets written by the ClampedFloatSetter_1de0 / ArithmeticComparison_20d0 helper calls in profiles 2 and 3 are not evidenced in this packet (writes happen inside the callees); the exact fields set by those profiles remain unknown.",
+        "The per-wheel loop base this+16984 (0x4258) used by profiles 2 and 3 is not present in the packet field list, so its element offsets cannot be tied to specific evidence refs.",
+        "Physical meaning of each parameter slot (e.g. grip, wear, temperature) is not deterministically evidenced; only that they are clamped track-environment physics parameters."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004B4B50",
+      "function_ref": "function:0x004B4B50",
+      "name": "ProcessCollisionObjectLists",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Manages 4 collision object sub-lists held at this+0x70 with a 16-byte metadata stride ({head, tail, anchor, count} in each). If the enable flag this+0x0 is set, re-sorts every sub-list via sub_4BAB20 and re-links head/tail/anchor, then clears the flag. Scans the count array (first entry at this+0x7C) and returns 0 when all four counts are <= 0. Computes the global minimum of the head-node float value across all four sub-lists, then removes every node whose value lies within the ±0.02 tolerance of that minimum: unlinks the node, frees it, allocates a replacement and collects it into a local chain. Writes the minimum float and removed-node count into the output record a3, dispatches each collected node through FAILWRONGDESCRIPTION_42e0 / sub_4BB490, and returns the number of nodes processed.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize the result counter v30 = 0; entry into the collision object list processing flow.",
+          "evidence_refs": [
+            "abi:lead",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the enable flag at this+0x0 is nonzero, rebuild the four collision sub-lists.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For each of the 4 sub-lists (head slots at this+0x70/0x74/0x78 plus the count slot this+0x7C): sort the head node via sub_4BAB20, write the sorted head back, walk the node next links (node+4) to the tail, then store the head, tail and anchor at the slot, tail slot and anchor slot respectively.",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "field:this:0x00000074",
+            "field:this:0x00000078",
+            "field:*(this+0x70):0x00000000",
+            "field:*(this+0x70):0x00000004",
+            "field:*(this+0x70):0x00000008",
+            "callee:0x004BAB20",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "After the rebuild, clear the enable flag: *this = 0, disabling the re-sort path for subsequent calls.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Scan the sub-list count array (first entry at this+0x7C) looking for the first count > 0 (guard:1); if all four counts are <= 0, return 0.",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "guard:1",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Compute the global minimum: initialize the running minimum to a large sentinel; for each of the 4 sub-lists, guard:0 checks whether the head (this+0x70 slot) is non-null, then compares the head node's +4 float value against the running minimum, keeping the smaller; the anchor slot (this+0x78, field *(this+0x70)+8) is set to the head in the same pass.",
+          "evidence_refs": [
+            "field:*(*(this+0x70)+0x0):0x00000004",
+            "field:*(this+0x70):0x00000000",
+            "field:*(this+0x70):0x00000008",
+            "guard:0",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For each sub-list, repeatedly remove every node whose +4 float stays within the ±0.02 tolerance of the global minimum: unlink the node and fix the head/tail/anchor slots and the count at this+0x7C, free the node via ConditionalFreeByFlagCheck and FreeWrapper_7bcf, then allocate a fresh node with OperatorNewNhMallocWrapper(12) (ShortComputation_ac20 on success) and chain it onto the local collected list.",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "field:this:0x00000074",
+            "field:this:0x00000078",
+            "field:this:0x0000007C",
+            "field:*(this+0x70):0x00000000",
+            "field:*(this+0x70):0x00000008",
+            "callee:0x00582290",
+            "callee:0x00587BCF",
+            "callee:0x00587C03",
+            "callee:0x004BAC20",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the results to the output record: a3+0 receives the global minimum float, a3+8 (word) receives the count of removed nodes, then FileHandleCloseRegistration(a3, a2) is invoked.",
+          "evidence_refs": [
+            "callee:0x004B4470",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the local collected chain: for each node, FAILWRONGDESCRIPTION_42e0(a2, minimum, node), ++result counter, sub_4BB490(node, 0), then advance via sub_4BA790(&chain); nodes consumed from the chain are destroyed through ConditionalDestructor_46f0.",
+          "evidence_refs": [
+            "callee:0x004B42E0",
+            "callee:0x004BA790",
+            "callee:0x004BB490",
+            "callee:0x004646F0",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "LinkedListFree(&chain) releases the local collected node chain.",
+          "evidence_refs": [
+            "callee:0x0049AF30",
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the number of nodes processed (v30).",
+          "evidence_refs": [
+            "function:0x004B4B50",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Globals flt_5ACD0C and dword_8AB700 are listed as read but do not appear in the raw source text; flt_5ACD0C may back the literal ±0.02 tolerance (per prior fill prose) but that link is unconfirmed.",
+        "The four sub-list metadata records are stride-16 {head, tail, anchor, count} blocks; packet fields cover only the first record (this+0x70/0x74/0x78/0x7C), leaving records 2-4 un-evidenced.",
+        "Caller sub_4B7860 ties this to per-frame collision management, but the owning object type is unidentified."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x005ACD0C",
+        "global:0x008AB700",
+        "caller:0x004B7860"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004B4E10",
+      "function_ref": "function:0x004B4E10",
+      "name": "DrainCollisionListsToFreePool",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Drains all 4 collision sub-lists (16-byte {head, tail, anchor, count} metadata records starting at this+0x70): for each sub-list, while the head is non-null, removes a node matched by its +0 value, frees the node's payload when the node+8 flag byte is set, frees the node, then allocates a replacement and pushes it onto the global free pool (head dword_8AB700, tail dword_8AB704, count dword_8AB70C, with dword_8AB708 used when the pool is empty). Stores the global session timestamp dbl_8AFEA0 into this+0x6C, zeroes the per-sub-list metadata arrays (this+0x35/+0x39/+0x3D dwords and this+0x41 byte, together with a parallel per-sub-list metadata array), sets the enable flag this+0x0 to 1, and returns the pointer past the reset arrays.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Store the global session timestamp dbl_8AFEA0 into this+0x6C.",
+          "evidence_refs": [
+            "field:this:0x0000006C",
+            "global:0x008AFEA0",
+            "function:0x004B4E10",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For each of the 4 sub-lists (head slot this+0x70, tail slot this+0x74, anchor slot this+0x78, count slot this+0x7C), while the head is non-null (guard:0): locate the node whose +0 value equals the head value, unlink it and fix the head/tail/anchor slots and the count, free the node payload via FreeWrapper_7bcf when the node+8 flag byte is set, then free the node itself.",
+          "evidence_refs": [
+            "field:*(this+0x70):0x00000000",
+            "field:*(this+0x70):0x00000004",
+            "field:*(this+0x70):0x00000008",
+            "field:*(this+0x70):0x0000000C",
+            "field:this:0x00000070",
+            "field:this:0x00000074",
+            "field:this:0x00000078",
+            "field:this:0x0000007C",
+            "callee:0x00587BCF",
+            "guard:0",
+            "function:0x004B4E10",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Allocate a replacement node: OperatorNewNhMallocWrapper(12); on success ShortComputation_ac20(headValue, 0), otherwise null.",
+          "evidence_refs": [
+            "callee:0x00587C03",
+            "callee:0x004BAC20",
+            "function:0x004B4E10",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Push the new node onto the global free pool: if the pool head dword_8AB700 is non-null, link the new node's +4 to it; otherwise initialize the pool head/tail dword_8AB704/dword_8AB708; then set dword_8AB700 = new node and ++dword_8AB70C.",
+          "evidence_refs": [
+            "global:0x008AB700",
+            "global:0x008AB704",
+            "global:0x008AB708",
+            "global:0x008AB70C",
+            "function:0x004B4E10",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Reset loop, 4 iterations: zero the per-sub-list metadata - the dword entries at this+0x35, this+0x39 and this+0x3D and the byte at this+0x41 - together with a parallel per-sub-list metadata array.",
+          "evidence_refs": [
+            "field:this:0x00000035",
+            "field:this:0x00000039",
+            "field:this:0x0000003D",
+            "field:this:0x00000041",
+            "function:0x004B4E10",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set the enable flag: *this = 1.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004B4E10",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the pointer past the reset metadata arrays.",
+          "evidence_refs": [
+            "function:0x004B4E10",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Callers QuadrupleListCleanup (004b46f0) and PitstopActionSet (004b6940) place this in the collision-list lifecycle, but the owning object type is unidentified.",
+        "The reset loop also zeroes a parallel per-sub-list metadata array that has no packet field evidence."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x004B46F0",
+        "caller:0x004B6940"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004B5630",
+      "function_ref": "function:0x004B5630",
+      "name": "FilterCollisionListNodes",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Filters a collision node linked list. Reads the active list head from this+0x20 and stores it as the iterator at this+0x28. Walks the active list; a node is kept when FieldCompareConstant and FloatComparisonCheck both pass, or when |node+0x370 float - this+0x30 threshold| <= 2.5. Kept nodes just advance the iterator through the node+4 next link. Culled nodes are unlinked from the active list (fixing head this+0x20, tail this+0x24, iterator this+0x28 and count this+0x2C), their payload freed when the node+8 flag byte is set (EmptyStub_0170 + FreeWrapper_7bcf), the node freed, then a replacement allocated via OperatorNewNhMallocWrapper(12)/ShortComputation_ac20 and inserted into an output list (head this+0x10, anchor pair this+0x14/this+0x18, count this+0x1C). Returns the final iterator value.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "result = active list head (this+0x20); store it as the iterator at this+0x28.",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "field:this:0x00000028",
+            "function:0x004B5630",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the active list head is non-null, enter the filtering walk.",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x004B5630",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the active list while the iterator (this+0x28) is non-null; the node value i is read from the iterator node's +0 slot (field *(this+0x28):0).",
+          "evidence_refs": [
+            "field:*(this+0x28):0x00000000",
+            "field:this:0x00000028",
+            "function:0x004B5630",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Keep test: node is kept when (FieldCompareConstant(i) && FloatComparisonCheck(i)) or |node+0x370 float - this+0x30 threshold| <= 2.5.",
+          "evidence_refs": [
+            "callee:0x005001D0",
+            "callee:0x005001F0",
+            "field:*(*(this+0x20)+0x0):0x00000370",
+            "field:this:0x00000030",
+            "function:0x004B5630",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Keep path: advance the iterator this+0x28 to the current node's next link (node+4, field *(this+0x28):4).",
+          "evidence_refs": [
+            "field:*(this+0x28):0x00000004",
+            "field:*(this+0x20):0x00000004",
+            "field:this:0x00000028",
+            "function:0x004B5630",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Cull path: unlink the node (matched by +0 value) from the active list, fixing head this+0x20, tail this+0x24, iterator this+0x28 and the count this+0x2C; free the payload when the node+8 flag byte is set (EmptyStub_0170 then FreeWrapper_7bcf), then free the node itself.",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "field:this:0x00000024",
+            "field:this:0x00000028",
+            "field:this:0x0000002C",
+            "field:*(this+0x20):0x00000000",
+            "field:*(this+0x20):0x00000004",
+            "field:*(this+0x20):0x00000008",
+            "callee:0x004B0170",
+            "callee:0x00587BCF",
+            "function:0x004B5630",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Allocate a replacement output node: OperatorNewNhMallocWrapper(12); on success ShortComputation_ac20(i, 0), otherwise null.",
+          "evidence_refs": [
+            "callee:0x00587C03",
+            "callee:0x004BAC20",
+            "function:0x004B5630",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Insert the new node into the output list: if the output head this+0x10 is non-null, link the new node's +4 to it; otherwise initialize the anchor pair this+0x14 and this+0x18 to the new node; then set this+0x10 = new node and increment the output count this+0x1C.",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "field:this:0x00000014",
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "function:0x004B5630",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the final iterator value (this+0x28), null when the walk exhausted the list.",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x004B5630",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Node field at +0xC (field:*(this+0x20):0x0000000C) is listed in the packet but never read by this function.",
+        "Global dbl_5ACD30 is listed as read but absent from the raw source text; the 2.5 distance bound is a literal.",
+        "Caller sub_4B9000 provides the surrounding collision context, but the owning object type is unidentified."
+      ],
+      "unresolved_evidence_refs": [
+        "field:*(this+0x20):0x0000000C",
+        "global:0x005ACD30",
+        "caller:0x004B9000"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004B57F0",
+      "function_ref": "function:0x004B57F0",
+      "name": "CarPhysicsStateInitializer",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004B57F0"
+        ]
+      },
+      "summary": "Constructor/initializer for a large per-car physics state object (DWORD array up to this[998]). Zeroes the leading physics words (this[0..15]), allocates and appends a sub-list via OperatorNewNhMallocWrapper/ConditionalArrayAlloc/ListAppendWithSubListGeneration, zeroes the 416-DWORD middle array (this[16..431]) in a 104x4 loop, sets sentinel and default blocks (this[432..460], this[977..998]), forwards to sub-initializers (QuadZeroInit, ZeroInitSmallStruct, PassthroughWrapper_f670, StructZeroInit_8ba0), configures a QPC timer (QPCTimerInitialization + TimerResetUsingQueryPerformanceCounter), zeroes the timer block with a 0x1A0-byte memset, and sets byte flags plus tuning constants including 900.0f and 1.0/8.0. Called by ArithmeticComparison_9780 (004B9780).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Zero the leading physics state words this[0..3] (offsets 0x0..0xC)",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "QuadZeroInit(this + 4) zeroes the 16-byte quad at offset 0x10",
+          "evidence_refs": [
+            "callee:0x004BA820",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero this[8..11] (offsets 0x20..0x2C)",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "field:this:0x00000024",
+            "field:this:0x00000028",
+            "field:this:0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "QuadZeroInit(this + 12) zeroes the 16-byte quad at offset 0x30",
+          "evidence_refs": [
+            "callee:0x004BA820",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Allocation guard: OperatorNewNhMallocWrapper(4) decides whether the sub-list is allocated at all",
+          "evidence_refs": [
+            "callee:0x00587C03",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "v2 = ConditionalArrayAlloc(1) when the allocation wrapper returns non-null, else v2 = 0",
+          "evidence_refs": [
+            "callee:0x004BAAC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "ListAppendWithSubListGeneration(v2, 1) appends the allocated element to the sub-list",
+          "evidence_refs": [
+            "callee:0x004BB150",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Zero loop from this[16]: 104 iterations writing 4 DWORDs each (416 DWORDs total); the recorded field samples are 0x40..0x4C",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "field:this:0x00000044",
+            "field:this:0x00000048",
+            "field:this:0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero this[432..435] (offsets 0x6C0..0x6CC)",
+          "evidence_refs": [
+            "field:this:0x000006C0",
+            "field:this:0x000006C4",
+            "field:this:0x000006C8",
+            "field:this:0x000006CC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero this[437..440] (offsets 0x6D4..0x6E0)",
+          "evidence_refs": [
+            "field:this:0x000006D4",
+            "field:this:0x000006D8",
+            "field:this:0x000006DC",
+            "field:this:0x000006E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "ZeroInitSmallStruct(this + 441) zeroes the small struct at offset 0x6E4",
+          "evidence_refs": [
+            "callee:0x005668B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Sentinel block this[449..460] (offsets 0x704..0x730): zeros at 0x704/0x70C/0x714/0x718/0x71C/0x720/0x724/0x72C and -1 at 0x708/0x710/0x728/0x730",
+          "evidence_refs": [
+            "field:this:0x00000704",
+            "field:this:0x00000708",
+            "field:this:0x0000070C",
+            "field:this:0x00000710",
+            "field:this:0x00000714",
+            "field:this:0x00000718",
+            "field:this:0x0000071C",
+            "field:this:0x00000720",
+            "field:this:0x00000724",
+            "field:this:0x00000728",
+            "field:this:0x0000072C",
+            "field:this:0x00000730",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "PassthroughWrapper_f670(this + 624) forwards to the initializer of the struct at offset 0x9C0",
+          "evidence_refs": [
+            "callee:0x004FF670",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "StructZeroInit_8ba0(this + 843) zeroes the struct at offset 0xD2C",
+          "evidence_refs": [
+            "callee:0x00568BA0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero this[977..980] (offsets 0xF44..0xF50)",
+          "evidence_refs": [
+            "field:this:0x00000F44",
+            "field:this:0x00000F48",
+            "field:this:0x00000F4C",
+            "field:this:0x00000F50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "QuadZeroInit(this + 981) zeroes the 16-byte quad at offset 0xF54",
+          "evidence_refs": [
+            "callee:0x004BA820",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero this[985..988] (offsets 0xF64..0xF70)",
+          "evidence_refs": [
+            "field:this:0x00000F64",
+            "field:this:0x00000F68",
+            "field:this:0x00000F6C",
+            "field:this:0x00000F70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "this[989] = -51331646 (offset 0xF74)",
+          "evidence_refs": [
+            "field:this:0x00000F74",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "this[997] = 0 and this[998] = -1 (offsets 0xF94..0xF98)",
+          "evidence_refs": [
+            "field:this:0x00000F94",
+            "field:this:0x00000F98",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "this[448] = 0 (offset 0x700)",
+          "evidence_refs": [
+            "field:this:0x00000700",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Configuration block this[617..623] (offsets 0x9A4..0x9BC) = 4, 2, 2, 0, 0, 0, 0",
+          "evidence_refs": [
+            "field:this:0x000009A4",
+            "field:this:0x000009A8",
+            "field:this:0x000009AC",
+            "field:this:0x000009B0",
+            "field:this:0x000009B4",
+            "field:this:0x000009B8",
+            "field:this:0x000009BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "this[842] = 0 (offset 0xD28)",
+          "evidence_refs": [
+            "field:this:0x00000D28",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "QPCTimerInitialization(1) initializes the timer subsystem",
+          "evidence_refs": [
+            "callee:0x00568BE0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "TimerResetUsingQueryPerformanceCounter(this + 843) resets the timer struct at offset 0xD2C",
+          "evidence_refs": [
+            "callee:0x00568C60",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "this[862] = -23693671 (offset 0xD78)",
+          "evidence_refs": [
+            "field:this:0x00000D78",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "memset(this + 863, 0, 0x1A0u) zeroes the 416-byte timer block at offset 0xD7C",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero this[969..973] (offsets 0xF24..0xF34)",
+          "evidence_refs": [
+            "field:this:0x00000F24",
+            "field:this:0x00000F28",
+            "field:this:0x00000F2C",
+            "field:this:0x00000F30",
+            "field:this:0x00000F34",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Byte flag slots: byte at +3960 (0xF78) = 0, +3961 (0xF79) = 1, +3962 (0xF7A) = 1, +3969 (0xF81) = 0",
+          "evidence_refs": [
+            "field:this:0x00000F78",
+            "field:this:0x00000F79",
+            "field:this:0x00000F7A",
+            "field:this:0x00000F81",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "this[995] = 5 (offset 0xF8C) and this[996] = 1147207680 (offset 0xF90, bit pattern of 900.0f)",
+          "evidence_refs": [
+            "field:this:0x00000F8C",
+            "field:this:0x00000F90",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "this[974] = 0 (0xF38), this[975] = 0 (0xF3C), this[976] = -1 (0xF40)",
+          "evidence_refs": [
+            "field:this:0x00000F38",
+            "field:this:0x00000F3C",
+            "field:this:0x00000F40",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Float slot at offset 0xF7C (this byte 3964) = 1.0 / 8.0 (computed, 0.125f)",
+          "evidence_refs": [
+            "field:this:0x00000F7C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the object pointer in EAX; called once by ArithmeticComparison_9780 (004B9780)",
+          "evidence_refs": [
+            "function:0x004B57F0",
+            "caller:0x004B9780",
+            "abi:lead",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Three read-only globals (flt_59E43C, flt_5ACD08, dword_5ACD24) are flagged by packet facts but appear nowhere in the raw decompiled source; their role in this initializer is unverifiable from this packet",
+        "The object type and the semantic purpose of the sentinel 0/-1 blocks and the config block this[617..623] = 4/2/2/0/0/0/0 are not established by this packet",
+        "The sub-list allocated via ConditionalArrayAlloc/ListAppendWithSubListGeneration is not referenced again in this function; its disposition is unknown"
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x005ACD08",
+        "global:0x005ACD24"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004BC060",
+      "function_ref": "function:0x004BC060",
+      "name": "EncodeQualifyingTireUsage",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "During a qualifying session (dword_7C56A4 == 7) encodes a tire-usage ring-buffer event (message type 4, event id 26 or 27) via ProgressBarEventEncode. The ring-buffer count/write-pointer pair is advanced when below a hard bound, the low 32 bits of the session-time double form the event payload, and a tire-compound byte from the vehicle struct is written into the encoded record. Returns the encoder result only on the event-id-27 path; the non-qualifying path leaves the result undefined.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "if dword_7C56A4 != 7 (session type is not qualifying) the whole body is skipped",
+          "evidence_refs": [
+            "global:0x007C56A4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "if ring-buffer count dword_83EE60 < 1023 the counter and write pointer are advanced",
+          "evidence_refs": [
+            "global:0x0083EE60",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "increment ring-buffer count dword_83EE60",
+          "evidence_refs": [
+            "global:0x0083EE60",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "advance ring-buffer write pointer dword_8AAE64 by 432 bytes",
+          "evidence_refs": [
+            "global:0x008AAE64",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "take the low 32 bits of session-time double dbl_8AFEA0 as the float event payload v5",
+          "evidence_refs": [
+            "global:0x008AFEA0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "branch on a2: non-zero selects event id 26 (tire set in use), zero selects event id 27 (tire set discarded)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "a2 non-zero: ProgressBarEventEncode(writePtr, 4, 26, 1, *(this+0x4), v5, 0) then store the tire-compound byte *(this+0x34) into the encoded record at writePtr+0x8",
+          "evidence_refs": [
+            "callee:0x004B33B0",
+            "field:this:0x00000004",
+            "field:this:0x00000034",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "a2 zero: return ProgressBarEventEncode(writePtr, 4, 27, 0, *(this+0x4), v5, 0)",
+          "evidence_refs": [
+            "callee:0x004B33B0",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "the event-id-27 path returns the ProgressBarEventEncode result; the non-qualifying path has no explicit return, so its result is undefined",
+          "evidence_refs": [
+            "function:0x004BC060",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantic labels for event ids 26 (in use) vs 27 (discarded) come from existing_analysis prose, not from the raw source, and are not independently confirmed.",
+        "ABI lead name Vehicle_Audio_Event_Dispatch conflicts with the tire-usage interpretation of this body; the legacy lead is unconfirmed.",
+        "The non-qualifying return path reads an uninitialized register, so the returned value there is undefined."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead",
+        "caller:0x0042A3D0",
+        "caller:0x004A0250",
+        "caller:0x004F1FE0"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004C6E80",
+      "function_ref": "function:0x004C6E80",
+      "name": "ResetVehicleForReinit",
+      "owner": {
+        "type": "VehicleObject",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004C6E80",
+          "source:raw"
+        ]
+      },
+      "summary": "Resets a vehicle struct for reinitialisation: dispatches a global instance call, clears physics/AI sub-structures (via sub_4E4790, VehicleResetClear, UIComponentCleanup, DoubleBufferFree, StructResetReinitializer), reassigns each AI driver in the live vehicle array to a random driver, sets the two slot fields at +0x48A4/+0x48A8 to -1 (invalid), clears driver info, and returns the result of a final reset call on the force-feedback base (dword_8ACEE0).",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Dispatch a call on the global instance dword_5EA560 with this+3 via FunctionCallWrapper_0b40.",
+          "evidence_refs": [
+            "callee:0x00410B40",
+            "global:0x005EA560",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Reset the this+3 sub-struct via sub_4E4790.",
+          "evidence_refs": [
+            "callee:0x004E4790",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Reset vehicle physics/simulation state at this+444 via VehicleResetClear.",
+          "evidence_refs": [
+            "callee:0x004E09E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Clean up the UI/HUD component sub-struct at this+3251 via UIComponentCleanup.",
+          "evidence_refs": [
+            "callee:0x004A4DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the double-buffer sub-struct at this+5 via DoubleBufferFree.",
+          "evidence_refs": [
+            "callee:0x004F83B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Reinitialize the sub-struct at this+4109 to defaults via StructResetReinitializer.",
+          "evidence_refs": [
+            "callee:0x004BB950",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For i in 0 .. dword_5C329C: reassign the AI driver for vehicle dword_7C54F0[i] to a random driver via AIDriverRandomSelector(dword_7C54F0[i], this).",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "global:0x007C54F0",
+            "callee:0x0042AE20",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set this[4649] (+0x48A4) and this[4650] (+0x48A8) to -1 (18446744073709551615, invalid/uninitialised slot marker).",
+          "evidence_refs": [
+            "field:this:0x000048A4",
+            "field:this:0x000048A8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Clear the vehicle driver-info substructure via VehicleDriverInfoClear(this).",
+          "evidence_refs": [
+            "callee:0x004C79E0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of a final reinitialization/reset call on the force-feedback base (dword_8ACEE0). Invoked from DynMan_Post, NetCommPlayerSlotSync and ProcessDriverEntries.",
+          "evidence_refs": [
+            "global:0x008ACEE0",
+            "caller:0x0042C9F0",
+            "caller:0x0045FC50",
+            "caller:0x004B8DA0",
+            "function:0x004C6E80",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The final call on dword_8ACEE0 targets an address (sub_4D1670) not present in the packet's callee list, so it is described without naming the call target to avoid introducing an absent address.",
+        "The +0x48A4/+0x48A8 markers and the -1 sentinel semantics (invalid/uninitialised) are DERIVED from the unconditional reset context; the field names are not confirmed by the packet."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004C79E0",
+      "function_ref": "function:0x004C79E0",
+      "name": "VehicleDriverInfoClear",
+      "owner": {
+        "type": "F1CVehicle",
+        "trust": "CONFIRMED",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004C79E0"
+        ]
+      },
+      "summary": "Linear initializer clearing the vehicle's driver-info region: zeroes eight byte fields (0x4620, 0x4660, 0x4678, 0x46B8, 0x46F8, 0x4708, 0x4714, 0x4794), writes -1 into six dwords (0x4710, 0x4898, 0x489C, 0x48A0, 0x48A4, 0x48A8), writes 0 to two dwords (0x48AC, 0x48B8), zeroes the word at 0x48B0, writes -8388609 to dword 0x48B4, and writes 11 to dword 0x48BC. Returns 0. No reads, no globals, no callees.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Byte at this+0x4620 (DriverName) = 0.",
+          "evidence_refs": [
+            "field:this:0x00004620",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Byte at this+0x4660 (numberOfLaps) = 0.",
+          "evidence_refs": [
+            "field:this:0x00004660",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Byte at this+0x4678 (CarName) = 0.",
+          "evidence_refs": [
+            "field:this:0x00004678",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Byte at this+0x46B8 = 0.",
+          "evidence_refs": [
+            "field:this:0x000046B8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Byte at this+0x46F8 = 0.",
+          "evidence_refs": [
+            "field:this:0x000046F8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Byte at this+0x4708 = 0.",
+          "evidence_refs": [
+            "field:this:0x00004708",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x4710 = -1.",
+          "evidence_refs": [
+            "field:this:0x00004710",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Byte at this+0x4714 (VehiclePath) = 0.",
+          "evidence_refs": [
+            "field:this:0x00004714",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Byte at this+0x4794 (SaveFilePath) = 0.",
+          "evidence_refs": [
+            "field:this:0x00004794",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x4898 = -1.",
+          "evidence_refs": [
+            "field:this:0x00004898",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x489C (DriverID) = -1.",
+          "evidence_refs": [
+            "field:this:0x0000489C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x48A0 = -1.",
+          "evidence_refs": [
+            "field:this:0x000048A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x48A4 (PitTeamIndex) = -1.",
+          "evidence_refs": [
+            "field:this:0x000048A4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x48A8 = -1.",
+          "evidence_refs": [
+            "field:this:0x000048A8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x48AC = 0.",
+          "evidence_refs": [
+            "field:this:0x000048AC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Word at this+0x48B0 = 0.",
+          "evidence_refs": [
+            "field:this:0x000048B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x48B4 = -8388609.",
+          "evidence_refs": [
+            "field:this:0x000048B4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x48B8 = 0.",
+          "evidence_refs": [
+            "field:this:0x000048B8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Dword at this+0x48BC = 11.",
+          "evidence_refs": [
+            "field:this:0x000048BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "result = 0; return result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Callers VehicleObjectConstructor (004C6920) and sub_4C6E80 are known from the packet but the call context is not described by the raw source.",
+        "The init_literal spelling 18446744073709551615 (packet) corresponds to -1 in the raw source and 18446744073701163007 corresponds to -8388609; the raw source spelling is used in the reconstruction.",
+        "The semantic meaning of the fields without known names (0x46B8, 0x46F8, 0x4708, 0x4710, 0x4898, 0x48A0, 0x48A8, 0x48AC, 0x48B0, 0x48B4, 0x48B8, 0x48BC) is not recoverable from this packet."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x004C6920",
+        "caller:0x004C6E80"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "HIGH",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004C7BF0",
+      "function_ref": "function:0x004C7BF0",
+      "name": "SetVehicleProperty",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "caller:0x004B3400",
+          "caller:0x004C73F0",
+          "function:0x004C7BF0"
+        ]
+      },
+      "summary": "thiscall property setter. Stores argument a2 into this[4651] (dword at offset 0x48AC) and returns the value that was written. No guard - always writes. Existing analysis names it VehiclePropertySetter and reports the field is recalculated every frame (external poke does not persist). Called from sub_4B3400 and VehiclePhysicsTimeStep.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Store a2 into this[4651] (field at offset 0x48AC).",
+          "evidence_refs": [
+            "field:this:0x000048AC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return a2 (the stored value) as the function result.",
+          "evidence_refs": [
+            "function:0x004C7BF0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantic identity of field 0x48AC beyond the DERIVED 'vehicle property/state field' from existing analysis.",
+        "Existing analysis notes field 0x48AC is recalculated every frame, so an external poke does not persist; the recalc writer is not evidenced by this packet.",
+        "Owner class unknown."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x0044C550",
+    "function:0x00454DA0",
+    "function:0x00459AE0",
+    "function:0x00490EE0",
+    "function:0x004AF3A0",
+    "function:0x004B4B50",
+    "function:0x004B4E10",
+    "function:0x004B5630",
+    "function:0x004B57F0",
+    "function:0x004BC060",
+    "function:0x004C6E80",
+    "function:0x004C79E0",
+    "function:0x004C7BF0"
+  ],
+  "required_material_refs": [
+    "callee:0x00410B40",
+    "callee:0x0042AE20",
+    "callee:0x00434030",
+    "callee:0x004361D0",
+    "callee:0x0043AEE0",
+    "callee:0x0044C4C0",
+    "callee:0x00459A40",
+    "callee:0x004646C0",
+    "callee:0x004646F0",
+    "callee:0x0047F1F0",
+    "callee:0x00490940",
+    "callee:0x00490AA0",
+    "callee:0x00490D00",
+    "callee:0x00491350",
+    "callee:0x00491680",
+    "callee:0x00491DB0",
+    "callee:0x00491E10",
+    "callee:0x0049AF30",
+    "callee:0x004A4DB0",
+    "callee:0x004B0170",
+    "callee:0x004B1DE0",
+    "callee:0x004B20D0",
+    "callee:0x004B33B0",
+    "callee:0x004B42E0",
+    "callee:0x004B4470",
+    "callee:0x004BA790",
+    "callee:0x004BA820",
+    "callee:0x004BAAC0",
+    "callee:0x004BAB20",
+    "callee:0x004BAC20",
+    "callee:0x004BB150",
+    "callee:0x004BB490",
+    "callee:0x004BB950",
+    "callee:0x004BE4E0",
+    "callee:0x004C79E0",
+    "callee:0x004E09E0",
+    "callee:0x004E4790",
+    "callee:0x004F83B0",
+    "callee:0x004FF670",
+    "callee:0x005001D0",
+    "callee:0x005001F0",
+    "callee:0x0054B4D0",
+    "callee:0x0054FA00",
+    "callee:0x0054FA90",
+    "callee:0x0054FAE0",
+    "callee:0x005668B0",
+    "callee:0x00568BA0",
+    "callee:0x00568BE0",
+    "callee:0x00568C60",
+    "callee:0x00569AD0",
+    "callee:0x00569C10",
+    "callee:0x00569DE0",
+    "callee:0x00581780",
+    "callee:0x00582290",
+    "callee:0x00587BCF",
+    "callee:0x00587C03",
+    "callee:0x00588570",
+    "field:*(*(this+0x20)+0x0):0x00000370",
+    "field:*(*(this+0x70)+0x0):0x00000004",
+    "field:*(this+0x20):0x00000000",
+    "field:*(this+0x20):0x00000004",
+    "field:*(this+0x20):0x00000008",
+    "field:*(this+0x20):0x0000000C",
+    "field:*(this+0x28):0x00000000",
+    "field:*(this+0x28):0x00000004",
+    "field:*(this+0x70):0x00000000",
+    "field:*(this+0x70):0x00000004",
+    "field:*(this+0x70):0x00000008",
+    "field:*(this+0x70):0x0000000C",
+    "field:obj:0x00000000",
+    "field:obj:0x00000004",
+    "field:obj:0x00000008",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x0000002C",
+    "field:this:0x00000030",
+    "field:this:0x00000034",
+    "field:this:0x00000035",
+    "field:this:0x00000038",
+    "field:this:0x00000039",
+    "field:this:0x0000003D",
+    "field:this:0x00000040",
+    "field:this:0x00000041",
+    "field:this:0x00000044",
+    "field:this:0x00000048",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000054",
+    "field:this:0x00000058",
+    "field:this:0x0000005C",
+    "field:this:0x00000064",
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x00000074",
+    "field:this:0x00000078",
+    "field:this:0x0000007C",
+    "field:this:0x000000C0",
+    "field:this:0x000000C4",
+    "field:this:0x000000C8",
+    "field:this:0x000000CC",
+    "field:this:0x000000D0",
+    "field:this:0x000000D8",
+    "field:this:0x000000E0",
+    "field:this:0x000000E8",
+    "field:this:0x000000F0",
+    "field:this:0x00000100",
+    "field:this:0x00000108",
+    "field:this:0x00000110",
+    "field:this:0x00000118",
+    "field:this:0x00000120",
+    "field:this:0x00000130",
+    "field:this:0x00000138",
+    "field:this:0x00000140",
+    "field:this:0x00000148",
+    "field:this:0x00000150",
+    "field:this:0x00000158",
+    "field:this:0x00000160",
+    "field:this:0x00000180",
+    "field:this:0x00000208",
+    "field:this:0x0000020C",
+    "field:this:0x00000210",
+    "field:this:0x00000214",
+    "field:this:0x00000218",
+    "field:this:0x0000021C",
+    "field:this:0x00000220",
+    "field:this:0x00000224",
+    "field:this:0x00000228",
+    "field:this:0x0000022C",
+    "field:this:0x00000230",
+    "field:this:0x00000234",
+    "field:this:0x000006C0",
+    "field:this:0x000006C4",
+    "field:this:0x000006C8",
+    "field:this:0x000006CC",
+    "field:this:0x000006D4",
+    "field:this:0x000006D8",
+    "field:this:0x000006DC",
+    "field:this:0x000006E0",
+    "field:this:0x00000700",
+    "field:this:0x00000704",
+    "field:this:0x00000708",
+    "field:this:0x0000070C",
+    "field:this:0x00000710",
+    "field:this:0x00000714",
+    "field:this:0x00000718",
+    "field:this:0x0000071C",
+    "field:this:0x00000720",
+    "field:this:0x00000724",
+    "field:this:0x00000728",
+    "field:this:0x0000072C",
+    "field:this:0x00000730",
+    "field:this:0x000009A4",
+    "field:this:0x000009A8",
+    "field:this:0x000009AC",
+    "field:this:0x000009B0",
+    "field:this:0x000009B4",
+    "field:this:0x000009B8",
+    "field:this:0x000009BC",
+    "field:this:0x00000D28",
+    "field:this:0x00000D78",
+    "field:this:0x00000F24",
+    "field:this:0x00000F28",
+    "field:this:0x00000F2C",
+    "field:this:0x00000F30",
+    "field:this:0x00000F34",
+    "field:this:0x00000F38",
+    "field:this:0x00000F3C",
+    "field:this:0x00000F40",
+    "field:this:0x00000F44",
+    "field:this:0x00000F48",
+    "field:this:0x00000F4C",
+    "field:this:0x00000F50",
+    "field:this:0x00000F64",
+    "field:this:0x00000F68",
+    "field:this:0x00000F6C",
+    "field:this:0x00000F70",
+    "field:this:0x00000F74",
+    "field:this:0x00000F78",
+    "field:this:0x00000F79",
+    "field:this:0x00000F7A",
+    "field:this:0x00000F7C",
+    "field:this:0x00000F81",
+    "field:this:0x00000F8C",
+    "field:this:0x00000F90",
+    "field:this:0x00000F94",
+    "field:this:0x00000F98",
+    "field:this:0x00001B20",
+    "field:this:0x00001B44",
+    "field:this:0x00001B48",
+    "field:this:0x00001B4C",
+    "field:this:0x00001B70",
+    "field:this:0x00001B74",
+    "field:this:0x00001B78",
+    "field:this:0x00001B9C",
+    "field:this:0x00001BA0",
+    "field:this:0x00001BA4",
+    "field:this:0x00001BC8",
+    "field:this:0x00001BCC",
+    "field:this:0x00001C54",
+    "field:this:0x00001C78",
+    "field:this:0x00001C7C",
+    "field:this:0x00001FBC",
+    "field:this:0x00001FE8",
+    "field:this:0x00002014",
+    "field:this:0x00002040",
+    "field:this:0x0000206C",
+    "field:this:0x00002098",
+    "field:this:0x000020C4",
+    "field:this:0x000020F0",
+    "field:this:0x000021D4",
+    "field:this:0x000021F8",
+    "field:this:0x000021FC",
+    "field:this:0x00002410",
+    "field:this:0x00002414",
+    "field:this:0x00002418",
+    "field:this:0x0000241C",
+    "field:this:0x00002420",
+    "field:this:0x00002424",
+    "field:this:0x00002428",
+    "field:this:0x00003B40",
+    "field:this:0x00003BAC",
+    "field:this:0x00003BB4",
+    "field:this:0x00003BB8",
+    "field:this:0x00003BD0",
+    "field:this:0x00003BD8",
+    "field:this:0x00003BDC",
+    "field:this:0x00003BF4",
+    "field:this:0x00003BFC",
+    "field:this:0x00003C00",
+    "field:this:0x00003C18",
+    "field:this:0x00003C20",
+    "field:this:0x00003C24",
+    "field:this:0x00003C3C",
+    "field:this:0x00003C44",
+    "field:this:0x00003C48",
+    "field:this:0x00003C60",
+    "field:this:0x00003C68",
+    "field:this:0x00003C6C",
+    "field:this:0x00003C84",
+    "field:this:0x00003C8C",
+    "field:this:0x00003C90",
+    "field:this:0x00003CA8",
+    "field:this:0x00003CB0",
+    "field:this:0x00003CB4",
+    "field:this:0x00003CCC",
+    "field:this:0x00003CD4",
+    "field:this:0x00003CD8",
+    "field:this:0x00003CF0",
+    "field:this:0x00003CF8",
+    "field:this:0x00003CFC",
+    "field:this:0x00003D14",
+    "field:this:0x00003D1C",
+    "field:this:0x00003D20",
+    "field:this:0x00003D38",
+    "field:this:0x00003D40",
+    "field:this:0x00003D44",
+    "field:this:0x00003D5C",
+    "field:this:0x00003D64",
+    "field:this:0x00003D68",
+    "field:this:0x00003D80",
+    "field:this:0x00003D88",
+    "field:this:0x00003D8C",
+    "field:this:0x00003DA4",
+    "field:this:0x00003DAC",
+    "field:this:0x00003DB0",
+    "field:this:0x00003DC8",
+    "field:this:0x00003DD0",
+    "field:this:0x00003DD4",
+    "field:this:0x00003DEC",
+    "field:this:0x00003DF4",
+    "field:this:0x00003DF8",
+    "field:this:0x00003E10",
+    "field:this:0x00003E18",
+    "field:this:0x00003E1C",
+    "field:this:0x00003E34",
+    "field:this:0x00003E3C",
+    "field:this:0x00003E40",
+    "field:this:0x00003E58",
+    "field:this:0x00003E60",
+    "field:this:0x00003E64",
+    "field:this:0x00003E7C",
+    "field:this:0x00003E84",
+    "field:this:0x00003E88",
+    "field:this:0x00003EA0",
+    "field:this:0x00003EA8",
+    "field:this:0x00003EAC",
+    "field:this:0x00003EC4",
+    "field:this:0x00003ECC",
+    "field:this:0x00003ED0",
+    "field:this:0x00003EE8",
+    "field:this:0x00003EF0",
+    "field:this:0x00003EF4",
+    "field:this:0x00003F0C",
+    "field:this:0x00003F14",
+    "field:this:0x00003F18",
+    "field:this:0x00003F30",
+    "field:this:0x00003F38",
+    "field:this:0x00003F3C",
+    "field:this:0x00003F54",
+    "field:this:0x00003F5C",
+    "field:this:0x00003F60",
+    "field:this:0x00003F78",
+    "field:this:0x00003F80",
+    "field:this:0x00003F84",
+    "field:this:0x00003F9C",
+    "field:this:0x00003FA4",
+    "field:this:0x00003FA8",
+    "field:this:0x00003FC0",
+    "field:this:0x00003FC8",
+    "field:this:0x00003FCC",
+    "field:this:0x00003FE4",
+    "field:this:0x00003FEC",
+    "field:this:0x00003FF0",
+    "field:this:0x00004008",
+    "field:this:0x00004010",
+    "field:this:0x00004014",
+    "field:this:0x0000402C",
+    "field:this:0x00004034",
+    "field:this:0x00004038",
+    "field:this:0x0000426C",
+    "field:this:0x00004274",
+    "field:this:0x00004278",
+    "field:this:0x000044AC",
+    "field:this:0x000044B4",
+    "field:this:0x000044B8",
+    "field:this:0x00004620",
+    "field:this:0x00004660",
+    "field:this:0x00004678",
+    "field:this:0x000046B8",
+    "field:this:0x000046EC",
+    "field:this:0x000046F4",
+    "field:this:0x000046F8",
+    "field:this:0x00004708",
+    "field:this:0x00004710",
+    "field:this:0x00004714",
+    "field:this:0x00004794",
+    "field:this:0x00004898",
+    "field:this:0x0000489C",
+    "field:this:0x000048A0",
+    "field:this:0x000048A4",
+    "field:this:0x000048A8",
+    "field:this:0x000048AC",
+    "field:this:0x000048B0",
+    "field:this:0x000048B4",
+    "field:this:0x000048B8",
+    "field:this:0x000048BC",
+    "global:0x004B0154",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E478",
+    "global:0x0059E5FC",
+    "global:0x0059E670",
+    "global:0x0059E880",
+    "global:0x0059E8A4",
+    "global:0x0059ED50",
+    "global:0x0059F038",
+    "global:0x0059F040",
+    "global:0x0059F048",
+    "global:0x0059F050",
+    "global:0x0059F058",
+    "global:0x005ACD08",
+    "global:0x005ACD0C",
+    "global:0x005ACD24",
+    "global:0x005ACD30",
+    "global:0x005C329C",
+    "global:0x005EA560",
+    "global:0x007C54F0",
+    "global:0x007C56A4",
+    "global:0x007D12A4",
+    "global:0x007D12C8",
+    "global:0x007D12EC",
+    "global:0x007D1310",
+    "global:0x007D1370",
+    "global:0x0083EE60",
+    "global:0x008AAE64",
+    "global:0x008AB700",
+    "global:0x008AB704",
+    "global:0x008AB708",
+    "global:0x008AB70C",
+    "global:0x008AB710",
+    "global:0x008ACEE0",
+    "global:0x008AFEA0"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x00410B40",
+    "callee:0x0042AE20",
+    "callee:0x00434030",
+    "callee:0x004361D0",
+    "callee:0x0043AEE0",
+    "callee:0x0044C4C0",
+    "callee:0x00459A40",
+    "callee:0x004646C0",
+    "callee:0x004646F0",
+    "callee:0x0047F1F0",
+    "callee:0x00490940",
+    "callee:0x00490AA0",
+    "callee:0x00490D00",
+    "callee:0x00491350",
+    "callee:0x00491680",
+    "callee:0x00491DB0",
+    "callee:0x00491E10",
+    "callee:0x0049AF30",
+    "callee:0x004A4DB0",
+    "callee:0x004B0170",
+    "callee:0x004B1DE0",
+    "callee:0x004B20D0",
+    "callee:0x004B33B0",
+    "callee:0x004B42E0",
+    "callee:0x004B4470",
+    "callee:0x004BA790",
+    "callee:0x004BA820",
+    "callee:0x004BAAC0",
+    "callee:0x004BAB20",
+    "callee:0x004BAC20",
+    "callee:0x004BB150",
+    "callee:0x004BB490",
+    "callee:0x004BB950",
+    "callee:0x004BE4E0",
+    "callee:0x004C79E0",
+    "callee:0x004E09E0",
+    "callee:0x004E4790",
+    "callee:0x004F83B0",
+    "callee:0x004FF670",
+    "callee:0x005001D0",
+    "callee:0x005001F0",
+    "callee:0x0054B4D0",
+    "callee:0x0054FA00",
+    "callee:0x0054FA90",
+    "callee:0x0054FAE0",
+    "callee:0x005668B0",
+    "callee:0x00568BA0",
+    "callee:0x00568BE0",
+    "callee:0x00568C60",
+    "callee:0x00569AD0",
+    "callee:0x00569C10",
+    "callee:0x00569DE0",
+    "callee:0x00581780",
+    "callee:0x00582290",
+    "callee:0x00587BCF",
+    "callee:0x00587C03",
+    "callee:0x00588570",
+    "caller:0x00401340",
+    "caller:0x0042A3D0",
+    "caller:0x0042C9F0",
+    "caller:0x0045A8E0",
+    "caller:0x0045FC50",
+    "caller:0x004918D0",
+    "caller:0x00491960",
+    "caller:0x004A0250",
+    "caller:0x004ADE20",
+    "caller:0x004B2DD0",
+    "caller:0x004B3400",
+    "caller:0x004B46F0",
+    "caller:0x004B6940",
+    "caller:0x004B7860",
+    "caller:0x004B8DA0",
+    "caller:0x004B9000",
+    "caller:0x004B9780",
+    "caller:0x004C6920",
+    "caller:0x004C6E80",
+    "caller:0x004C73F0",
+    "caller:0x004CB620",
+    "caller:0x004CBC50",
+    "caller:0x004CCE90",
+    "caller:0x004E3AA0",
+    "caller:0x004EF180",
+    "caller:0x004F1FE0",
+    "field:*(*(this+0x20)+0x0):0x00000370",
+    "field:*(*(this+0x70)+0x0):0x00000004",
+    "field:*(this+0x20):0x00000000",
+    "field:*(this+0x20):0x00000004",
+    "field:*(this+0x20):0x00000008",
+    "field:*(this+0x20):0x0000000C",
+    "field:*(this+0x28):0x00000000",
+    "field:*(this+0x28):0x00000004",
+    "field:*(this+0x70):0x00000000",
+    "field:*(this+0x70):0x00000004",
+    "field:*(this+0x70):0x00000008",
+    "field:*(this+0x70):0x0000000C",
+    "field:obj:0x00000000",
+    "field:obj:0x00000004",
+    "field:obj:0x00000008",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x0000002C",
+    "field:this:0x00000030",
+    "field:this:0x00000034",
+    "field:this:0x00000035",
+    "field:this:0x00000038",
+    "field:this:0x00000039",
+    "field:this:0x0000003D",
+    "field:this:0x00000040",
+    "field:this:0x00000041",
+    "field:this:0x00000044",
+    "field:this:0x00000048",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000054",
+    "field:this:0x00000058",
+    "field:this:0x0000005C",
+    "field:this:0x00000064",
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x00000074",
+    "field:this:0x00000078",
+    "field:this:0x0000007C",
+    "field:this:0x000000C0",
+    "field:this:0x000000C4",
+    "field:this:0x000000C8",
+    "field:this:0x000000CC",
+    "field:this:0x000000D0",
+    "field:this:0x000000D8",
+    "field:this:0x000000E0",
+    "field:this:0x000000E8",
+    "field:this:0x000000F0",
+    "field:this:0x00000100",
+    "field:this:0x00000108",
+    "field:this:0x00000110",
+    "field:this:0x00000118",
+    "field:this:0x00000120",
+    "field:this:0x00000130",
+    "field:this:0x00000138",
+    "field:this:0x00000140",
+    "field:this:0x00000148",
+    "field:this:0x00000150",
+    "field:this:0x00000158",
+    "field:this:0x00000160",
+    "field:this:0x00000180",
+    "field:this:0x00000208",
+    "field:this:0x0000020C",
+    "field:this:0x00000210",
+    "field:this:0x00000214",
+    "field:this:0x00000218",
+    "field:this:0x0000021C",
+    "field:this:0x00000220",
+    "field:this:0x00000224",
+    "field:this:0x00000228",
+    "field:this:0x0000022C",
+    "field:this:0x00000230",
+    "field:this:0x00000234",
+    "field:this:0x000006C0",
+    "field:this:0x000006C4",
+    "field:this:0x000006C8",
+    "field:this:0x000006CC",
+    "field:this:0x000006D4",
+    "field:this:0x000006D8",
+    "field:this:0x000006DC",
+    "field:this:0x000006E0",
+    "field:this:0x00000700",
+    "field:this:0x00000704",
+    "field:this:0x00000708",
+    "field:this:0x0000070C",
+    "field:this:0x00000710",
+    "field:this:0x00000714",
+    "field:this:0x00000718",
+    "field:this:0x0000071C",
+    "field:this:0x00000720",
+    "field:this:0x00000724",
+    "field:this:0x00000728",
+    "field:this:0x0000072C",
+    "field:this:0x00000730",
+    "field:this:0x000009A4",
+    "field:this:0x000009A8",
+    "field:this:0x000009AC",
+    "field:this:0x000009B0",
+    "field:this:0x000009B4",
+    "field:this:0x000009B8",
+    "field:this:0x000009BC",
+    "field:this:0x00000D28",
+    "field:this:0x00000D78",
+    "field:this:0x00000F24",
+    "field:this:0x00000F28",
+    "field:this:0x00000F2C",
+    "field:this:0x00000F30",
+    "field:this:0x00000F34",
+    "field:this:0x00000F38",
+    "field:this:0x00000F3C",
+    "field:this:0x00000F40",
+    "field:this:0x00000F44",
+    "field:this:0x00000F48",
+    "field:this:0x00000F4C",
+    "field:this:0x00000F50",
+    "field:this:0x00000F64",
+    "field:this:0x00000F68",
+    "field:this:0x00000F6C",
+    "field:this:0x00000F70",
+    "field:this:0x00000F74",
+    "field:this:0x00000F78",
+    "field:this:0x00000F79",
+    "field:this:0x00000F7A",
+    "field:this:0x00000F7C",
+    "field:this:0x00000F81",
+    "field:this:0x00000F8C",
+    "field:this:0x00000F90",
+    "field:this:0x00000F94",
+    "field:this:0x00000F98",
+    "field:this:0x00001B20",
+    "field:this:0x00001B44",
+    "field:this:0x00001B48",
+    "field:this:0x00001B4C",
+    "field:this:0x00001B70",
+    "field:this:0x00001B74",
+    "field:this:0x00001B78",
+    "field:this:0x00001B9C",
+    "field:this:0x00001BA0",
+    "field:this:0x00001BA4",
+    "field:this:0x00001BC8",
+    "field:this:0x00001BCC",
+    "field:this:0x00001C54",
+    "field:this:0x00001C78",
+    "field:this:0x00001C7C",
+    "field:this:0x00001FBC",
+    "field:this:0x00001FE8",
+    "field:this:0x00002014",
+    "field:this:0x00002040",
+    "field:this:0x0000206C",
+    "field:this:0x00002098",
+    "field:this:0x000020C4",
+    "field:this:0x000020F0",
+    "field:this:0x000021D4",
+    "field:this:0x000021F8",
+    "field:this:0x000021FC",
+    "field:this:0x00002410",
+    "field:this:0x00002414",
+    "field:this:0x00002418",
+    "field:this:0x0000241C",
+    "field:this:0x00002420",
+    "field:this:0x00002424",
+    "field:this:0x00002428",
+    "field:this:0x00003B40",
+    "field:this:0x00003BAC",
+    "field:this:0x00003BB4",
+    "field:this:0x00003BB8",
+    "field:this:0x00003BD0",
+    "field:this:0x00003BD8",
+    "field:this:0x00003BDC",
+    "field:this:0x00003BF4",
+    "field:this:0x00003BFC",
+    "field:this:0x00003C00",
+    "field:this:0x00003C18",
+    "field:this:0x00003C20",
+    "field:this:0x00003C24",
+    "field:this:0x00003C3C",
+    "field:this:0x00003C44",
+    "field:this:0x00003C48",
+    "field:this:0x00003C60",
+    "field:this:0x00003C68",
+    "field:this:0x00003C6C",
+    "field:this:0x00003C84",
+    "field:this:0x00003C8C",
+    "field:this:0x00003C90",
+    "field:this:0x00003CA8",
+    "field:this:0x00003CB0",
+    "field:this:0x00003CB4",
+    "field:this:0x00003CCC",
+    "field:this:0x00003CD4",
+    "field:this:0x00003CD8",
+    "field:this:0x00003CF0",
+    "field:this:0x00003CF8",
+    "field:this:0x00003CFC",
+    "field:this:0x00003D14",
+    "field:this:0x00003D1C",
+    "field:this:0x00003D20",
+    "field:this:0x00003D38",
+    "field:this:0x00003D40",
+    "field:this:0x00003D44",
+    "field:this:0x00003D5C",
+    "field:this:0x00003D64",
+    "field:this:0x00003D68",
+    "field:this:0x00003D80",
+    "field:this:0x00003D88",
+    "field:this:0x00003D8C",
+    "field:this:0x00003DA4",
+    "field:this:0x00003DAC",
+    "field:this:0x00003DB0",
+    "field:this:0x00003DC8",
+    "field:this:0x00003DD0",
+    "field:this:0x00003DD4",
+    "field:this:0x00003DEC",
+    "field:this:0x00003DF4",
+    "field:this:0x00003DF8",
+    "field:this:0x00003E10",
+    "field:this:0x00003E18",
+    "field:this:0x00003E1C",
+    "field:this:0x00003E34",
+    "field:this:0x00003E3C",
+    "field:this:0x00003E40",
+    "field:this:0x00003E58",
+    "field:this:0x00003E60",
+    "field:this:0x00003E64",
+    "field:this:0x00003E7C",
+    "field:this:0x00003E84",
+    "field:this:0x00003E88",
+    "field:this:0x00003EA0",
+    "field:this:0x00003EA8",
+    "field:this:0x00003EAC",
+    "field:this:0x00003EC4",
+    "field:this:0x00003ECC",
+    "field:this:0x00003ED0",
+    "field:this:0x00003EE8",
+    "field:this:0x00003EF0",
+    "field:this:0x00003EF4",
+    "field:this:0x00003F0C",
+    "field:this:0x00003F14",
+    "field:this:0x00003F18",
+    "field:this:0x00003F30",
+    "field:this:0x00003F38",
+    "field:this:0x00003F3C",
+    "field:this:0x00003F54",
+    "field:this:0x00003F5C",
+    "field:this:0x00003F60",
+    "field:this:0x00003F78",
+    "field:this:0x00003F80",
+    "field:this:0x00003F84",
+    "field:this:0x00003F9C",
+    "field:this:0x00003FA4",
+    "field:this:0x00003FA8",
+    "field:this:0x00003FC0",
+    "field:this:0x00003FC8",
+    "field:this:0x00003FCC",
+    "field:this:0x00003FE4",
+    "field:this:0x00003FEC",
+    "field:this:0x00003FF0",
+    "field:this:0x00004008",
+    "field:this:0x00004010",
+    "field:this:0x00004014",
+    "field:this:0x0000402C",
+    "field:this:0x00004034",
+    "field:this:0x00004038",
+    "field:this:0x0000426C",
+    "field:this:0x00004274",
+    "field:this:0x00004278",
+    "field:this:0x000044AC",
+    "field:this:0x000044B4",
+    "field:this:0x000044B8",
+    "field:this:0x00004620",
+    "field:this:0x00004660",
+    "field:this:0x00004678",
+    "field:this:0x000046B8",
+    "field:this:0x000046EC",
+    "field:this:0x000046F4",
+    "field:this:0x000046F8",
+    "field:this:0x00004708",
+    "field:this:0x00004710",
+    "field:this:0x00004714",
+    "field:this:0x00004794",
+    "field:this:0x00004898",
+    "field:this:0x0000489C",
+    "field:this:0x000048A0",
+    "field:this:0x000048A4",
+    "field:this:0x000048A8",
+    "field:this:0x000048AC",
+    "field:this:0x000048B0",
+    "field:this:0x000048B4",
+    "field:this:0x000048B8",
+    "field:this:0x000048BC",
+    "function:0x0044C550",
+    "function:0x00454DA0",
+    "function:0x00459AE0",
+    "function:0x00490EE0",
+    "function:0x004AF3A0",
+    "function:0x004B4B50",
+    "function:0x004B4E10",
+    "function:0x004B5630",
+    "function:0x004B57F0",
+    "function:0x004BC060",
+    "function:0x004C6E80",
+    "function:0x004C79E0",
+    "function:0x004C7BF0",
+    "global:0x004B0154",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E478",
+    "global:0x0059E5FC",
+    "global:0x0059E670",
+    "global:0x0059E880",
+    "global:0x0059E8A4",
+    "global:0x0059ED50",
+    "global:0x0059F038",
+    "global:0x0059F040",
+    "global:0x0059F048",
+    "global:0x0059F050",
+    "global:0x0059F058",
+    "global:0x005ACD08",
+    "global:0x005ACD0C",
+    "global:0x005ACD24",
+    "global:0x005ACD30",
+    "global:0x005C329C",
+    "global:0x005EA560",
+    "global:0x007C54F0",
+    "global:0x007C56A4",
+    "global:0x007D12A4",
+    "global:0x007D12C8",
+    "global:0x007D12EC",
+    "global:0x007D1310",
+    "global:0x007D1370",
+    "global:0x0083EE60",
+    "global:0x008AAE64",
+    "global:0x008AB700",
+    "global:0x008AB704",
+    "global:0x008AB708",
+    "global:0x008AB70C",
+    "global:0x008AB710",
+    "global:0x008ACEE0",
+    "global:0x008AFEA0",
+    "guard:0",
+    "guard:1",
+    "guard:2",
+    "guard:3",
+    "guard:4",
+    "guard:5",
+    "guard:6",
+    "guard:7",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/wave_001/wave_001_vehicle_physics_02.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

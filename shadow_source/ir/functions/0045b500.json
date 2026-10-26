@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "address": "0x0045B500",
+  "proposed_name": "RotatingIndexSearchWithThreshold",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0045B500"]
+  },
+  "summary": "Searches an 8-entry circular buffer for an available slot. Starts from the rotating cursor this[199] (dword at this+0x31C) and scans up to eight candidates, returning the first index whose float field at dword offset 36 of the entry (23-dword stride) is <= the 0.0 threshold (flt_59E440). If the rotating scan finds nothing, falls back to scanning entries from this+60 (this+0xF0) with the same 23-dword stride and tracks a candidate index by comparing each entry value against the running result; returns -1 when the caller's threshold a2 exceeds the chosen entry's int field at dword offset 37, otherwise returns the chosen index. On the frame path; invoked by RegisterTextLineEntry (0045B9C0).",
+  "local_names": {
+    "this": "buffer owner whose 8-entry array (23-dword stride) starts at this+0xF0 and whose rotating cursor lives at this+0x31C",
+    "a2": "caller threshold used to reject the best fallback candidate",
+    "v2": "rotating cursor value loaded from this[199] and advanced during the rotating scan",
+    "i": "rotating scan loop counter (0..7)",
+    "result": "fallback scan result index, initialized to 0 and reassigned when a candidate value compares below it",
+    "v5": "fallback scan loop counter (1..7) and candidate index",
+    "v6": "entry pointer advancing by 23 dwords from this+60 during the fallback scan"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load the rotating cursor v2 = this[199], the dword at this+0x31C",
+      "evidence_refs": ["field:this:0x0000031C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Rotating scan: for i = 0..7 inspect entry (v2 % 8), then advance v2 by one; the entry stride is 23 dwords",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the float at this[23*(v2%8) + 36] (the entry's availability field) is <= 0.0, i.e. <= flt_59E440, accept that entry immediately",
+      "evidence_refs": ["global:0x0059E440", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the accepted index v2 % 8 without further scanning",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Fallback scan: initialize result to 0 and v5 to 1, then walk v6 from this+60 (this+0xF0) in 23-dword steps while v5 < 8; when *v6 compares below result, set result = v5",
+      "evidence_refs": ["field:this:0x000000F0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Threshold gate: if a2 > this[23*result + 37] (the chosen entry's int threshold field), reject the candidate",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return -1 when the candidate fails the a2 threshold, otherwise return result",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by RegisterTextLineEntry (0045B9C0) as its free-slot lookup; on the frame path",
+      "evidence_refs": ["caller:0x0045B9C0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int RotatingIndexSearchWithThreshold(int* this, int a2) {",
+    "  int cursor = this[199];",
+    "  for (int i = 0; i < 8; ++i) {",
+    "    int idx = cursor % 8;",
+    "    if (*(float*)&this[23*idx + 36] <= 0.0f) return idx;",
+    "    ++cursor;",
+    "  }",
+    "  int result = 0;",
+    "  for (int v5 = 1; v5 < 8; ++v5) {",
+    "    if (this[23*v5 + 60] < result) result = v5;",
+    "  }",
+    "  if (a2 > this[23*result + 37]) return -1;",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The fallback scan compares each entry value against the running result index rather than against a stored best value; whether this is a decompiler artifact or the original logic is unresolved",
+    "Roles of the float field at dword offset 36 (availability/lifetime) and the int field at dword offset 37 (threshold) are inferred from usage and caller context, not proven",
+    "The exact record layout behind the 23-dword stride is not defined by this packet"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

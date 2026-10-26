@@ -1,0 +1,37 @@
+int __thiscall sub_5078B5(_DWORD *this, char a2, char a3, int a4)
+{
+  int v4; // eax
+  int v5; // edi
+  _BYTE *v6; // edx
+  int v7; // eax
+  unsigned int i; // esi
+  float v10; // [esp+Ch] [ebp-Ch]
+  float v11; // [esp+Ch] [ebp-Ch]
+  float v12; // [esp+Ch] [ebp-Ch]
+  float v13; // [esp+10h] [ebp-8h]
+  _DWORD *v14; // [esp+14h] [ebp-4h]
+
+  v14 = this;
+  if ( this[1042] )
+  {
+    v4 = DirectXVertexBufferFormatConversion(this, a4);
+    this = v14;
+    a4 = v4;
+  }
+  v5 = this[11] + 4 * ((a3 & 3) + 8 * (a2 & 3));
+  UtilityFunction_7473();
+  v7 = 0;
+  for ( i = 0; i < v14[1046]; v7 += 16 )
+  {
+    v13 = *(float *)(v5 + 4 * (i & 3));
+    v10 = *(float *)(v7 + a4 + 8) * 255.0 + v13;
+    *v6 = (int)v10;
+    v11 = *(float *)(v7 + a4 + 4) * 255.0 + v13;
+    v6[1] = (int)v11;
+    v12 = *(float *)(v7 + a4) * 255.0 + v13;
+    v6[2] = (int)v12;
+    v6 += 3;
+    ++i;
+  }
+  return dword_8B009C;
+}

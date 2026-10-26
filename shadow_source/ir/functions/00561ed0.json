@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "address": "0x00561ED0",
+  "proposed_name": "InactivityTimeoutHandler",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00561ED0"]
+  },
+  "summary": "Track a connection inactivity timeout using GetTickCount. When the identifier field at this+0x4 is not -1, reads the last activity timestamp at this+0xD8 and computes elapsed ticks. Within a valid window (elapsed <= 0x493E0, timestamp nonzero, TickCount >= timestamp) it runs retry logic: if the retry byte at this+0xE8 is above 0 and elapsed exceeds 0x7530, it calls sub_562AC0(this, 0), increments the retry byte, and resets it to 0 once it exceeds 10. When the window is invalid/expired it calls sub_562AC0(this, 0) to reset state. Called from StringLengthCheckDispatch (0045D4E0).",
+  "local_names": {
+    "this": "connection/session object tracking activity state",
+    "TickCount": "GetTickCount result, also reused as the accumulator for the retry byte",
+    "v3": "last activity timestamp read from this+0xD8",
+    "v4": "elapsed ticks since the last activity timestamp"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Capture the current system tick count via GetTickCount; the result also seeds the function return value.",
+      "evidence_refs": ["callee:0x00564640", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the identifier field at this+0x4: when it equals 0xFFFFFFFF the timeout tracking is skipped entirely; otherwise the inactivity logic runs.",
+      "evidence_refs": ["guard:0", "field:this:0x00000004"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute elapsed = TickCount - last activity timestamp at this+0xD8; the window is valid only when elapsed <= 0x493E0, the timestamp is nonzero, and TickCount >= timestamp.",
+      "evidence_refs": ["field:this:0x000000D8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the elapsed window is invalid or expired, call sub_562AC0(this, 0) to reset the connection/session state.",
+      "evidence_refs": ["callee:0x00562AC0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Retry condition: the retry byte at this+0xE8 must be above 0 and the elapsed value must exceed 0x7530 before a retry is performed.",
+      "evidence_refs": ["field:this:0x000000E8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Perform the retry/resend action via sub_562AC0(this, 0).",
+      "evidence_refs": ["callee:0x00562AC0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Increment the retry byte stored at this+0xE8.",
+      "evidence_refs": ["field:this:0x000000E8"]
+    },
+    {
+      "kind": "guard",
+      "description": "Cap the retry byte: when the incremented value at this+0xE8 exceeds 10, reset it to 0.",
+      "evidence_refs": ["field:this:0x000000E8"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the char-truncated accumulator, which varies by path: the low byte of GetTickCount(), the char-truncated result of sub_562AC0, or the incremented retry counter.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked from StringLengthCheckDispatch (0045D4E0) on the connection activity-check path.",
+      "evidence_refs": ["caller:0x0045D4E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char InactivityTimeoutHandler(int this) {",
+    "  DWORD ticks = GetTickCount();",
+    "  if (*(int*)(this + 4) != -1) {",
+    "    DWORD last = *(DWORD*)(this + 216);",
+    "    unsigned elapsed = ticks - last;",
+    "    if (elapsed <= 0x493E0 && last && ticks >= last) {",
+    "      char retry = *(char*)(this + 232);",
+    "      if (retry > 0 && elapsed > 0x7530) {",
+    "        sub_562AC0(this, 0);",
+    "        retry = (char)(retry + 1);",
+    "        *(char*)(this + 232) = retry;",
+    "        if (retry > 10) *(char*)(this + 232) = 0;",
+    "      }",
+    "    } else {",
+    "      ticks = (DWORD)sub_562AC0(this, 0);",
+    "    }",
+    "  }",
+    "  return (char)ticks;",
+    "}"
+  ],
+  "unresolved": [
+    "Semantics of the sub_562AC0 reset/resend action and its parameter (0) are not documented inside this function.",
+    "Meaning of the identifier field at this+0x4 (socket/connection validity) is DERIVED from the -1 guard.",
+    "Where and when the last-activity timestamp at this+0xD8 is written is not visible here."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

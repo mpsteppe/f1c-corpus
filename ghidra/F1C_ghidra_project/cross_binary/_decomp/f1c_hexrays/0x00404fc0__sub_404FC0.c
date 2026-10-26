@@ -1,0 +1,10 @@
+// f1c  0x00404fc0  size=24
+char *__fastcall sub_404FC0(unsigned int a1)
+{
+  char *result; // eax
+
+  result = 0;
+  if ( a1 < 4 )
+    return &aLowpassCutoff[32 * a1];
+  return result;
+}

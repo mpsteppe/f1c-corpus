@@ -1,0 +1,45 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004A5600
+// Canonical corpus name: PitstopStateTransition
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/PitstopStateTransition_004a5600.c
+
+void UnknownObject::PitstopStateTransition()
+{
+    // Transitions the pit-stop state machine from the currently active sub-object (pointer stored at this+0x8) to a new target sub-object a2. Returns without change when a2 is null or equals the current pointer. When a current sub-object exists and the operation state at this+0x184 is not a blocking state (state 4, or state 3 with the byte at this+0x190 non-zero), captures bit 0 of the old sub-object's flag byte into v4, runs loop-conditional cleanup on the old sub-object via FlagBasedLoopConditionalCall, swaps this+0x8 to a2, then either reinitializes the new sub-object via sub_4A3390(a2, 0) when the captured flag was set, or directly activates it via FlagBasedLoopConditionalCall. When no current sub-object exists, the new pointer is stored and the new sub-object is activated via FlagBasedLoopConditionalCall.
+    // GUARD: Guard: when the target sub-object a2 is null, return without any state change. [source:raw]
+    // GUARD: Guard: load the current active sub-object pointer v3 from this+0x8; when a2 equals it, return without any state change. [field:this:0x00000008, source:raw]
+    // GUARD: Guard: when there is no current active sub-object (this+0x8 is null), skip the cleanup path and jump straight to storing the new pointer. [field:this:0x00000008, source:raw]
+    // GUARD: Guard: read operation state v5 from this+0x184; when v5 is 3 and the byte at this+0x190 is non-zero, or v5 is 4, skip the entire cleanup-and-transition block. [field:this:0x00000184, field:this:0x00000190, source:raw]
+    // ASSIGNMENT: Save bit 0 of the current sub-object's first flag byte into v4; this records whether the old sub-object was pending/active so the replacement path can choose between reinitializing and directly activating the new sub-object. [field:*(this+0x8):0x00000000, source:raw]
+    // CALL: Call FlagBasedLoopConditionalCall(v3) to run loop-conditional cleanup/processing on the outgoing sub-object. [callee:0x004A3440, source:raw]
+    // ASSIGNMENT: Write a2 into this+0x8, making the new sub-object the active one. [field:this:0x00000008, source:raw]
+    // CALL: When v4 is set, call sub_4A3390(a2, 0) to reinitialize/set up the new sub-object after the swap. [callee:0x004A3390, source:raw]
+    // CALL: When v4 is clear, call FlagBasedLoopConditionalCall(a2) to activate/process the new sub-object after the swap. [callee:0x004A3440, source:raw]
+    // RETURN: Function returns void; all transition paths converge without producing a return value. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   void PitstopStateTransition::switchActive(target* a2) {
+    //       if (!a2) return;
+    //       current = this->active(0x8);
+    //       if (a2 == current) return;
+    //       reinit = false;
+    //       if (current) {
+    //           state = this->state(0x184);
+    //           if (!((state == 3 && this->flagByte(0x190)) || state == 4)) {
+    //               reinit = current->flagByte(0x0) & 1;
+    //               FlagBasedLoopConditionalCall(current);
+    //               this->active(0x8) = a2;
+    //               if (reinit) sub_4A3390(a2, 0);
+    //               else FlagBasedLoopConditionalCall(a2);
+    //           }
+    //       } else {
+    //           this->active(0x8) = a2;
+    //           FlagBasedLoopConditionalCall(a2);
+    //       }
+    //   }
+    // UNRESOLVED: Semantics of the operation-state values at this+0x184: states 3 and 4 are treated specially (skip the transition), but the full enum and the meaning of the accompanying byte at this+0x190 are not explained by the packet.
+    // UNRESOLVED: Exact role difference between sub_4A3390(a2, 0) and FlagBasedLoopConditionalCall(a2) in the new sub-object's lifecycle (reinitialization versus direct activation).
+    // UNRESOLVED: Meaning of bit 0 of the sub-object flag byte at sub-object+0x0 (captured into v4 and used to pick the replacement path).
+    // UNRESOLVED: What FlagBasedLoopConditionalCall does internally with its sub-object argument.
+}

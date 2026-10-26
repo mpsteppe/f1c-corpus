@@ -1,0 +1,52 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0058AD08
+// Canonical corpus name: sub_58AD08
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_58AD08_0058ad08.c
+
+void UnknownObject::StreamTellWithTextModeAdjust()
+{
+    // CRT file-stream logical position/remaining-bytes calculator. Reads the OS file handle at this+0x10, clamps a negative position (this+0x4) to 0, queries the physical file size via sub_58C724, then adjusts the buffered position for text-mode newline (0x0A) expansion using the per-handle text-mode descriptor reached through dword_8D4920. Returns -1 with errno set to 22 (EINVAL) via TLSOffsetGetter when stream mode flags are invalid. Invoked by FileTellSeekPositionQuery and FileSizeQueryWrapper for file size/position queries.
+    // GUARD: Read the OS file handle from this+0x10; when the buffered position this+0x4 is negative, clamp it to 0. [field:this:0x00000010, field:this:0x00000004, guard:1, source:raw]
+    // CALL: Query the physical file size with sub_58C724(handle, 0, 1) into v19; on a negative result return -1. [callee:0x0058C724, field:this:0x00000010, source:raw]
+    // GUARD: Read stream mode flags from this+0xC; when (flags & 0x108) == 0 the stream is in a simple buffered state, so return v19 - this+0x4 as the raw logical position. [field:this:0x0000000C, field:this:0x00000004, source:raw]
+    // CALCULATION: Compute the buffered-consumed byte count v18 = this+0x0 (buffer end) - this+0x8 (current read pointer). [field:this:0x00000000, field:this:0x00000008, source:raw]
+    // LOOP: When the flags this+0xC low mode bits are non-zero (text-mode path) and the per-handle text-mode descriptor byte at dword_8D4920[handle >> 5] + 36 * (handle & 0x1F) + 4 is negative, scan the buffered bytes from this+0x8 up to this+0x0 and count each 0x0A (10) byte into v18. [global:0x008D4920, field:*(this+0x8):0x00000000, field:this:0x00000008, field:this:0x00000000, guard:0, source:raw]
+    // GUARD: When (flags & 0x80) == 0 the stream mode combination is invalid: write 22 into the TLS errno slot via TLSOffsetGetter() and return -1. [callee:0x0058AFCF, field:this:0x0000000C, source:raw]
+    // RETURN: When the physical file size v19 is 0, return the adjusted consumed count v18 directly. [source:raw]
+    // CALCULATION: When the byte-level flag (this+0xC & 1) is set and the buffered position this+0x4 is nonzero, estimate the pending window v20 = this+0x4 + this+0x0 - this+0x8. [field:this:0x0000000C, field:this:0x00000004, field:this:0x00000000, field:this:0x00000008, source:raw]
+    // GUARD: Revalidate the window against the file: a second size probe sub_58C724(handle, 0, 2) equal to v19 means the file is unchanged, so count 0x0A (10) bytes inside the window from this+0x8 and derive the adjustment flag v14 from (this+0xD & 0x20) == 0; otherwise seek back via sub_58C724(handle, v19, 0) and pick v20 = 512 or the buffer size this+0x18 based on v20 > 0x200, (flags & 8) == 0, or (flags & 0x400) != 0, deriving v14 from the text-mode descriptor flag byte instead. [callee:0x0058C724, field:this:0x0000000D, field:this:0x00000018, field:this:0x0000000C, field:this:0x00000008, global:0x008D4920, source:raw]
+    // RETURN: Finish by subtracting the validated window from the physical size and adding the consumed count: return v19 - v20 + v18. [source:raw]
+    // RETURN: Function 0x0058AD08 is the shared size/position query invoked by FileTellSeekPositionQuery and FileSizeQueryWrapper. [caller:0x00587F90, caller:0x0058ACE6, function:0x0058AD08, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int StreamTellWithTextModeAdjust(FILE *f) {
+    //     handle = f[0x10];
+    //     if (f[0x4] < 0) f[0x4] = 0;
+    //     size = QueryFileSize(handle, 0, 1);
+    //     if (size < 0) return -1;
+    //     flags = f[0xC];
+    //     if ((flags & 0x108) == 0) return size - f[0x4];
+    //     consumed = f[0x0] - f[0x8];
+    //     if ((flags & 3) != 0 && TextDesc(handle)[4] < 0)
+    //       for (p = f[0x8]; p < f[0x0]; ++p) if (*p == 10) ++consumed;
+    //     if ((flags & 0x80) == 0) { errno = 22; return -1; }
+    //     if (size == 0) return consumed;
+    //     if ((flags & 1) && f[0x4]) {
+    //       win = f[0x4] + f[0x0] - f[0x8];
+    //       if (QueryFileSize(handle, 0, 2) == size) {
+    //         count newlines in [f[0x8], f[0x8]+win); adjust = ((f[0xD] & 0x20) == 0);
+    //       } else {
+    //         Seek(handle, size, 0);
+    //         win = (win > 0x200 || (flags & 8) == 0 || (flags & 0x400)) ? f[0x18] : 512;
+    //         adjust = ((TextDesc(handle)[4] & 4) == 0);
+    //       }
+    //       if (!adjust) ++win;
+    //       size -= win;
+    //     } else consumed = 0;
+    //     return size + consumed;
+    //   }
+    // UNRESOLVED: The exact semantic roles of flag bits 0x400 and the 0x200 window threshold (line-buffering / ungetc state) are not recoverable from this function alone.
+    // UNRESOLVED: The text-mode descriptor byte at dword_8D4920[handle >> 5] + 36 * (handle & 0x1F) + 4 is external state; only its sign and its & 4 bit are consumed here.
+    // UNRESOLVED: The buffer-size field this+0x18 is used only in the fallback path where the second size probe differs from the stored size.
+}

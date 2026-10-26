@@ -1,0 +1,10 @@
+int __stdcall sub_46CCB0(int a1)
+{
+  if ( a1 <= 1487 )
+    return 0;
+  if ( a1 <= 2975 )
+    return 1;
+  if ( a1 > 7200 )
+    return (a1 > 28800) + 3;
+  return 2;
+}

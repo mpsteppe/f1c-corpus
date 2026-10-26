@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "address": "0x004BC060",
+  "proposed_name": "EncodeQualifyingTireUsage",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "During a qualifying session (dword_7C56A4 == 7) encodes a tire-usage ring-buffer event (message type 4, event id 26 or 27) via ProgressBarEventEncode. The ring-buffer count/write-pointer pair is advanced when below a hard bound, the low 32 bits of the session-time double form the event payload, and a tire-compound byte from the vehicle struct is written into the encoded record. Returns the encoder result only on the event-id-27 path; the non-qualifying path leaves the result undefined.",
+  "local_names": {
+    "this": "vehicle state struct",
+    "a2": "event selection flag (non-zero = in use, zero = discarded)",
+    "v3": "ring-buffer write pointer",
+    "v5": "session-time double low 32 bits as float payload"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "if dword_7C56A4 != 7 (session type is not qualifying) the whole body is skipped",
+      "evidence_refs": ["global:0x007C56A4", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "if ring-buffer count dword_83EE60 < 1023 the counter and write pointer are advanced",
+      "evidence_refs": ["global:0x0083EE60", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "increment ring-buffer count dword_83EE60",
+      "evidence_refs": ["global:0x0083EE60", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "advance ring-buffer write pointer dword_8AAE64 by 432 bytes",
+      "evidence_refs": ["global:0x008AAE64", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "take the low 32 bits of session-time double dbl_8AFEA0 as the float event payload v5",
+      "evidence_refs": ["global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "branch on a2: non-zero selects event id 26 (tire set in use), zero selects event id 27 (tire set discarded)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2 non-zero: ProgressBarEventEncode(writePtr, 4, 26, 1, *(this+0x4), v5, 0) then store the tire-compound byte *(this+0x34) into the encoded record at writePtr+0x8",
+      "evidence_refs": ["callee:0x004B33B0", "field:this:0x00000004", "field:this:0x00000034", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "a2 zero: return ProgressBarEventEncode(writePtr, 4, 27, 0, *(this+0x4), v5, 0)",
+      "evidence_refs": ["callee:0x004B33B0", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "the event-id-27 path returns the ProgressBarEventEncode result; the non-qualifying path has no explicit return, so its result is undefined",
+      "evidence_refs": ["function:0x004BC060", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (dword_7C56A4 != 7) return; /* undefined result */",
+    "if (dword_83EE60 < 1023) { ++dword_83EE60; dword_8AAE64 += 432; }",
+    "float t = low32(dbl_8AFEA0);",
+    "if (a2) {",
+    "  ProgressBarEventEncode(dword_8AAE64, 4, 26, 1, *(int*)(this+0x4), t, 0);",
+    "  *(byte*)(dword_8AAE64+0x8) = *(byte*)(this+0x34);",
+    "} else {",
+    "  return ProgressBarEventEncode(dword_8AAE64, 4, 27, 0, *(int*)(this+0x4), t, 0);",
+    "}"
+  ],
+  "unresolved": [
+    "Semantic labels for event ids 26 (in use) vs 27 (discarded) come from existing_analysis prose, not from the raw source, and are not independently confirmed.",
+    "ABI lead name Vehicle_Audio_Event_Dispatch conflicts with the tire-usage interpretation of this body; the legacy lead is unconfirmed.",
+    "The non-qualifying return path reads an uninitialized register, so the returned value there is undefined."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x0042A3D0",
+    "caller:0x004A0250",
+    "caller:0x004F1FE0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

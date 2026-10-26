@@ -1,0 +1,44 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0057AFA0
+// Canonical corpus name: NetworkPacketConstructor
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/NetworkPacketConstructor_0057afa0.c
+
+void UnknownObject::NetworkPacketConstructor()
+{
+    // Appends a new address/packet entry to a linked list embedded in `this`. Clears the byte flag at this+0x4, allocates a 16-byte network address struct (AF_INET family 2, network-byte-order zero IP and port via htonl/htons), overwrites it with four DWORDs from a2, allocates a 12-byte list node pointing at the address struct, then appends the node to the list head/tail chain at this+0x8/0xC/0x10 and increments the counter at this+0x14.
+    // ASSIGNMENT: Clear the byte flag at this+0x4 to 0 [field:this:0x00000004]
+    // CALL: Heap-allocate a 16-byte network address struct via OperatorNewNhMallocWrapper [callee:0x00587C03]
+    // ASSIGNMENT: Initialize address struct: family word 2 (AF_INET) at +0, network-byte-order port htons(0) at +2, network-byte-order IP htonl(0) at +4; on allocation failure the pointer is forced to 0 [global:0x0059E2D8, global:0x0059E2F4]
+    // ASSIGNMENT: Overwrite the address struct with the 16 payload bytes from a2 (four DWORDs) [source:raw]
+    // CALL: Heap-allocate a 12-byte list node via OperatorNewNhMallocWrapper [callee:0x00587C03]
+    // ASSIGNMENT: Initialize list node: address-struct pointer at +0, zero at +4, byte flag 1 at +8; on allocation failure the node pointer is forced to 0 [source:raw]
+    // GUARD: If list head this+0x8 is non-null, link the current tail's next field ((this+0xC)+0x4) to the new node; otherwise initialize head this+0x8 and secondary tail this+0x10 to the new node [field:*(this+0xC):0x00000004, field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010]
+    // ASSIGNMENT: Update tail pointer this+0xC to the new node [field:this:0x0000000C]
+    // CALCULATION: Increment the insert counter at this+0x14 [field:this:0x00000014]
+    // RETURN: Return 0 [source:raw]
+
+    // Conservative worker pseudocode:
+    //   this->flag4 = 0;
+    //   struct16 = OperatorNewNhMallocWrapper(16);
+    //   if (struct16) {
+    //     struct16->family = 2;
+    //     struct16->port = htons(0);
+    //     struct16->addr = htonl(0);
+    //   } else struct16 = 0;
+    //   struct16->dword0 = a2[0];
+    //   struct16->dword4 = a2[1];
+    //   struct16->dword8 = a2[2];
+    //   struct16->dwordC = a2[3];
+    //   node = OperatorNewNhMallocWrapper(12);
+    //   if (node) { node->item = struct16; node->field4 = 0; node->flag8 = 1; }
+    //   else node = 0;
+    //   if (this->head8) (this->tailC)->next4 = node;
+    //   else { this->head8 = node; this->tail16 = node; }
+    //   this->tailC = node;
+    //   ++this->count14;
+    //   return 0;
+    // UNRESOLVED: Meaning of the four overwritten DWORDs in the address struct (payload layout) is not determined
+    // UNRESOLVED: The per-call null-guard branches around the allocator are decompiler artifacts; a failed allocation would yield writes through a null pointer
+    // UNRESOLVED: Distinction between tail pointers at this+0xC and this+0x10 is unclear
+}

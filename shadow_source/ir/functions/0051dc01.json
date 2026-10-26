@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "address": "0x0051DC01",
+  "proposed_name": "PackedPixelCopyWithPaletteLookup",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Copies a grid of packed pixels to a byte output using an RGB 5-6-5 palette lookup. For each of a4 source pixels it loads a source row pointer and a destination byte pointer, then for each of a1+0x5C (width) columns it decomposes three packed bytes into a grid key (v7=byte0>>3, v9=byte1>>2, v10=byte2>>3), resolves the palette cell word at *(*(*(a1+0x1A4)+0x18) + 4*v7) + 2*(v10 + 32*v9), and, when the cell is empty (0), populates it via BitstreamTextureBlockCopy before writing the byte (palette index minus 1) to the output. Returns a1.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard: the entire processing loop is skipped when a4 (pixel count) is not greater than zero.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "result = a1; a1 is retained and becomes the return value of the function.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v15 = *(*(a1 + 0x1A4) + 0x18): load the palette grid row-pointer base array from the context pointer field of a1.",
+      "evidence_refs": ["field:this:0x000001A4", "field:*(this+0x1A4):0x00000018"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v5 = *(a1 + 0x5C): load the per-row width (stride in columns) used as the inner loop count.",
+      "evidence_refs": ["field:this:0x0000005C"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer loop over a4 pixels: each iteration loads the source row pointer v6 (v18 + (a2 - a3)) and the destination byte pointer v19 = *v18, advances v18, and decrements v16 until v16 reaches zero.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: the inner copy loop runs only when v5 (width, *(a1 + 0x5C)) is non-zero.",
+      "evidence_refs": ["field:this:0x0000005C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Decompose three packed source bytes into grid coordinates: v7 = v6[0] >> 3, v9 = v6[1] >> 2, v10 = v6[2] >> 3.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Resolve the palette cell word address: v11 = *(v15 + 4*v7) + 2*(v10 + 32*v9), i.e. row pointer from the grid base (v15 + 4*v7) plus 2 bytes per 32-v9 column cell.",
+      "evidence_refs": ["field:*(this+0x1A4):0x00000018"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when the resolved palette cell word *v11 is zero (empty cell), the cell is populated first.",
+      "evidence_refs": ["callee:0x0051DB31"]
+    },
+    {
+      "kind": "call",
+      "description": "Call BitstreamTextureBlockCopy(v9, a1, v7, v10) to populate the empty palette grid cell with the nearest color match.",
+      "evidence_refs": ["callee:0x0051DB31"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the output byte: *v12 = (byte)*v11 - 1, i.e. palette index minus one, advancing the destination pointer v19.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner loop over v5 (width) columns: decrements v17 until it reaches 1, then restores v5 = v14 and recomputes result = a2 - a3.",
+      "evidence_refs": ["field:this:0x0000005C"]
+    },
+    {
+      "kind": "return",
+      "description": "Return result, which is a1 (or a2 - a3 after the last processed pixel).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int PackedPixelCopyWithPaletteLookup(int a1, int a2, int *a3, int a4) {",
+    "  int grid = *(int *)(*(int *)(a1 + 0x1A4) + 0x18);",
+    "  int width = *(int *)(a1 + 0x5C);",
+    "  if (a4 <= 0) return a1;",
+    "  for (int n = a4; n > 0; n--) {",
+    "    unsigned char *src = a3 + (a2 - a3);",
+    "    unsigned char *dst = (unsigned char *)*a3;",
+    "    a3++;",
+    "    if (width) {",
+    "      for (int w = width; w > 0; w--) {",
+    "        int v7 = src[0] >> 3;",
+    "        int v9 = src[1] >> 2;",
+    "        int v10 = src[2] >> 3;",
+    "        src += 3;",
+    "        unsigned short *cell = (unsigned short *)(*(int *)(grid + 4 * v7) + 2 * (v10 + 32 * v9));",
+    "        if (!*cell) BitstreamTextureBlockCopy(v9, a1, v7, v10);",
+    "        *dst++ = (unsigned char)*cell - 1;",
+    "      }",
+    "    }",
+    "  }",
+    "  return a1;",
+    "}"
+  ],
+  "unresolved": [
+    "Object type owning a1 is unidentified; the packet owner evidence is empty and the owner is left UNKNOWN.",
+    "Purpose of the minus-one transform on the palette index written to the output is not derivable from the packet (sentinel vs. encoding shift).",
+    "Whether the grid cell word layout (2*(v10 + 32*v9)) implies 32 columns per row of 5-bit coordinates is inferred from the arithmetic, not stated in the packet.",
+    "The relation between the a4 pixel count and the width field at a1+0x5C is not explicit in the source; both loops are independent in the decompiled form.",
+    "BitstreamTextureBlockCopy's signature and the meaning of its (v9, a1, v7, v10) arguments are unknown beyond the observed call site."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

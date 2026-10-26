@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "address": "0x0054D7A0",
+  "proposed_name": "CollisionContactStateDetection",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes the distance between two collision feature offsets, then classifies the contact state stored in the low bits of the state word at this+20 (1 = potential contact, 2 = separated, 4 = contact). Bit 0x10 of the state word selects a plane-based contact path; otherwise a simple inner/outer radius test decides. The plane path evaluates per-plane distance equations against a threshold and rewrites the state accordingly. Always returns 0.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Compute relative distance components v8/v7/v5 by adding a2[9..11] to the a3 vector components.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the distance magnitude v15 = sqrt(v8*v8 + v7*v7 + v5*v5).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on bit 0x10 of the state word at this+20 to select the plane-based contact mode path.",
+      "evidence_refs": ["source:raw", "field:this:0x00000014"]
+    },
+    {
+      "kind": "guard",
+      "description": "Simple path: if inner radius at this+244 < v15 < outer radius at this+248, classify as contact.",
+      "evidence_refs": ["source:raw", "field:this:0x000000F4", "field:this:0x000000F8"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Set the state word to (v6 & 0xFFFFFFF8) | 4, encoding the contact state in the low bits.",
+      "evidence_refs": ["source:raw", "field:this:0x00000014"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Fall through of the simple path sets the state word to (v6 & 0xFFFFFFF8) | 2, encoding separated.",
+      "evidence_refs": ["source:raw", "field:this:0x00000014"]
+    },
+    {
+      "kind": "guard",
+      "description": "Contact mode: if plane count at this+252 > 4 and v15 - threshold at this+24 > a2[2], or (when a4 is zero) the radius test scaled by a2[34] fails, jump to the separated path.",
+      "evidence_refs": ["source:raw", "field:this:0x000000FC", "field:this:0x00000018"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Otherwise set the state word to (v6 & 0xFFFFFFF8) | 1, encoding potential contact, and remember it as v10.",
+      "evidence_refs": ["source:raw", "field:this:0x00000014"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the plane count at this+252 <= 0, return 0 without evaluating any plane.",
+      "evidence_refs": ["source:raw", "field:this:0x000000FC"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate over collision planes starting at a2[65], stepping 4 floats per plane (a plane holds two normal components, a remaining normal component, and a distance term).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v13 = -(planeNormalX * a3[0]) - (planeNormalY * a3[1]) - (planeNormalZ * a3[2]) - planeDistance.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v13 > threshold at this+24, set the state word to (v10 & 0xFFFFFFFC) | 2 and return 0.",
+      "evidence_refs": ["source:raw", "field:this:0x00000018"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v13 > -threshold at this+24, break out of the plane loop to the contact result; otherwise continue iterating.",
+      "evidence_refs": ["source:raw", "field:this:0x00000018"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "After the plane loop, set the state word to (v10 & 0xFFFFFFFA) | 4 (contact bit set) and return 0.",
+      "evidence_refs": ["source:raw", "field:this:0x00000014"]
+    },
+    {
+      "kind": "return",
+      "description": "All reachable paths return 0.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int CollisionContactStateDetection(int this, float* a2, float* a3, int a4) {",
+    "  float v8 = a2[9] + a3[0], v7 = a2[10] + a3[1], v5 = a2[11] + a3[2];",
+    "  float v15 = sqrtf(v8*v8 + v7*v7 + v5*v5);",
+    "  unsigned state = *(unsigned*)(this+20);",
+    "  if ((state & 0x10) == 0) {",
+    "    if (*(float*)(this+244) < v15 && v15 < *(float*)(this+248)) {",
+    "      *(unsigned*)(this+20) = (state & 0xFFFFFFF8) | 4; return 0;",
+    "    }",
+    "    *(unsigned*)(this+20) = (state & 0xFFFFFFF8) | 2; return 0;",
+    "  }",
+    "  int planes = *(int*)(this+252);",
+    "  if (planes > 4 && v15 - *(float*)(this+24) > a2[2]",
+    "      || !a4 && (*(float*)(this+248)*a2[34] < v15 || *(float*)(this+244)*a2[34] >= v15)) {",
+    "    *(unsigned*)(this+20) = (state & 0xFFFFFFF8) | 2; return 0;",
+    "  }",
+    "  unsigned potential = (state & 0xFFFFFFF8) | 1;",
+    "  *(unsigned*)(this+20) = potential;",
+    "  if (planes <= 0) return 0;",
+    "  for (int n = 0; n < planes; ++n) {",
+    "    float* p = a2 + 65 + 4*n;",
+    "    float v13 = -(p[-2]*a3[0]) - p[-1]*a3[1] - p[0]*a3[2] - p[1];",
+    "    if (v13 > *(float*)(this+24)) { *(unsigned*)(this+20) = (potential & 0xFFFFFFFC) | 2; return 0; }",
+    "    if (v13 > -*(float*)(this+24)) break;",
+    "  }",
+    "  *(unsigned*)(this+20) = (potential & 0xFFFFFFFA) | 4;",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "Semantic roles of a2[2], a2[34], and the plane block (a2[63..66] per plane) are caller-defined and not resolvable here.",
+    "Meaning of bit 0x10 of the state word that switches between the two classification algorithms is not documented.",
+    "Whether the final low-bit pattern (v10 & 0xFFFFFFFA) | 4 encodes a distinct contact sub-state is unknown.",
+    "Relationship between this+244/this+248 radii and the caller's collision geometry is unverified."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

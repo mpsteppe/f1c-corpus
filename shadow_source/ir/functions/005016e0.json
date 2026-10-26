@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "address": "0x005016E0",
+  "proposed_name": "VTableDispatchWithLongjmp",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Dispatches a vtable callback at object offset 8, then invokes LongjmpMSVCCRT on a recovery buffer 132 bytes past the vtable base. If execution continues after the longjmp, restores context state by copying v1[7] to v1[0] and v1[8] to v1[1] where v1 = this+0x14, then returns 1. Fiber/yield or SEH recovery pattern.",
+  "local_names": {},
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Indirect vtable call: read the vtable base from a1[0] (this+0x0), load the function pointer at obj+0x8, and call it with a1 as the argument.",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000008"]
+    },
+    {
+      "kind": "call",
+      "description": "Call LongjmpMSVCCRT with the jump buffer at vtable base + 132 and value 1, entering the recovery path.",
+      "evidence_refs": ["callee:0x0058A770", "field:this:0x00000000"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the secondary context pointer from this+0x14 into v1.",
+      "evidence_refs": ["field:this:0x00000014"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Restore the first context word: copy v1[7] (this+0x30) into v1[0] (this+0x14).",
+      "evidence_refs": ["field:this:0x00000014", "field:this:0x00000030"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Restore the second context word: copy v1[8] (this+0x34) into v1[1] (this+0x18).",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x00000034"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 when execution continues past the longjmp.",
+      "evidence_refs": ["function:0x005016E0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// a1: dispatch object; a1[0] is the vtable pointer",
+    "call vtable[2](a1);                 // function pointer at obj+0x8",
+    "longjmp(*(a1 + 132), 1);            // recovery buffer past the vtable base",
+    "// executed only if longjmp does not transfer control",
+    "ctx = a1[5];                        // this+0x14",
+    "ctx[0] = ctx[7];                    // restore this+0x14 from this+0x30",
+    "ctx[1] = ctx[8];                    // restore this+0x18 from this+0x34",
+    "return 1;"
+  ],
+  "unresolved": [
+    "Jump buffer offset 132 (0x84) is referenced in the raw source but has no packet field evidence ref; kept as a raw literal.",
+    "The indirect vtable dispatch target at obj+0x8 cannot be resolved statically.",
+    "Existing analysis treats this+0x18 as a secondary context pointer not directly used here; the write to v1[1] lands at this+0x18."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

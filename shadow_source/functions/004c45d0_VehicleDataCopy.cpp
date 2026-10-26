@@ -1,0 +1,64 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C45D0
+// Canonical corpus name: VehicleDataCopy
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VehicleDataCopy_004c45d0.c
+
+void UnknownObject::VehicleDataCopy()
+{
+    // Deep copy of vehicle configuration data from a source template entry (a2) into the destination vehicle entry (this). Seven string fields (source offsets 0, 8, 16, 24, 32, 972, 984) are copied through StringCopyWithBufferRealloc with a null-fallback to the empty-string global byte_5EA438 (0x005EA438). The remaining fields are copied raw: a 16-byte identifier block at this+0x28, fifteen consecutive dwords from source offsets 56..112 into this+0x38..0x70, then byte-block copies of sizes 8, 64, 64, 64, 64, 64, 256, 128, 16, 64, 16, 16, 16, 16 and 64 bytes across this+0x74 through this+0x3E0, plus two trailing dwords at this+0x3D4 and this+0x420. Returns this. Called by VehicleDataLoader (0x004C4240) when instantiating a vehicle entry from its template.
+    // CALL: Null-safe string copy of the five source string fields at a2+0, a2+8, a2+16, a2+24 and a2+32: when the pointer is null, substitute the empty-string global byte_5EA438 (0x005EA438), then realloc-copy via StringCopyWithBufferRealloc. [callee:0x00566650, global:0x005EA438, source:raw]
+    // CALCULATION: Compute v8 = a2 - this, the byte stride used to index the matching source byte for each destination byte in the block-copy loops below. [source:raw]
+    // LOOP: Copy the 16-byte identifier block from source offset 40 (0x28) into this+0x28. [field:this:0x00000028, source:raw]
+    // CALCULATION: Copy 15 consecutive dwords from source offsets 56..112 into this offsets 0x38..0x70 (this[14]..this[28]). [field:this:0x00000038, field:this:0x0000003C, field:this:0x00000040, field:this:0x00000044, field:this:0x00000048, field:this:0x0000004C, field:this:0x00000050, field:this:0x00000054, field:this:0x00000058, field:this:0x0000005C, field:this:0x00000060, field:this:0x00000064, field:this:0x00000068, field:this:0x0000006C, field:this:0x00000070, source:raw]
+    // LOOP: Copy the 8-byte block at this+0x74 from the matching source bytes. [field:this:0x00000074, source:raw]
+    // LOOP: Copy the 64-byte block at this+0x7C from the matching source bytes. [field:this:0x0000007C, source:raw]
+    // LOOP: Copy the 64-byte block at this+0xBC from the matching source bytes. [field:this:0x000000BC, source:raw]
+    // LOOP: Copy the 64-byte block at this+0xFC from the matching source bytes. [field:this:0x000000FC, source:raw]
+    // LOOP: Copy the 64-byte block at this+0x13C from the matching source bytes. [field:this:0x0000013C, source:raw]
+    // LOOP: Copy the 64-byte block at this+0x17C from the matching source bytes. [field:this:0x0000017C, source:raw]
+    // LOOP: Copy the 256-byte block at this+0x1BC from the matching source bytes. [field:this:0x000001BC, source:raw]
+    // LOOP: Copy the 128-byte block at this+0x2BC from the matching source bytes. [field:this:0x000002BC, source:raw]
+    // LOOP: Copy the 16-byte block at this+0x33C from the matching source bytes. [field:this:0x0000033C, source:raw]
+    // LOOP: Copy the 64-byte block at this+0x34C from the matching source bytes. [field:this:0x0000034C, source:raw]
+    // LOOP: Copy the 16-byte block at this+0x38C from the matching source bytes. [field:this:0x0000038C, source:raw]
+    // LOOP: Copy the 16-byte block at this+0x39C from the matching source bytes. [field:this:0x0000039C, source:raw]
+    // LOOP: Copy the 16-byte block at this+0x3AC from the matching source bytes. [field:this:0x000003AC, source:raw]
+    // LOOP: Copy the 16-byte block at this+0x3BC from the matching source bytes. [field:this:0x000003BC, source:raw]
+    // CALL: Null-safe string copy of the source string field at a2+972: when the pointer is null, substitute byte_5EA438 (0x005EA438), then realloc-copy via StringCopyWithBufferRealloc. [callee:0x00566650, global:0x005EA438, source:raw]
+    // ASSIGNMENT: Copy the dword at source offset 980 into this+0x3D4 (this[245]). [field:this:0x000003D4, source:raw]
+    // CALL: Null-safe string copy of the source string field at a2+984: when the pointer is null, substitute byte_5EA438 (0x005EA438), then realloc-copy via StringCopyWithBufferRealloc. [callee:0x00566650, global:0x005EA438, source:raw]
+    // LOOP: Copy the 64-byte block at this+0x3E0 from the matching source bytes. [field:this:0x000003E0, source:raw]
+    // ASSIGNMENT: Copy the dword at source offset 1056 into this+0x420 (this[264]). [field:this:0x00000420, source:raw]
+    // RETURN: Return this as the destination pointer. [function:0x004C45D0, source:raw]
+    // CALL: Invoked by VehicleDataLoader (0x004C4240) when instantiating a vehicle entry from its template. [caller:0x004C4240]
+
+    // Conservative worker pseudocode:
+    //   _DWORD* VehicleDataCopy(_DWORD* this, int a2) {
+    //     for (off in {0, 8, 16, 24, 32, 972, 984})
+    //       StringCopyWithBufferRealloc(*(char**)(a2 + off) ? *(char**)(a2 + off) : byte_5EA438);
+    //     memcpy(this + 40, a2 + 40, 16);
+    //     memcpy(this + 56, a2 + 56, 15 * 4);
+    //     memcpy(this + 116, a2 + 116, 8);
+    //     memcpy(this + 124, a2 + 124, 64);
+    //     memcpy(this + 188, a2 + 188, 64);
+    //     memcpy(this + 252, a2 + 252, 64);
+    //     memcpy(this + 316, a2 + 316, 64);
+    //     memcpy(this + 380, a2 + 380, 64);
+    //     memcpy(this + 444, a2 + 444, 256);
+    //     memcpy(this + 700, a2 + 700, 128);
+    //     memcpy(this + 828, a2 + 828, 16);
+    //     memcpy(this + 844, a2 + 844, 64);
+    //     memcpy(this + 908, a2 + 908, 16);
+    //     memcpy(this + 924, a2 + 924, 16);
+    //     memcpy(this + 940, a2 + 940, 16);
+    //     memcpy(this + 956, a2 + 956, 16);
+    //     *(dword*)(this + 980) = *(dword*)(a2 + 980);
+    //     memcpy(this + 992, a2 + 992, 64);
+    //     *(dword*)(this + 1056) = *(dword*)(a2 + 1056);
+    //     return this;
+    //   }
+    // UNRESOLVED: The exact semantics of each byte-block region (identifier, parameter block, physics settings) are not established from this packet alone.
+    // UNRESOLVED: StringCopyWithBufferRealloc is assumed to copy into a destination buffer managed by the caller, but its exact signature and destination pointer are not visible inside this function.
+    // UNRESOLVED: The 16-byte block at this+0x28 and the byte-block regions are presumed to be raw memcpy-style copies because the loop writes every byte via the v8 stride; element sizes beyond one byte are not proven.
+}

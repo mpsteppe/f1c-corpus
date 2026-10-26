@@ -1,0 +1,358 @@
+{
+  "schema_version": 1,
+  "address": "0x00424E70",
+  "proposed_name": "AIMainUpdate",
+  "owner": {
+    "type": "F1CVehicle",
+    "trust": "CONFIRMED",
+    "evidence_refs": ["caller:0x0042C690", "field:this:0x00017680", "function:0x00424E70"]
+  },
+  "summary": "Per-frame AI tick for one vehicle. Early-reject when AIControlFlag at this+0x32C8 exceeds 1. Two major branches: (a) pre-race / session-phase path gated on the base object's slot-live marker and this+0x45F4 flag that runs countdown and grid-lights logic and writes control outputs; (b) the normal racing path that computes heading from yaw, runs pit scheduling, ability cadence, proximity scans, racing-line, steering, gearshift, and a driverStatus state machine (0,1,2,3,6,7) plus pit/terminal handling for status 4/5.",
+  "local_names": {
+    "v2": "AIControlFlagSnapshot",
+    "v3": "StoredSessionPhase",
+    "v5": "CurrentSessionPhase",
+    "v6": "PitScheduleEntry",
+    "v22": "WaypointQueueEntry",
+    "v23": "LoopCount",
+    "v37": "LightsDt",
+    "v39": "CopiedTargetPos",
+    "v40": "CopiedTargetMeta"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Entry gate: if AIControlFlag at this+0x32C8 > 1, return immediately (tick disabled for locked/retired slots).",
+      "evidence_refs": ["guard:2", "field:this:0x00013000"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Snapshot AIControlFlag byte (this+0x45F4) into v2 and stamp this+0x4480 with current time dbl_8AFEA0 (per-frame time base).",
+      "evidence_refs": ["field:this:0x00017908", "field:this:0x00017536", "global:0x008AFEA0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pre-race init path gate: AIControlFlag==0 and base-object marker obj+0x32C8==1 (reached by dereferencing this+0).",
+      "evidence_refs": ["guard:9", "field:this:0x00017908", "guard:1", "field:obj:0x00013000", "field:this:0x00000000"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read stored session phase (this+0x444C) into v3; zero AIInternalCounter (this+0x4028) and throttle output (this+0x4434).",
+      "evidence_refs": ["field:this:0x00017484", "field:this:0x00016424", "field:this:0x00017460"]
+    },
+    {
+      "kind": "guard",
+      "description": "Phase-change detect: global session phase dword_7C56A8 differs from stored this+0x444C.",
+      "evidence_refs": ["global:0x007C56A8", "field:this:0x00017484"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Decrement phase-transition countdown this+0x4448 by 0.025 per frame.",
+      "evidence_refs": ["field:this:0x00017480"]
+    },
+    {
+      "kind": "guard",
+      "description": "Countdown elapsed once this+0x4448 drops below 0.",
+      "evidence_refs": ["field:this:0x00017480"]
+    },
+    {
+      "kind": "call",
+      "description": "AIRingBufferFieldInit(this): reset the AI ring-buffer history on phase transition.",
+      "evidence_refs": ["callee:0x00424C80"]
+    },
+    {
+      "kind": "guard",
+      "description": "Session phase 5 or 1: call SessionCleanupFlagClear(this) before re-storing the phase.",
+      "evidence_refs": ["global:0x007C56A8", "callee:0x0042ADB0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the current phase global dword_7C56A8 back into this+0x444C.",
+      "evidence_refs": ["field:this:0x00017484", "global:0x007C56A8"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pit-schedule loop gate: AIControlFlag byte ==1 and global byte_5C3160 ==1.",
+      "evidence_refs": ["guard:9", "field:this:0x00017908", "global:0x005C3160"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Arm PitDecisionTimer this+0x413C = dbl_8AFEA0 + 2.0.",
+      "evidence_refs": ["field:this:0x00016700", "global:0x008AFEA0"]
+    },
+    {
+      "kind": "loop",
+      "description": "5-iteration pass over pit-schedule entries beginning at this+0x4144 (adjacent dword pairs read via v6).",
+      "evidence_refs": ["field:this:0x00016708", "field:this:0x00016712", "guard:6"]
+    },
+    {
+      "kind": "guard",
+      "description": "Per entry: [1]==4 with [0]==0 selects the plan-write path; else [1]==5 with [0]==0 selects the rejoin-decision path.",
+      "evidence_refs": ["field:this:0x00016712", "guard:6"]
+    },
+    {
+      "kind": "call",
+      "description": "ConditionalGate(this+12) invoked on both pit-schedule branches.",
+      "evidence_refs": ["callee:0x004EFAC0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "RandLCGRandomNumberGenerator()%4 mapped to finish reason 7/3/8; write ReasonCode this+0x4068 only if currently 0.",
+      "evidence_refs": ["callee:0x005884ED", "field:this:0x00016488"]
+    },
+    {
+      "kind": "calculation",
+      "description": "(rand & 0x14) + dbl_8AFEA0 + 10.0 written to this+0x4170 (next pit-timing deadline).",
+      "evidence_refs": ["callee:0x005884ED", "global:0x008AFEA0", "field:this:0x00016752"]
+    },
+    {
+      "kind": "guard",
+      "description": "Race-start phase branch: stored session phase this+0x444C == 4.",
+      "evidence_refs": ["guard:7", "field:this:0x00017484"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set global byte_5C3160 = 1 and call RaceStartCountdownStateUpdate(0).",
+      "evidence_refs": ["global:0x005C3160", "callee:0x004EF930"]
+    },
+    {
+      "kind": "calculation",
+      "description": "dt = dbl_8AFEA0 - flt_8ACFB8 (time since lights stage start).",
+      "evidence_refs": ["global:0x008AFEA0", "global:0x008ACFB8"]
+    },
+    {
+      "kind": "guard",
+      "description": "Hold branch when dt <= 0.2 and, inside it, lap-timing path while dbl_8AFEA0 < this+0x4564.",
+      "evidence_refs": ["field:this:0x00017764", "global:0x008AFEA0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Lights ramp factor v17 = clamp(now - this+0x4560, 0..1) scaled by -25 (countdown throttle pull).",
+      "evidence_refs": ["field:this:0x00017760", "global:0x008AFEA0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Pick throttle-output table entry via CRTFtol(v18) from unk_5C30E0 or dword_5C3144 depending on flag this+0x4568; write this+0x4434, brake=1.0 (this+0x4438), steer=0 (this+0x442C).",
+      "evidence_refs": ["callee:0x00587BDC", "global:0x005C30E0", "global:0x005C3144", "field:this:0x00017768", "field:this:0x00017460", "field:this:0x00017464", "field:this:0x00017452"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Randomize lights timing: flip flag this+0x4568, stamp this+0x4560 = now, schedule this+0x4564 = now + 1.0 or now + (rand()%100)*0.01/0.02.",
+      "evidence_refs": ["field:this:0x00017768", "field:this:0x00017760", "field:this:0x00017764", "callee:0x005884ED", "global:0x008AFEA0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Post-lights throttle ramp: v16 = 1250 - (dt-0.2)*0.5556 or 250; throttle output this+0x4434 = (this+0x399C - this+0x39A0)/v16 + 0.5.",
+      "evidence_refs": ["field:this:0x00014748", "field:this:0x00014752", "field:this:0x00017460"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp low: throttle this+0x4434 < 0 forces 0, brake=1.0, steer=0, then jumps to the shared output path.",
+      "evidence_refs": ["field:this:0x00017460", "field:this:0x00017464", "field:this:0x00017452"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp high: throttle this+0x4434 > 1 forces 1.0, brake=1.0, steer=0, then shared output path.",
+      "evidence_refs": ["field:this:0x00017460", "field:this:0x00017464", "field:this:0x00017452"]
+    },
+    {
+      "kind": "guard",
+      "description": "Shared output path LABEL_86: carConditions this+0x3D6C == 2 (special fuel/conditions brake handling).",
+      "evidence_refs": ["guard:4", "field:this:0x00015724"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Brake factor from |this+0x4428|: >7 -> 1045891645, 5..7 -> (|v|-5)*0.1+0.01, <5 -> 1008981770, else 0; written to this+0x4438.",
+      "evidence_refs": ["field:this:0x00017448", "field:this:0x00017464"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Emit control outputs: steering this+0x3580 = steer command, brake this+0x3584 = brake command, throttle this+0x357C = throttle command; clear this+0x45FC = 0.",
+      "evidence_refs": ["field:this:0x00013696", "field:this:0x00013700", "field:this:0x00013692", "field:this:0x00017452", "field:this:0x00017464", "field:this:0x00017460", "field:this:0x00017916"]
+    },
+    {
+      "kind": "return",
+      "description": "Early return after pre-race control outputs are written.",
+      "evidence_refs": ["field:this:0x00013692"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Normal racing path: heading vector this+0x448C = -sin(yaw), this+0x4494 = -cos(yaw), with yaw from RenderX this+0x34F0.",
+      "evidence_refs": ["field:this:0x00017548", "field:this:0x00017556", "field:this:0x00013552"]
+    },
+    {
+      "kind": "guard",
+      "description": "Return unless sub_426430(this) is truthy and the base-object marker obj+0x32C8 == 1 (activity/objectivity gate).",
+      "evidence_refs": ["callee:0x00426430", "guard:0", "field:obj:0x00013000", "field:this:0x00000000"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pit-decision due: dbl_8AFEA0 > PitDecisionTimer this+0x413C.",
+      "evidence_refs": ["global:0x008AFEA0", "field:this:0x00016700"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Disarm timer: this+0x413C = 0x7F800000 (float +inf sentinel).",
+      "evidence_refs": ["field:this:0x00016700"]
+    },
+    {
+      "kind": "call",
+      "description": "Session phase 8 -> AIStateFlagSetter(1); otherwise AIPushLap(this) (lap-push or state-flag set depending on phase).",
+      "evidence_refs": ["global:0x007C56A8", "callee:0x0042AC70", "callee:0x0042A180"]
+    },
+    {
+      "kind": "loop",
+      "description": "5-iteration pass over waypoint-queue entries from this+0x4170 region (v22); entry guarded by lapNumber this+0x403C == entry lap and entry count < 4.",
+      "evidence_refs": ["field:this:0x00016712", "field:this:0x00016444", "guard:6"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Lap-time slot: copy bestLap this+0x409C into this+0x416C, floored at 40.0 (literal 1109393408).",
+      "evidence_refs": ["field:this:0x00016540", "field:this:0x00016748"]
+    },
+    {
+      "kind": "calculation",
+      "description": "rand() % CRTFtol(this+0x416C) stored into this+0x416C and into a per-entry array slot selected by the entry index (constant base not present in field list).",
+      "evidence_refs": ["callee:0x005884ED", "callee:0x00587BDC", "field:this:0x00016748", "field:this:0x00016712"]
+    },
+    {
+      "kind": "guard",
+      "description": "Ability cadence: this+0x4480 (current time) > this+0x4404 (last ability time).",
+      "evidence_refs": ["field:this:0x00017536", "field:this:0x00017412"]
+    },
+    {
+      "kind": "assignment",
+      "description": "this+0x4404 = this+0x4480 + 4.0; call AIAbility(this).",
+      "evidence_refs": ["field:this:0x00017412", "field:this:0x00017536", "callee:0x00429470"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pit-trigger: this+0x4170 (next pit check) < this+0x4480 (current time).",
+      "evidence_refs": ["field:this:0x00016752", "field:this:0x00017536"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Pit entry: zero this+0x443C and this+0x43F8; AIClearStateFlags(this); driverStatus this+0x4510 = 4 when phase-global dword_7C56A4 == 7 else 5; zero this+0x4524; brake=1.0 (this+0x4438); throttle 0 (this+0x4434); CallToBox this+0x454C = 0; WaypointSetSelector this+0x4550 = 1; this+0x4424 = 0; sub_426430(this); this+0x4170 = +inf sentinel; this+0x447C = dbl_8AFEA0 + 4.0; VehicleClimbAdjust(0).",
+      "evidence_refs": ["field:this:0x00017468", "field:this:0x00017400", "callee:0x0042AE00", "global:0x007C56A4", "field:this:0x00017680", "field:this:0x00017700", "field:this:0x00017464", "field:this:0x00017460", "field:this:0x00017740", "field:this:0x00017744", "field:this:0x00017444", "callee:0x00426430", "field:this:0x00016752", "field:this:0x00017532", "global:0x008AFEA0", "callee:0x004EFA40"]
+    },
+    {
+      "kind": "guard",
+      "description": "Normal driving branch: driverStatus this+0x4510 is neither 4 nor 5.",
+      "evidence_refs": ["field:this:0x00017680"]
+    },
+    {
+      "kind": "guard",
+      "description": "Throttle-free gate: this+0x45FC == 0 and carConditions != 2 and FuelLevel this+0x3984 > 0.001 -> this+0x4420 = 0.",
+      "evidence_refs": ["field:this:0x00017916", "guard:3", "field:this:0x00015724", "field:this:0x00014724", "field:this:0x00017440"]
+    },
+    {
+      "kind": "call",
+      "description": "OpponentProximityScanTeamRecognition(this): team/battle proximity scan.",
+      "evidence_refs": ["callee:0x0042A7D0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Seed this+0x4484 = 1232348144 (999999.0, race-pace reset marker).",
+      "evidence_refs": ["field:this:0x00017540"]
+    },
+    {
+      "kind": "call",
+      "description": "AIRacingLine(this): racing-line selection.",
+      "evidence_refs": ["callee:0x00425920"]
+    },
+    {
+      "kind": "call",
+      "description": "AISteering(this) only when WaypointSetSelector this+0x4550 < dword_5EA2CC.",
+      "evidence_refs": ["field:this:0x00017744", "global:0x005EA2CC", "callee:0x004270A0"]
+    },
+    {
+      "kind": "call",
+      "description": "Chained control logic: sub_426100(this); AISteeringCorrection(this); PhysicsGearShiftLogicWithThresholds(this).",
+      "evidence_refs": ["callee:0x00426100", "callee:0x00426CF0", "callee:0x00426330"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Switch on driverStatus this+0x4510: case 0/6 SteeringAngleController(this); case 1 sub_4258C0(this); case 2 FieldZeroSetter(this) then return; case 7 terminal-stop; case 3 waypoint-radius handling.",
+      "evidence_refs": ["field:this:0x00017680", "guard:8", "callee:0x00425670", "callee:0x004258C0", "callee:0x00425660"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Case 3: ArrayOfStructIndexedFieldCopy(dword_5EA2C0, obj+0x48A4, out) -> squared distance from copied waypoint (Z and X against this+0x34E8/0x34E0); if > this+0x461C set driverStatus=0, else shrink this+0x461C to the distance.",
+      "evidence_refs": ["callee:0x00403F70", "global:0x005EA2C0", "field:obj:0x00018596", "field:this:0x00013536", "field:this:0x00013544", "field:this:0x00017948", "field:this:0x00017680"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Case 7: zero steer/brake/throttle commands (this+0x442C=0, this+0x4438=1.0, this+0x4434=0); if Speed this+0x4440 < 0.2 set driverStatus=0.",
+      "evidence_refs": ["field:this:0x00017452", "field:this:0x00017464", "field:this:0x00017460", "field:this:0x00017472", "field:this:0x00017680"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pit/terminal branch: dbl_8AFEA0 > timeOfNextExit this+0x4534 or driverStatus == 4 (held in pit lane).",
+      "evidence_refs": ["global:0x008AFEA0", "field:this:0x00017716", "guard:8", "field:this:0x00017680"]
+    },
+    {
+      "kind": "guard",
+      "description": "Exit criteria: this+0x45E0 >= this+0x4588 and phase-global dword_7C56A4 != 7 -> AIControlFlag=0; FinishState this+0x4064 == 2 -> AIControlFlag=0.",
+      "evidence_refs": ["field:this:0x00017888", "field:this:0x00017800", "global:0x007C56A4", "guard:5", "field:this:0x00016484", "field:this:0x00017908"]
+    },
+    {
+      "kind": "guard",
+      "description": "Rejoin gate: sub_4A4110(this) truthy and AIControlFlag this+0x45F4 still set.",
+      "evidence_refs": ["callee:0x004A4110", "field:this:0x00017908"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Rejoin: status 5 -> RandomWeightedTierSelection(this), LoopWithConditionalSubCall(sel,1), VehicleClimbAdjust(0), driverStatus = 3; else driverStatus = 0.",
+      "evidence_refs": ["callee:0x00429FD0", "callee:0x004F1A60", "callee:0x004EFA40", "field:this:0x00017680"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Hold in pit: timeOfNextExit this+0x4534 = dbl_8AFEA0 + 4.0.",
+      "evidence_refs": ["field:this:0x00017716", "global:0x008AFEA0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Terminal outputs: steering 0, brake 1.0, throttle 0.",
+      "evidence_refs": ["field:this:0x00013696", "field:this:0x00013700", "field:this:0x00013692"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (this[0x32C8] > 1) return;",
+    "AIControlFlag = this[0x45F4]; this[0x4480] = now;",
+    "if (AIControlFlag == 0 && obj[0x32C8] == 1) { /* pre-race / session-phase branch */ }",
+    "else { /* normal racing tick: heading, pit scheduling, steering, driverStatus machine */ }"
+  ],
+  "unresolved": [
+    "Read-only globals flt_59E43C..flt_59E87C and unk_7CE2F0 appear in the packet but are absent from the raw source text; they are consumed inside the called AI subsystems (racing-line / ability tuning) rather than this function directly.",
+    "Per-entry array write in the lap-time loop uses a base constant (this + 4*entry + const) that is not present in the field list; the destination was described generically.",
+    "v37/v38 reuse a single stack slot for different floats across branches (lights dt vs brake magnitude); register-aliasing ambiguity, no semantic impact."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E450",
+    "global:0x0059E46C",
+    "global:0x0059E5FC",
+    "global:0x0059E600",
+    "global:0x0059E6A8",
+    "global:0x0059E6EC",
+    "global:0x0059E7E8",
+    "global:0x0059E7EC",
+    "global:0x0059E800",
+    "global:0x0059E820",
+    "global:0x0059E84C",
+    "global:0x0059E864",
+    "global:0x0059E86C",
+    "global:0x0059E870",
+    "global:0x0059E874",
+    "global:0x0059E878",
+    "global:0x0059E87C",
+    "global:0x007CE2F0"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "HIGH",
+    "control_flow": "HIGH"
+  }
+}

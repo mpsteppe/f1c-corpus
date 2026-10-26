@@ -1,0 +1,33 @@
+## CubicInterp3DNow_00526392 — CubicHermiteInterp3DNow
+
+**Summary:** Compute cubic Hermite spline interpolation between 4 control points using 3DNow! SIMD. Evaluates standard Hermite basis functions (h00, h10, h01, h11) from factor t, blends packed float values from 4 input vectors, stores result as two __m64 components.
+
+**Frame-path:** NOT_FOUND  
+**Call frequency:** UNKNOWN (no static path from tick root)
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0x0 | RW | — | Output interpolated float pair (a1[0] = full 64-bit write) |
+| this | 0x8 | R | — | Input control point data at offset 8 (a2[1]/a3[1]/a4[1]/a5[1] low 32 bits read) |
+
+**Written-by note (persistence):**
+- this 0x0: Written every call (all 64 bits); external poke would not survive
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 005af988 | qword_5AF988 | R | PackedMathOne [DERIVED] |
+| 005af998 | qword_5AF998 | R | MMMX_PolyCoeffAF998 [DERIVED] |
+| 005af9a0 | qword_5AF9A0 | R | SIMD_Coeff_3DNow_2 [DERIVED] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+
+**Guard conditions:** None — no conditional branches; all inputs processed unconditionally.

@@ -1,0 +1,48 @@
+## sub_60EBF0_0060ebf0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(this+0x254C) | 0x148 | R | — | [LLM] |
+| obj | 0x14 | R | — | [LLM] |
+| obj | 0x1C | R | — | [LLM] |
+| obj | 0x28 | R | — | [LLM] |
+| obj | 0x2C | R | — | [LLM] |
+| obj | 0x30 | R | — | [LLM] |
+| obj | 0x4C | R | — | [LLM] |
+| this | 0x0 | R | — | [LLM] |
+| this | 0x8 | RW | — | [LLM] |
+| this | 0x12C8 | RW | — | [LLM] |
+| this | 0x2334 | R | — | [LLM] |
+| this | 0x254C | R | — | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x8: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x12C8: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 00800000 | byte_800000 | R | [LLM] |
+| 00fb3eb8 | dword_FB3EB8 | W | [LLM] |
+| 00fb3ebc | dword_FB3EBC | W | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 005e80d0 | sub_5E80D0 | [LLM] |
+| 005e8830 | sub_5E8830 | [LLM] |
+| 005f77d0 | sub_5F77D0 | [LLM] |
+| 005f7b20 | sub_5F7B20 | [LLM] |
+| 005f7b60 | sub_5F7B60 | [LLM] |
+| 005f7bf0 | sub_5F7BF0 | [LLM] |
+| 005fa770 | sub_5FA770 | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

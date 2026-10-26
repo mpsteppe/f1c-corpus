@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "address": "0x004A5D10",
+  "address_key": "004a5d10",
+  "canonical_name": "AIStateMachineWithModeDispatch",
+  "declared_name": "sub_4A5EA0",
+  "source": {
+    "path": "functions/AIStateMachineWithModeDispatch_004a5d10.c",
+    "text": "// AIStateMachineWithModeDispatch: Calls sub_4A5EA0 (PitsUnderRed) when (*this)[3250] (+0x32C8) == 2||3 AND this[97] == 2. Plus dispatch to steering/physics per AI mode.\nint __thiscall sub_4A5D10(float *this, int a2)\n{\n  int v2; // eax\n  _DWORD *v4; // ecx\n  int v5; // eax\n  int v6; // eax\n  int result; // eax\n  _DWORD *v8; // ecx\n  char v9; // al\n  _DWORD *v10; // ecx\n  _DWORD *v11; // ecx\n  _DWORD *v12; // ecx\n  _BYTE v13[12]; // [esp+8h] [ebp-18h] BYREF\n  _DWORD v14[3]; // [esp+14h] [ebp-Ch] BYREF\n\n  v2 = *(char *)(a2 + 8);\n  if ( *((_DWORD *)this + 97) != v2 )\n  {\n    *((_DWORD *)this + 97) = v2;\n    AIPitStrategyState(*(_DWORD **)this);\n  }\n  v4 = *(_DWORD **)this;\n  this[98] = *(float *)(a2 + 4);\n  v5 = v4[3250];\n  if ( v5 == 2 || v5 == 3 )\n  {\n    v6 = *((_DWORD *)this + 97);\n    if ( v6 )\n    {\n      if ( v6 == 2 )\n        sub_4A5EA0(this);\n    }\n    else\n    {\n      sub_4A5F20(this);\n    }\n  }\n  ConditionalDispatch_55e0(this);\n  result = *((_DWORD *)this + 97);\n  if ( result )\n  {\n    if ( result == 1 || result == 2 )\n    {\n      v9 = VehicleControlEnabled(this);\n      v10 = (_DWORD *)*((_DWORD *)this + 2);\n      if ( v10 )\n        sub_4A3390(v10, v9 == 0);\n      result = ConditionalDelegateDispatch(*(_DWORD *)this, v14, v13);\n      v11 = (_DWORD *)*((_DWORD *)this + 4);\n      if ( v11 )\n        result = sub_4A3320(v11, v14, (int)v13);\n      v12 = (_DWORD *)*((_DWORD *)this + 3);\n      if ( v12 )\n        return sub_4A3320(v12, v14, (int)v13);\n    }\n  }\n  else\n  {\n    v8 = (_DWORD *)*((_DWORD *)this + 2);\n    if ( v8 )\n      return FlagBasedLoopConditionalCall(v8);\n  }\n  return result;\n}\n"
+  },
+  "existing_analysis": {
+    "path": "skeletons_filled/AIStateMachineWithModeDispatch_004a5d10.md",
+    "text": "## AIStateMachineWithModeDispatch_004a5d10 — AIStateMachineDispatch\n\n**Summary:** Main AI state machine dispatcher. Reads state from ring buffer entry `a2` (byte at +8 = mode, float at +4 = value). Updates internal mode (offset 0x184), calls AIPitStrategyState on mode change. Based on vehicle sub-state (offset 0x32C8 == 2/3) and mode, dispatches to sub_4A5EA0 (mode 2, pits-under-red) or sub_4A5F20 (mode 0). Then dispatches steering/physics via ConditionalDelegateDispatch + sub_4A3320 for modes 1/2, or FlagBasedLoopConditionalCall for mode 0.\n\n**Frame-path:** ON_FRAME_PATH  \n**Call frequency:** per-frame tick\n\n**Called by:** StateChangeNotify (004a5c80), sub_4B3400 (004b3400)\n\n**Struct fields accessed:**\n\n| Base | Offset | R/W | Init (literal → value) | Purpose |\n|------|--------|-----|------------------------|---------|\n| obj | 0x32C8 | R | — | Vehicle sub-state; values 2 or 3 trigger pits-under-red handlers |\n| this | 0x0 | R | — | Pointer to the associated vehicle object |\n| this | 0x8 | R | — | Flag-based loop target (used when mode=0) |\n| this | 0xC | R | — | Second animation/steering target for sub_4A3320 |\n| this | 0x10 | R | — | First animation/steering target for sub_4A3320 |\n| this | 0x184 | RW | — | AI mode: 0=inactive, 1=active, 2=pits-under-red |\n| this | 0x188 | RW | — | Stored float value copied from ring buffer entry +4 |\n\n**Written-by note (persistence):**\n- this 0x184: recalc every frame — external poke does NOT persist\n- this 0x188: recalc every frame — external poke does NOT persist\n\n**Globals referenced:**\n\n| Address | Name | R/W | Role |\n|---------|------|-----|------|\n| 005eb978 | dword_5EB978 | R | GameStatePtrArray3 [DERIVED] |\n| 008acee0 | dword_8ACEE0 | R | ForceFeedbackBase [CONFIRMED] |\n\n**Functions called:**\n\n| Address | Name | Purpose |\n|---------|------|---------|\n| 0041a200 | AIPitStrategyState | Updates AI pit strategy state on mode change |\n| 004a3320 | sub_4A3320 | Applies delegate dispatch results to steering/physics targets |\n| 004a3390 | sub_4A3390 | (Re)initializes a sub-object with a boolean parameter |\n| 004a3440 | FlagBasedLoopConditionalCall | Processes flagged array (mode 0 idle dispatch) |\n| 004a55e0 | ConditionalDispatch_55e0 | Selects between two pitstop transition targets |\n| 004a5ea0 | sub_4A5EA0 | Pits-under-red handler (mode 2) |\n| 004a5f20 | sub_4A5F20 | Mode-0 handler |\n| 004a6db0 | VehicleControlEnabled | Checks whether vehicle controls are active |\n| 004d1100 | ConditionalDelegateDispatch | Dispatches steering/physics via delegate system |\n\n**Guard conditions:** Multiple guards: (1) mode change detected → update and call AIPitStrategyState. (2) Vehicle sub-state at offset 0x32C8 ∈ {2,3} AND mode ∈ {0,2} → dispatch to sub-handlers. (3) Mode ∈ {0,1,2} selects different dispatch paths: mode 0 → FlagBasedLoopConditionalCall; modes 1/2 → ConditionalDelegateDispatch + sub_4A3320 chain."
+  },
+  "prelabel": {
+    "action": "llm"
+  },
+  "on_frame_path": true,
+  "subsystems": [
+    "ai",
+    "pit"
+  ],
+  "owner": {
+    "type": "F1CPitMachine",
+    "trust": "CONFIRMED",
+    "evidence": [
+      "StateChangeNotify preserves its F1CPitMachine in ecx and passes the event record on stack; disassembly 0x4A5CF9..0x4A5CFF."
+    ]
+  },
+  "abi": {
+    "name": "PitStateEventApply",
+    "address": 4873488,
+    "return": "int32_t",
+    "calling_convention": "thiscall",
+    "parameters": [
+      {
+        "name": "pit_machine",
+        "type": "F1CPitMachine*",
+        "location": "ecx"
+      },
+      {
+        "name": "event_record",
+        "type": "void*",
+        "location": "stack"
+      }
+    ],
+    "trust": "CONFIRMED",
+    "thread": "game_thread",
+    "source": "functions/AIStateMachineWithModeDispatch_004a5d10.c",
+    "abi_evidence": "Disassembly 0x4A5CF9..0x4A5CFF supplies pit machine in ecx and event record on stack; ret 4; applies relative status 0x184."
+  },
+  "fields": [
+    {
+      "base": "obj",
+      "off_hex": "0x32C8",
+      "rw": "R",
+      "evidence_ref": "field:obj:0x000032C8"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x0",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000000"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x8",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000008"
+    },
+    {
+      "base": "this",
+      "off_hex": "0xC",
+      "rw": "R",
+      "evidence_ref": "field:this:0x0000000C"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x10",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000010"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x184",
+      "rw": "RW",
+      "evidence_ref": "field:this:0x00000184"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x188",
+      "rw": "RW",
+      "evidence_ref": "field:this:0x00000188"
+    }
+  ],
+  "globals": [
+    {
+      "addr": "005eb978",
+      "name": "dword_5EB978",
+      "rw": "R",
+      "address": "0x005EB978",
+      "evidence_ref": "global:0x005EB978"
+    },
+    {
+      "addr": "008acee0",
+      "name": "dword_8ACEE0",
+      "rw": "R",
+      "address": "0x008ACEE0",
+      "evidence_ref": "global:0x008ACEE0"
+    }
+  ],
+  "guards": [],
+  "callees": [
+    {
+      "addr": "0041a200",
+      "name": "AIPitStrategyState",
+      "address": "0x0041A200",
+      "evidence_ref": "callee:0x0041A200"
+    },
+    {
+      "addr": "004a3320",
+      "name": "sub_4A3320",
+      "address": "0x004A3320",
+      "evidence_ref": "callee:0x004A3320"
+    },
+    {
+      "addr": "004a3390",
+      "name": "sub_4A3390",
+      "address": "0x004A3390",
+      "evidence_ref": "callee:0x004A3390"
+    },
+    {
+      "addr": "004a3440",
+      "name": "FlagBasedLoopConditionalCall",
+      "address": "0x004A3440",
+      "evidence_ref": "callee:0x004A3440"
+    },
+    {
+      "addr": "004a55e0",
+      "name": "ConditionalDispatch_55e0",
+      "address": "0x004A55E0",
+      "evidence_ref": "callee:0x004A55E0"
+    },
+    {
+      "addr": "004a5ea0",
+      "name": "sub_4A5EA0",
+      "address": "0x004A5EA0",
+      "evidence_ref": "callee:0x004A5EA0"
+    },
+    {
+      "addr": "004a5f20",
+      "name": "sub_4A5F20",
+      "address": "0x004A5F20",
+      "evidence_ref": "callee:0x004A5F20"
+    },
+    {
+      "addr": "004a6db0",
+      "name": "VehicleControlEnabled",
+      "address": "0x004A6DB0",
+      "evidence_ref": "callee:0x004A6DB0"
+    },
+    {
+      "addr": "004d1100",
+      "name": "ConditionalDelegateDispatch",
+      "address": "0x004D1100",
+      "evidence_ref": "callee:0x004D1100"
+    }
+  ],
+  "callers": [
+    {
+      "addr": "004a5c80",
+      "name": "StateChangeNotify",
+      "address": "0x004A5C80",
+      "evidence_ref": "caller:0x004A5C80"
+    },
+    {
+      "addr": "004b3400",
+      "name": "sub_4B3400",
+      "address": "0x004B3400",
+      "evidence_ref": "caller:0x004B3400"
+    }
+  ],
+  "allowed_evidence_refs": [
+    "abi:reviewed",
+    "callee:0x0041A200",
+    "callee:0x004A3320",
+    "callee:0x004A3390",
+    "callee:0x004A3440",
+    "callee:0x004A55E0",
+    "callee:0x004A5EA0",
+    "callee:0x004A5F20",
+    "callee:0x004A6DB0",
+    "callee:0x004D1100",
+    "caller:0x004A5C80",
+    "caller:0x004B3400",
+    "field:obj:0x000032C8",
+    "field:this:0x00000000",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000184",
+    "field:this:0x00000188",
+    "function:0x004A5D10",
+    "global:0x005EB978",
+    "global:0x008ACEE0",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_source_schema.json",
+    "output": "shadow_source/ir/functions/004a5d10.json"
+  },
+  "policy": "Raw source and deterministic facts outrank all semantic proposals."
+}

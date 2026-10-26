@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "address": "0x004BEB10",
+  "proposed_name": "AIOvertake",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "AI overtaking behavior step. Clears an output flag, copies the total race laps and session type into the behavior object, decides whether an overtake/behavior update is allowed by comparing the accumulated time at +0x354 against the threshold at +0x358, scans the vehicle array for human drivers when the session is qualifying type 7, then calls AIBehaviorInitialization when the activation flag at +0x342 is clear. Accumulates the time increment at +0x350 into +0x354 and tail-jumps into the rest of the behavior update.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Write 0 to the caller output byte *a2 (overtake-allowed flag).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read accumulated-time threshold at this+0x358 into v4, store total race laps dword_8ACF8C into this+0x35C, capture vehicle count dword_5C329C into v5, store session type dword_7C56A4 into this+0x360, and initialize locals v7=1, v8=0.",
+      "evidence_refs": ["field:this:0x00000358", "field:this:0x0000035C", "field:this:0x00000360", "global:0x008ACF8C", "global:0x005C329C", "global:0x007C56A4"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: if the threshold at this+0x358 is <= 0.0, or the accumulated time at this+0x354 is below the threshold at this+0x358, take the scan branch; otherwise set v8=1 (allowed) and v7=0.",
+      "evidence_refs": ["field:this:0x00000354", "field:this:0x00000358"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on session type dword_7C56A4 == 7 (qualifying): scan for a human-controlled vehicle before allowing the behavior branch.",
+      "evidence_refs": ["global:0x007C56A4"]
+    },
+    {
+      "kind": "loop",
+      "description": "Loop i from 0 to vehicle count dword_5C329C over the vehicle pointer array dword_7C54F0; if vehicle +16484 == 1 set v8=1 (a human driver present in qualifying).",
+      "evidence_refs": ["global:0x005C329C", "global:0x007C54F0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the activation flag at this+0x342: when clear, call AIBehaviorInitialization(a3, v8) to (re)initialize the AI behavior with the computed allow flag.",
+      "evidence_refs": ["field:this:0x00000342", "callee:0x004BF0A0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate the time increment at this+0x350 into the accumulator at this+0x354.",
+      "evidence_refs": ["field:this:0x00000350", "field:this:0x00000354"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Control-flow dispatch by v7: when v7 is set and vehicle count is positive, tail-jump to 0x4BEC10; when v7 is set and no vehicles exist, tail-jump to 0x4BEEF2; otherwise tail-jump to 0x4BEF10 into the remaining behavior logic.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void AIOvertake(this, output_flag, a3) {",
+    "  *output_flag = 0;",
+    "  float threshold = this->field_0x358;",
+    "  this->field_0x35C = totalRaceLaps;  // dword_8ACF8C",
+    "  this->field_0x360 = sessionType;    // dword_7C56A4",
+    "  int count = vehicleCount;           // dword_5C329C",
+    "  char allow = 0;",
+    "  char branch = 1;",
+    "  if (threshold <= 0.0f || this->field_0x354 < this->field_0x358) {",
+    "    if (sessionType == 7)",
+    "      for (i = 0; i < count; ++i)",
+    "        if (vehiclePtrArray[i]->field_0x4064 == 1) allow = 1;",
+    "  } else { allow = 1; branch = 0; }",
+    "  if (!this->field_0x342) AIBehaviorInitialization(a3, allow);",
+    "  this->field_0x354 += this->field_0x350;",
+    "  // tail continues at 0x4BEC10 / 0x4BEEF2 / 0x4BEF10 per 'branch'",
+    "}"
+  ],
+  "unresolved": [
+    "The tail behavior logic at 0x4BEC10 / 0x4BEEF2 / 0x4BEF10 is reached by JUMPOUT and is not present in the packet source.",
+    "The semantics of the per-vehicle +16484 field read in the qualifying scan are unknown.",
+    "The identity of the behavior object (this) and its owner class are unknown.",
+    "dword_8ACF8C copied to this+0x35C is described elsewhere as TotalRaceLaps, but that role is not independently confirmed here."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

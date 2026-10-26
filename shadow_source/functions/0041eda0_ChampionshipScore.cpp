@@ -1,0 +1,47 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0041EDA0
+// Canonical corpus name: ChampionshipScore
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ChampionshipScore_0041eda0.c
+
+void UnknownObject::ChampionshipScore()
+{
+    // Checks whether the standings entry given by the this pointer leads or ties for the lead of the cumulative championship total at any processed scoring category prefix: it dereferences the shared standings list node dword_7D2DB0, reads the number of scoring categories via FlagsGetter and the active entry count via ActiveEntityCounter, locates this among the base entry and indexed entries, then for each category accumulates every entry's category value (via IndexedFieldGetter) into per-slot running totals and returns 1 when this slot's running total is not below any other slot's at some category; returns 0 when the standings node is absent, this is null, fewer than two categories exist, or this trails another slot after every category. Used by SeasonDisplayIDResolver as the championship-score gate.
+    // GUARD: Fail early when the standings list node is absent: LinkedListDereference(&dword_7D2DB0) returning null makes the function return 0 immediately. [callee:0x004C2850, global:0x007D2DB0, source:raw]
+    // CALCULATION: Query the standings node for its number of scoring categories: v18 = FlagsGetter(LinkedListDereference(&dword_7D2DB0)). [callee:0x004C11D0, callee:0x004C2850, global:0x007D2DB0, source:raw]
+    // CALCULATION: Query the standings node for its active entry count: v5 = ActiveEntityCounter(LinkedListDereference(&dword_7D2DB0)). [callee:0x004C1370, callee:0x004C2850, global:0x007D2DB0, source:raw]
+    // GUARD: Fail early when the this pointer is null; otherwise zero the v20[26] cumulative-totals buffer via memset. [source:raw]
+    // CALCULATION: Locate this within the standings: when this equals FixedOffsetReturn(LinkedListDereference(&dword_7D2DB0)) (the base entry) the slot index v17 stays 0; otherwise scan indexed entries via ShortComputation_13a0(v2) for indices v2 in 0..v5-1 and record slot index v17 = v2+1 on a match. [callee:0x004C1390, callee:0x004C13A0, callee:0x004C2850, global:0x007D2DB0, source:raw]
+    // GUARD: Require at least two scoring categories: v19 = v18 - 1 and a return 0 when v19 <= 0. [source:raw]
+    // LOOP: Outer loop over category index v7 in 0..v19-1: fetch the base entry v10 = FixedOffsetReturn(LinkedListDereference(&dword_7D2DB0)), add its category value v11 = IndexedFieldGetter(v10, v7) to the running total v20[0], then for each entry index v12 in 0..v5-1 fetch v13 = ShortComputation_13a0(v12) and add IndexedFieldGetter(v13, v7) to the running total v20[v12+1]; the per-slot totals accumulate across the categories processed so far. [callee:0x0041ED20, callee:0x004C1390, callee:0x004C13A0, callee:0x004C2850, global:0x007D2DB0, source:raw]
+    // LOOP: Lead test across all v8 = v5 + 1 slots: with v15 initialised to 1, clear it whenever a different slot (v14 != v17) has a larger running total (v20[v17] < v20[v14]); if v15 survives, this slot leads or ties the cumulative total at this category prefix and the outer loop breaks to return 1. [abi:lead, source:raw]
+    // RETURN: Return 1 when this slot leads or ties the cumulative standings total at any processed category prefix; return 0 when the standings node is absent, this is null, fewer than two categories exist, or this slot trails another slot after every category. Invoked by SeasonDisplayIDResolver as the championship-score gate. [caller:0x0041DAF0, function:0x0041EDA0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   char ChampionshipScore(void* this) {
+    //     if (!LinkedListDereference(&dword_7D2DB0)) return 0;
+    //     numCategories = FlagsGetter(LinkedListDereference(&dword_7D2DB0));
+    //     activeCount = ActiveEntityCounter(LinkedListDereference(&dword_7D2DB0));
+    //     if (!this) return 0;
+    //     memset(v20, 0, sizeof(v20));
+    //     thisSlot = 0;
+    //     if (this == FixedOffsetReturn(LinkedListDereference(&dword_7D2DB0))) thisSlot = 0;
+    //     else for (i = 0; i < activeCount; ++i)
+    //            if (this == ShortComputation_13a0(i)) { thisSlot = i + 1; break; }
+    //     if (numCategories - 1 <= 0) return 0;
+    //     for (cat = 0; cat < numCategories - 1; ++cat) {
+    //       v20[0] += IndexedFieldGetter(FixedOffsetReturn(LinkedListDereference(&dword_7D2DB0)), cat);
+    //       for (e = 0; e < activeCount; ++e)
+    //         v20[e + 1] += IndexedFieldGetter(ShortComputation_13a0(e), cat);
+    //       leads = 1;
+    //       for (s = 0; s < activeCount + 1; ++s)
+    //         if (s != thisSlot && v20[thisSlot] < v20[s]) leads = 0;
+    //       if (leads) return 1;
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: The meaning of each scoring category and IndexedFieldGetter's units (e.g. whether categories are championship races and values are points) are inferred from callee names and accumulation only, not packet-confirmed.
+    // UNRESOLVED: Whether the per-category values truly accumulate into running totals (the += writes to v20 across loop iterations) rather than being compared per category is DERIVED from the code shape; the standings list's exact layout (base entry versus indexed entries) is not packet-confirmed.
+    // UNRESOLVED: Slot mapping (v17 = 0 for the base entry, v17 = v2+1 for indexed entry v2) depends on ShortComputation_13a0 returning the standings entry pointer and on this comparing equal to one of those pointers; both rely on caller-side entry identity not confirmed here.
+    // UNRESOLVED: Owner is unknown: the packet carries no this pointer type or object evidence for this function.
+}

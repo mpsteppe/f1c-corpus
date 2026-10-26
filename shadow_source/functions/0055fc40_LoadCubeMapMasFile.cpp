@@ -1,0 +1,71 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0055FC40
+// Canonical corpus name: sub_55FC40
+// Owner: CubeMapMasFileLoader [DERIVED]
+// Raw source: functions/sub_55FC40_0055fc40.c
+
+void CubeMapMasFileLoader::LoadCubeMapMasFile()
+{
+    // Loads a cube map MAS file into an object whose layout starts with a filename buffer and a file handle. Copies the caller's filename into this+0x14, opens the file (sub_587DB0) first at the direct path and then, on failure, through each registered audio entry directory (byte_8B5A3C, stride 0x84, count dword_8B8E30) building "%s\%s" candidates; stores the handle in this+0x10. If every open attempt fails it logs and returns -2. It then reads a 12-byte header and validates it with strcmp against aCubemas410, aCubemas400 and aCubemas401; a mismatch closes the file, logs, and returns -1. On success it reads header fields, derives the data size as (field@0x118 << 8), allocates that many bytes (OperatorNewNhMallocWrapper), stores the pointer in this+0x128, reads the payload, then bumps this+0x11C by 24. Returns 0 on success, -1 on invalid/empty input or allocation failure, -2 when the file cannot be opened anywhere.
+    // GUARD: Guard on a2 (filename): if a2 is NULL or its first byte is '\0', return -1 immediately. [source:raw, function:0x0055FC40]
+    // ASSIGNMENT: Copy the caller filename string a2 into the object's filename buffer at this+0x14 (byte-wise copy terminated by the null byte). [source:raw]
+    // CALL: Call sub_589901 on the copied filename (this+0x14) to normalize/prepare it. [callee:0x00589901, source:raw]
+    // CALL: Open the file: sub_587DB0(filename, aRb) using the literal "rb" mode string. [callee:0x00587DB0, global:0x005BE828, source:raw]
+    // ASSIGNMENT: Store the file handle returned by the open call into this+0x10. [field:this:0x00000010, source:raw]
+    // GUARD: Guard on the stored handle (this+0x10) being zero: enter the audio-entry directory search fallback. [field:this:0x00000010, source:raw]
+    // LOOP: Iterate the registered audio entry array byte_8B5A3C (stride 0x84) for dword_8B8E30 entries; per entry build a "%s\%s" path with StringFormatWithBufferOverflowCheck and retry the open (sub_587DB0), stopping on the first success and storing the new handle in this+0x10. [callee:0x0058815F, callee:0x00587DB0, global:0x008B5A3C, global:0x008B8E30, field:this:0x00000010, source:raw]
+    // GUARD: Guard for total open failure (search index v7 reached dword_8B8E30 without a handle): format "Error opening MAS file %s" via StringFormatWithBufferOverflowCheck, log it through sub_53C590(-2, message) and return -2. [callee:0x0058815F, callee:0x0053C590, global:0x005DBC14, global:0x008B8E30, source:raw]
+    // CALL: Thread-safe read of the 12-byte header magic from the file into the object start (ThreadSafeReadWrapper_803f(this, 1, 12, handle)). [callee:0x0058803F, field:this:0x00000010, source:raw]
+    // GUARD: Guard on header validation: if the 12-byte header string at this differs from aCubemas410, aCubemas400 and aCubemas401 (all three strcmp non-zero), the file is not a recognized cube map MAS; close the handle (FileCloseWithLock), log aIncorrectMasFi via sub_53C590(-1, ...) and return -1. [global:0x005DBC08, global:0x005DBBFC, global:0x005DBBF0, callee:0x00587D02, callee:0x0053C590, global:0x005DBBD4, source:raw]
+    // CALL: Read three 4-byte header fields (including the field at this+0x118) from the file (ThreadSafeReadWrapper_803f on this+0x114, this+0x118 and this+0x120). [callee:0x0058803F, field:this:0x00000118, source:raw]
+    // CALCULATION: Compute the data size as v12 = (field@this+0x118) << 8 and store it into this+0x11C. [field:this:0x00000118, field:this:0x0000011C, source:raw]
+    // CALL: Allocate the data buffer of v12 bytes via OperatorNewNhMallocWrapper and store the returned pointer into this+0x128. [callee:0x00587C03, field:this:0x00000128, source:raw]
+    // GUARD: Guard on allocation failure: if the stored buffer pointer (this+0x128) is NULL, close the file (FileCloseWithLock), log aUnableToAlloca via sub_53C590(-1, ...) and return -1. [callee:0x00587D02, callee:0x0053C590, global:0x005DC5E4, field:this:0x00000128, source:raw]
+    // CALL: Thread-safe read of the payload into the allocated buffer (ThreadSafeReadWrapper_803f(buffer, 1, field@this+0x11C, handle)). [callee:0x0058803F, field:this:0x00000128, field:this:0x0000011C, source:raw]
+    // CALCULATION: Adjust the stored data size: this+0x11C += 24 (accounts for the header/footer overhead on top of the payload). [field:this:0x0000011C, source:raw]
+    // RETURN: Return 0 on success; negative values (-1, -2) on the error paths above. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int LoadCubeMapMasFile(int this, char *filename) {
+    //     if (!filename || !filename[0]) return -1;
+    //     copy_string_into(this + 0x14, filename);
+    //     sub_589901(this + 0x14);
+    //     this->hFile = sub_587DB0(this + 0x14, "rb");
+    //     if (!this->hFile) {
+    //       int i = 0;
+    //       for (; i < dword_8B8E30; ++i) {
+    //         StringFormatWithBufferOverflowCheck(tmp, "%s\\%s", byte_8B5A3C + i * 132, this + 0x14);
+    //         this->hFile = sub_587DB0(tmp, "rb");
+    //         if (this->hFile) break;
+    //       }
+    //       if (i == dword_8B8E30) {
+    //         StringFormatWithBufferOverflowCheck(err, "Error opening MAS file %s", this + 0x14);
+    //         sub_53C590(-2, err);
+    //         return -2;
+    //       }
+    //     }
+    //     ThreadSafeReadWrapper_803f(this, 1, 12, this->hFile);
+    //     if (strcmp(this, aCubemas410) && strcmp(this, aCubemas400) && strcmp(this, aCubemas401)) {
+    //       FileCloseWithLock(this->hFile);
+    //       sub_53C590(-1, aIncorrectMasFi);
+    //       return -1;
+    //     }
+    //     ThreadSafeReadWrapper_803f(this + 0x114, 1, 4, this->hFile);
+    //     ThreadSafeReadWrapper_803f(this + 0x118, 1, 4, this->hFile);
+    //     ThreadSafeReadWrapper_803f(this + 0x120, 1, 4, this->hFile);
+    //     this->dataSize = this->headerSize << 8;
+    //     this->dataPtr = OperatorNewNhMallocWrapper(this->dataSize);
+    //     if (!this->dataPtr) {
+    //       FileCloseWithLock(this->hFile);
+    //       sub_53C590(-1, aUnableToAlloca);
+    //       return -1;
+    //     }
+    //     ThreadSafeReadWrapper_803f(this->dataPtr, 1, this->dataSize, this->hFile);
+    //     this->dataSize += 24;
+    //     return 0;
+    //   }
+    // UNRESOLVED: Meaning of the three 4-byte header fields read from the file (only the one at this+0x118 feeds the data-size computation; the reads at this+0x114 and this+0x120 are not represented as packet fields).
+    // UNRESOLVED: Purpose of the trailing +24 adjustment to this+0x11C is unknown.
+    // UNRESOLVED: The role of global aSS_3 (0x005C2D64) is unknown; it appears in the packet evidence but is not visible in the raw source body.
+    // UNRESOLVED: Object class owning this layout is unproven; the fields observed are consistent with a cube-map/MAS loader object but the identity is DERIVED at best.
+}

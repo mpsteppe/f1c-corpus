@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "address": "0x0045F950",
+  "proposed_name": "SessionSynchronizer",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Per-frame session synchronization and timing update. In terrain-sampling mode (state at this+0x3FC4 is 1 or 2) it accumulates delta time into this+0x38C and, every 5.0 seconds, bursts per-player terrain-height samples, encoding a progress-bar event and building a height texture per slot. Otherwise it runs a countdown timer at this+0x10 (reloading from this+0xC), triggers a one-shot utility action when the reload byte at this+0x14 was set, polls for session-index changes, and renders a 'Synchronizing Game' message with millisecond drift when the client time diverges from the server clock. Called per frame by CollisionResponseStatus (00463cd0).",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Read the session-state discriminant at this+0x3FC4; values 1 and 2 select the terrain-sampling burst path, otherwise the countdown/session-polling path runs. Function is invoked from CollisionResponseStatus (00463cd0).",
+      "evidence_refs": ["field:this:0x00003FC4", "caller:0x00463CD0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate the delta time a2 into the terrain-sampling accumulator at this+0x38C.",
+      "evidence_refs": ["field:this:0x0000038C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the accumulator exceeds 5.0 seconds, reset this+0x38C to zero and begin a per-player sampling burst.",
+      "evidence_refs": ["field:this:0x0000038C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Iterate the player slots: read the player count at this+0x3E14 and step from base this+0x3C74 by a 140-byte stride, calling TerrainSurfaceRoughnessHeightSampling for each entry using the surface-type byte at this+0x410.",
+      "evidence_refs": ["field:this:0x00003E14", "field:this:0x00003C74", "field:this:0x00000410", "callee:0x0045CA20", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Per-entry guard: skip sampling while FlagBitTest(1) is set; sampling requires FlagBitTest(2) to be set.",
+      "evidence_refs": ["callee:0x00461530", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Emit a progress-bar event via ProgressBarEventEncode(4, 42, 2, 255, value, 0) using dbl_8AFEA0, clamp the sampled height to the range -5.0..5.0, convert with CRTFtol to a 16-bit slot height, and build the height texture via TextureCreationWrapper.",
+      "evidence_refs": ["callee:0x004B33B0", "global:0x008AFEA0", "callee:0x00587BDC", "callee:0x00462250", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "do-while loop over the player-slot array, advancing the entry pointer and a counter until it reaches the count at this+0x3E14.",
+      "evidence_refs": ["field:this:0x00003E14", "field:this:0x00003C74", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Countdown path: decrement the timer at this+0x10 by delta a2; on expiry reload it from this+0xC and, if the one-shot byte at this+0x14 had been set, clear it and invoke UtilityFunction_e570 with dbl_8AFEA0.",
+      "evidence_refs": ["field:this:0x00000010", "field:this:0x0000000C", "field:this:0x00000014", "callee:0x0045E570", "global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Fetch the current animation/timing value through AnimationValueFetchWithTiming, producing the session-index value and a time value.",
+      "evidence_refs": ["callee:0x0057A610", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "On session-index change (dword_7C56A4 differs from the fetched index and the index is below 8): set the change flag byte at this+0x374, optionally invoke sub_4A0250 on unk_7CE24C when byte_7CE254 is clear, re-place vehicles via MultiplayerVehiclePlacement on dword_7C569C, set a global flag on unk_7CE24D via GlobalFlagSetter, and reset the countdown at this+0x10.",
+      "evidence_refs": ["global:0x007C56A4", "field:this:0x00000374", "global:0x007CE254", "global:0x007CE24C", "callee:0x004A0250", "callee:0x0042CF10", "global:0x007C569C", "callee:0x004A0DA0", "global:0x007CE24D", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute clock drift as the fetched time minus TimeOffsetGetter(unk_8AFE18); take the absolute value and compare it against thresholds of 0.001, 0.1 and 0.5.",
+      "evidence_refs": ["global:0x008AFE18", "callee:0x004F9F60", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When drift exceeds 0.1 seconds, copy the 'Synchronizing Game' text via BinarySearchInStringTable from byte_5EC4C0 and aSynchronizingG into the buffer byte_5EC4CC, format it as '%s (%d ms)' with the drift in milliseconds using StringFormatWithBufferOverflowCheck, and render it with TextLineWrappingAndRendering on dword_7CD204.",
+      "evidence_refs": ["global:0x005EC4C0", "global:0x005C5E80", "global:0x005EC4CC", "callee:0x00423A00", "callee:0x0058815F", "callee:0x0045BD10", "global:0x007CD204", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "For large drift, adjust the clock through TimerConversionWithSin and feed the corrected value into sub_4F9FC0.",
+      "evidence_refs": ["callee:0x0042BDA0", "callee:0x004F9FC0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void sub_45F950(State* this, float dt) {",
+    "  int mode = *(int*)((char*)this + 0x3FC4);",
+    "  if (mode == 1 || mode == 2) {",
+    "    float acc = *(float*)((char*)this + 0x38C) + dt;",
+    "    *(float*)((char*)this + 0x38C) = acc;",
+    "    if (acc > 5.0f) {",
+    "      *(float*)((char*)this + 0x38C) = 0.0f;",
+    "      int count = *(int*)((char*)this + 0x3E14);",
+    "      if (count > 0) {",
+    "        for (int i = 0; i < count; ++i) {",
+    "          if (!FlagBitTest(1) && FlagBitTest(2) &&",
+    "              TerrainSurfaceRoughnessHeightSampling(terrainBuf, *(char*)(slot + 0x410), &h, 1)) {",
+    "            ProgressBarEventEncode(4, 42, 2, 255, (int)dbl_8AFEA0, 0);",
+    "            clamp h to [-5.0, 5.0];",
+    "            short v = (short)CRTFtol(h / 0.00025f + 0.5f);",
+    "            TextureCreationWrapper(out, 2, *(int*)base, -1);",
+    "          }",
+    "          base++; slot += 140;",
+    "        }",
+    "      }",
+    "    }",
+    "  } else {",
+    "    float t = *(float*)((char*)this + 0x10) - dt;",
+    "    *(float*)((char*)this + 0x10) = t;",
+    "    int doAction = 0;",
+    "    if (t < 0.0f) {",
+    "      if (*(char*)((char*)this + 0x14)) { doAction = 1; *(char*)((char*)this + 0x14) = 0; }",
+    "      *(int*)((char*)this + 0x10) = *(int*)((char*)this + 0xC);",
+    "      if (doAction) UtilityFunction_e570(this, (float)dbl_8AFEA0);",
+    "    }",
+    "    if (AnimationValueFetchWithTiming(&tv, &idx, tmp)) {",
+    "      if (dword_7C56A4 != idx && idx < 8) {",
+    "        *(char*)((char*)this + 0x374) = 1;",
+    "        if (!byte_7CE254) sub_4A0250(&unk_7CE24C);",
+    "        MultiplayerVehiclePlacement(&dword_7C569C, idx);",
+    "        GlobalFlagSetter(&unk_7CE24D);",
+    "        *(int*)((char*)this + 0x10) = 0x40000000;",
+    "      }",
+    "      double drift = fabs(tv - TimeOffsetGetter(&unk_8AFE18));",
+    "      if (drift > 0.001) {",
+    "        if (drift > 0.1) {",
+    "          if (BinarySearchInStringTable(byte_5EC4C0, aSynchronizingG, byte_5EC4CC)) copyString(byte_5EC4CC, aSynchronizingG);",
+    "          StringFormatWithBufferOverflowCheck(buf, \"%s (%d ms)\", byte_5EC4CC, (int)(tv * 1000.0));",
+    "          TextLineWrappingAndRendering(&dword_7CD204, buf, 3, 16909060);",
+    "        }",
+    "        if (drift > 0.5) TimerConversionWithSin(tv);",
+    "        sub_4F9FC0(tv);",
+    "      }",
+    "    }",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "Float globals flt_59E440, flt_59E450, flt_59E7EC, flt_59E84C, flt_59E874, dbl_59EA08, flt_59F094, flt_59F11C are extracted as reads but do not appear in the decompiled body; their roles are unknown.",
+    "aSDMs string (0x5C5E74) and unk_5EC6D0 are read without visible use in the decompiled body.",
+    "The producer of the fetched session-index value consumed by the change-detection comparison is not identified in this function.",
+    "Semantics of the state values at this+0x3FC4 and the 140-byte player-slot layout are unconfirmed."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E7EC",
+    "global:0x0059E84C",
+    "global:0x0059E874",
+    "global:0x0059EA08",
+    "global:0x0059F094",
+    "global:0x0059F11C",
+    "global:0x005C5E74",
+    "global:0x005EC6D0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

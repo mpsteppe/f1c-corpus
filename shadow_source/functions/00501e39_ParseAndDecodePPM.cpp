@@ -1,0 +1,80 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00501E39
+// Canonical corpus name: PPMP6ImageDecoder
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/PPMP6ImageDecoder_00501e39.c
+
+void UnknownObject::ParseAndDecodePPM()
+{
+    // Decodes PPM image data into a 32-bit BGRA pixel buffer. Validates the P3 (ASCII, magic second byte 51) or P6 (binary, magic second byte 54) signature, then parses the header tokens (width, height, max value) with whitespace and comment skipping, allocates the output buffer via OperatorNewNhMallocWrapper, and converts RGB samples normalized by the max value into 4-byte BGRA pixels. Writes the decode result into this+0x0 (format 22), the pixel buffer pointer at this+0x4, dimensions, stride and ownership flags. Returns 0 on success and error codes such as -2147467259 or 0x80004005 on invalid input or short data.
+    // GUARD: Guard: when the input length a3 is less than 2 the header cannot hold the two-byte magic; return -2147467259. [source:raw]
+    // GUARD: Guard: the first byte must be 80 ('P'); otherwise return -2147467259. [source:raw]
+    // GUARD: Guard: the second byte selects the format - 51 ('3') selects ASCII mode (v12 = 1), 54 ('6') selects binary mode (v12 = 0), and any other value returns -2147467259. [source:raw]
+    // ASSIGNMENT: Track the remaining byte count v18 = a3 - 2; if a3 == 2 only the magic remains and the function returns -2147467259. [source:raw]
+    // LOOP: Header parse loop that runs while v12 is set or the state counter v17 has not reached 3, scanning whitespace, comments and numeric tokens. [source:raw]
+    // CALL: Whitespace predicate sub_589BF3 is applied to the current byte; whitespace bytes are skipped as separators. [callee:0x00589BF3, source:raw]
+    // LOOP: When the current byte is 35 ('#') the remainder of the line up to byte 10 (newline) is skipped as a comment. [source:raw]
+    // LOOP: Digit accumulation: while the byte satisfies digit predicate sub_589B9E, accumulate v7 = byte + 10 * v7 - 48; a non-digit non-whitespace byte returns -2147467259. [callee:0x00589B9E, source:raw]
+    // STATE_TRANSITION: State machine on v17: state 0 stores the parsed width in v13, state 1 validates the height and allocates the buffer, state 2 stores the max value in v16, and states 3-5 assemble the per-pixel RGB channels. [source:raw]
+    // CALL: When the height (state 1) is parsed and non-zero, call OperatorNewNhMallocWrapper(4 * v13 * v7) to allocate the pixel buffer. [callee:0x00587C03, source:raw]
+    // ASSIGNMENT: Store the allocated buffer pointer into this+0x4; a failed allocation returns -2147024882. [field:this:0x00000004, source:raw]
+    // ASSIGNMENT: Write the decoder state into the object: this+0x0 = 22 (format id), this+0xC = width, this+0x10 = height, this+0x14 = 1, this+0x30 = 4 * width (row stride), this+0x34 = 0, this+0x38 = 1 (buffer ownership flag). [field:this:0x00000000, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, field:this:0x00000030, field:this:0x00000034, field:this:0x00000038, source:raw]
+    // CALCULATION: ASCII sample assembly in states 3-5: state 3 writes (255 * v7 / v16) | 0xFFFFFF00 shifted left 16 (red plus alpha), state 4 ORs (255 * v7 / v16) shifted left 8 (green), state 5 ORs 255 * v7 / v16 (blue), advances the output pointer by 4 and returns 0 once the buffer is full. [source:raw]
+    // GUARD: Guard: after the header loop, a max value v16 greater than 255 returns -2147467259. [source:raw]
+    // LOOP: Binary P6 payload conversion: consume three bytes per pixel and write a BGRA dword where each channel is 255 * byte / v16, advancing the output pointer by 4 until the pixel buffer end is reached. [source:raw]
+    // RETURN: Return 0 when the output pointer consumed the full buffer, or 0x80004005 when the buffer was not filled by the payload. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   unsigned int ParseAndDecodePPM(_DWORD *this, _BYTE *data, unsigned int len) {
+    //     if (len < 2 || *data != 80) return -2147467259;
+    //     int ascii = data[1] == 51 ? 1 : (data[1] == 54 ? 0 : -1);
+    //     if (ascii < 0) return -2147467259;
+    //     unsigned int rem = len - 2; int tok = 0; int state = 0;
+    //     _BYTE *p = data + 2; unsigned int maxv = 255; int width = 0;
+    //     _BYTE *out = 0; _BYTE *out_end = 0;
+    //     if (rem == 0) return -2147467259;
+    //     while (ascii || state != 3) {
+    //       if (!sub_589BF3(*p)) {
+    //         if (*p == 35) while (rem) { if (*p == 10) break; ++p; --rem; }
+    //         else {
+    //           do {
+    //             if (sub_589BF3(*p)) break;
+    //             if (!sub_589B9E(*p)) return -2147467259;
+    //             tok = *p++ + 10 * tok - 48;
+    //           } while (--rem);
+    //           if (state == 0) width = tok;
+    //           else if (state == 1) {
+    //             if (!tok) return -2147467259;
+    //             out = OperatorNewNhMallocWrapper(4 * width * tok);
+    //             if (!out) return -2147024882;
+    //             out_end = out + 4 * width * tok;
+    //             this[1] = out; this[13] = 0; this[14] = 1;
+    //             this[0] = 22; this[12] = 4 * width; this[3] = width;
+    //             this[4] = tok; this[5] = 1;
+    //           }
+    //           else if (state == 2) maxv = tok;
+    //           else { /* states 3-5: channel assembly into *(_DWORD*)out * / }
+    //           ++state;
+    //         }
+    //       }
+    //       ++p; --rem; tok = 0;
+    //       if (!rem) return -2147467259;
+    //     }
+    //     if (maxv > 255) return -2147467259;
+    //     if (rem > 1 && *p == 13) { ++p; --rem; }
+    //     _BYTE *q = p + 1; unsigned int n = rem - 1;
+    //     while (n) {
+    //       if (out >= out_end) break;
+    //       unsigned int r = 255 * (unsigned int)q[0] / maxv;
+    //       unsigned int g = 255 * (unsigned int)q[1] / maxv;
+    //       unsigned int b = 255 * (unsigned int)q[2] / maxv;
+    //       *(_DWORD *)out = (r | 0xFFFFFF00) << 8;
+    //       *(_DWORD *)out |= (g << 8) | b;
+    //       q += 3; n -= 3; out += 4;
+    //     }
+    //     return out_end != out ? 0x80004005 : 0;
+    //   }
+    // UNRESOLVED: The exact bit layout written by the ASCII channel-assembly states (3-5) is reconstructed from the raw arithmetic only; the intended pixel format is inferred as BGRA.
+    // UNRESOLVED: The object field semantics (format id 22, stride, ownership flags) are read from the writes performed here but their consumers are not visible in this function.
+    // UNRESOLVED: Called by DirectXSurfaceFormatNegotiation (0x00502A15) per the callers table; the decode result is consumed there.
+}

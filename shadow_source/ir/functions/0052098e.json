@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "address": "0x0052098E",
+  "proposed_name": "PlaneFromEdgesNormalizeSSE",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Constructs a plane equation from three 3D points (a2, a3, a4) using SSE intrinsics. Computes two edge vectors, their cross product as the plane normal N, normalizes N via a Newton-Raphson reciprocal-square-root refinement using global constants xmmword_5D8C40/50, then computes the plane distance D as a dot product whose sign is flipped with xmmword_5D8C30. Writes the quad (Nx, Ny, Nz, D) to output a1 and returns a1.",
+  "local_names": {
+    "v5": "point_a2",
+    "v6": "edge_a2_minus_a4",
+    "v9": "edge_a2_minus_a3",
+    "v13": "plane_normal",
+    "v15": "squared_normal_length",
+    "v16": "squared_normal_length_copy",
+    "v12": "normalization_scale",
+    "v17": "normalized_normal",
+    "v18": "dot_a2_with_normal"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Load first input point from a2 into v5; form edge vectors v6 = point_a2 - point_a4 and v9 = point_a2 - point_a3 via SSE subtract.",
+      "evidence_refs": ["source:raw", "function:0x0052098E"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v13 = cross product of the two edge vectors using SSE shuffle/multiply/subtract sequence, producing the plane normal N.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v15 = sum of squared components of N (component-wise square plus horizontal add); v15.x = fsqrt of that sum, giving the normal length.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Newton-Raphson refinement of the reciprocal length: v12.x = xmmword_5D8C50 (normalization scale) * (xmmword_5D8C40 (0.5) - squared_length * (1/length) * (1/length)); then v12 is broadcast across lanes.",
+      "evidence_refs": ["global:0x005D8C50", "global:0x005D8C40", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v17 = normal N * broadcast refinement scale (normalized normal); *a1 = v17 writes plane normal (Nx, Ny, Nz) to output field this+0x0.",
+      "evidence_refs": ["field:this:0x00000000", "global:0x005D8C50", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v18 = point_a2 (v8) * normalized normal v17, then horizontal reduce (movehl + shuffle) yielding the plane distance D = dot(point, normal).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write plane distance: a1->m128_i32[3] = D XOR xmmword_5D8C30 (sign-flip mask), storing the distance component with flipped sign.",
+      "evidence_refs": ["global:0x005D8C30", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return a1 (the output plane pointer).",
+      "evidence_refs": ["function:0x0052098E", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// Inputs a2, a3, a4 are three points; output quad is (Nx, Ny, Nz, D).",
+    "edge1 = point(a2) - point(a4);",
+    "edge2 = point(a2) - point(a3);",
+    "N = cross(edge1, edge2);",
+    "len2 = dot(N, N);",
+    "len = sqrt(len2);",
+    "scale = G_SCALE * (G_HALF - len2 / (len * len)); // Newton-Raphson refinement (1/len approx)",
+    "Nn = N * broadcast(scale);",
+    "D = dot(point(a2), Nn);",
+    "a1 = (Nn.x, Nn.y, Nn.z, D ^ G_SIGNFLIP);",
+    "return a1;"
+  ],
+  "unresolved": [
+    "Read of this+0x4 (field:this:0x00000004) has no explicit explanation in the raw SSE text; likely a decompiler artifact of the vector loads or an unrelated read.",
+    "Semantic roles of globals xmmword_5D8C40 (0.5 refinement) and xmmword_5D8C50 (scale) are DERIVED from the Newton-Raphson SSE idiom, not proven by data.",
+    "Input points are doubles (const double*), output quad is float (__m128); mixed-precision pipeline is per prototype but unverified against callers."
+  ],
+  "unresolved_evidence_refs": ["field:this:0x00000004"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

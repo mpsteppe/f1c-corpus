@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "address": "0x004C6330",
+  "proposed_name": "SceneFileFilterBuilder",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004C6330"]
+  },
+  "summary": "Builds the filtered, merge-sorted scene-file linked list. Clears the object's existing list, then either copies every non-null entry from the global scene list (dword_8AC490, dword_8AC488 entries, stride 396) when no filter string is given, the filter equals the default byte_5EA438, or a photo/free-camera mode is active; or parses a filter expression with AND:/OR:/NOT: token buckets, materializes include/AND lists and removes NOT tokens, then splits the list at the midpoint and merge-sorts it back together with SceneSortComparator. Returns the accumulated node counter. Called by GameFilterSetup.",
+  "local_names": {
+    "this": "filtered scene list object: head at +8, tail at +12, cursor at +16, node count at +20, state counter at +24",
+    "a2": "filter expression string (null or equal to the default for the unfiltered path)",
+    "v32": "running node counter used as the build result",
+    "v33": "NOT-bucket token counter",
+    "v34": "AND-bucket token counter",
+    "v30": "token mode selector (0 include, 1 OR/AND, 2 NOT) chosen by prefix classification",
+    "v43": "include token bucket (50 dwords)",
+    "v44": "AND token bucket (50 dwords)",
+    "v40": "NOT token bucket (253-byte buffer)",
+    "v45": "256-byte working copy of the filter expression"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Clears the object's existing scene list via ResourceListCleanup_62c0 before rebuilding",
+      "evidence_refs": ["callee:0x004C62C0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Unfiltered path: taken when a2 is null, a2 equals the default path string byte_5EA438, or the mode flags dword_7D0398 is set with dword_7D0410 not equal to 5",
+      "evidence_refs": ["global:0x005EA438", "global:0x007D0398", "global:0x007D0410", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Sets the active filter string to the default byte_5EA438 via StringCopyWithBufferRealloc",
+      "evidence_refs": ["global:0x005EA438", "callee:0x00566650", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walks the global scene list: dword_8AC488 entries starting at dword_8AC490 with a stride of 396 bytes, processing each entry whose pointer is non-null",
+      "evidence_refs": ["global:0x008AC488", "global:0x008AC490", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Per entry: clears a 256-byte name buffer, then StringCopyWithValidation copies the scene name from aFilterProperti into it (max 256, source at entry plus 260 bytes)",
+      "evidence_refs": ["callee:0x004C58A0", "global:0x005D31EC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocates and builds the list node: OperatorNewNhMallocWrapper(16) for the scene object initialized by sub_4C5C80 with the copied name, then OperatorNewNhMallocWrapper(12) for the link cell storing the scene pointer, a null next and a flag byte of 1",
+      "evidence_refs": ["callee:0x00587C03", "callee:0x004C5C80", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Appends the new node: when the head (this+8) exists, the old tail's next pointer (*(this+12)+4) is set to the new node; otherwise head (this+8) and cursor (this+16) both become it; tail (this+12), node count (this+20) and the local counter are then updated",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x0000000C", "field:*(this+0xC):0x00000004", "field:this:0x00000010", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Filtered path: sets the active filter string to a2 via StringCopyWithBufferRealloc and records the OR/alternative marker string stored at dword_5D30C0",
+      "evidence_refs": ["callee:0x00566650", "global:0x005D30C0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Copies the filter expression into a 256-byte working buffer with a cap of 255 via sub_587DD0, then zeroes the three token buckets (two 50-dword arrays and a 253-byte buffer)",
+      "evidence_refs": ["callee:0x00587DD0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Tokenizes the filter buffer with strtok-style calls to sub_5897CA using the delimiter set ' ,tab newline'; iteration continues while a token is returned",
+      "evidence_refs": ["callee:0x005897CA", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Classifies each token with sub_588410 prefix tests against the AND marker, the OR marker (dword_5D30C0) and the NOT marker; the failing branch selects the include (v43), AND (v44) or NOT (v40) bucket and sets the mode counter (0, 1 or 2). Tokens are stored while the chosen bucket holds fewer than 49 entries",
+      "evidence_refs": ["callee:0x00588410", "global:0x005D30C0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Materializes the filtered list: FilterPropertiesListBuilder adds the include tokens, FilterPropertiesListBuilder_5fd0 the AND tokens, and FilterPropertiesListNodeRemover removes the NOT tokens from the built list",
+      "evidence_refs": ["callee:0x004C5E50", "callee:0x004C5FD0", "callee:0x004C6150", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Sort preparation: counts the nodes from the head (this+8); when at least 2 exist, walks to the midpoint, writes 0 to the midpoint node's next pointer (at the tail base (this+12) node plus 4) to split the list into two halves",
+      "evidence_refs": ["field:this:0x00000008", "field:*(this+0xC):0x00000004", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Merge-sorts each half with MergeSortLinkedList and merges the two runs back together using SceneSortComparator to order the nodes",
+      "evidence_refs": ["callee:0x004C6810", "callee:0x004C5D30", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Rebuilds list bookkeeping: head (this+8), tail (this+12) walked to the last node, cursor (this+16), resets the state counter this+24 to 0, and returns the accumulated node counter from the build",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "field:this:0x00000018", "function:0x004C6330", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by GameFilterSetup to produce the filtered scene list for the current filter configuration",
+      "evidence_refs": ["caller:0x00477830", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "cleanup existing list;",
+    "if (a2 == null || a2 == byte_5EA438 || (dword_7D0398 && dword_7D0410 != 5)) {",
+    "  set filter string to byte_5EA438;",
+    "  for (idx = 0; idx < dword_8AC488; ++idx) {",
+    "    entry = *(dword_8AC490 + idx*396);",
+    "    if (entry) {",
+    "      copy entry name (offset +260) into a 256-byte buffer via StringCopyWithValidation;",
+    "      new_node = LinkCell(SceneObject(buffer));",
+    "      append new_node to list tail; ++count;",
+    "    }",
+    "  }",
+    "} else {",
+    "  set filter string to a2;",
+    "  copy a2 into a 256-byte working buffer;",
+    "  for (token = next_token(buffer); token; token = next_token(null))",
+    "    classify token as include/AND/NOT and store into the matching bucket;",
+    "  FilterPropertiesListBuilder(include);",
+    "  FilterPropertiesListBuilder_5fd0(AND);",
+    "  FilterPropertiesListNodeRemover(NOT);",
+    "}",
+    "count nodes; if count >= 2 { split at midpoint; left = MergeSortLinkedList(head); right = MergeSortLinkedList(mid+1); }",
+    "head = merge(left, right, SceneSortComparator);",
+    "tail = last node; cursor = head; this[6] = 0;",
+    "return count;"
+  ],
+  "unresolved": [
+    "Seven read-only globals (0x005D30C4, 0x005D30C8, 0x005D30CC, 0x005D30D0, 0x005D30D4, 0x005D30D8, 0x008AC368) are flagged by packet facts but appear nowhere in the raw decompiled source; their role (likely adjacent filter-configuration state) is not verifiable from this packet",
+    "The token bookkeeping uses several overlapping dword-indexed buffers (v32/v33/v34/v30 as both counters and indices); the exact element semantics of the include/AND/NOT buckets are not fully derivable here",
+    "The branch polarity of sub_588410 (match vs non-match) and the exact AND/OR marker strings (v37, v38 and the dword_5D30C0-backed marker) are inferred from branch order only"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005D30C4",
+    "global:0x005D30C8",
+    "global:0x005D30CC",
+    "global:0x005D30D0",
+    "global:0x005D30D4",
+    "global:0x005D30D8",
+    "global:0x008AC368"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

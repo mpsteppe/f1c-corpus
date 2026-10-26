@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "address": "0x0051D1DB",
+  "proposed_name": "TrackSurfaceHeightmapIncrement",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Increments uint16 counters in a track surface heightmap grid from 3-byte-per-cell source streams. For each of a4 row entries a2[2*i], a pointer to a 3-byte-per-cell stream is decoded: each cell contributes x = byte[0] >> 3, y = byte[1] >> 2, z = byte[2] >> 3, and the counter at grid cell (x, z + 32*y) is incremented, clamping an overflow wrap to 65535 (-1). The per-row inner loop bound v5 is read once from this+0x5C; the grid data array base is read as *(*(this+0x1A4) + 0x18). Returns the last grid cell WORD pointer (or a1 cast to WORD* when no cells were processed).",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize result to a1 cast to WORD*, the initial return value.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Load v5 = pixel count per row from this+0x5C; this is the inner loop bound for every row entry.",
+      "evidence_refs": ["field:this:0x0000005C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Load the heightmap sub-struct pointer from this+0x1A4, then dereference +0x18 to obtain the heightmap data array base used for indexed cell access.",
+      "evidence_refs": ["field:this:0x000001A4", "field:*(this+0x1A4):0x00000018"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer loop over a4 row entries: each entry a2[2*i] is treated as a pointer to a 3-byte-per-cell pixel stream.",
+      "evidence_refs": ["source:raw", "function:0x0051D1DB", "abi:lead"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on v5 != 0: when the per-row pixel count is zero, the entry is skipped and the outer loop advances.",
+      "evidence_refs": ["field:this:0x0000005C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner do-while loop over v5 cells: decode grid coordinates x = byte[0] >> 3, y = byte[1] >> 2, z = byte[2] >> 3, and advance the stream pointer by 3 bytes per cell.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the grid cell WORD pointer as *(dataArrayBase + 4*x) + (z + 32*y); the base is read from the *(this+0x1A4) sub-struct's +0x18 member.",
+      "evidence_refs": ["field:*(this+0x1A4):0x00000018", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Increment the WORD counter at the computed cell; if the increment wraps to zero, clamp the counter to 65535 (-1).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the last accessed grid cell WORD pointer, or a1 cast to WORD* when no cells were processed.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "WORD * sub_51D1DB(int hms, WORD **rows, int unused, int count) {",
+    "  WORD *res = (WORD *)hms;",
+    "  int perRow = *(int *)(hms + 0x5C);",
+    "  int v6 = *(int *)(*(int *)(hms + 0x1A4) + 0x18);",
+    "  for (int i = 0; i < count; ++i) {",
+    "    res = rows;",
+    "    unsigned char *px = *(unsigned char **)&rows[2 * i];",
+    "    int n = perRow;",
+    "    while (n) {",
+    "      res = (WORD *)(*(int *)(v6 + 4 * (px[0] >> 3)) + 2 * ((px[2] >> 3) + 32 * (px[1] >> 2)));",
+    "      if (!++*res) *res = 65535;",
+    "      px += 3;",
+    "      --n;",
+    "    }",
+    "  }",
+    "  return res;",
+    "}"
+  ],
+  "unresolved": [
+    "Owner identity of the heightmap sub-struct this (a1) is unknown; no class evidence is available.",
+    "The caller and how the a2 row-pointer entries are populated are not visible from this function.",
+    "v5 (this+0x5C) is read once before the outer loop; a per-entry differing pixel count is not supported by the code.",
+    "Parameter a3 is unused; its intended purpose is unknown.",
+    "The (x, z + 32*y) grid geometry is inferred from the shift masks, not confirmed by an independent source."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

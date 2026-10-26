@@ -1,0 +1,59 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00536300
+// Canonical corpus name: DecompressionBufferFlush
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/DecompressionBufferFlush_00536300.c
+
+void UnknownObject::DecompressionBufferFlush()
+{
+    // Decompression buffer flush driving an LZSS-style text stream. Computes a block length cap v3 from the dword at a1+12 (a1[3] minus 5, capped at 0xFFFF). In an outer loop it watches the pending-input count at a1+106; when that is at most 1 it refills via TextBufferDecompressor and breaks when no input remains. It accumulates counts into a1+98, compares against the target a1+82 plus v3, and when the produced run is short enough (or the buffer status flag at *a1+16 is set) it encodes the remaining run with HuffmanBitStreamEncoder, advances a1+82, and copies via BufferCopyWithSizeTracking. On input exhaustion and a nonzero a2 it emits the final residual (encoding end-of-data when a2 equals 4) and returns a status code: 0 when the buffer status field is clear and a2 is not 4, 2 when clear and a2 equals 4, otherwise 2*(a2==4)+1.
+    // CALCULATION: v3 = 0xFFFF; if ((unsigned)(a1[3] - 5) < 0xFFFF) v3 = a1[3] - 5: cap the block/run length taken from the dword at a1+12 (index 3) at 0xFFFF. [source:raw]
+    // LOOP: Outer while(1) loop: repeatedly consume pending input, refill and emit runs until the pending-input count becomes zero (break) or an inner path returns 0. [source:raw]
+    // GUARD: v5 = *(a1+106); if v5 <= 1, call TextBufferDecompressor(a1) to refill the pending input, re-read v5 = *(a1+106), and break out of the loop when v5 == 0 (input exhausted). [callee:0x00536440, source:raw]
+    // ASSIGNMENT: v6 = *(a1+98); *(a1+106) = 0; *(a1+98) = v5 + v6; capture v8 = *(a1+98), v9 = *(a1+82) + v3, and v7 = (v5 + v6) == 0. [source:raw]
+    // GUARD: If the produced count v8 has not reached the target v9 while new data exists (v7 false and v8 < v9), take the finalize path; otherwise fall through to the chunk-flush path whose trailing read of the status flag (*a1+16) decides the same branch. [source:raw]
+    // CALL: Chunk flush on the fallback path: *(a1+98) = v9; *(a1+106) = v8 - v9; HuffmanBitStreamEncoder(v3, 0); *(a1+82) = *(a1+98); BufferCopyWithSizeTracking(*a1). [callee:0x00536160, callee:0x005381F0, source:raw]
+    // GUARD: Finalize path: v11 = *(a1+98) - *(a1+82); if v11 < *(a1+34) - 262, continue the outer loop (residual too small to emit yet). [source:raw]
+    // CALL: Emit remaining run: HuffmanBitStreamEncoder(v11, 0); *(a1+82) = *(a1+98); BufferCopyWithSizeTracking(*a1); if the status flag (*a1+16) is set, continue the outer loop. [callee:0x00536160, callee:0x005381F0, source:raw]
+    // RETURN: Return 0 when the finalize path completes with the buffer status field (*a1+16) clear. [source:raw]
+    // CALL: After the loop (only reachable when input is exhausted), if a2 is nonzero: HuffmanBitStreamEncoder(*(a1+98) - *(a1+82), a2 == 4) with the boolean argument marking end-of-data when a2 equals 4; *(a1+82) = *(a1+98); BufferCopyWithSizeTracking(*a1). [callee:0x00536160, callee:0x005381F0, source:raw]
+    // RETURN: Status-coded return: 0 when the buffer status field (*a1+16) is clear and a2 is not 4; 2 when clear and a2 equals 4; otherwise 2*(a2==4)+1. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int DecompressionBufferFlush(_DWORD* a1, int a2) {
+    //     int v3 = 0xFFFF;
+    //     if ((unsigned)(a1[3] - 5) < 0xFFFF) v3 = a1[3] - 5;
+    //     while (1) {
+    //       unsigned v5 = *(_DWORD*)((char*)a1 + 106);
+    //       if (v5 <= 1) {
+    //         TextBufferDecompressor(a1);
+    //         v5 = *(_DWORD*)((char*)a1 + 106);
+    //         if (!v5) break;
+    //       }
+    //       int v6 = *(_DWORD*)((char*)a1 + 98);
+    //       *(_DWORD*)((char*)a1 + 106) = 0;
+    //       bool v7 = (v5 + v6) == 0;
+    //       *(_DWORD*)((char*)a1 + 98) = v5 + v6;
+    //       unsigned v8 = *(_DWORD*)((char*)a1 + 98);
+    //       unsigned v9 = *(_DWORD*)((char*)a1 + 82) + v3;
+    //       if (!v7 && v8 < v9 || (flush v3 chunk then (*a1+16))) {
+    //         unsigned v11 = *(_DWORD*)((char*)a1 + 98) - *(_DWORD*)((char*)a1 + 82);
+    //         if (v11 < *(_DWORD*)((char*)a1 + 34) - 262) continue;
+    //         HuffmanBitStreamEncoder(v11, 0);
+    //         *(_DWORD*)((char*)a1 + 82) = *(_DWORD*)((char*)a1 + 98);
+    //         BufferCopyWithSizeTracking(*a1);
+    //         if (*(_DWORD*)(*a1 + 16)) continue;
+    //       }
+    //       return 0;
+    //     }
+    //     if (!a2) return 0;
+    //     HuffmanBitStreamEncoder(*(_DWORD*)((char*)a1 + 98) - *(_DWORD*)((char*)a1 + 82), a2 == 4);
+    //     *(_DWORD*)((char*)a1 + 82) = *(_DWORD*)((char*)a1 + 98);
+    //     BufferCopyWithSizeTracking(*a1);
+    //     if (!*(_DWORD*)(*a1 + 16)) return a2 != 4 ? 0 : 2;
+    //     return 2 * (a2 == 4) + 1;
+    //   }
+    // UNRESOLVED: Precise field semantics at a1+12, a1+34, a1+82, a1+98, a1+106 and the status flag at *a1+16 are not named by the packet; they are described only by raw offset.
+    // UNRESOLVED: The exact meaning of the a2 parameter (end-of-data when 4) is inferred from the a2 == 4 comparisons and the ABI LEGACY label Decompression_Buffer_Flush.
+    // UNRESOLVED: The compressed-text container that owns a1 and its callers are not established from this packet.
+}

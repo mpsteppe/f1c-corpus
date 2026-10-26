@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00500BC8
+// Canonical corpus name: D3DSurfaceCopyBlit
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/D3DSurfaceCopyBlit_00500bc8.c
+
+void UnknownObject::D3DSurfaceCopyBlit()
+{
+    // Copies surface data from a source into a destination D3D texture surface across mip levels and cubemap faces. Validates the destination surface type via its vtable (3 = 2D texture, 4 = 3D volume, 5 = cubemap); when a4 is -1 it auto-selects the mip flag from power-of-2 dimension checks (5 for auto-generate, 0 otherwise, or the filter-flag fallback 524292 when dimensions are not power-of-2). Iterates faces (1 for 2D/3D, 6 for cubemap) and mip levels, locking each surface through the vtable and blitting with SurfaceBlitOperation (0050099C) or Direct3DTextureVertexBufferInit (00500B42), then releasing the locked surfaces through the vtable. Returns the sentinel error value -2005530516 on a NULL surface, unsupported surface type, or out-of-range mip level; otherwise 0 or the last lock/blit result.
+    // GUARD: If the destination surface a1 is NULL, return -2005530516 [field:this:0x00000000, source:raw]
+    // CALL: Query surface type through vtable slot +40; if the type is not 3, 4 or 5 return -2005530516 [field:obj:0x00000028, source:raw]
+    // CALL: When a4 is -1, query the surface descriptor through vtable slot +56 to test whether width/height (and depth for volume) are exact powers of two [field:obj:0x00000038, source:raw]
+    // CALCULATION: Auto-mip flag selection from the power-of-two checks: set a4 = 5 when all dimensions are power-of-two, a4 = 0 otherwise, or a4 = 524292 (filter-flag fallback) when auto-selection cannot be used [source:raw]
+    // CALL: Query the mip-map count through vtable slot +52; if the requested mip level a3 is >= the count, return -2005530516 (a3 == -1 is first clamped to 0) [field:obj:0x00000034, source:raw]
+    // LOOP: Outer loop over faces (1 for types 3 and 4, 6 for cubemap type 5); inner loop over mip levels from a3 upward, locking each destination surface through vtable slot +60 [field:obj:0x0000003C, source:raw]
+    // CALL: Blit the locked surface: SurfaceBlitOperation for 2D and cubemap faces, Direct3DTextureVertexBufferInit for volume slices; a failure result aborts the loops [callee:0x0050099C, callee:0x00500B42, source:raw]
+    // CALL: Release each locked surface through vtable slot +8 after the blit, and again on the cleanup path when an error aborts the loops [field:obj:0x00000008, source:raw]
+    // RETURN: Return 0 on full success, -2005530516 on the early validation errors, otherwise propagate the last lock/blit result [source:raw]
+    // CALL: Invoked by DirectXDeviceSurfaceCreationWithFormatCapability (0053FD40) during surface creation with format capability checks [caller:0x0053FD40]
+
+    // Conservative worker pseudocode:
+    //   int sub_500BC8(surface *dst, const void *src, unsigned mip, int flags) {
+    //     if (!dst) return -2005530516;
+    //     int type = dst->vtbl[+40](dst);
+    //     if (type != 3 && (type < 4 || type > 5)) return -2005530516;
+    //     if (flags == -1) {
+    //       // type 3: check width/height powers of two via vtbl[+56]
+    //       // type 4: also check depth
+    //       // type 5: check width/height
+    //       flags = all_power_of_two ? 5 : (type == 3 && width_and_height_ok ? 5 : 0);
+    //       if (flags == 0) { if (!type_is_5) flags = 524292; else if (not_power_of_two) flags = 524292; }
+    //     }
+    //     if (type == 5) flags = set byte 2 of flags to 7 (BYTE2(a4) |= 7);
+    //     int mips = dst->vtbl[+52](dst);
+    //     if (mip == -1) mip = 0;
+    //     if (mip >= (unsigned)mips) return -2005530516;
+    //     int faces = (type != 5) ? 1 : 6;
+    //     for (int face = 0; face < faces; ++face) {
+    //       lock a1 = dst->vtbl[+60](dst, mip);
+    //       for (unsigned m = mip + 1; m < (unsigned)mips; ++m) {
+    //         lock cur = dst->vtbl[+60](dst, m);
+    //         type 3/5: SurfaceBlitOperation(cur, src, 0, a1, src, 0, flags, 0);
+    //         type 4:   Direct3DTextureVertexBufferInit(cur, src, 0, a1, src, 0, flags, 0);
+    //         rotate held locks; release superseded locks via vtbl[+8];
+    //       }
+    //       release all held locks via vtbl[+8];
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: The exact D3D interface identities behind vtable slots +40/+52/+56/+60/+8 are inferred from the guard values (types 3/4/5, power-of-two checks) and are not named in this function
+    // UNRESOLVED: The composition of the flag constants 5, 0 and 524292 is not confirmed beyond the raw literals; the existing-analysis naming of 524292 as a filter combination is DERIVED and not relied on
+    // UNRESOLVED: Surface lock lifecycle and error propagation are reconstructed from decompiled control flow only
+}

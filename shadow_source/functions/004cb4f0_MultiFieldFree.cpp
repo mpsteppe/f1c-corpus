@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004CB4F0
+// Canonical corpus name: MultiFieldFree
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/MultiFieldFree_004cb4f0.c
+
+void UnknownObject::MultiFieldFree()
+{
+    // Frees two heap buffers and removes a doubly-linked-list node from the object, clearing the associated fields. Reads the buffer pointer at this+0x5C and clears this+0x58 to 0, then frees the buffer via FreeWrapper_7bcf at the header-adjusted address (pointer - 4) when it is non-null and clears this+0x5C to 0. Reads the buffer pointer at this+0x68, clears this+0x64 to 0, then frees it when non-null and clears this+0x68 to 0. Finally reads the list node pointer at this+0x54, and when non-null removes it with DoublyLinkedListNodeRemovalByPointer and clears this+0x54 to 0. Returns the last removal result (or the node pointer when it was null).
+    // ASSIGNMENT: Caches the buffer pointer this+0x5C and clears this+0x58 to 0 before the free [field:this:0x0000005C, field:this:0x00000058, source:raw]
+    // GUARD: The this+0x5C buffer is freed only when it is non-null [source:raw]
+    // CALL: FreeWrapper_7bcf frees the this+0x5C allocation at the header-adjusted address (pointer - 4) [callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Clears this+0x5C to 0 after the free [field:this:0x0000005C, source:raw]
+    // ASSIGNMENT: Caches the buffer pointer this+0x68 and clears this+0x64 to 0 before the free [field:this:0x00000068, field:this:0x00000064, source:raw]
+    // GUARD: The this+0x68 buffer is freed only when it is non-null [source:raw]
+    // CALL: FreeWrapper_7bcf frees the this+0x68 buffer [callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Clears this+0x68 to 0 after the free [field:this:0x00000068, source:raw]
+    // ASSIGNMENT: Reads the list-node pointer this+0x54 as the initial result value [field:this:0x00000054, source:raw]
+    // GUARD: The list node is removed only when this+0x54 is non-null [source:raw]
+    // CALL: DoublyLinkedListNodeRemovalByPointer removes the node at this+0x54 from its doubly-linked list; its return value becomes the function result [callee:0x005592B0, source:raw]
+    // ASSIGNMENT: Clears this+0x54 to 0 after the removal [field:this:0x00000054, source:raw]
+    // RETURN: Returns the list-removal result, or the cached this+0x54 pointer when it was null [source:raw]
+    // CALL: Invoked by SpecialFX_Post (004CFED0) during SpecialFX cleanup [caller:0x004CFED0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   buf1 = this[23]; this[22] = 0;
+    //   if (buf1) { FreeWrapper_7bcf(buf1 - 4); this[23] = 0; }
+    //   buf2 = (void*)this[26]; this[25] = 0;
+    //   if (buf2) { FreeWrapper_7bcf(buf2); this[26] = 0; }
+    //   result = this[21];
+    //   if (result) { result = DoublyLinkedListNodeRemovalByPointer(this[21]); this[21] = 0; }
+    //   return result;
+    // UNRESOLVED: Global dword_8AFE88 is flagged by packet facts but never appears in the raw decompiled source; its role in this function is unverifiable from this packet
+    // UNRESOLVED: The meaning of the fields cleared to 0 before each free (this+0x58 and this+0x64) is unresolved; they appear to be counters or flags reset alongside the buffer ownership
+    // UNRESOLVED: The 4-byte allocation header preceding the this+0x5C buffer (freed at pointer - 4) has an unknown layout
+}

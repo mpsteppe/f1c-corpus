@@ -1,0 +1,24 @@
+## sub_67ECA2_0067eca2 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_67ED47 (0067ed47), sub_67EDF0 (0067edf0), StateGetSetWrapper [structural] (0067efc4), sub_67F062 (0067f062), sub_67F130 (0067f130), sub_67F1F1 (0067f1f1), sub_67F27A (0067f27a), sub_67F389 (0067f389), sub_67F481 (0067f481), sub_67F55E (0067f55e), sub_67F64D (0067f64d), sub_67F7F0 (0067f7f0) … +3 more
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| obj | 0x0 | R | — | [LLM] |
+| this | 0x0 | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

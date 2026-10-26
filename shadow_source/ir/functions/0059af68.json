@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "address": "0x0059AF68",
+  "proposed_name": "ThrowOutOfRangeException",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Constructs and throws a std::out_of_range exception carrying the message \"invalid string position\". Registers an SEH handler frame, copies a one-byte buffer marker and releases the prior stack buffer reference, then writes the message with its length into the reused buffer. After initializing the exception object through the exception-init handler, it sets the out_of_range vtable and calls the C++ throw entry with the out_of_range type info. The trailing destructor call is the decoded SEH unwind epilogue, never reached because the throw does not return.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "SEHHandlerInit registers the stack exception-handler frame for this function, linked to the landing pad global.",
+      "evidence_refs": ["callee:0x0058A5D8", "global:0x0059D5B0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy one byte from the caller frame slot into the buffer marker slot before reusing the buffer.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ReferenceCountDecrementWithConditionalFree releases the previous reference held by the stack buffer slot.",
+      "evidence_refs": ["callee:0x005993AF", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Compute the length of the message with Strlen, then BufferWriteWithNullTerminate copies \"invalid string position\" into the buffer including its terminator.",
+      "evidence_refs": ["callee:0x0058E1B0", "callee:0x00599615", "global:0x005B9D98", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the exception object field used to track ownership before construction.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CExceptionInitHandler_ada3 constructs the exception object, building the logic_error base with the message.",
+      "evidence_refs": ["callee:0x0059ADA3", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Install the std::out_of_range vtable into the exception object.",
+      "evidence_refs": ["global:0x005B9D8C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CxxThrowException8 raises the exception with the std::out_of_range type info, which never returns.",
+      "evidence_refs": ["callee:0x0059BFC3", "global:0x005BB9B8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Trailing ExceptionObjectDestructorWithSEH is the decoded SEH unwind epilogue; unreachable after the non-returning throw.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void ThrowOutOfRange() {",
+    "  SEHHandlerInit();",
+    "  bufferMarker = callerByte;",
+    "  ReferenceCountDecrementWithConditionalFree(&bufferMarker, 0);",
+    "  const char* msg = \"invalid string position\";",
+    "  BufferWriteWithNullTerminate(&bufferMarker, msg, Strlen(msg));",
+    "  CExceptionInitHandler_ada3(&ex, &bufferMarker);",
+    "  ex.vftable = &std::out_of_range::`vftable';",
+    "  CxxThrowException8(&ex, &_TI3_AVout_of_range_std__);",
+    "}"
+  ],
+  "unresolved": [
+    "The caller frame slots at a1-32/a1-13 are a small inlined buffer; their exact field layout is not recoverable from this function alone.",
+    "ExceptionObjectDestructorWithSEH is the SEH epilogue rendered as a return value, not a genuine program-logic return.",
+    "ReferenceCountDecrementWithConditionalFree operating on a stack byte slot suggests a small-buffer/string implementation detail whose type is unknown."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

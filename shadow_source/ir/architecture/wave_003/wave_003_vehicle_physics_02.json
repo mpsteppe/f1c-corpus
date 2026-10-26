@@ -1,0 +1,1995 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_003_vehicle_physics_02",
+  "scope": "vehicle_physics",
+  "subsystem": {
+    "name": "VehiclePhysics",
+    "responsibility": "Per-frame vehicle suspension force computation and the collision-geometry subsystem it feeds. The scope contains one real physics update step (SuspensionForceUpdate on the suspension receiver, with sub-object integration and shared state propagation) plus the collision layer it depends on: collision shape/buffer lifecycle, contact-pair response, collision tree serialization/cleanup, a 32x32 grid raycast, a pipeline dispatcher over the global collision-geometry handle, and a large family of collision module registration thunks all routed through the shared BooleanToIntConversion helper.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x00447780",
+      "function:0x004492B0",
+      "function:0x00449340",
+      "function:0x00449700",
+      "function:0x0044A430",
+      "function:0x0044A700",
+      "function:0x0044BA40",
+      "function:0x0044BB60",
+      "function:0x0044C470",
+      "function:0x0044C5F0",
+      "global:0x008AFE88",
+      "callee:0x00587B3E",
+      "source:raw"
+    ]
+  },
+  "summary": "This scope mixes a single vehicle-physics update with the collision geometry machinery it hands off to. SuspensionForceUpdate (0x00447780) copies the 24-byte input state into every physics sub-object block, computes a per-wheel suspension force from the shared state at this+0x15F0, averages it by the mode at this+0x1E14, applies a clamped damper scaling and a wheel-weight minimum selection, records the force into the output slots at this+0x1C5C and duplicates at 0x1C64/0x1C68 and 0x1E38..0x1E44, feeds SuspensionVibration, then runs a two-pass sub-object integration (array at this+0x3EC, stride 1124) that re-applies the shared transform and inertia blocks into each active sub-object. The collision layer is the bulk of the scope: CollisionShapeInit/PhysicsBufferFree (0x004492B0/0x00449340) manage a shape whose buffer at +0x8 is freed through a 4-byte allocation header and whose sub-components at +0xC/+0x10 are destroyed and freed; CollisionContactResponse (0x00449700) blends pair masses with the 0.5 factor from global 0x0059E880 and interpolates contact vertices; CollisionTreeNodeDeserializer (0x0044A700) and CollisionTreeNodeCleanup (0x0044C470) load and release tree nodes; CollisionGridRaycast32x32 (0x0044BA40) rasterizes a grid into a 32x32 cell query array; CollisionGeometryOperationSelector (0x0044BB60) dispatches a pipeline (animation, contact response, bezier tessellation, sweep-and-prune) over the global handle 0x008AFE88. CollisionInitDelegate (0x0044C5F0) invokes the init routine at 0x0044C600. A family of 30 registration thunks (0x00449A00 plus 0x0044C650..0x0044D5B0) each read a stored null-subroutine global and route it through BooleanToIntConversion (0x00587B3E), returning the integer result; the packet's own operations disagree on whether that helper registers the pointer (0/-1 status) or merely normalizes it. No receiver class identity is proven for any function; every owner is UnknownObject in the source packet and all class names here are DERIVED/GUESS groupings of shared offset and call patterns.",
+  "function_roles": [
+    {
+      "address": "0x00447780",
+      "role": "update - per-frame suspension force update: copy the 24-byte input state into every sub-object block (count at this+0x15AC, array at this+0x15B0, stride 580, per-block offset +100) via Copy6DwordsToStructCall; compute the raw force from the shared state at this+0x15F0 (weight rows at +0x5C/+0x40/+0x16); write the four per-wheel pair results (this+0x348/0x7AC/0xC10/0x1074); select the averaging mode at this+0x1E14; derive the clamped damper factor; write the mode-selected force into this+0x1C5C with wheel-weight selection via selector this+0x1EAC and threshold this+0x1CDC; clamp against this+0x1C84/0x1C88 reporting via PositionLapStateUpdate; propagate the force dwords into this+0x1C64/0x1C68 and this+0x1E38..0x1E44; feed SuspensionVibration; reset the sub-object active flag at this+0xD0; run the two-pass sub-object integration (array at this+0x3EC, stride 1124: zero via sub_56BDE0, copy transform/inertia blocks, transform via F_3x3InertiaTensorTransform / InertiaTensorWorldSpaceTransform, release via PhysicsSubObjectFree); returns the loop decrement (1 after the two-pass loop)",
+      "owner": "VehicleSuspension",
+      "evidence_refs": [
+        "function:0x00447780",
+        "callee:0x00569280",
+        "callee:0x00447E00",
+        "callee:0x004471F0",
+        "callee:0x0056BDE0",
+        "callee:0x005692A0",
+        "callee:0x00569410",
+        "callee:0x00441450",
+        "caller:0x004EF5A0",
+        "field:this:0x000015AC",
+        "field:this:0x000015B0",
+        "field:this:0x000015F0",
+        "field:this:0x00000348",
+        "field:this:0x000007AC",
+        "field:this:0x00000C10",
+        "field:this:0x00001074",
+        "field:this:0x00001E14",
+        "field:this:0x00001C5C",
+        "field:this:0x00001EAC",
+        "field:this:0x00001CDC",
+        "field:this:0x00001C84",
+        "field:this:0x00001C88",
+        "field:this:0x00001C64",
+        "field:this:0x00001C68",
+        "field:this:0x00001E38",
+        "field:this:0x00001E3C",
+        "field:this:0x00001E40",
+        "field:this:0x00001E44",
+        "field:this:0x000000D0",
+        "field:this:0x000003EC",
+        "field:*(this+0x15F0):0x0000002C",
+        "field:*(this+0x15F0):0x00000044",
+        "field:*(this+0x15F0):0x0000005C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004492B0",
+      "role": "init - collision-shape initializer: zero the fields at this+0x8, this+0xC and this+0x10, call PhysicsBufferFree (0x00449340) to reset the shape's physics buffer, and return the this pointer; invoked by BezierPatchTessellation (0x0044B370), CollisionGeometryOperationSelector (0x0044BB60) and SceneTrackFileLoader (0x0044C0E0) while preparing collision shapes",
+      "owner": "CollisionShape",
+      "evidence_refs": [
+        "function:0x004492B0",
+        "callee:0x00449340",
+        "caller:0x0044B370",
+        "caller:0x0044BB60",
+        "caller:0x0044C0E0",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00449340",
+      "role": "teardown - physics-buffer free: save this+0x8, zero this+0x0 and this+0x4, free the this+0x8 buffer through its allocation header (result-4) via FreeWrapper_7bcf, then conditionally destroy and free the sub-components at this+0xC and this+0x10 via PhysicsSubComponentDestroy / FreeWrapper_7bcf and zero them; returns the last free result",
+      "owner": "CollisionShape",
+      "evidence_refs": [
+        "function:0x00449340",
+        "callee:0x00587BCF",
+        "callee:0x00448570",
+        "field:this:0x00000008",
+        "field:this:0x00000004",
+        "field:this:0x00000000",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00449700",
+      "role": "update - contact-pair processing after broad-phase: traverse the two collision tree roots at this+0xC and this+0x10 via CollisionTreeTraversal, then over the 32-byte contact pair array at this+0x8 (pair count at this+0x0, guarded >0) blend each pair node's mass using the 0.5 factor from global 0x0059E880, propagate the blended masses via PhysicsTreeMassPropagation on the second tree root, and apply WeightedAverageInterpolation on each pair's node triples; returns the pair count",
+      "owner": "CollisionContactContainer",
+      "evidence_refs": [
+        "function:0x00449700",
+        "callee:0x00448DA0",
+        "callee:0x00448DE0",
+        "callee:0x00448480",
+        "global:0x0059E880",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "guard:0",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00449A00",
+      "role": "registration - pass the stored function address at global 0x00449A10 to BooleanToIntConversion (0x00587B3E) and return its integer result; reports the registered slot rather than executing it",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x00449A00",
+        "global:0x00449A10",
+        "callee:0x00587B3E",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044A430",
+      "role": "init - constructor-style collision-object initializer: zero this+0x0, this+0x4 and this+0xC, write the 16-bit sentinels -3 at this+0x8 and -1 at this+0xA, return this; invoked from 0x0044BC50 and HTreeTerrainFileFormatLoader (0x0044BE70)",
+      "owner": "CollisionObject",
+      "evidence_refs": [
+        "function:0x0044A430",
+        "caller:0x0044BC50",
+        "caller:0x0044BE70",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000A",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044A700",
+      "role": "deserialize - recursively read one collision-tree node from the file stream via FileWriteWithBackendDispatch: header reads, node-type word at this+0x8 (reject outside -2..1), for internal nodes a subtype byte at this+0xA and a child-slot arena pointer at this+0xC (base + 16*index) with recursion into two children, for leaf nodes a 92-byte vertex region at this+0xC (base + 92*index) filled via IndexedVertexLookupFromStream; returns 0 on success and -1 on any failure",
+      "owner": "CollisionTreeNode",
+      "evidence_refs": [
+        "function:0x0044A700",
+        "callee:0x00566C00",
+        "callee:0x0044A700",
+        "callee:0x00449F60",
+        "field:this:0x00000008",
+        "field:this:0x0000000A",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044BA40",
+      "role": "query - rasterize the collision grid into a 32x32 cell query array: null-guard the grid data at this+0x4, compute X/Z cell strides as reciprocals of the scales at this+0x10 and this+0x20 (0.0-guard via globals 0x0059E420/0x0059E430), build per-cell world bounding boxes from the grid center at this+0x8 (X) and this+0x18 (Z) with the 0.5 constant from global 0x0059E880, query each cell via sub_44A880 and store the returned pointer into the flat output array at this+40; returns the last query result",
+      "owner": "CollisionGrid",
+      "evidence_refs": [
+        "function:0x0044BA40",
+        "callee:0x0044A880",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "global:0x0059E880",
+        "field:this:0x00000004",
+        "field:this:0x00000010",
+        "field:this:0x00000020",
+        "field:this:0x00000008",
+        "field:this:0x00000018",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044BB60",
+      "role": "dispatch - collision-geometry pipeline dispatcher over the global geometry handle 0x008AFE88 and operation id a2: null handle runs only the final SweepAndPruneAABBOverlapDetection on a3; a2==0 runs animation playback on a3; a2==1 runs AnimationPlaybackSequence, CollisionContactResponse and sweep on a3; a2==2 runs CollisionShapeInit, AnimationPlaybackSequence, CollisionContactResponse, BezierPatchTessellation, PhysicsBufferFree and sweep on a3; every path returns the sweep-and-prune overlap result",
+      "owner": "CollisionGeometryPipeline",
+      "evidence_refs": [
+        "function:0x0044BB60",
+        "global:0x008AFE88",
+        "callee:0x0044ACB0",
+        "callee:0x00449700",
+        "callee:0x004497E0",
+        "callee:0x004492B0",
+        "callee:0x0044B370",
+        "callee:0x00449340",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044C470",
+      "role": "cleanup - collision-tree node teardown: free the two owned allocations at this+0x0 and this+0x4 (the second freed through a 4-byte header at ptr-4) via FreeWrapper_7bcf, zero the six scalar fields at this+0x8..0x1C, memset the trailing 0x1000-byte block at this+0x28, return 0; recorded callers: SceneTrackFileLoader (0x0044C0E0) and SpecialFX_Post (0x004CFED0)",
+      "owner": "CollisionTreeNode",
+      "evidence_refs": [
+        "function:0x0044C470",
+        "callee:0x00587BCF",
+        "caller:0x0044C0E0",
+        "caller:0x004CFED0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044C5F0",
+      "role": "delegate - invoke the collision initialization routine at global 0x0044C600 and convert its boolean result to an integer via BooleanToIntConversion (0x00587B3E), returning that integer; used to start collision-system initialization",
+      "owner": "CollisionInitDelegate",
+      "evidence_refs": [
+        "function:0x0044C5F0",
+        "global:0x0044C600",
+        "callee:0x00587B3E",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044C650",
+      "role": "registration - read the stored null-subroutine pointer at global 0x0044C660 (nullsub_23), cast it to int and pass it to BooleanToIntConversion (0x00587B3E), returning the integer result; the stub target has no body so the intended init behavior is unrecoverable",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044C650",
+        "global:0x0044C660",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044C6B0",
+      "role": "registration - pass the address of nullsub_24 (global 0x0044C6C0) to BooleanToIntConversion (0x00587B3E) and return the boolean-to-int result; reports the no-op stub's presence rather than executing teardown",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044C6B0",
+        "global:0x0044C6C0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044C770",
+      "role": "registration - read the nullsub_26 stub pointer (global 0x0044C780), cast it to int and forward it to BooleanToIntConversion (0x00587B3E), returning the conversion result; reports a non-zero registered status for the placeholder stub",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044C770",
+        "global:0x0044C780",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044C830",
+      "role": "registration - read the nullsub_30 function pointer (global 0x0044C840), cast it to int and pass it to BooleanToIntConversion (0x00587B3E), returning the integer result; the abi name suggests a collision-init thunk (variant A) but the stub has no body",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044C830",
+        "global:0x0044C840",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044C890",
+      "role": "registration - read the nullsub_32 function pointer (global 0x0044C8A0), cast it to int and pass it to BooleanToIntConversion (0x00587B3E), returning the integer result; the abi name suggests a collision-init wrapper but the stub has no body",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044C890",
+        "global:0x0044C8A0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044C950",
+      "role": "registration - pass the address of nullsub_35 (global 0x0044C960) to BooleanToIntConversion (0x00587B3E) and return the integer result; the no-op suggests a collision-sound unregister hook that currently performs no work",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044C950",
+        "global:0x0044C960",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CA10",
+      "role": "registration - read the nullsub_37 stub pointer (global 0x0044CA20), cast it to int and forward it to BooleanToIntConversion (0x00587B3E), returning the conversion result; reports the placeholder's registered status",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CA10",
+        "global:0x0044CA20",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CB30",
+      "role": "registration - pass the address of nullsub_42 (global 0x0044CB40) to BooleanToIntConversion (0x00587B3E) and return the integer result; the no-op suggests a collision-grid free path that currently performs no work",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CB30",
+        "global:0x0044CB40",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CB90",
+      "role": "registration - read the nullsub_44 stub pointer (global 0x0044CBA0), cast it to int and forward it to BooleanToIntConversion (0x00587B3E), returning the conversion result; reports the placeholder's registered status",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CB90",
+        "global:0x0044CBA0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CBF0",
+      "role": "registration - read the stored null-subroutine address at global 0x0044CC00 (nullsub_46), pass it through BooleanToIntConversion (0x00587B3E) and return the integer result; the global has no static writers so the callback is installed at runtime",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CBF0",
+        "global:0x0044CC00",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CC50",
+      "role": "registration - pass the address of nullsub_48 (global 0x0044CC60) cast to int to BooleanToIntConversion (0x00587B3E) and return the integer result; the abi name suggests collision resource release but the stub is empty",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CC50",
+        "global:0x0044CC60",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CCB0",
+      "role": "registration - read the stored null-subroutine address at global 0x0044CCC0 (nullsub_49), pass it through BooleanToIntConversion (0x00587B3E) and return the integer result; the global has no static writers so the callback is installed at runtime",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CCB0",
+        "global:0x0044CCC0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CD10",
+      "role": "registration - pass the address of nullsub_50 (global 0x0044CD20) cast to int to BooleanToIntConversion (0x00587B3E) and return the integer result; the abi name implies a constructor delegation but the stub has no body",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CD10",
+        "global:0x0044CD20",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CD70",
+      "role": "registration - pass the address of nullsub_51 (global 0x0044CD80) cast to int to BooleanToIntConversion (0x00587B3E) and return the integer result; the abi name implies an initialization delegation but the stub has no body",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CD70",
+        "global:0x0044CD80",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CDD0",
+      "role": "registration - load the no-op callback pointer nullsub_52 (global 0x0044CDE0) and pass it to BooleanToIntConversion (0x00587B3E); per the corpus callee this registers the pointer into a global critical-section-guarded registration list returning 0 on success or -1 on failure, and this function returns that result unchanged",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CDD0",
+        "global:0x0044CDE0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CE30",
+      "role": "registration - read the stored null-subroutine address at global 0x0044CE40 (nullsub_53), pass it through BooleanToIntConversion (0x00587B3E) and return the integer result; the global has no static writers so the callback is installed at runtime",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CE30",
+        "global:0x0044CE40",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CEF0",
+      "role": "registration - read the nullsub_55 stub pointer (global 0x0044CF00), cast it to int and forward it to BooleanToIntConversion (0x00587B3E), returning the conversion result; the non-null placeholder reports a registered status",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CEF0",
+        "global:0x0044CF00",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044CFB0",
+      "role": "registration - load the no-op callback pointer nullsub_57 (global 0x0044CFC0) and pass it to BooleanToIntConversion (0x00587B3E); per the corpus callee this registers the pointer into a global critical-section-guarded registration list returning 0 on success or -1 on failure, and this function returns that result unchanged",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044CFB0",
+        "global:0x0044CFC0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D010",
+      "role": "registration - load the no-op callback pointer nullsub_58 (global 0x0044D020) and pass it to BooleanToIntConversion (0x00587B3E); per the corpus callee this registers the pointer into a global critical-section-guarded registration list returning 0 on success or -1 on failure, and this function returns that result unchanged",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D010",
+        "global:0x0044D020",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D0D0",
+      "role": "registration - read the nullsub_61 function pointer (global 0x0044D0E0), cast it to int and pass it to BooleanToIntConversion (0x00587B3E), returning the integer result; the abi name suggests a collision-sound unregister wrapper but the stub has no body",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D0D0",
+        "global:0x0044D0E0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D190",
+      "role": "registration - read the nullsub_64 stub pointer (global 0x0044D1A0), cast it to int and forward it to BooleanToIntConversion (0x00587B3E), returning the conversion result; the non-null placeholder reports a registered status",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D190",
+        "global:0x0044D1A0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D2B0",
+      "role": "registration - read the nullsub_68 function pointer (global 0x0044D2C0), cast it to int and pass it to BooleanToIntConversion (0x00587B3E), returning the integer result; the abi name suggests a collision-grid free wrapper but the stub has no body",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D2B0",
+        "global:0x0044D2C0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D310",
+      "role": "registration - read the nullsub_69 stub pointer (global 0x0044D320), cast it to int and forward it to BooleanToIntConversion (0x00587B3E), returning the conversion result; the non-null placeholder reports a registered status",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D310",
+        "global:0x0044D320",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D370",
+      "role": "registration - pass the address of nullsub_70 (global 0x0044D380) cast to int to BooleanToIntConversion (0x00587B3E) and return the boolean-to-int result; reports the no-op stub's presence rather than executing data registration",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D370",
+        "global:0x0044D380",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D430",
+      "role": "registration - call BooleanToIntConversion (0x00587B3E) with the global nullsub_73 (0x0044D440) cast to int and return the resulting integer; the legacy collision-resource-release name is unverified",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D430",
+        "global:0x0044D440",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D490",
+      "role": "registration - pass the address of nullsub_75 (global 0x0044D4A0) cast to int to BooleanToIntConversion (0x00587B3E) and return the boolean-to-int result; reports the no-op stub's presence rather than executing callback registration",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D490",
+        "global:0x0044D4A0",
+        "callee:0x00587B3E",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D4F0",
+      "role": "registration - call BooleanToIntConversion (0x00587B3E) with the global nullsub_77 (0x0044D500) cast to int and return the resulting integer; the legacy constructor-thunk name is unverified",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D4F0",
+        "global:0x0044D500",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D550",
+      "role": "registration - call BooleanToIntConversion (0x00587B3E) with the global nullsub_79 (0x0044D560) cast to int and return the resulting integer; the legacy init-delegator name is unverified",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D550",
+        "global:0x0044D560",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0044D5B0",
+      "role": "registration - zero-argument registration stub: read the address of the placeholder nullsub_81 (global 0x0044D5C0) and return the result of BooleanToIntConversion applied to that function pointer; the consumer of the returned integer is not identified",
+      "owner": "CollisionRegistrationHooks",
+      "evidence_refs": [
+        "function:0x0044D5B0",
+        "global:0x0044D5C0",
+        "callee:0x00587B3E",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "VehicleSuspension",
+      "responsibility": "Receiver of SuspensionForceUpdate (0x00447780). Holds the sub-object count at +0x15AC and array at +0x15B0 (stride 580, 24-byte input copied to each block's +100), a second sub-object integration array at +0x3EC (stride 1124) with an active flag at +0xD0, a shared physics-state block pointer at +0x15F0, a four-slot wheel-geometry cursor array at +0x348/+0x7AC/+0xC10/+0x1074, the suspension force output double at +0x1C5C (high dword +0x1C60) with duplicated slots at +0x1C64/+0x1C68 and +0x1E38..+0x1E44, the lower bound at +0x1C84/+0x1C88, the clamp threshold scalar at +0x1CDC, the averaging-mode selector at +0x1E14 and the wheel-weight walk selector at +0x1EAC.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00447780"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000000D0",
+          "name": "subObjectActiveFlag",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000348",
+          "name": "wheelGeometrySlotA",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000348"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003EC",
+          "name": "subObjectIntegrationArray",
+          "type_guess": "PhysicsSubObject*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003EC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000007AC",
+          "name": "wheelGeometrySlotB",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000007AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000C10",
+          "name": "wheelGeometrySlotC",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000C10"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001074",
+          "name": "wheelGeometrySlotD",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001074"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015AC",
+          "name": "subObjectCount",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015B0",
+          "name": "subObjectArray",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015F0",
+          "name": "physicsSharedState",
+          "type_guess": "PhysicsSharedState*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015F0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C5C",
+          "name": "suspensionForce",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001C5C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C60",
+          "name": "suspensionForceHighDword",
+          "type_guess": "uint32",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001C60"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C64",
+          "name": "forceCopySlotA",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C64"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C68",
+          "name": "forceCopySlotB",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C68"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C84",
+          "name": "suspensionForceLowerBound",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001C84"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C88",
+          "name": "suspensionForceLowerBoundHigh",
+          "type_guess": "uint32",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001C88"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001CDC",
+          "name": "clampThresholdScaler",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001CDC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E14",
+          "name": "averagingMode",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E14"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E38",
+          "name": "outputCopySlot0",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001E38"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E3C",
+          "name": "outputCopySlot1",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001E3C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E40",
+          "name": "outputCopySlot2",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001E40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E44",
+          "name": "outputCopySlot3",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001E44"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001EAC",
+          "name": "wheelWeightWalkSelector",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001EAC"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00447780",
+        "callee:0x00569280",
+        "callee:0x00447E00",
+        "callee:0x004471F0",
+        "callee:0x0056BDE0",
+        "callee:0x005692A0",
+        "callee:0x00569410",
+        "callee:0x00441450",
+        "caller:0x004EF5A0",
+        "field:this:0x000000D0",
+        "field:this:0x00000348",
+        "field:this:0x000003EC",
+        "field:this:0x000007AC",
+        "field:this:0x00000C10",
+        "field:this:0x00001074",
+        "field:this:0x000015AC",
+        "field:this:0x000015B0",
+        "field:this:0x000015F0",
+        "field:this:0x00001C5C",
+        "field:this:0x00001C60",
+        "field:this:0x00001C64",
+        "field:this:0x00001C68",
+        "field:this:0x00001C84",
+        "field:this:0x00001C88",
+        "field:this:0x00001CDC",
+        "field:this:0x00001E14",
+        "field:this:0x00001E38",
+        "field:this:0x00001E3C",
+        "field:this:0x00001E40",
+        "field:this:0x00001E44",
+        "field:this:0x00001EAC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PhysicsSharedState",
+      "responsibility": "Shared physics-state block owned through the VehicleSuspension pointer at +0x15F0. Carries a 0x48-byte transform region (evidence points at +0x2C and +0x44) and the suspension weight double at +0x5C. The block is copied wholesale into each active sub-object during the two-pass integration.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x0000002C",
+          "name": "transformBlockPart0",
+          "type_guess": "float[3]",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x0000002C"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x00000044",
+          "name": "transformBlockPart1",
+          "type_guess": "float[3]",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x00000044"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x0000005C",
+          "name": "suspensionWeight",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x0000005C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:this:0x000015F0",
+        "field:*(this+0x15F0):0x0000002C",
+        "field:*(this+0x15F0):0x00000044",
+        "field:*(this+0x15F0):0x0000005C"
+      ]
+    },
+    {
+      "name": "CollisionShape",
+      "responsibility": "Collision shape container shared by CollisionShapeInit (0x004492B0) and PhysicsBufferFree (0x00449340). Zeroed dwords at +0x0 and +0x4, a physics buffer pointer at +0x8 freed through a 4-byte allocation header, and two optional physics sub-component pointers at +0xC and +0x10 that are destroyed and freed. Constructed from BezierPatchTessellation, CollisionGeometryOperationSelector and SceneTrackFileLoader paths.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004492B0",
+        "0x00449340"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "state0",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "state4",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "bufferPtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "subComponentPtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "subComponentPtr2",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004492B0",
+        "function:0x00449340",
+        "callee:0x00587BCF",
+        "callee:0x00448570",
+        "caller:0x0044B370",
+        "caller:0x0044BB60",
+        "caller:0x0044C0E0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010"
+      ]
+    },
+    {
+      "name": "CollisionContactContainer",
+      "responsibility": "Receiver of CollisionContactResponse (0x00449700). Contact pair count at +0x0, the 32-byte-stride contact pair array at +0x8, and two collision tree roots at +0xC and +0x10. The response blends pair node masses with the 0.5 factor from global 0x0059E880, propagates the blended masses through the second tree, and interpolates each pair's vertex triples.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00449700"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "pairCount",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "contactPairArray",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "collisionTreeRootA",
+          "type_guess": "CollisionTreeNode*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "collisionTreeRootB",
+          "type_guess": "CollisionTreeNode*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00449700",
+        "callee:0x00448DA0",
+        "callee:0x00448DE0",
+        "callee:0x00448480",
+        "global:0x0059E880",
+        "guard:0",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010"
+      ]
+    },
+    {
+      "name": "CollisionObject",
+      "responsibility": "Collision object initialized by CollisionObjectInit (0x0044A430). Zeroed dwords at +0x0, +0x4 and +0xC with 16-bit sentinel words -3 at +0x8 and -1 at +0xA. Constructed from 0x0044BC50 and HTreeTerrainFileFormatLoader (0x0044BE70).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0044A430"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "field0",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "field4",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "sentinelWordA",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000A",
+          "name": "sentinelWordB",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000A"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "fieldC",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0044A430",
+        "caller:0x0044BC50",
+        "caller:0x0044BE70",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000A",
+        "field:this:0x0000000C"
+      ]
+    },
+    {
+      "name": "CollisionTreeNode",
+      "responsibility": "Collision-tree node receiver shared by CollisionTreeNodeDeserializer (0x0044A700) and CollisionTreeNodeCleanup (0x0044C470). Two owned allocations at +0x0 and +0x4 (the second carries a 4-byte header before the stored pointer), a node-type word at +0x8, a subtype byte at +0xA, a child-slot/vertex arena pointer at +0xC, six scalar fields at +0x10..+0x1C, and a trailing 0x1000-byte block at +0x28.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0044A700",
+        "0x0044C470"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "allocationPtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "allocationHeaderPtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "nodeType",
+          "type_guess": "int16",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000A",
+          "name": "subtypeByte",
+          "type_guess": "uint8",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000A"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "childSlotOrVertexArena",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "scalarField10",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "scalarField14",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "scalarField18",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "scalarField1C",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0044A700",
+        "function:0x0044C470",
+        "callee:0x00566C00",
+        "callee:0x00449F60",
+        "callee:0x00587BCF",
+        "caller:0x0044C0E0",
+        "caller:0x004CFED0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000A",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionGrid",
+      "responsibility": "Collision grid description receiver of CollisionGridRaycast32x32 (0x0044BA40). Grid data pointer at +0x4, world center X at +0x8 and Z at +0x18, axis scales at +0x10 (X) and +0x20 (Z). The query rasterizes the grid into a 32x32 cell array whose output pointers are stored at this+40.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0044BA40"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "gridDataPtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "centerX",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "scaleX",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "centerZ",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "scaleZ",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0044BA40",
+        "callee:0x0044A880",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "global:0x0059E880",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionGeometryPipeline",
+      "responsibility": "Pipeline dispatcher CollisionGeometryOperationSelector (0x0044BB60) over the global collision-geometry handle 0x008AFE88. Selects among animation-only, animation+contact+sweep, and full bezier-tessellation pipelines on the operation id; every path converges on SweepAndPruneAABBOverlapDetection over the a3 output pointer. No receiver fields are evidenced on this object.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0044BB60"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0044BB60",
+        "global:0x008AFE88",
+        "callee:0x0044ACB0",
+        "callee:0x00449700",
+        "callee:0x004497E0",
+        "callee:0x004492B0",
+        "callee:0x0044B370",
+        "callee:0x00449340",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionInitDelegate",
+      "responsibility": "Collision-system initialization delegate CollisionInitDelegator (0x0044C5F0): invokes the init routine at global 0x0044C600 and normalizes its boolean result through BooleanToIntConversion. Distinct from the nullsub-based registration hooks because it actually invokes its target.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0044C5F0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0044C5F0",
+        "global:0x0044C600",
+        "callee:0x00587B3E",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionRegistrationHooks",
+      "responsibility": "Synthetic grouping (GUESS) of the 30 registration thunks that share an identical body: read a stored null-subroutine global, cast it to int, pass it to BooleanToIntConversion (0x00587B3E) and return the integer result. Each global has no static writers, so the real handlers are installed at runtime. Whether these are methods of one class or 30 independent global hooks is unknown; the grouping captures the shared pattern only.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00449A00",
+        "0x0044C650",
+        "0x0044C6B0",
+        "0x0044C770",
+        "0x0044C830",
+        "0x0044C890",
+        "0x0044C950",
+        "0x0044CA10",
+        "0x0044CB30",
+        "0x0044CB90",
+        "0x0044CBF0",
+        "0x0044CC50",
+        "0x0044CCB0",
+        "0x0044CD10",
+        "0x0044CD70",
+        "0x0044CDD0",
+        "0x0044CE30",
+        "0x0044CEF0",
+        "0x0044CFB0",
+        "0x0044D010",
+        "0x0044D0D0",
+        "0x0044D190",
+        "0x0044D2B0",
+        "0x0044D310",
+        "0x0044D370",
+        "0x0044D430",
+        "0x0044D490",
+        "0x0044D4F0",
+        "0x0044D550",
+        "0x0044D5B0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "callee:0x00587B3E",
+        "global:0x00449A10",
+        "global:0x0044C660",
+        "global:0x0044C6C0",
+        "global:0x0044C780",
+        "global:0x0044C840",
+        "global:0x0044C8A0",
+        "global:0x0044C960",
+        "global:0x0044CA20",
+        "global:0x0044CB40",
+        "global:0x0044CBA0",
+        "global:0x0044CC00",
+        "global:0x0044CC60",
+        "global:0x0044CCC0",
+        "global:0x0044CD20",
+        "global:0x0044CD80",
+        "global:0x0044CDE0",
+        "global:0x0044CE40",
+        "global:0x0044CF00",
+        "global:0x0044CFC0",
+        "global:0x0044D020",
+        "global:0x0044D0E0",
+        "global:0x0044D1A0",
+        "global:0x0044D2C0",
+        "global:0x0044D320",
+        "global:0x0044D380",
+        "global:0x0044D440",
+        "global:0x0044D4A0",
+        "global:0x0044D500",
+        "global:0x0044D560",
+        "global:0x0044D5C0",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [],
+  "interfaces": [
+    {
+      "name": "CollisionRegistrationChannel",
+      "purpose": "The shared registration helper 0x00587B3E receives function-pointer globals and yields an integer status; the 30 registration thunks and the CollisionInitDelegate all route through it. Packet operations disagree on the helper's semantics: 0x0044CDD0, 0x0044CFB0 and 0x0044D010 describe it as a critical-section-guarded global registration list returning 0 on success / -1 on failure, while 0x0044CEF0, 0x0044D190 and 0x0044D310 describe boolean-to-int normalization. The call shape is uniform; the exact contract is unresolved.",
+      "functions": [
+        "0x00587B3E"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587B3E",
+        "global:0x0044CDE0",
+        "global:0x0044CFC0",
+        "global:0x0044D020",
+        "global:0x0044CF00",
+        "global:0x0044D1A0",
+        "global:0x0044D320",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AllocatorContract",
+      "purpose": "Free wrapper FreeWrapper_7bcf (0x00587BCF) releases the collision shape buffer (through its header), the shape sub-component buffers, and the two collision-tree node allocations. Every free in this scope goes through this single wrapper.",
+      "functions": [
+        "0x00587BCF"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "PhysicsSubObjectMath",
+      "purpose": "Math helpers used by the suspension sub-object integration pass: zeroing (sub_56BDE0, 0x0056BDE0), body-space inertia-tensor transform (F_3x3InertiaTensorTransform, 0x005692A0) and world-space inertia-tensor transform (InertiaTensorWorldSpaceTransform, 0x00569410).",
+      "functions": [
+        "0x0056BDE0",
+        "0x005692A0",
+        "0x00569410"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0056BDE0",
+        "callee:0x005692A0",
+        "callee:0x00569410"
+      ]
+    },
+    {
+      "name": "CopyStructContract",
+      "purpose": "Copy6DwordsToStructCall (0x00569280) copies the 24-byte suspension input state into each physics sub-object block and into zeroed scratch during the input-propagation loop of SuspensionForceUpdate.",
+      "functions": [
+        "0x00569280"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00569280"
+      ]
+    },
+    {
+      "name": "CollisionTraversal",
+      "purpose": "Collision tree and contact math used by CollisionContactResponse: tree traversal (CollisionTreeTraversal, 0x00448DA0), mass propagation through the physics tree (PhysicsTreeMassPropagation, 0x00448DE0) and weighted-average interpolation over contact node triples (WeightedAverageInterpolation, 0x00448480).",
+      "functions": [
+        "0x00448DA0",
+        "0x00448DE0",
+        "0x00448480"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00448DA0",
+        "callee:0x00448DE0",
+        "callee:0x00448480"
+      ]
+    },
+    {
+      "name": "PhysicsSubComponentContract",
+      "purpose": "PhysicsSubComponentDestroy (0x00448570) tears down the physics sub-components referenced by CollisionShape at +0xC and +0x10 during PhysicsBufferFree.",
+      "functions": [
+        "0x00448570"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00448570"
+      ]
+    },
+    {
+      "name": "FileReadContract",
+      "purpose": "FileWriteWithBackendDispatch (0x00566C00) performs the raw file reads that CollisionTreeNodeDeserializer guards on (4-byte header reads, a 1-byte type read and a 1-byte subtype read), each requiring the exact expected byte count.",
+      "functions": [
+        "0x00566C00"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566C00"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "SessionStateTransition",
+      "to": "VehicleSuspension",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004EF5A0"
+      ]
+    },
+    {
+      "from": "VehicleSuspension",
+      "to": "CopyStructContract",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00569280"
+      ]
+    },
+    {
+      "from": "VehicleSuspension",
+      "to": "PhysicsSubObjectMath",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0056BDE0",
+        "callee:0x005692A0",
+        "callee:0x00569410"
+      ]
+    },
+    {
+      "from": "VehicleSuspension",
+      "to": "PhysicsSubObjectFree",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00441450"
+      ]
+    },
+    {
+      "from": "VehicleSuspension",
+      "to": "SuspensionVibration",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004471F0"
+      ]
+    },
+    {
+      "from": "VehicleSuspension",
+      "to": "PositionLapStateUpdate",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00447E00"
+      ]
+    },
+    {
+      "from": "BezierPatchTessellation",
+      "to": "CollisionShape",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0044B370"
+      ]
+    },
+    {
+      "from": "CollisionGeometryPipeline",
+      "to": "CollisionShape",
+      "kind": "creates",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0044BB60",
+        "callee:0x004492B0",
+        "callee:0x00449340"
+      ]
+    },
+    {
+      "from": "SceneTrackFileLoader",
+      "to": "CollisionShape",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0044C0E0"
+      ]
+    },
+    {
+      "from": "CollisionGeometryPipeline",
+      "to": "CollisionContactContainer",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00449700"
+      ]
+    },
+    {
+      "from": "CollisionContactContainer",
+      "to": "CollisionTraversal",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00448DA0",
+        "callee:0x00448DE0",
+        "callee:0x00448480"
+      ]
+    },
+    {
+      "from": "CollisionGeometryPipeline",
+      "to": "AnimationPlaybackSequence",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0044ACB0"
+      ]
+    },
+    {
+      "from": "CollisionGeometryPipeline",
+      "to": "BezierPatchTessellation",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0044B370"
+      ]
+    },
+    {
+      "from": "CollisionGeometryPipeline",
+      "to": "SweepAndPruneOverlapDetection",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004497E0"
+      ]
+    },
+    {
+      "from": "CollisionShape",
+      "to": "AllocatorContract",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "CollisionShape",
+      "to": "PhysicsSubComponentContract",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00448570"
+      ]
+    },
+    {
+      "from": "CollisionTreeNode",
+      "to": "FileReadContract",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566C00"
+      ]
+    },
+    {
+      "from": "CollisionTreeNode",
+      "to": "IndexedVertexLookupFromStream",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00449F60"
+      ]
+    },
+    {
+      "from": "CollisionTreeNode",
+      "to": "CollisionTreeNode",
+      "kind": "recursion",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0044A700"
+      ]
+    },
+    {
+      "from": "CollisionTreeNode",
+      "to": "AllocatorContract",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "SceneTrackFileLoader",
+      "to": "CollisionTreeNode",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0044C0E0"
+      ]
+    },
+    {
+      "from": "SpecialFX_Post",
+      "to": "CollisionTreeNode",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004CFED0"
+      ]
+    },
+    {
+      "from": "CollisionGrid",
+      "to": "0x0044A880",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0044A880"
+      ]
+    },
+    {
+      "from": "SceneTrackFileLoader",
+      "to": "CollisionGrid",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0044C0E0"
+      ]
+    },
+    {
+      "from": "0x0044BC50",
+      "to": "CollisionObject",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0044BC50"
+      ]
+    },
+    {
+      "from": "HTreeTerrainFileFormatLoader",
+      "to": "CollisionObject",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0044BE70"
+      ]
+    },
+    {
+      "from": "CollisionInitDelegate",
+      "to": "CollisionRegistrationChannel",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587B3E"
+      ]
+    },
+    {
+      "from": "CollisionRegistrationHooks",
+      "to": "CollisionRegistrationChannel",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587B3E"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "SuspensionSubObjectLayout",
+      "category": "memory_layout",
+      "description": "VehicleSuspension holds the sub-object count at +0x15AC, the input-propagation array at +0x15B0 (stride 580, 24-byte input copied into each block's +100) and the integration array at +0x3EC (stride 1124). The active flag at +0xD0 is reset to 0 before the integration pass. A replacement must preserve these counts, strides and per-block offsets.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x000015AC",
+        "field:this:0x000015B0",
+        "field:this:0x000003EC",
+        "field:this:0x000000D0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SuspensionForceOutputLayout",
+      "category": "memory_layout",
+      "description": "The finalized suspension force double lives at +0x1C5C/+0x1C60 and is mirrored into +0x1C64/+0x1C68 and +0x1E38..+0x1E44. The lower bound is read from +0x1C84/+0x1C88, the clamp threshold scalar from +0x1CDC, the averaging-mode selector from +0x1E14 and the wheel-weight walk selector from +0x1EAC. Any consumer of the suspension output reads these slots.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00001C5C",
+        "field:this:0x00001C60",
+        "field:this:0x00001C64",
+        "field:this:0x00001C68",
+        "field:this:0x00001E38",
+        "field:this:0x00001E3C",
+        "field:this:0x00001E40",
+        "field:this:0x00001E44",
+        "field:this:0x00001C84",
+        "field:this:0x00001C88",
+        "field:this:0x00001CDC",
+        "field:this:0x00001E14",
+        "field:this:0x00001EAC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PhysicsSharedStateBlock",
+      "category": "memory_layout",
+      "description": "The shared physics state at this+0x15F0 contains a 0x48-byte transform region (evidence points at +0x2C and +0x44) and the suspension weight double at +0x5C. The transform and 24-byte inertia block are propagated into each active sub-object during integration; a replacement must reproduce the block contents that the sub-object nodes consume.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x000015F0",
+        "field:*(this+0x15F0):0x0000002C",
+        "field:*(this+0x15F0):0x00000044",
+        "field:*(this+0x15F0):0x0000005C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionShapeLayout",
+      "category": "memory_layout",
+      "description": "CollisionShape: zeroed dwords at +0x0 and +0x4, physics buffer pointer at +0x8 freed through a 4-byte allocation header, and optional sub-component pointers at +0xC and +0x10 destroyed via PhysicsSubComponentDestroy and freed. Init clears +0x8/+0xC/+0x10; teardown frees and nulls all buffer slots.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "callee:0x00587BCF",
+        "callee:0x00448570",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionContactContainerLayout",
+      "category": "memory_layout",
+      "description": "CollisionContactContainer: contact pair count at +0x0, 32-byte-stride pair array at +0x8, two collision tree roots at +0xC and +0x10. The response traverses both roots, blends pair masses with the 0.5 factor from global 0x0059E880, propagates via the second tree root and interpolates each pair's node triples.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "global:0x0059E880",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionObjectLayout",
+      "category": "memory_layout",
+      "description": "CollisionObject initializer writes zeroed dwords at +0x0, +0x4 and +0xC and the 16-bit sentinels -3 at +0x8 and -1 at +0xA. A replacement collision object must start in this state.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000A",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionTreeNodeLayout",
+      "category": "memory_layout",
+      "description": "CollisionTreeNode: owned allocations at +0x0 and +0x4 (the second freed through a 4-byte header at ptr-4), node-type word at +0x8, subtype byte at +0xA, child-slot/vertex arena pointer at +0xC, six scalar fields at +0x10..+0x1C, and a trailing 0x1000-byte block at +0x28. Cleanup frees both allocations, zeroes +0x8..+0x1C and memsets the trailing block.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000A",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionGridLayout",
+      "category": "memory_layout",
+      "description": "CollisionGrid: grid data pointer at +0x4, world center X at +0x8 and Z at +0x18, axis scales at +0x10 (X) and +0x20 (Z). The raycast produces a flat 32x32 output pointer array at this+40; each entry is the per-cell query result of sub_44A880.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "callee:0x0044A880",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionGeometryPipelineDispatch",
+      "category": "behavioral",
+      "description": "CollisionGeometryOperationSelector dispatches on the global geometry handle 0x008AFE88 and the operation id a2: null handle runs only the final sweep-and-prune on a3; a2==0 runs animation playback only; a2==1 runs animation, contact response and sweep; a2==2 runs shape init, animation, contact response, bezier tessellation, buffer free and sweep. Every path returns the sweep-and-prune result on a3.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFE88",
+        "callee:0x0044ACB0",
+        "callee:0x00449700",
+        "callee:0x004497E0",
+        "callee:0x004492B0",
+        "callee:0x0044B370",
+        "callee:0x00449340",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RegistrationHookStatus",
+      "category": "behavioral",
+      "description": "The 30 registration thunks and the init delegate all return the integer produced by BooleanToIntConversion (0x00587B3E) over a stored function-pointer global. Whether that integer is a registered/not-registered status (0/-1) or a boolean normalization is contested inside the packet's own operations and left unresolved; the uniform call shape is the only hard requirement.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x00587B3E",
+        "global:0x00449A10",
+        "global:0x0044C600",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "No receiver class identity is proven for any function; every owner is UnknownObject in the source packet and every class name here is a DERIVED/GUESS grouping of shared offset and call patterns.",
+    "CollisionRegistrationHooks groups 30 functions with an identical body into one class, but whether they are methods of a single class or 30 independent global hooks is unknown; the grouping captures the shared BooleanToIntConversion(global) pattern only.",
+    "The packet's own operations disagree on BooleanToIntConversion (0x00587B3E) semantics: 0x0044CDD0, 0x0044CFB0 and 0x0044D010 describe a critical-section-guarded global registration list returning 0 on success / -1 on failure, while 0x0044CEF0, 0x0044D190 and 0x0044D310 describe boolean-to-int normalization; 0x0044C950, 0x0044CB30, 0x0044CC50 and 0x0044CD10 further note that whether the helper invokes the pointer or merely converts its value is unevidenced.",
+    "All nullsub globals (0x00449A10..0x0044D5C0) have no static writers; their real callback handlers are installed at runtime by registration code outside this scope.",
+    "SuspensionForceUpdate: six double globals (0x0059E430, 0x0059E880, 0x0059EB28, 0x0059EB50, 0x0059EC70, 0x0059EEF0) are flagged read but appear nowhere as named symbols in the body; they are presumably consumed inside inlined arithmetic or a callee, and their exact read site is unresolved.",
+    "SuspensionForceUpdate field this+0x450 is flagged read but no visible access appears in the decompiled body.",
+    "The wheel-weight array base at this+7856 (0x1EB0) is read by SuspensionForceUpdate but is not present in the packet field list, so no field entry could be produced for it.",
+    "SuspensionForceUpdate sub-object internal layout (24-byte input copied to block +100 at stride 580; node offsets +28/+124 at stride 1124) is DERIVED from operation text and has no field evidence refs.",
+    "The SuspensionForceUpdate return value is the loop decrement (v32 - 1, i.e. 1 after the two-pass loop), so it is a constant rather than a meaningful status.",
+    "CollisionShapeInit: the exact roles of the cleared fields at 0x8, 0xC and 0x10 (buffer pointer, bounds, flags) are DERIVED prose, not packet evidence; PhysicsBufferFree is called with no explicit argument, so its association with this shape object's buffer is unproven.",
+    "PhysicsBufferFree: why the +0x8 buffer is freed through an allocation header (result-4) while the +0xC and +0x10 buffers are freed directly is unexplained; whether the sub-component buffers are separately allocated or owned inside the +0x8 allocation is unknown.",
+    "CollisionContactResponse: exact meaning of the +16/+4 double offsets on the per-node objects depends on the unknown collision/physics node layout; the unit of the 0.5 blend constant from global 0x0059E880 (mass vs other scalar) is not determinable here.",
+    "PhysicsDataRegistrationBlock (0x00449A00): why the address of sub_449A10 is coerced to int and converted to boolean is not visible; sub_449A10's own behavior is out of packet scope and no callers are recorded.",
+    "CollisionObjectInit: the meaning of the -3/-1 word sentinels at +0x8/+0xA is not interpreted.",
+    "CollisionTreeNodeDeserializer: the a2 arena cursor block layout (indices 7, 9, 10, 12) and the exact meaning of the offset-8 type byte are imposed by the terrain-file format owned by the caller; the relationship between the 92-byte leaf stride and the 16-byte internal child stride is presumed from offsets and unconfirmed; the (int)a2 vertex-count path for negative types other than -1/-2 is decompiler-derived.",
+    "CollisionGridRaycast32x32: the layout and semantics of the structure sub_44A880 returns per cell are unknown; global constant roles (0x0059E420, 0x0059E430, 0x0059E880 as 1.0/0.0/0.5) are inferred from source literals and not independently verified; the output array at this+40 has no field evidence ref.",
+    "CollisionGeometryOperationSelector: the nature of the a3 pointer is not established; the semantic meaning of operation ids 0/1/2 comes from existing analysis prose and is not independently provable; the v6 shape-buffer element layout passed to CollisionShapeInit/PhysicsBufferFree is not described.",
+    "CollisionTreeNodeCleanup: the free of v2 - 4 implies the allocation at this+0x4 carries a 4-byte header whose layout is not visible; the element type and purpose of the trailing 0x1000-byte block at this+0x28 are unknown; the template prelabel ctor_init conflicts with the observed free/zero cleanup shape.",
+    "CollisionInitDelegator (0x0044C5F0): whether sub_44C600 is a direct function address or an indirect call target is unresolved; the calling context that triggers collision initialization is not visible.",
+    "Registration stubs (CollisionInitRegistration, ThunkCollisionInitA/B, CollisionInitWrapper, CollisionSoundUnregister, CollisionStaticDataRegistration, CollisionGridFreeA/B, CollisionModuleRegisterA/B, CollisionDataRegistrationBlock1/2, CollisionCallbackRegistration, CollisionResourceRelease, CollisionConstructorThunk, CollisionInitDelegator variants): each wrapped nullsub is an empty stub with no body, so the intended behavior is unrecoverable from this packet; the init/teardown/register intent is carried only by the canonical/abi names (LEGACY trust).",
+    "CollisionDataTeardown (0x0044C6B0) and CollisionDataTeardown2 (0x0044CE30): whether the wrapped no-op intentionally performs no teardown or is an unimplemented stub cannot be decided from this packet.",
+    "Several duplicate-named thunks (two CollisionInitRegistration, two CollisionCallbackRegistration, two CollisionStaticDataRegistration, two CollisionResourceRelease, two CollisionConstructorThunk) likely represent the same registration slots reached from different call sites, but no packet evidence proves they are the same hook or separate hooks.",
+    "The registration thunks 0x0044D430, 0x0044D4F0 and 0x0044D550 carry legacy names (CollisionResourceRelease30, CollisionConstructorThunk_d4f0, CollisionInitDelegator_d550) that the packet flags as unverified."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E430",
+    "global:0x0059E880",
+    "global:0x0059EB28",
+    "global:0x0059EB50",
+    "global:0x0059EC70",
+    "global:0x0059EEF0",
+    "field:this:0x00000450"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

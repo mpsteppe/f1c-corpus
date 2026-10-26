@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051B37D
+// Canonical corpus name: PlaneVisibilityTestWithBitfieldOutput
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/PlaneVisibilityTestWithBitfieldOutput_0051b37d.c
+
+void UnknownObject::PlaneVisibilityTestWithBitfieldOutput()
+{
+    // Tests one visibility bit per plane sub-block from a bitstream and ORs a mask into caller-supplied 16-bit visibility bitfield output words. Uses a decode-state object (this+0x194) holding a bit accumulator, bit count, and a block counter, plus a bitstream reader helper that refills on exhaustion. Writes a bit into each output word when the corresponding bit is set, then persists the decode state.
+    // ASSIGNMENT: Load decode state: v3 = a1[101] (pointer to bit-decode state, this+0x194) and v18 = 1 << a1[93] (output mask built from the shift count at this+0x174). [field:this:0x00000194, field:this:0x00000174, source:raw]
+    // GUARD: Guard guard:0: when a1[63] (this+0xFC) is zero the counter-reset path is skipped; otherwise, when the block counter v3[13] (this+0x1C8) is zero, call CounterUpdateWithZero (0x0051AEFC) to reset counters, returning 0 if the reset fails. [guard:0, field:this:0x000000FC, field:this:0x000001C8, callee:0x0051AEFC, source:raw]
+    // GUARD: Guard guard:1: when the plane-bit count a1[79] (this+0x13C) is <= 0, the per-plane loop is skipped entirely. [guard:1, field:this:0x0000013C, source:raw]
+    // ASSIGNMENT: Snapshot stream and counter state: v11/v12 from a1[5] (buffer pointer at this+0x14 and trailing word at this+0x18), v13 = a1[94] (this+0x178 counter), v7 = v3[4] (bit accumulator, this+0x1A4), v8 = v3[5] (bit count, this+0x1A8). [field:this:0x00000014, field:this:0x00000018, field:this:0x00000178, field:this:0x000001A4, field:this:0x000001A8, source:raw]
+    // LOOP: Loop v19 from 0 while v19 < a1[79] (this+0x13C): load the output word pointer v9 = a2 + 4*v19; when the bit count v8 < 1 refill through sub_51A794 (0x0051A794), returning 0 on failure; then test the current bit ((v7 >> --v8) & 1) and OR the mask v18 into *v9 when the bit is set. [field:this:0x0000013C, field:this:0x000001A4, field:this:0x000001A8, callee:0x0051A794, source:raw]
+    // ASSIGNMENT: Persist state on exit: restore a1[5] and a1[5]+4 (this+0x14, this+0x18) from v11/v12, a1[94] (this+0x178) from v13, decrement the block counter v3[13] (this+0x1C8), and store v7/v8 back into v3[4]/v3[5] (this+0x1A4, this+0x1A8). [field:this:0x00000014, field:this:0x00000018, field:this:0x00000178, field:this:0x000001C8, field:this:0x000001A4, field:this:0x000001A8, source:raw]
+    // RETURN: Return 1 on success; return 0 only when the counter reset or a bitstream refill fails. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   st = *(a1 + 101);                   // decode state, this+0x194
+    //   mask = 1 << a1[93];                 // this+0x174
+    //   if (a1[63] != 0 && st[13] == 0 && !CounterUpdateWithZero(a1)) return 0;
+    //   if (a1[79] <= 0) { save; return 1; }
+    //   bp = *(a1[5]); bq = *(a1[5] + 4); ctr = a1[94];
+    //   bits = st[4]; nbits = st[5];
+    //   for (i = 0; i < a1[79]; i++) {
+    //     w = *(WORD**)(a2 + 4*i);
+    //     if (nbits < 1) { if (!sub_51A794(&bp, bits, nbits, 1)) return 0; bits = v14; nbits = v15; }
+    //     if (((bits >> --nbits) & 1) != 0) *w |= mask;
+    //   }
+    //   *(a1[5]) = bp; *(a1[5] + 4) = bq; a1[94] = ctr;
+    //   st[13]--; st[4] = bits; st[5] = nbits;
+    //   return 1;
+    // UNRESOLVED: a2 points to an array of 16-bit output word pointers indexed by v19; which plane each bit maps to is caller-defined and not visible here.
+    // UNRESOLVED: The CounterUpdateWithZero (0x0051AEFC) reset behavior beyond the boolean result is not documented in this function.
+    // UNRESOLVED: The exact sub-block/plane grouping the visibility bits encode is not recoverable from this function alone.
+}

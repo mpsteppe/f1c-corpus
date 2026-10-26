@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "address": "0x0058B465",
+  "proposed_name": "CharToLowercaseWithLocale",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Converts one character to lowercase. When the locale flag dword_8D3F38 is non-zero it takes a thread-safe path: interlocked ref-counting on dword_8D5A5C, optionally entering a critical section when dword_8D5A58 is set, then delegates to the locale-aware conversion sub_58B4D4. Otherwise it applies a simple ASCII conversion, adding 32 for any char in 'A'..'Z' and returning the input unchanged for everything else.",
+  "local_names": {
+    "CharType": "input character code",
+    "v1": "flag set when the critical section is entered and must be left",
+    "result": "fallback return value (the unchanged input) on the ASCII path",
+    "CharTypea": "converted character returned by the locale-aware path"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize v1 = 0 (critical section not yet entered).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on locale flag dword_8D3F38 (0x008D3F38): non-zero selects the locale-aware conversion path, zero selects the simple ASCII path.",
+      "evidence_refs": ["global:0x008D3F38", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Take a reference on the interlocked counter: InterlockedIncrement(&dword_8D5A5C) via the function pointer at 0x0059E238, mutating dword_8D5A5C (0x008D5A5C).",
+      "evidence_refs": ["global:0x0059E238", "global:0x008D5A5C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the thread-refcount flag dword_8D5A58 (0x008D5A58); only when set is the critical section entered.",
+      "evidence_refs": ["global:0x008D5A58", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the reference taken above: InterlockedDecrement(&dword_8D5A5C) via the function pointer at 0x0059E234.",
+      "evidence_refs": ["global:0x0059E234", "global:0x008D5A5C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Enter the critical section with identifier 19 via CriticalSectionLazyInitEnter (0x0058DFEA).",
+      "evidence_refs": ["callee:0x0058DFEA", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set v1 = 1 so the critical section is left at the end of the locale path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Run the locale-aware lowercase conversion sub_58B4D4 (0x0058B4D4) on CharType and store the result as CharTypea.",
+      "evidence_refs": ["callee:0x0058B4D4", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Balance the earlier critical-section decision: when v1 is set leave the section, otherwise release the interlocked reference again.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Leave the critical section via CritSectLeave (0x0058E04B) with identifier 19.",
+      "evidence_refs": ["callee:0x0058E04B", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the interlocked reference via InterlockedDecrement(&dword_8D5A5C) using the function pointer at 0x0059E234.",
+      "evidence_refs": ["global:0x0059E234", "global:0x008D5A5C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return CharTypea, the locale-aware conversion result.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "ASCII path guard: return CharType + 32 only when CharType is in the uppercase range 65..90 ('A'..'Z').",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "ASCII lowercase conversion: CharType + 32 for an uppercase input.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the unchanged input CharType when it is outside the uppercase range on the ASCII path.",
+      "evidence_refs": ["function:0x0058B465", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Used as a shared character normalizer by sub_5645A0 (0x005645A0), sub_566810 (0x00566810) and sub_58BCCF (0x0058BCCF).",
+      "evidence_refs": ["caller:0x005645A0", "caller:0x00566810", "caller:0x0058BCCF", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_58B465(int CharType) {",
+    "  int v1 = 0;",
+    "  if (dword_8D3F38) {",
+    "    InterlockedIncrement(&dword_8D5A5C);",
+    "    if (dword_8D5A58) {",
+    "      InterlockedDecrement(&dword_8D5A5C);",
+    "      CriticalSectionLazyInitEnter(19);",
+    "      v1 = 1;",
+    "    }",
+    "    int CharTypea = sub_58B4D4(CharType);",
+    "    if (v1) CritSectLeave(19);",
+    "    else InterlockedDecrement(&dword_8D5A5C);",
+    "    return CharTypea;",
+    "  }",
+    "  if (CharType >= 65 && CharType <= 90) return CharType + 32;",
+    "  return CharType;",
+    "}"
+  ],
+  "unresolved": [
+    "Semantics of the interlocked counter dword_8D5A5C and flag dword_8D5A58 are inferred (thread/critical-section bookkeeping) and unverified.",
+    "Critical-section identifier 19 is a literal not mapped to a named resource.",
+    "The exact locale-aware mapping performed by sub_58B4D4 is external to this function.",
+    "Cluster-copy prelabel names sub_589A35 as a structural twin, but only this function's own raw source is relied on here."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

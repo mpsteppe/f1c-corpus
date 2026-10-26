@@ -1,0 +1,7 @@
+// f1c  0x004ed1c0  size=47
+void __thiscall sub_4ED1C0(_DWORD *this, float a2)
+{
+  sub_4ED0F0((int)this, a2);
+  if ( !this[3247] )
+    sub_43EBD0(&dbl_7C7428, a2);
+}

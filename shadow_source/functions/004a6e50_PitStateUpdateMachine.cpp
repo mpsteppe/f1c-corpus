@@ -1,0 +1,65 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004A6E50
+// Canonical corpus name: PitStateUpdateMachine
+// Owner: F1CPitMachine [CONFIRMED]
+// Raw source: functions/PitStateUpdateMachine_004a6e50.c
+
+void F1CPitMachine::PitStateUpdateMachine()
+{
+    // Per-frame pit state machine dispatcher for a pit machine object. Reads the pit state at +0x184 (0 idle, 1 entering, 2 in-pit, 3 exiting, 4 post-collision) and routes: session-gated early return and collision-avoidance for states 0/4; a control-disabled collision path that forces state 4; entering-state timeout back to state 0; in-pit proximity collision that clears +0x190, transitions to state 3 and (for the active player vehicle) calls ConditionalIndexSetter(2); exiting-state pit-stop progress; and a pit-stop readiness check. A tail clears +0x1AC and notifies the session manager when the state is not 3.
+    // ASSIGNMENT: Load the pit state from this+388 (offset +0x184). [field:this:0x00000184, source:raw]
+    // GUARD: Early path for states 0 and 4: when the session tick global dword_7C5698 is non-zero, return immediately. [field:this:0x00000184, global:0x007C5698]
+    // CALL: State 4 only: run CollisionAvoidanceCheck on this object. [callee:0x004A6B80, field:this:0x00000184]
+    // GUARD: Vehicle-control-disabled path: active when the object field at +0x32C8 (deref of this+0) is zero and VehicleControlEnabled reports control disabled. [field:obj:0x000032C8, field:this:0x00000000, callee:0x004A6DB0]
+    // STATE_TRANSITION: While in pit (state +0x184 == 2), if proximity collision is detected and control is still disabled, set dword_7CE258 = 1 and notify state 4 via StateChangeNotify. [field:this:0x00000184, guard:0, callee:0x004A5FA0, callee:0x004A5C80, global:0x007CE258, field:obj:0x000032C8]
+    // STATE_TRANSITION: State 1 (entering): when session time minus the timer at +0x188 exceeds 150.0, transition back to state 0. [field:this:0x00000188, callee:0x004A5C80]
+    // STATE_TRANSITION: State 2 (in-pit): when proximity collision is detected, clear the byte at +400 (offset +0x190) and transition to state 3. [callee:0x004A5FA0, callee:0x004A5C80, field:this:0x00000190]
+    // CALL: If the active player's vehicle (dword_7C54F0[dword_7C54DC]) carries the same index as this+4, call ConditionalIndexSetter(2). [global:0x007C54F0, global:0x007C54DC, field:this:0x00000004, callee:0x004D8840]
+    // CALL: State 3 (exiting): when the byte at +400 is set, advance pit-stop progress with the session time via PitStopProgress. [callee:0x004A68B0, field:this:0x00000190]
+    // CALL: After the switch, run the pit-stop readiness check PitStopReadyCheck for states that fall through. [callee:0x004A6200]
+    // CALL: Tail: when the flag byte at +384 (offset +0x180) is set and the position-change state from PositionChangeMonitor(+12) is not 1, call sub_4A5F20. [field:this:0x00000180, callee:0x004E9630, callee:0x004A5F20]
+    // STATE_TRANSITION: Tail: when the flag byte at +428 (offset +0x1AC) is set and the state at +0x184 is not 3, clear +0x1AC and run ShortComputation_d410 on the session manager global dword_5EA510. [field:this:0x000001AC, guard:1, callee:0x0040D410, global:0x005EA510]
+
+    // Conservative worker pseudocode:
+    //   void PitStateUpdateMachine(int this, float session_time) {
+    //     int state = *(int*)(this + 388);
+    //     if (!state || state == 4) {
+    //       if (dword_7C5698) return;
+    //       if (state == 4) CollisionAvoidanceCheck(this);
+    //     }
+    //     if (!*(int*)(*(int*)this + 13000) && !VehicleControlEnabled(this)) {
+    //       if (state == 2 && VehicleProximityCollisionDetection(this) && !*(int*)(*(int*)this + 13000)) {
+    //         dword_7CE258 = 1;
+    //         StateChangeNotify(this, 4);
+    //       }
+    //       goto post;
+    //     }
+    //     switch (state) {
+    //       case 1:
+    //         if (session_time - *(float*)(this + 392) > 150.0) StateChangeNotify(this, 0);
+    //         goto post;
+    //       case 2:
+    //         if (!VehicleProximityCollisionDetection(this)) goto post;
+    //         *(byte*)(this + 400) = 0;
+    //         StateChangeNotify(this, 3);
+    //         if (*(int*)(dword_7C54F0[dword_7C54DC] + 18580) == *(int*)(this + 4)) ConditionalIndexSetter(2);
+    //         break;
+    //       case 3:
+    //         if (*(byte*)(this + 400)) { PitStopProgress(this, session_time); goto post; }
+    //         break;
+    //       default:
+    //         goto post;
+    //     }
+    //     PitStopReadyCheck(this, &session_time);
+    //   post:
+    //     if (*(byte*)(this + 384) && *(int*)(PositionChangeMonitor(*(int*)this + 12) + 300) != 1)
+    //       sub_4A5F20(this);
+    //     if (*(byte*)(this + 428) && state != 3) {
+    //       *(byte*)(this + 428) = 0;
+    //       ShortComputation_d410((int)&dword_5EA510);
+    //     }
+    //   }
+    // UNRESOLVED: flt_5ACB08 (global 0x005ACB08) is recorded as referenced but does not appear in the raw decompiled source; it was likely folded into a comparison literal. Its role as a threshold is unconfirmed.
+    // UNRESOLVED: dword_8AD298 (global 0x008AD298) is recorded as referenced but is absent from the raw decompiled source; its role here is unknown.
+    // UNRESOLVED: The object reached through this+0 (byte at offset +0x32C8 / decimal 13000) gates the control-disabled path; its identity and full layout are external to this function.
+}

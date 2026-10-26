@@ -1,0 +1,24 @@
+int __thiscall sub_4FC650(const char *this)
+{
+  const char *v2; // ebx
+  unsigned int v3; // kr04_4
+  const char *v4; // ebp
+  int result; // eax
+  int v6; // [esp+0h] [ebp-1Ch]
+  int v7; // [esp+18h] [ebp-4h]
+
+  v7 = dword_8AAE64;
+  if ( dword_83EE60 < 1023 )
+  {
+    ++dword_83EE60;
+    dword_8AAE64 += 432;
+  }
+  v2 = this + 80;
+  v3 = strlen(this + 80) + 1;
+  v4 = this + 132;
+  *(float *)&v6 = dbl_8AFEA0;
+  sub_4B33B0((_DWORD *)v7, 2, 5, strlen(v4) + 1 + v3, 255, v6, 1);
+  strcpy((char *)(v7 + 8), v2);
+  strcpy((char *)(v3 + v7 + 8), v4);
+  return result;
+}

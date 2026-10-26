@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "address": "0x0057DC10",
+  "proposed_name": "DuplicateConnectionCheckRegister",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Registers an incoming network connection after checking it for duplicates. Reads a mutex-guarded timestamp, initializes the socket from the incoming record, acquires a mutex (this[687], timeout this[688]), walks the existing connection list comparing address family/port fields through the socket address pointer at this[0xAB8], reports any duplicate via sub_57DE30 with the aDuplicateConne string, appends the new node with LinkedListNodeAppend_6000, releases the mutex, and returns 0.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "MutexGuardedTimerRead(this) reads the current timestamp into v3.",
+      "evidence_refs": ["callee:0x00584F90", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Stamp the incoming connection record a2 by writing v3 as a float at a2+44 and a2+48.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "OffsetGetter(a2) locates the socket descriptor holder; TCPSocketInit(*(_DWORD*)v5, 1) initializes the socket.",
+      "evidence_refs": ["callee:0x0057B6B0", "callee:0x0057C860", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If a mutex handle exists at this[687] (0xABC), WaitForSingleObject waits on it with timeout this[688] (0xAC0); returns 0 and 128 both count as acquired.",
+      "evidence_refs": ["field:this:0x00000ABC", "field:this:0x00000AC0", "global:0x0059E1A0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the connection list head: when this[0xAAC] is null there are no existing connections to scan, so the walk is skipped.",
+      "evidence_refs": ["field:this:0x00000AAC", "field:*(this+0xAAC):0x00000000", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the connection linked list; store the head into the traversal cursor at this[0xAB4] before each iteration.",
+      "evidence_refs": ["field:this:0x00000AB4", "field:*(this+0xAAC):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "PointerAdvance(v4) advances the incoming packet cursor to the address data used for comparison.",
+      "evidence_refs": ["callee:0x0057B6A0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the current node's socket address through the pointer at this[0xAB8] and compare family/port fields at +2/+4 and the alternate fields at +18/+20 against the incoming address.",
+      "evidence_refs": [
+        "field:*(*(this+0xAB8)+0x0):0x00000002",
+        "field:*(*(this+0xAB8)+0x0):0x00000004",
+        "field:*(*(this+0xAB8)+0x0):0x00000012",
+        "field:*(*(this+0xAB8)+0x0):0x00000014",
+        "field:*(this+0xAB8):0x00000000",
+        "field:this:0x00000AB8",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "While the current node exists and its address does not match, advance the cursor this[0xAB4] to the next node.",
+      "evidence_refs": ["field:this:0x00000AB4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On a matching duplicate, sub_57DE30(v13, aDuplicateConne) reports/logs the duplicate connection.",
+      "evidence_refs": ["callee:0x0057DE30", "global:0x005E62C8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "LinkedListNodeAppend_6000(v4, 0) appends the new connection node to the list.",
+      "evidence_refs": ["callee:0x00586000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the mutex at this[0xABC] is still held, ReleaseMutex releases it before returning.",
+      "evidence_refs": ["field:this:0x00000ABC", "global:0x0059E1A4", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 on success.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// Register an incoming connection, deduplicating against the existing list.",
+    "t = MutexGuardedTimerRead(this);",
+    "a2->time[0] = a2->time[1] = (float)t;",
+    "TCPSocketInit(*(_DWORD*)OffsetGetter(a2), 1);",
+    "acquired = this[0xABC] != 0 && WaitForSingleObject(this[0xABC], this[0xAC0]) in {0, 128};",
+    "cursor = acquired ? &this[0xAB4] : null;",
+    "while (cursor && *cursor && **cursor) {",
+    "  adv = PointerAdvance(a2);",
+    "  while (node && addr(node) != adv) node = next(node);",
+    "  if (node) sub_57DE30(node, aDuplicateConne);",
+    "}",
+    "LinkedListNodeAppend_6000(a2, 0);",
+    "if (this[0xABC]) ReleaseMutex(this[0xABC]);",
+    "return 0;"
+  ],
+  "unresolved": [
+    "sub_57DE30's exact behavior (presumed duplicate-connection diagnostic) is unverified.",
+    "The incoming connection record layout (a2) is only partially mapped; offsets 44 and 48 are float timestamps, others are unknown.",
+    "The linked list node layout (head/data/next offsets used by v9[0] and v9[2]) is inferred from the traversal, not from packet struct evidence."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

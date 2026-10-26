@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "address": "0x004FF130",
+  "proposed_name": "ParameterCurveEvaluate",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Evaluates a time-based parameter curve stored as a linked list of keyframe nodes hanging off this+0x38, using the current session time (global 0x008AFEA0): when the head node is non-null it linearly interpolates between the head and next keyframe when the current time falls inside that interval, otherwise returns the head or next keyframe value directly, all through ThresholdBasedReturn (callee 0x004FEAA0); when no curve is set it falls back to integer status codes 2-5 selected from this+0x20 and this+0x24.",
+  "local_names": {
+    "curve_head": "*(this+0x38)",
+    "keyframe_time": "*(*(this+0x38)+0x0)",
+    "keyframe_value": "*(*(this+0x38)+0x8)",
+    "keyframe_next": "*(*(this+0x38)+0xC)",
+    "fallback_value": "*(this+0x20)",
+    "fallback_threshold": "*(this+0x24)",
+    "current_time": "dbl_8AFEA0"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Load the curve chain head pointer from this+0x38; when non-null take the keyframe-evaluation path, otherwise fall back to the status-code path driven by this+0x20 and this+0x24.",
+      "evidence_refs": ["function:0x004FF130", "field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the current session time from global dbl_8AFEA0 (0x008AFEA0) into the comparison variable.",
+      "evidence_refs": ["global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Proceed along the curve only when the current time is greater than the head keyframe's time (field +0x0) AND the next keyframe node pointer (field +0xC) is non-null; otherwise fall through to returning the head's value.",
+      "evidence_refs": ["field:*(this+0x38):0x00000000", "field:*(this+0x38):0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the current time is below the next keyframe's time, enter the linear-interpolation branch; when it is at or beyond it, take the direct next-keyframe-value branch.",
+      "evidence_refs": ["field:*(this+0x38):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the interpolation fraction v5 = (currentTime - headTime) / (nextTime - headTime), clamped to 0.0 when the time span is non-positive.",
+      "evidence_refs": ["field:*(this+0x38):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Blend the head keyframe value (field +0x8) with the next keyframe's value using v5: v7 = (1.0 - v5) * headValue + v5 * nextValue.",
+      "evidence_refs": ["field:*(this+0x38):0x00000008", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Convert the interpolated float to its integer return code via ThresholdBasedReturn (callee 0x004FEAA0).",
+      "evidence_refs": ["callee:0x004FEAA0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the current time is at or beyond the next keyframe's time, return the next keyframe node's value (v2[2], +0x8 of the node reached through field +0xC) via ThresholdBasedReturn.",
+      "evidence_refs": ["callee:0x004FEAA0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When no next keyframe exists or the current time does not exceed the head's start time, return the head keyframe's value (field +0x8) via ThresholdBasedReturn.",
+      "evidence_refs": ["callee:0x004FEAA0", "field:*(this+0x38):0x00000008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Fallback path when no curve is set: if the fallback value at this+0x20 is 0.0, return status 2.",
+      "evidence_refs": ["field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Fallback path: if the threshold at this+0x24 is 0.0 return status 3; if it is >= 0.60000002 return status 5; otherwise return status 4.",
+      "evidence_refs": ["field:this:0x00000024", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the status code (2, 3, 4 or 5) selected by the fallback guards on this+0x20 / this+0x24.",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000024", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "head = *(this+0x38);",
+    "if (head) {",
+    "  t = dbl_8AFEA0;",
+    "  if (t > *(float*)head && (next = *(float**)(head+0xC)) != 0) {",
+    "    if (t < (double)*next) {",
+    "      span = *next - *(float*)head;",
+    "      f = (span <= 0.0) ? 0.0 : (t - *(float*)head) / span;",
+    "      v = (1.0 - f) * *(float*)(head+0x8) + f * next[2];",
+    "      return ThresholdBasedReturn(v);",
+    "    }",
+    "    return ThresholdBasedReturn(next[2]);",
+    "  }",
+    "  return ThresholdBasedReturn(*(float*)(head+0x8));",
+    "}",
+    "if (*(float*)(this+0x20) == 0.0) return 2;",
+    "if (*(float*)(this+0x24) == 0.0) return 3;",
+    "return (*(float*)(this+0x24) >= 0.60000002) ? 5 : 4;"
+  ],
+  "unresolved": [
+    "Globals 0x0059E43C and 0x0059E440 are listed as read by this function in the packet's global evidence but never appear in the raw Hex-Rays text; their role is unknown.",
+    "The next keyframe node's value read as v2[2] (node reached via field +0xC, value at its +0x8) has no dedicated packet field evidence ref; the closest refs describe the head node's fields.",
+    "Only one caller is known (PitRaceStatusMessageDispatcher 0x0041BE60); the owning object, call frequency and frame placement are unestablished.",
+    "ThresholdBasedReturn's exact threshold-to-code mapping is not defined by this packet.",
+    "The meaning of fallback status codes 2-5 is unknown."
+  ],
+  "unresolved_evidence_refs": ["abi:lead", "caller:0x0041BE60", "global:0x0059E43C", "global:0x0059E440"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

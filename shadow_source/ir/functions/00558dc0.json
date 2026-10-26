@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "address": "0x00558DC0",
+  "proposed_name": "WritePixelAttributeToTexture",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Guarded pixel-attribute write into a texture buffer. Only when the mode field (this+0x4C) equals 1 and the flags byte (this+0x20) is negative (bit 31 set) does it ensure the texture allocation exists via TextureAllocationWithFormatSizeFlags, then write a4 into the texture buffer at a pixel position computed from the slot index (a2), the dimension field (this+0x24), and the slot-array width. Invoked from sub_4CD8D0 and TelemetryBarIndicatorRenderer.",
+  "local_names": {
+    "mode": "mode selector field; must equal 1",
+    "flags_byte": "flags byte at +0x20; bit 31 must be set",
+    "dimension": "row/multiplier dimension used in address calc",
+    "slot_array": "pointer to slot array, stride 128, +4 = slot width",
+    "texture_context": "pointer to texture sub-context at +0x50",
+    "texture_buffer": "buffer base read via *(*(this+0x50)+0x20)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Both guards gate the write: mode (this+0x4C) must equal 1 AND the flags byte (this+0x20) must be signed-negative (bit 31 set).",
+      "evidence_refs": ["guard:0", "guard:1", "field:this:0x0000004C", "field:this:0x00000020"]
+    },
+    {
+      "kind": "call",
+      "description": "Call TextureAllocationWithFormatSizeFlags(this, 0) to ensure the texture allocation exists before writing.",
+      "evidence_refs": ["callee:0x00558D10", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read the texture buffer base pointer v5 from the texture sub-context: v5 = *(*(this+0x50)+0x20).",
+      "evidence_refs": ["field:this:0x00000050", "field:*(this+0x50):0x00000020", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard the write on v5 being non-zero before computing the destination.",
+      "evidence_refs": ["field:*(this+0x50):0x00000020", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the destination dword: ((a3 + (this+0x24) * slot_width) << 6) + v5 + 24, where slot_width = *(this+0x34 + (a2 << 7) + 4) (slot array stride 128, width field +4).",
+      "evidence_refs": ["field:this:0x00000024", "field:this:0x00000034", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write a4 into the computed texture-buffer destination dword.",
+      "evidence_refs": ["field:*(this+0x50):0x00000020", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (this->mode == 1 && this->flags_byte < 0) {",
+    "  TextureAllocationWithFormatSizeFlags(this, 0);",
+    "  char* buf = *(char**)(*(this + 0x50) + 0x20);",
+    "  if (buf) {",
+    "    int slot_width = *(int*)(this->slot_array + (a2 << 7) + 4);",
+    "    buf[((a3 + this->dimension * slot_width) << 6) + 24] = a4;",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "Pixel layout mapping (slot stride << 7, dimension multiply, << 6 row shift, +24 offset) is DERIVED from the decompiled expression; exact pixel format/row-pitch not grounded.",
+    "Role of the +24 dword offset inside the texture buffer (header?) not explained.",
+    "Mode enum and flags-byte bit 31 meaning not independently confirmed."
+  ],
+  "unresolved_evidence_refs": ["caller:0x004CD8D0", "caller:0x004CD980", "function:0x00558DC0"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

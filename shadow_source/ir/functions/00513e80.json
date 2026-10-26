@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "address": "0x00513E80",
+  "proposed_name": "Float3RgbTo16Bit565",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00513E80"]
+  },
+  "summary": "Converts three floats at this+0x0/+0x4/+0x8 (red, green, blue) into a packed 16-bit 5:6:5 colour. Each component is clamped to the [0,1] range, quantized to its bit depth with a +0.5 rounding offset (R and B scale by 31, G by 63), and the results are combined as (R<<11)|(G<<5)|B. A call to FPUControlWordMerger() controls the FPU rounding mode used during the float-to-int truncations.",
+  "local_names": {
+    "this": "three-float RGB source",
+    "v6": "clamped red component",
+    "v7": "clamped green component",
+    "v8": "clamped blue component",
+    "v11": "quantized red accumulator (0..31)",
+    "v9": "quantized green accumulator (0..63)",
+    "v10": "quantized blue accumulator (0..31)",
+    "v4": "truncated green quantization"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Clamp red at this+0x0: values below 0.0 are forced to 0.0, values above 1.0 are forced to 1.0, otherwise the value passes through unchanged",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp green at this+0x4: values below 0.0 are forced to 0.0, values above 1.0 are forced to 1.0, otherwise the value passes through unchanged",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp blue at this+0x8: values below 0.0 are forced to 0.0, values above 1.0 are forced to 1.0, otherwise the value passes through unchanged",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FPUControlWordMerger() establishes the FPU rounding mode before the float-to-integer quantizations; the fill ties it to the FPU control-word store at dword_8B00A0",
+      "evidence_refs": ["callee:0x00513E5D", "global:0x008B00A0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Quantize clamped red to 5 bits: floor(v6 * 31.0 + 0.5) where 31.0 is the 5-bit scale factor (flt_5ACCD0 per the fill)",
+      "evidence_refs": ["field:this:0x00000000", "global:0x005ACCD0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Quantize clamped green to 6 bits: floor(v7 * 63.0 + 0.5) where 63.0 is the 6-bit scale factor (flt_5ACCD8 per the fill)",
+      "evidence_refs": ["field:this:0x00000004", "global:0x005ACCD8", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Quantize clamped blue to 5 bits: floor(v8 * 31.0 + 0.5) using the same 5-bit scale factor as red",
+      "evidence_refs": ["field:this:0x00000008", "global:0x005ACCD0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Pack the three quantized components into one 16-bit 5:6:5 value: (blue) | ((green | (red << 6)) << 5), i.e. R occupies bits 11-15, G bits 5-10, B bits 0-4; used by TextureFilterAndLayerCompositing (005147ea)",
+      "evidence_refs": ["function:0x00513E80", "caller:0x005147EA", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "float r = clamp01(this[0]);",
+    "float g = clamp01(this[1]);",
+    "float b = clamp01(this[2]);",
+    "FPUControlWordMerger();",
+    "int r5 = (int)(r * 31.0 + 0.5);",
+    "int g6 = (int)(g * 63.0 + 0.5);",
+    "int b5 = (int)(b * 31.0 + 0.5);",
+    "return (r5 << 11) | (g6 << 5) | b5;"
+  ],
+  "unresolved": [
+    "Three read-only globals (flt_59E43C, flt_59E440, flt_59E450) are flagged by packet facts but appear nowhere in the raw decompiled source; the fill labels them as physics contact thresholds and a degrees-to-radians constant, which look unrelated to colour quantization and cannot be verified from this packet"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

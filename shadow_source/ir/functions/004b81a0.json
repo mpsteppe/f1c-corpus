@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "address": "0x004B81A0",
+  "proposed_name": "SortedLinkedListInsert",
+  "owner": {
+    "type": "SpriteOverlayDisplayList",
+    "trust": "DERIVED",
+    "evidence_refs": ["callee:0x004B8360", "caller:0x004B9DA0", "source:raw"]
+  },
+  "summary": "Inserts a new node with a float key (from this+0xF38) into a sorted linked list of display elements, then re-sorts the whole list by float key via a split-and-merge (MergeSort_b2e0). Builds the node's label by formatting this+0x6CC + 1 into a local buffer with \"%d\" when the caller's string is empty or null. Appends the new element at the tail, walks the list to count nodes, splits it at the midpoint when count >= 2, merges the two runs in descending float-key order, re-links prev pointers, updates head/tail/end pointers (this+0x6C0/0x6C4/0x6C8), and sets the sorted/dirty flag this+0x6D0 to 1. Always returns 1.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "SpriteOverlayDisplayListCleanup() invoked unconditionally at entry before any list mutation.",
+      "evidence_refs": ["callee:0x004B8360", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when a2 is null or strlen(a2) is non-zero, format a default label \"%d\" (count this+0x6CC + 1) into the local buffer v26 via StringFormatWithBufferOverflowCheck; the format string is the packet global at 0x005C3280.",
+      "evidence_refs": ["field:this:0x000006CC", "global:0x005C3280", "callee:0x0058815F"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Allocate a 12-byte key node via OperatorNewNhMallocWrapper; store float key from this+0xF38 at node+0, zero node+4, set node+8 = -1, then copy the label string into it via StringCopyWithBufferRealloc.",
+      "evidence_refs": ["callee:0x00587C03", "field:this:0x00000F38", "callee:0x00566650"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When the key node was allocated, allocate a 16-byte list element via OperatorNewNhMallocWrapper; link the key node, zero next (+4) and prev (+8), set flag byte (+12) to 1.",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Append the new element at the list tail: if the head at this+0x6C0 is non-null, link old tail's next (this+0x6C4 node +4) to the new element and new element prev to the old tail; otherwise set head = new element and end pointer this+0x6C8 = new element. Set tail this+0x6C4 = new element and increment count this+0x6CC.",
+      "evidence_refs": ["field:this:0x000006C0", "field:this:0x000006C4", "field:this:0x000006CC", "field:*(this+0x6C0):0x00000008", "field:*(*(this+0x6C0)+0x4):0x00000004"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Walk the list from head counting nodes by following each node's next pointer (head node +4).",
+      "evidence_refs": ["field:this:0x000006C0", "field:*(this+0x6C0):0x00000004"]
+    },
+    {
+      "kind": "calculation",
+      "description": "When count >= 2, advance from head to the midpoint node and split the list by zeroing the midpoint node's next pointer; the two halves are the head run and the second run (head of which is the next node).",
+      "evidence_refs": ["field:this:0x000006C0", "field:*(this+0x6C0):0x00000004", "field:*(*(this+0x6C0)+0x4):0x00000004"]
+    },
+    {
+      "kind": "call",
+      "description": "MergeSort_b2e0 invoked on each of the two split halves to sort them by float key.",
+      "evidence_refs": ["callee:0x004BB2E0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Merge the two sorted runs by descending float key (comparison >= between first-float values); relink next pointers (+4) of second and third nodes, rewriting their prev links (+8) during re-link.",
+      "evidence_refs": ["field:*(*(this+0x6C0)+0x4):0x00000004", "field:*(*(*(this+0x6C0)+0x4)+0x4):0x00000004", "field:*(*(*(this+0x6C0)+0x4)+0x4):0x00000008"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Forward pass over the merged list re-linking each node's prev pointer (+8) to the previous node.",
+      "evidence_refs": ["field:*(this+0x6C0):0x00000008"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store merged head to list head this+0x6C0, set tail this+0x6C4 to the last merged node, store old head to this+0x6C8, and set sorted/dirty flag byte this+0x6D0 to 1.",
+      "evidence_refs": ["field:this:0x000006C0", "field:this:0x000006C4", "field:this:0x000006C8", "field:this:0x000006D0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 (always, after any list state).",
+      "evidence_refs": ["function:0x004B81A0", "abi:lead"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char sub_4B81A0(SortedList* this, const char* label) {",
+    "  SpriteOverlayDisplayListCleanup();",
+    "  if (!label || strlen(label)) { StringFormatWithBufferOverflowCheck(buf, \"%d\", this->count + 1); label = buf; }",
+    "  KeyNode* kn = OperatorNewNhMallocWrapper(12);",
+    "  if (kn) { kn->key = this->sortKey; kn->next = 0; kn->tag = -1; StringCopyWithBufferRealloc(label); }",
+    "  Element* e = 0;",
+    "  if (kn) {",
+    "    e = OperatorNewNhMallocWrapper(16);",
+    "    if (e) { e->keyNode = kn; e->next = 0; e->prev = 0; e->dirty = 1; }",
+    "  }",
+    "  if (e) {",
+    "    if (this->head) { this->tail->next = e; e->prev = this->tail; }",
+    "    else { this->head = e; this->end = e; }",
+    "    this->tail = e; ++this->count;",
+    "  }",
+    "  int n = 0;",
+    "  for (Element* p = this->head; p; p = p->next) ++n;",
+    "  if (n >= 2) {",
+    "    Element* mid = this->head;",
+    "    for (int k = n / 2 - 1; k > 0; --k) mid = mid->next;",
+    "    Element* second = mid->next;",
+    "    mid->next = 0;",
+    "    Element* a = MergeSort_b2e0(this->head);",
+    "    Element* b = MergeSort_b2e0(second);",
+    "    this->head = a ? (b ? merge(a, b) : a) : b;",
+    "  }",
+    "  Element* prev = 0;",
+    "  for (Element* p = this->head; p; p = p->next) { p->prev = prev; prev = p; }",
+    "  this->tail = prev; this->end = this->head; this->dirty = 1;",
+    "  return 1;",
+    "}"
+  ],
+  "unresolved": [
+    "Float key source this+0xF38 and the meaning of key-node tag -1 (node+8) are only read/written here, not characterized by other evidence.",
+    "The StringCopyWithBufferRealloc call site shows a single argument; the destination buffer (likely the key node's label area) is implicit in the raw decompilation.",
+    "Sort order is descending by float key based on the >= merge comparisons; no independent evidence confirms the intended ordering direction."
+  ],
+  "unresolved_evidence_refs": ["callee:0x00566650"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

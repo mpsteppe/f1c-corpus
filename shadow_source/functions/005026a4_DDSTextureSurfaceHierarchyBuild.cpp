@@ -1,0 +1,46 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005026A4
+// Canonical corpus name: DDSTextureSurfaceCreation
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/DDSTextureSurfaceCreation_005026a4.c
+
+void UnknownObject::DDSTextureSurfaceHierarchyBuild()
+{
+    // Parses a DDS buffer and builds a linked-list surface hierarchy for a mip-mapped and/or cubemap texture. Validates the buffer length (a3 >= 4, then a3-4 >= 0x7C), the DDS magic 542327876, and the pixel-format flags (dword at a2+112 masked by 0xFC00 must be 64512 for 6 cubemap faces, 0 for 1 face, else failure). Copies header fields into the root surface object (this+0xC, this+0x10, this+0x14) and searches the pixel-format table rooted at dword_5D71F8 (9-dword entries) for a matching format. For each face and each mip level it allocates an 84-byte surface sub-object via OperatorNewNhMallocWrapper, initializes it via F_7FieldInitializer, computes row stride and size from the format and current width/height, advances the data pointer and halving width/height per mip. Returns 0 on success, -2147467259 on format/length failure and -2147024882 on allocation failure.
+    // GUARD: If the DDS buffer length a3 is less than 4, return -2147467259. [source:raw]
+    // GUARD: If the first dword of the buffer does not equal 542327876 (the DDS magic), return -2147467259. [source:raw]
+    // GUARD: If the remaining header length a3-4 is less than 0x7C, return -2147467259. [source:raw]
+    // ASSIGNMENT: Copy DDS header fields into the root object: this+0xC receives the dword at a2+16, this+0x10 receives the dword at a2+12, and this+0x14 receives 1 when the signed byte at a2+10 is non-negative else the mip-count dword at a2+24, clamped to at least 1. [field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, source:raw]
+    // CALCULATION: Evaluate pixel-format flags: mask the dword at a2+112 with 0xFC00; 64512 selects 6 faces (cubemap), zero selects 1 face, and any other masked value returns -2147467259. [source:raw]
+    // CALCULATION: Read the depth/mip count from the dword at a2+28, defaulting to 1 when it is zero. [source:raw]
+    // LOOP: Walk the pixel-format table rooted at dword_5D71F8 in 9-dword entries, matching the entry whose pixel size at a2+76 is 32 and whose flag-mask comparisons at a2+80 through a2+104 succeed. [global:0x005D71F8, source:raw]
+    // CALL: Look up the format descriptor via IDToStructTableLookup and set the root type field this+0x44 to 2*(face_count==6)+3, or 4 when the format descriptor's second dword differs from 1. [callee:0x00500680, field:this:0x00000044, source:raw]
+    // GUARD: If the remaining buffer length is at least 0x400 (1024 bytes), consume 1024 bytes and continue building from the data region at a2+1152 with a2+128 as the base offset. [source:raw]
+    // LOOP: For each face and each mip level, allocate an 84-byte surface sub-object via OperatorNewNhMallocWrapper and initialize it via F_7FieldInitializer; compute the row stride from the format (block-compressed formats use 16*((width+3)>>2) or 4*((width+1)>>1), others width*(bytes_per_pixel>>3)) and the size as stride times height (block-aligned height for block formats); halve width, height and bytes-per-pixel for each successive mip level. [callee:0x00587C03, callee:0x00500F3C, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, source:raw]
+    // ASSIGNMENT: Initialize each surface object's fields: format id at offset 0x0, data pointer at 0x4, base/data-region link at 0x8, width at 0xC, height at 0x10, bytes-per-pixel/depth at 0x14, row stride at 0x30, surface size at 0x34, and zeroed flags at 0x38 and 0x3C. [field:this:0x00000000, field:this:0x00000004, field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, field:this:0x00000030, field:this:0x00000034, field:this:0x00000038, field:this:0x0000003C, source:raw]
+    // GUARD: If the remaining buffer is smaller than the computed surface size, return -2147467259; if an 84-byte sub-object allocation fails, return -2147024882. [source:raw]
+    // RETURN: Return 0 once every face and mip surface is built. [function:0x005026A4, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (a3 < 4 || *(DWORD*)a2 != 542327876 || a3-4 < 0x7C) return -2147467259;
+    //   this[3] = *(DWORD*)(a2+16); this[4] = *(DWORD*)(a2+12);
+    //   this[5] = (*(char*)(a2+10) >= 0) ? 1 : max(*(DWORD*)(a2+24), 1);
+    //   faces = ((*(DWORD*)(a2+112) & 0xFC00) == 64512) ? 6 : 1;
+    //   fmt = find_format_table_match(dword_5D71F8, a2);
+    //   if (!fmt) return -2147467259;
+    //   desc = IDToStructTableLookup(fmt);
+    //   this[17] = (faces == 6) ? 5 : 4;
+    //   for (face = 0; face < faces; ++face)
+    //     for (mip = 0; mip < depth; ++mip) {
+    //       surf = OperatorNewNhMallocWrapper(84); if (!surf) return -2147024882;
+    //       surf = F_7FieldInitializer(surf);
+    //       stride = block ? 16*((w+3)>>2) : w*(bpp>>3); size = stride * h;
+    //       if (remaining < size) return -2147467259;
+    //       data += size; remaining -= size; w >>= 1; h >>= 1; bpp >>= 1;
+    //     }
+    //   return 0;
+    // UNRESOLVED: The root header copy writes a2+16 into this+0xC and a2+12 into this+0x10, yet the mip loop treats this+0xC as width and this+0x10 as height; the exact DDS field-to-semantic mapping is not fully resolved from this function alone.
+    // UNRESOLVED: Several root object fields (data pointer 0x4, link 0x8, stride 0x30, size 0x34, flags 0x38/0x3C) have no explicit write in this decompiled body for the root object; the field evidence appears to derive from the per-level surface sub-object writes, implying root and sub-objects share a struct layout, which is not independently evidenced.
+    // UNRESOLVED: The exact format ids (for example 827611204, 844388420, 844715353, 861165636, 877942852, 894720068, 1498831189) and their block-size semantics are inferred from the stride arithmetic, not confirmed.
+    // UNRESOLVED: The table walk termination relies on the first dword of each 9-dword entry being the format id with a zero sentinel; that convention is inferred from the loop, not independently evidenced.
+}

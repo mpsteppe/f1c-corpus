@@ -1,0 +1,18 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004CE8F0
+// Canonical corpus name: sub_4CE8F0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4CE8F0_004ce8f0.c
+
+void UnknownObject::VectorFieldNonZeroCheck()
+{
+    // Returns TRUE if any of the three float fields (offsets 0x00, 0x14, 0x28, i.e. a1[0], a1[5], a1[10]) of the input struct is non-zero. Pure presence check over three float channels with no side effects; frame-path helper called by 0x004EE2D0.
+    // RETURN: Return TRUE if the float at offset 0x00 (a1[0]) is non-zero, OR the float at offset 0x14 (a1[5]) is non-zero, OR the float at offset 0x28 (a1[10]) is non-zero; otherwise return FALSE. Each channel is a dword-sized float, so indices 5 and 10 map to byte offsets 20 and 40. [field:this:0x00000000, field:this:0x00000014, field:this:0x00000028, source:raw]
+
+    // Conservative worker pseudocode:
+    //   BOOL VectorFieldNonZeroCheck(float *a1) {
+    //     return (a1[0] != 0.0f || a1[5] != 0.0f || a1[10] != 0.0f);
+    //   }
+    // UNRESOLVED: The packet lists global flt_59E440 (0x0059E440) as read, but the raw source compares against the literal 0.0; the global's role (ZeroThreshold) comes only from analysis prose and is not evidenced by the raw source.
+    // UNRESOLVED: The semantic meaning of the three channels (velocity/magnitude) is inference from analysis prose; the raw source only grounds three non-zero float tests on an unnamed struct.
+}

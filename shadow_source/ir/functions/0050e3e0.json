@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "address": "0x0050E3E0",
+  "proposed_name": "Vector4NormalizeWithLengthThreshold",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0050E3E0"]
+  },
+  "summary": "Normalizes a vector with a length threshold. Computes the squared length v7 over the three spatial components a2[0..2]; if FloatRangeCheck(v7, 1.0) passes the vector is already unit length and all four components of a2 are copied into a1 (or the function returns immediately when a1 == a2). Otherwise, when v7 exceeds 1.1754944e-38, all four components including a2[3] are scaled by v5 = 1.0/sqrt(v7); when v7 is at or below that threshold all four output components are zeroed. Every path writes all four output components, so an external poke to the output does not persist.",
+  "local_names": {
+    "a1": "output vector buffer (x,y,z,w)",
+    "a2": "input vector buffer (x,y,z,w), may alias a1",
+    "v7": "squared length of the input, computed over spatial components a2[0..2] only",
+    "v5": "reciprocal square root 1/sqrt(v7) used as the scaling factor",
+    "v6": "computed output component a1[3] on the normalize/zero path",
+    "v4": "scratch pointer into the input buffer for the copy path"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Compute the squared length v7 = a2[0]*a2[0] + a2[1]*a2[1] + a2[2]*a2[2], using only the three spatial components.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call FloatRangeCheck(v7, 1.0) to test whether the squared length is within the symmetric epsilon band of 1.0, i.e. whether the vector is already unit length.",
+      "evidence_refs": ["callee:0x0050C042", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When FloatRangeCheck returns true the vector is already normalized: copy all four components a2[0..3] into a1, or return immediately when a1 == a2 (in-place call).",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When v7 > 1.1754944e-38 compute the scaling factor v5 = 1.0 / sqrt(v7) and scale each input component by it; when v7 <= 1.1754944e-38 the output components are zeroed instead.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the four output components: on the already-unit path a straight copy of the input; on the normalization path a1[0..2] = v5 * a2[0..2] and a1[3] = v5 * a2[3]; on the too-small path all four components are zeroed.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the output buffer pointer a1.",
+      "evidence_refs": ["function:0x0050E3E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "float* Vector4NormalizeWithLengthThreshold(float* a1, float* a2) {",
+    "  float sq = a2[0]*a2[0] + a2[1]*a2[1] + a2[2]*a2[2];",
+    "  if (FloatRangeCheck(sq, 1.0f)) {",
+    "    if (a1 != a2) { a1[0]=a2[0]; a1[1]=a2[1]; a1[2]=a2[2]; a1[3]=a2[3]; }",
+    "    return a1;",
+    "  }",
+    "  if (sq > 1.1754944e-38f) {",
+    "    float inv = 1.0f / sqrt(sq);",
+    "    a1[0]=inv*a2[0]; a1[1]=inv*a2[1]; a1[2]=inv*a2[2]; a1[3]=inv*a2[3];",
+    "  } else {",
+    "    a1[0]=0.0f; a1[1]=0.0f; a1[2]=0.0f; a1[3]=0.0f;",
+    "  }",
+    "  return a1;",
+    "}"
+  ],
+  "unresolved": [
+    "The packet lists read-only globals flt_59E43C (0x0059E43C) and flt_5ADE40 (0x005ADE40); the raw source renders their loads as the folded literals 1.0 and 1.1754944e-38, but which global backs which literal is DERIVED and unproven.",
+    "FloatRangeCheck is evidenced by the packet callee list; the exact epsilon literals it applies are defined in 0x0050C042, not in this packet.",
+    "The unit-length test and the too-small test are computed over the three spatial components a2[0..2] only, yet the normalize scaling and the zeroing are applied to all four components including a2[3]; the intent behind mixing a three-component length test with a four-component scale is DERIVED and unexplained by the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x005ADE40"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

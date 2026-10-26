@@ -1,0 +1,13 @@
+int __thiscall sub_563160(_DWORD *this, int a2, int a3)
+{
+  int v5; // eax
+  int v6; // ecx
+
+  if ( !this )
+    return 0;
+  v5 = StructAllocInitWithSwitchBasedType(a3, this[37]);
+  v6 = this[1];
+  a3 = v5;
+  SingleFunctionCallWrapper_48c0(v6, &a3);
+  return a3;
+}

@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "address": "0x005938B4",
+  "proposed_name": "SEHWrapperAroundCRTFunctionCall",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x005938B4"]
+  },
+  "summary": "SEH/C++-exception wrapper around a wrapped CRT dispatch. Saves the dword preceding a2 and the two TLS slots 27/28 (via TLSValueRetrievalWithInit), installs a1 and a3 into those TLS slots, runs the wrapped body SEHExceptionFrameWrapper(a2, a4, a5, a6, a7), then restores all saved state. If the exception record behind a1 carries a C++ exception code (0xE06D7363 at +0x0), three parameters at +0x10 and magic 0x19930520 at +0x14, and the body returned non-zero, it checks CRTAbnormalTermination() and dispatches through SEHWrappedRenderDispatchCall(a1, abnormal). Returns the wrapped body's return value. Called by MultiArgRenderingDispatchWithLayout (00593839).",
+  "local_names": {
+    "a1": "pointer to the exception record / dispatch context (fields +0x0, +0x10, +0x14)",
+    "a2": "wrapped-body control pointer; dword at a2-4 is saved and restored",
+    "a3": "context value installed into TLS slot 28 for the wrapped call",
+    "a4": "extra argument forwarded to SEHExceptionFrameWrapper",
+    "a5": "extra argument forwarded to SEHExceptionFrameWrapper",
+    "a6": "extra argument forwarded to SEHExceptionFrameWrapper",
+    "a7": "extra argument forwarded to SEHExceptionFrameWrapper",
+    "v9": "return value of SEHExceptionFrameWrapper, kept as the function result",
+    "v8": "CRTAbnormalTermination result passed to SEHWrappedRenderDispatchCall",
+    "v10": "saved dword from a2-4",
+    "v11": "saved TLS slot 28",
+    "v12": "saved TLS slot 27"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Saves the dword at a2-4 into v10 before the wrapped call runs",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Reads TLS slots 27 and 28 via TLSValueRetrievalWithInit into v12 and v11 so the wrapper context can be restored afterward",
+      "evidence_refs": ["callee:0x0058E0C7", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Installs the wrapped-call context: writes a1 into TLS slot 27 and a3 into TLS slot 28 via TLSValueRetrievalWithInit",
+      "evidence_refs": ["callee:0x0058E0C7", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Runs the wrapped body SEHExceptionFrameWrapper(a2, a4, a5, a6, a7) and keeps its result in v9",
+      "evidence_refs": ["callee:0x0058A3B6", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Restores the saved state after the wrapped call: writes v10 back to a2-4, restores TLS slot 27 to v12 and TLS slot 28 to v11",
+      "evidence_refs": ["callee:0x0058E0C7", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Exception-record guard: *a1 equals the C++ exception code 0xE06D7363 (field 0x0), a1[4] equals 3 (field 0x10), a1[5] equals the magic 0x19930520 (field 0x14), and v9 is non-zero",
+      "evidence_refs": ["guard:0", "guard:1", "guard:2", "field:this:0x00000000", "field:this:0x00000010", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On a matching C++ exception, calls CRTAbnormalTermination() and holds the boolean result in v8",
+      "evidence_refs": ["callee:0x0058890E", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Dispatches SEHWrappedRenderDispatchCall(a1, v8) with the exception record and the abnormal-termination flag",
+      "evidence_refs": ["callee:0x00593BBD", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the wrapped body's result v9 in all paths",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by MultiArgRenderingDispatchWithLayout (00593839), placing this on the rendering-dispatch path",
+      "evidence_refs": ["caller:0x00593839", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "saved_a2m4 = *(a2 - 4);",
+    "saved_tls27 = TLSValueRetrievalWithInit()[27];",
+    "saved_tls28 = TLSValueRetrievalWithInit()[28];",
+    "TLSValueRetrievalWithInit()[27] = a1;",
+    "TLSValueRetrievalWithInit()[28] = a3;",
+    "v9 = SEHExceptionFrameWrapper(a2, a4, a5, a6, a7);",
+    "*(a2 - 4) = saved_a2m4;",
+    "TLSValueRetrievalWithInit()[27] = saved_tls27;",
+    "TLSValueRetrievalWithInit()[28] = saved_tls28;",
+    "if (*a1 == 0xE06D7363 && a1[4] == 3 && a1[5] == 0x19930520 && v9) {",
+    "  abnormal = CRTAbnormalTermination();",
+    "  SEHWrappedRenderDispatchCall(a1, abnormal);",
+    "}",
+    "return v9;"
+  ],
+  "unresolved": [
+    "Callees MSVCRTSEHFrameUnwinder (005888A6) and FileMagicNumberValidator (005939CF) are flagged by packet facts but do not appear in the raw decompiled source; they are likely reached through the SEH machinery of the wrapped call",
+    "Globals 0058895C and 005B9950 are flagged by packet facts but do not appear in the raw decompiled source",
+    "The TLS byte globals at 0xFF00000000001692-0xFF0000000000169B are flagged as read/written by packet facts; they correspond to the TLS area behind TLSValueRetrievalWithInit and are not named in the raw source",
+    "The role of the dword preceding a2 (a2-4) is unknown beyond being saved and restored"
+  ],
+  "unresolved_evidence_refs": [
+    "callee:0x005888A6",
+    "callee:0x005939CF",
+    "global:0x0058895C",
+    "global:0x005B9950",
+    "global:0xFF00000000001692",
+    "global:0xFF00000000001695",
+    "global:0xFF00000000001699",
+    "global:0xFF0000000000169A",
+    "global:0xFF0000000000169B"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

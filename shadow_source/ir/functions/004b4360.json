@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "address": "0x004B4360",
+  "proposed_name": "StreamReadWithScale",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "__stdcall stream-value reader with conditional scaling. Copies input a3 into local v3, then calls FileWriteWithBackendDispatch to populate a 4-byte header at v3. Based on header bits it either stores the incoming float a2 directly at v3+4 or scales a single byte read from the stream by the global double dbl_5ACD28 (0.0001670000056037679) added to a2 before storing at v3+4. Finally it reads a payload of (header >> 8) & 0x3FF bytes into v3+8 and returns 0. Despite the callee name, the surrounding reads indicate backend read/dispatch behavior.",
+  "local_names": {
+    "a1": "unused first parameter",
+    "a2": "float value stored or added as base before scaled storage",
+    "a3": "pointer to stream buffer; initial 4-byte header read into it",
+    "v3": "copy of a3 holding the buffer pointer"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Copy input parameter a3 into local v3 (esi).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call FileWriteWithBackendDispatch(a3, 4); the 4-byte header later tested at v3 is populated by this call.",
+      "evidence_refs": ["callee:0x00566C00", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on header bits: when (*(DWORD*)v3 & 0xE0000000) != 0x20000000 or (*(DWORD*)v3 & 0xFC0000) != 0, store a2 raw; otherwise treat the value as a scaled-byte form.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "In the non-scaled branch, store the float a2 directly into *(float*)(v3 + 4).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "In the scaled branch, call FileWriteWithBackendDispatch(&a3, 1) to read a single byte into a3.",
+      "evidence_refs": ["callee:0x00566C00", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Truncate to unsigned byte: a3 = (unsigned __int8)a3.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the scaled value: (double)(unsigned __int8)a3 * dbl_5ACD28 + a2, where dbl_5ACD28 is the global double 0.0001670000056037679.",
+      "evidence_refs": ["global:0x005ACD28", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the scaled result into *(float*)(v3 + 4).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call FileWriteWithBackendDispatch(v3 + 8, (*(_DWORD*)v3 >> 8) & 0x3FF) to read a payload of (header >> 8) & 0x3FF bytes into v3 + 8.",
+      "evidence_refs": ["callee:0x00566C00", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char StreamReadWithScale(int a1, float a2, int a3) {",
+    "  int v3 = a3;",
+    "  FileWriteWithBackendDispatch(v3, 4);",
+    "  if ((*(int*)v3 & 0xE0000000) != 0x20000000 || (*(int*)v3 & 0xFC0000) != 0)",
+    "    *(float*)(v3 + 4) = a2;",
+    "  else {",
+    "    FileWriteWithBackendDispatch(&a3, 1);",
+    "    a3 = (unsigned __int8)a3;",
+    "    *(float*)(v3 + 4) = (double)(unsigned __int8)a3 * dbl_5ACD28 + a2;",
+    "  }",
+    "  FileWriteWithBackendDispatch(v3 + 8, (*(int*)v3 >> 8) & 0x3FF);",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "The callee is named FileWriteWithBackendDispatch but reads stream data here; its actual backend read/write direction is unknown.",
+    "Semantics of the bitmask selection (0xE0000000 vs 0x20000000, 0xFC0000) between raw-float and scaled-byte storage are only structurally inferred.",
+    "Meaning of the buffer layout offsets 0 (header), 4 (value), 8 (payload) is unknown.",
+    "Parameter a1 is unused in this function.",
+    "What the 0x3FF payload size corresponds to (max 1023 bytes) is unknown."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x004B9000",
+    "caller:0x004B9510",
+    "function:0x004B4360"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,69 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0053EB70
+// Canonical corpus name: sub_53EB70
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_53EB70_0053eb70.c
+
+void UnknownObject::renderDeviceInitialize()
+{
+    // One-time Direct3D render-device and buffer initializer guarded by the init flag at this+0x13A8 (bit 0x10000000). Configures a large set of device render states through the D3D device vtable (device pointer at this+0x1100), installs an identity transform matrix, then allocates and initializes an index buffer (this+0x1140), a vertex buffer (this+0x113C) and a small surface object (this+0x1144), walks an emitter list at this+0x1518 and a surface list at this+0x1580, and optionally creates two audio emitters when a2 is non-null. Called from sub_53E070 and sub_555E50.
+    // GUARD: One-time guard on the init flag at this+0x13A8 (bit 0x10000000): when already set the whole body is skipped. The function is reached from sub_53E070 and sub_555E50. [field:this:0x000013A8, caller:0x0053E070, caller:0x00555E50, source:raw]
+    // CALL: Configures device render states by calling the D3D device object at this+0x1100 through its vtable method pointer at slot 200 (device field +0xC8) with state ids 22, 26, 28, 136, 7, 23, 60, 25, 24, 29, 27, 19, 20, 9, 15, 141, 145, 147, 146, 148 and 137; some values come from this+0x13A4, this+0x13B8 and this+0x13C8, and every result is stored to the return slot this+0. The ABI lead names this render-device initialization. [field:this:0x00000000, field:this:0x00001100, field:*(this+0x1100):0x00000000, field:*(*(this+0x1100)+0x0):0x000000C8, field:this:0x000013A4, field:this:0x000013B8, field:this:0x000013C8, abi:lead, source:raw]
+    // CALL: Calls ModeStateSetterThroughVtable(1) to configure a device/display mode. [callee:0x00554BE0, source:raw]
+    // ASSIGNMENT: Writes init literals: this+0x13BC = 65538, this+0x13C0 = 63 and this+0x1174 = 256. [field:this:0x000013BC, field:this:0x000013C0, field:this:0x00001174, source:raw]
+    // LOOP: Render-state loop over v6 in [0, this+0x13B0): per iteration calls the device vtable method at slot 252 (device field +0xFC) with states 17 and 16. [field:this:0x000013B0, field:*(*(this+0x1100)+0x0):0x000000FC, source:raw]
+    // LOOP: Loop of 8 iterations: calls sub_553E10(v7) per slot; if StructFieldGetter(this) is non-zero, calls FloatStateSetterWithChangeNotification(-2.0). [callee:0x00553E10, callee:0x0055C9B0, callee:0x00554660, source:raw]
+    // CALL: Clears counters this+0x1398 and this+0x139C, calls the device vtable method at slot 304 (device field +0x14C) with value 1234 and the method at slot 332 (device field +0x130) with (0,0,0), builds a 16-element identity matrix (1.0f = 1065353216 entries) and installs it through the device vtable method at slot 168 (device field +0xA8); also resets this+0x13D0 = 0 and runs sub_560340(this). [field:this:0x00001398, field:this:0x0000139C, field:this:0x000013D0, field:*(*(this+0x1100)+0x0):0x0000014C, field:*(*(this+0x1100)+0x0):0x00000130, field:*(*(this+0x1100)+0x0):0x000000A8, callee:0x00560340, source:raw]
+    // ASSIGNMENT: Allocates a 36-byte index-buffer object via OperatorNewNhMallocWrapper, zero-initializes it, stores the pointer at this+0x1140, and fills its descriptor: header 34, size 28, format 8 and data pointer dword_8CEF78. [callee:0x00587C03, field:this:0x00001140, field:*(this+0x1140):0x00000004, field:*(this+0x1140):0x00000008, field:*(this+0x1140):0x0000000C, global:0x008CEF78, source:raw]
+    // CALL: Validates the index buffer with sub_540DF0 (returns -1 on failure), then BufferLockAllocate fills it with 1.0f values and ArithmeticComparison_0f90 finalizes it. [callee:0x00540DF0, callee:0x00540F00, callee:0x00540F90, source:raw]
+    // ASSIGNMENT: Allocates a 36-byte vertex-buffer object, zero-initializes it, stores the pointer at this+0x113C, and fills its descriptor: header 34, stride 322, height 24 and caps 128. [callee:0x00587C03, field:this:0x0000113C, field:*(this+0x113C):0x00000004, field:*(this+0x113C):0x00000008, field:*(this+0x113C):0x0000000C, source:raw]
+    // CALL: Validates the vertex buffer with sub_540DF0 (returns -1 on failure). [callee:0x00540DF0, source:raw]
+    // ASSIGNMENT: Allocates a 28-byte surface object, zero-initializes it, stores the pointer at this+0x1144, and sets header 18 and count 24. [callee:0x00587C03, field:this:0x00001144, field:*(this+0x1144):0x00000004, source:raw]
+    // CALL: Validates the surface object with sub_540FC0 (returns -1 on failure), fills it via SurfaceBlitLockWithFlagCheck with a fixed word pattern, then releases it with GuardedVirtualDecrement. [callee:0x00540FC0, callee:0x00541090, callee:0x005410F0, source:raw]
+    // CALL: When a2 is non-null, allocates two 60-byte audio emitters via OperatorNewNhMallocWrapper + AudioEmitterCreate and stores them at this+0x151C and this+0x1520; UtilityFunction_2950(this+0x1554, this+0x1554, this+0x1558, 262152) checks whether each must be torn down, and if so calls EmptyStub_7470 + FreeWrapper_7bcf and clears the slot. [callee:0x00587C03, callee:0x005426A0, callee:0x00542950, callee:0x00557470, callee:0x00587BCF, field:this:0x0000151C, field:this:0x00001520, field:this:0x00001554, field:this:0x00001558, source:raw]
+    // CALL: When a2 is non-null: sub_544740(a2) must succeed (else -1), then ValueGetter(a2), StateFlagIterationAcrossEntries on the returned value, and FlagBitSetter(2). [callee:0x00544740, callee:0x00545F40, callee:0x00554C30, callee:0x005458D0, source:raw]
+    // LOOP: Walks the emitter list headed at this+0x1518 via the node next pointer at node offset +0x20; a node with flag bit 2 routes to sub_553370(2), a node with flag bit 1 to sub_553370(1). [field:this:0x00001518, field:*(this+0x1518):0x00000020, callee:0x00553370, source:raw]
+    // LOOP: Walks the surface list headed at this+0x1580 via the next pointer at node offset +0x870 and calls VertexBufferSurfaceInit on each node. [field:this:0x00001580, field:*(*(this+0x1580)+0x870):0x00000870, callee:0x005527C0, source:raw]
+    // ASSIGNMENT: Sets the one-time init flag: this+0x13A8 |= 0x10000000. [field:this:0x000013A8, source:raw]
+    // RETURN: Returns 0 on success, -1 if any buffer validation or sub_544740 fails. [function:0x0053EB70, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if ((*(uint32*)(this+0x13A8) & 0x10000000) != 0) return 0;
+    //   dev = *(void**)(this+0x1100);
+    //   SetRS(22, *(this+0x13A4)); SetRS(26, 1); SetRS(28, 0);
+    //   SetRS(136, 1); SetRS(7, *(this+0x13B8)); SetRS(23, 2);
+    //   ModeStateSetterThroughVtable(1);
+    //   SetRS(60, *(this+0x13C8)); SetRS(25, 5); SetRS(24, 63);
+    //   *(this+0x13C0) = 63; SetRS(29, 0); SetRS(27, 0);
+    //   SetRS(19, 2); SetRS(20, 1); SetRS(9, 2); SetRS(15, 0);
+    //   *(this+0x13BC) = 65538; *(this+0x1174) = 256;
+    //   for (i = 0; i < *(this+0x13B0); i++) { dev->m252(i, 17, 2); dev->m252(i, 16, 2); }
+    //   for (j = 0; j < 8; j++) { sub_553E10(j); if (StructFieldGetter(this)) FloatStateSetterWithChangeNotification(-2.0); }
+    //   *(this+0x1398) = 0; dev->m332(0, 0, 0); *(this+0x139C) = 0; dev->m304(1234);
+    //   dev->m168(identityMatrix4x4);
+    //   SetRS(141, 0); SetRS(145, 1); SetRS(147, 0); SetRS(146, 0); SetRS(148, 0); SetRS(137, 0);
+    //   *(this+0x13D0) = 0; sub_560340(this);
+    //   ib = new_zeroed(36); *(this+0x1140) = ib; ib.hdr=34; ib.format=8; ib.data=dword_8CEF78; ib.size=28;
+    //   if (sub_540DF0(ib)) return -1;
+    //   fill_1f(BufferLockAllocate(ib, 0, 0, 0)); ArithmeticComparison_0f90(ib);
+    //   vb = new_zeroed(36); *(this+0x113C) = vb; vb.hdr=34; vb.caps=128; vb.stride=322; vb.height=24;
+    //   if (sub_540DF0(vb)) return -1;
+    //   sf = new_zeroed(28); *(this+0x1144) = sf; sf.hdr=18; sf.count=24;
+    //   if (sub_540FC0(sf)) return -1;
+    //   fill_words(SurfaceBlitLockWithFlagCheck(sf, 0, 0, 0)); GuardedVirtualDecrement(sf);
+    //   if (a2) {
+    //     em1 = AudioEmitterCreate(new(60)); *(this+0x151C) = em1;
+    //     if (UtilityFunction_2950(*(this+0x1554), *(this+0x1554), *(this+0x1558), 262152)) { EmptyStub_7470(em1); Free(em1); *(this+0x151C) = 0; }
+    //     em2 = AudioEmitterCreate(new(60)); *(this+0x1520) = em2;
+    //     if (UtilityFunction_2950(*(this+0x1554), *(this+0x1554), *(this+0x1558), 262152)) { EmptyStub_7470(em2); Free(em2); *(this+0x1520) = 0; }
+    //     if (sub_544740(a2)) return -1;
+    //     StateFlagIterationAcrossEntries(ValueGetter(a2)); FlagBitSetter(2);
+    //   }
+    //   for (n = *(this+0x1518); n; n = n.next) { if (n.flags & 2) sub_553370(2); else if (n.flags & 1) sub_553370(1); }
+    //   for (s = *(this+0x1580); s; s = s.next) VertexBufferSurfaceInit(s);
+    //   *(this+0x13A8) |= 0x10000000;
+    //   return 0;
+    // UNRESOLVED: field *(this+0x1518)+0x40 is listed as read but no node+0x40 access appears in the raw body; it is likely read inside sub_553370 or an inlined helper.
+    // UNRESOLVED: The numeric render-state ids (22, 26, 28, 136, 7, 23, 60, 25, 24, 29, 27, 19, 20, 9, 15, 141, 145, 147, 146, 148, 137) map to specific D3D state values whose exact D3D enum meanings are not present in the packet.
+    // UNRESOLVED: The object class owning this D3D-device wrapper is unknown; the owner stays UnknownObject.
+}

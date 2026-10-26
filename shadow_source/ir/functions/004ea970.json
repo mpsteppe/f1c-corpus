@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "address": "0x004EA970",
+  "proposed_name": "ProcessVehicleCollisions",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Per-frame vehicle collision detection and response. Iterates 13 contact slots, reads each collision event packet, transforms the contact point to world space using the vehicle orientation matrix, finds the matched opponent vehicle in the active grid, builds contact normal and penetration depth, applies impulse/severity response fields, and dispatches the result to the collision result list.",
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Iterate the 13 collision contact slots (do/while v2 < 13).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Read the collision event packet for slot v2 via NetworkPacketDataReader.",
+      "evidence_refs": ["callee:0x0054FA90", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "For slots 10-11, when this+0x3B74 (slot enable) is set and either this+0xD0C or this+0xD4C is unset, skip and clear the slot buffer via BufferEntryClear.",
+      "evidence_refs": ["field:this:0x00003B74", "field:this:0x00000D0C", "field:this:0x00000D4C", "callee:0x0054FAE0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Acquire the outgoing collision buffer via ArithmeticComparison_a010 and store the slot index v2 into its header.",
+      "evidence_refs": ["callee:0x004EA010", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Transform the contact point into world space using the orientation matrix fields this+0x34B0..0x34DC and the slot offset fields this+0x3ABC/0x3AC0, and store the per-axis components into the buffer.",
+      "evidence_refs": ["field:this:0x000034B0", "field:this:0x000034B4", "field:this:0x000034B8", "field:this:0x000034BC", "field:this:0x000034C0", "field:this:0x000034C4", "field:this:0x000034C8", "field:this:0x000034CC", "field:this:0x000034D0", "field:this:0x000034D4", "field:this:0x000034D8", "field:this:0x000034DC", "field:this:0x00003ABC", "field:this:0x00003AC0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the contact box extremes (sum/difference of the world-space contact point against the stored values) and halve them to derive a center offset stored back into the buffer.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Linear scan of the active grid: find the index where dword_7C54F0[i]+1780 matches the packet vehicle id v125, bounded by the slot count dword_5C329C.",
+      "evidence_refs": ["global:0x007C54F0", "global:0x005C329C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "For the matched vehicle, transform its second contact point with the orientation matrix and the this+0x3590/0x3594 offset pair.",
+      "evidence_refs": ["field:this:0x00003590", "field:this:0x00003594", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the slot scan exceeds dword_5C329C, resolve the vehicle by id using ArrayOfStructLinearSearchByID over the dword_5EA560 array.",
+      "evidence_refs": ["callee:0x00410B80", "global:0x005EA560", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the fallback search fails (state 9) and the vehicle flag v126 is set, clear a response buffer via ArithmeticComparison_7390.",
+      "evidence_refs": ["callee:0x00547390", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "State 6 path: compute the separation vector between the own position (this+0x34D4/0x34D8/0x34DC) and the matched vehicle position, normalize it, and scale by 6.0.",
+      "evidence_refs": ["field:this:0x000034D4", "field:this:0x000034D8", "field:this:0x000034DC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "State 6: derive the impulse target address from the dword_5EA570 base plus 36 times the matched vehicle type index at dword_7C54F0[i]+16.",
+      "evidence_refs": ["global:0x005EA570", "global:0x007C54F0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Run VehicleGeometryProximityTest on the assembled contact point/normal pair to refine contact data.",
+      "evidence_refs": ["callee:0x004ED420", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "For the projected-contact (state 2) branch, call VehicleProjectedPosition to correct the contact point.",
+      "evidence_refs": ["callee:0x005694E0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Clamp penetration depth and normalize the response direction; build the impulse vector from the contact normal, the slot scaling factor v85, and the projected depth.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When the computed impact ratio exceeds this+0xA4, update the collision response state: write this+0xA4 = ratio, this+0xA8 = 0.875 + depth*0.00390625, and store the contact offsets to this+0xAC/0xB0/0xB4.",
+      "evidence_refs": ["field:this:0x000000A4", "field:this:0x000000A8", "field:this:0x000000AC", "field:this:0x000000B0", "field:this:0x000000B4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Report the impact to the collision result list: sub_41AD80(dword_5EB978, this+0x0 vehicle id, matched vehicle at dword_7C54F0[v83], impulse magnitude).",
+      "evidence_refs": ["callee:0x0041AD80", "global:0x005EB978", "global:0x007C54F0", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the slot buffer via BufferEntryClear at the end of each iteration.",
+      "evidence_refs": ["callee:0x0054FAE0", "source:raw"]
+    },
+    {
+      "kind": "unknown",
+      "description": "Per-frame dispatch context: invoked from ParticleEffectUpdateDispatch; ABI label Collision_Detection_System (LEGACY) identifies this function at 0x004EA970.",
+      "evidence_refs": ["caller:0x004EB430", "abi:lead", "function:0x004EA970", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// Per-frame collision event processing over 13 slots.",
+    "for (slot = 0; slot < 13; slot++) {",
+    "  if (!NetworkPacketDataReader(slot, packet)) continue;",
+    "  if (slot in 10..11 && this.flag_3B74 && (!this.flag_D0C || !this.flag_D4C)) {",
+    "    BufferEntryClear(slot); continue;",
+    "  }",
+    "  buf = ArithmeticComparison_a010(); buf.slot = slot;",
+    "  TransformContactToWorld(buf, orientation[0x34B0..0x34DC], slotOffset[0x3ABC..0x3AC0]);",
+    "  i = ScanActiveGrid(id = packet.vehicleId);",
+    "  if (i >= numActive) {",
+    "    v = ArrayOfStructLinearSearchByID(dword_5EA560, id);",
+    "    if (!v) { buf.state = 9; if (flag_126) ArithmeticComparison_7390(&buf, 4096); }",
+    "  } else {",
+    "    ComputeSeparationNormal(...);",
+    "  }",
+    "  VehicleGeometryProximityTest(buf.point, buf.normal, ...);",
+    "  ComputeDepthAndImpulse(buf);",
+    "  if (impactRatio > this[0xA4]) { this[0xA4]=impactRatio; this[0xA8]=...; this[0xAC..0xB4]=offset; }",
+    "  if (i < numActive) sub_41AD80(dword_5EB978, this.id, dword_7C54F0[i], buf.impulse);",
+    "  BufferEntryClear(slot);",
+    "}"
+  ],
+  "unresolved": [
+    "The 11 float globals (flt_59E43C, flt_59E440, flt_59E450, flt_59E4DC, flt_59E670, flt_59E774, flt_59E77C, flt_59E84C, flt_59E940, flt_5AC988, flt_5AD1DC) are recorded as read in the skeleton facts but do not appear as named references in the decompiled C body; their exact role (likely tuning/scaling constants) is not visible in the raw source.",
+    "Exact meaning of the packet buffer layout returned by ArithmeticComparison_a010 is inferred from how the fields are written here, not from an independent source.",
+    "The 13-slot count and the fixed normalization constants (6.0, 8.0, 0.0078125, 0.00048828125, 0.1, 0.875, 0.00390625) are physics tuning values whose units are unknown."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E4DC",
+    "global:0x0059E670",
+    "global:0x0059E774",
+    "global:0x0059E77C",
+    "global:0x0059E84C",
+    "global:0x0059E940",
+    "global:0x005AC988",
+    "global:0x005AD1DC"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

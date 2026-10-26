@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "address": "0x00579FF0",
+  "proposed_name": "StaticLocaleInitOnce",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00579FF0"]
+  },
+  "summary": "Once-guarded static-initialization wrapper: installs an SEH/exception-handler record (unk_8D3BF0), runs frame enter/leave helpers, and uses the global guard counter dword_5EA04C so the construction block runs only on the first call. The block constructs static locale objects with vtable setup and links CEH exception-handling frames into a chain. Returns the saved incoming ECX value.",
+  "local_names": {
+    "v1": "incoming ECX value saved into the frame",
+    "v2": "once-branch flag (1 on first call)"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "SEHHandlerInit(&unk_8D3BF0) installs the SEH/exception-handler record for this frame.",
+      "evidence_refs": ["global:0x008D3BF0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Save the incoming v1 (ECX) value into frame slot a1-20 and zero frame slot a1-16.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_59A54D(a1-16) performs frame-enter bookkeeping.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the guard global dword_5EA04C is negative, this is the first call: set it to 1 and mark the once-branch (v2 = 1); otherwise increment it (v2 = 0).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_59A5E9(a1-16) performs frame-leave bookkeeping.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the once-branch flag v2 is set, run the one-time static construction block.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "One-time block: construct static locale objects via LocaleObjectConstructorWithVTableSetup / LocaleObjectAllocAndVtableSetup (targeting buffers including unk_5E6768 and unk_5E6788), then CEHFrameSetup links exception-handling frames and records forward/back pointers between them, including a frame with bit 2 set.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the saved value from frame slot a1-20.",
+      "evidence_refs": ["function:0x00579FF0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "SEHHandlerInit(&unk_8D3BF0);",
+    "*(DWORD*)(a1-20) = v1;   // saved ECX",
+    "*(DWORD*)(a1-16) = 0;",
+    "sub_59A54D(a1-16);",
+    "if (dword_5EA04C < 0) { dword_5EA04C = 1; v2 = 1; }",
+    "else { ++dword_5EA04C; v2 = 0; }",
+    "sub_59A5E9(a1-16);",
+    "if (v2) {",
+    "    // one-time static construction: locale objects with vtable setup,",
+    "    // then CEHFrameSetup to chain exception-handling frames",
+    "    LocaleObjectConstructorWithVTableSetup(&off_5E6748);",
+    "    LocaleObjectConstructorWithVTableSetup(&unk_5E6768);",
+    "    LocaleObjectConstructorWithVTableSetup(&unk_5E6788);",
+    "    LocaleObjectAllocAndVtableSetup(&unk_8D4510, 1, 1);",
+    "    CEHFrameSetup(&unk_8D44B8, 1, 1, 1);",
+    "    CEHFrameSetup(&unk_8D45A0, 1, 1, 1);",
+    "    CEHFrameSetup(&unk_8D45A0, 1, 1, 1);",
+    "    // link the constructed frames into the chain",
+    "}",
+    "return *(DWORD*)(a1-20);"
+  ],
+  "unresolved": [
+    "The one-time block references many static addresses (locale objects, CEH frames, the off_5E6748 vtable) that are absent from the packet evidence list; their individual roles are not grounded.",
+    "The initial value of the guard counter dword_5EA04C is unknown; '< 0' first-call detection is inferred from the branch alone.",
+    "Helpers sub_59A54D / sub_59A5E9 and the constructor / CEH helper functions are not in the packet callee list.",
+    "The returned value is a saved ECX register value whose purpose is unclear; the packet declared name 'if' is a decompiler artifact."
+  ],
+  "unresolved_evidence_refs": ["abi:lead"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

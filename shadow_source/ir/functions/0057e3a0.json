@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "address": "0x0057E3A0",
+  "proposed_name": "MutexCallbackDispatch",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0057E3A0"]
+  },
+  "summary": "Mutex-guarded callback queue drain: reads the mutex handle at this[694] (this+0xAD8) and, when non-null and WaitForSingleObject succeeds (return 0 or WAIT_ABANDONED 128) with the timeout this[695] (this+0xADC), proceeds to walk the callback list whose head is this[690] (this+0xAC8). The traversal cursor this[692] (this+0xAD0) is initialized to the head; while the current node's data dword is non-zero, CounterIncrementDecrementByFlag(0) is invoked for the entry and the cursor advances through the node next pointer (node+0x4). Finally the mutex handle at this+0xAD8 is read again and released via ReleaseMutex when non-null. Called from sub_57E280 (0x0057E280).",
+  "local_names": {
+    "v2": "pointer to the callback-list state block at this+0xAC8 (this+690)",
+    "v4": "active queue cursor pointer (set to the list head, or null when the mutex was not acquired)",
+    "v5": "first list node read from the head",
+    "v7": "current queue node during traversal",
+    "v8": "next queue node reached via node+0x4"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard the queue access: when the mutex handle at this+0xAD8 (this[694]) is non-null and WaitForSingleObject(mutex, this+0xADC timeout) returns 0 or 128, use the queue block pointer; otherwise use a null pointer.",
+      "evidence_refs": ["field:this:0x00000AD8", "field:this:0x00000ADC", "global:0x0059E1A0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Skip the traversal loop when the callback list head at this+0xAC8 (this[690]) is zero.",
+      "evidence_refs": ["field:this:0x00000AC8", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Initialize the traversal cursor this[692] (this+0xAD0) to the list head.",
+      "evidence_refs": ["field:this:0x00000AD0", "field:this:0x00000AC8", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the callback list: while the current node's data dword (first node data at *(this+0xAC8):0x0, subsequent via *(this+0xAD4):0x0) is non-zero, process the entry and advance the cursor to the node at node+0x4.",
+      "evidence_refs": ["field:*(this+0xAC8):0x00000000", "field:*(this+0xAD4):0x00000000", "field:this:0x00000AD0", "field:this:0x00000AD4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoke CounterIncrementDecrementByFlag(0) for each queued callback entry.",
+      "evidence_refs": ["callee:0x00587230", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Advance the traversal cursor this[692] (this+0xAD0) to the next node through the node+0x4 link; stop when the next node is null.",
+      "evidence_refs": ["field:this:0x00000AD0", "field:this:0x00000AD4", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Read the mutex handle at this+0xAD8 into the result; when it is non-null, release it.",
+      "evidence_refs": ["field:this:0x00000AD8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call ReleaseMutex on the mutex handle at this+0xAD8.",
+      "evidence_refs": ["global:0x0059E1A4", "field:this:0x00000AD8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the ReleaseMutex result, or 0 when the mutex handle at this+0xAD8 was null.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by sub_57E280 (0x0057E280).",
+      "evidence_refs": ["caller:0x0057E280", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int MutexCallbackDispatch(int* this) {",
+    "  handle = this[694];",
+    "  queue = (handle && (WaitForSingleObject(handle, this[695]) == 0 || WaitForSingleObject(handle, this[695]) == 128))",
+    "           ? this + 690 : 0;",
+    "  cursor = *queue;",
+    "  queue[2] = *queue;",
+    "  if (cursor && *cursor) {",
+    "    do {",
+    "      CounterIncrementDecrementByFlag(0);",
+    "      node = queue[2];",
+    "      if (!node) break;",
+    "      node = *(node + 1);",
+    "      queue[2] = node;",
+    "    } while (node && *node);",
+    "  }",
+    "  result = queue[4];",
+    "  if (result) return ReleaseMutex(result);",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "When WaitForSingleObject fails, the decompiler shows a null-pointer dereference of the queue cursor; the real control flow of that path is not fully evidenced in the packet.",
+    "The node layout (data dword at node+0x0, next link at node+0x4) is inferred from the traversal and is not declared by any packet evidence.",
+    "The argument 0 passed to CounterIncrementDecrementByFlag and the semantic role of each queued callback entry are not established by the packet alone."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

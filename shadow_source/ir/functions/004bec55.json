@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "address": "0x004BEC55",
+  "proposed_name": "EngineFailureCheck",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004BEC55"]
+  },
+  "summary": "Per-vehicle AI engine-failure and collision loop. Iterates over a car array using a stride-relative pointer (a4) and car pointer (a5): guards on engine-state flags, applies random variation scaling to negative speed, triggers collision response with a probability-ladder severity, accumulates damage counters and pit-crew progress-bar events, then re-enters per-car until the remaining-count hits zero; finally advances a session-time accumulator and drives the AI tick update.",
+  "local_names": {
+    "a1": "loop/state flag (ZF-flagged bool, set when dword_7C56A4 == 7)",
+    "a2": "damage count from current car (+16444)",
+    "a3": "shared/AI context pointer",
+    "a4": "stride-based per-car float pointer; a4[104] is the stored speed threshold",
+    "a5": "current car object pointer",
+    "v20": "negative stack offset used as the car-pointer stride selector"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Enter engine-failure handling only when a1 is set or a2 <= StateFlagsLookup(a5).",
+      "evidence_refs": ["callee:0x0042AE90", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Resolve the referenced car v8 from a4+v20 and require its engine state at +16484 to differ from 1, and a5's engine state at +16484 to differ from both 3 and 2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "If *a4 < 0.0, replace *a4 with RandomVariationScaler(a3, v8, a5, *(float*)(a3+844)).",
+      "evidence_refs": ["callee:0x004BEA10", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When *a4 < a4[104] (speed below stored threshold), run the collision/damage path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "v10 = AICollision(a5, 1.0); when nonzero, encode a progress-bar event via ProgressBarEventEncode(v21, 4, 26, 1, a5[18580], dbl_8AFEA0, 0), select severity v22 from ring table flt_8AAE74[dword_8AAE70++] with the ladder 0.30/0.45/0.60/0.75/0.89/0.91/0.93/0.96, then feed PitCrewStateMachine(a5+16436, v21).",
+      "evidence_refs": ["callee:0x004B33B0", "callee:0x004BBFC0", "callee:0x004BEF60", "global:0x008AAE70", "global:0x008AAE74", "global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Collision-free branch: accumulate damage (++a5[16444]), write a5+16536 = clamp(*(a3+852) - (a4[104]-*a4)), clamp a5+16540 to *a4, write a5+16568 = *(a3+852) - flt_8ACF90 - (a4[104]-*a4), and call AIDriverSorting(a5); if the damage counter reaches *(a3+860) or v18, set engine state +16484 to 1 unless already 3, and clear v15 when dword_7C56A4 == 7; finally a4[104] -= *a4.",
+      "evidence_refs": ["callee:0x004BF390", "global:0x007C56A4", "global:0x008ACF90", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "After damage handling, *a4 = -1.0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-car loop: ++a4, add *(float*)(a3+848) to a4[104], reload a5 from a4+v20, read a5+13000; when it is not -1 and nonzero, read the damage count a5+16444 and, when below *(a3+860), set a1 = (dword_7C56A4 == 7) and re-enter the failure check (goto EngineFailureCheck).",
+      "evidence_refs": ["callee:0x0042AE90", "global:0x007C56A4", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Advance session-time accumulator: dbl_8AFEA0 += *(float*)(a3+848).",
+      "evidence_refs": ["global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Unless v15 && v16, call AITickUpdate(a3) and reset dbl_8AFEA0 = flt_8ACF90 + a7.",
+      "evidence_refs": ["callee:0x004BF4F0", "global:0x008ACF90", "global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v15 && v16.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "do {",
+    "  if (a1 || a2 <= StateFlagsLookup(a5)) {",
+    "    int v8 = *(int*)((char*)a4 + v20);",
+    "    if (*(int*)(v8+16484) != 1 && *(int*)(a5+16484) != 3 && *(int*)(a5+16484) != 2) {",
+    "      v16 = 1;",
+    "      if (*a4 < 0.0f) *a4 = RandomVariationScaler(a3, v8, a5, *(float*)(a3+844));",
+    "      if (*a4 < a4[104]) {",
+    "        int v10 = AICollision(a5, 1.0f);",
+    "        if (v10) {",
+    "          float t = (float)dbl_8AFEA0;",
+    "          ProgressBarEventEncode(v21, 4, 26, 1, *(int*)(a5+18580), t, 0);",
+    "          v22 = v10 == 1 ? 6 : PickSeverity(flt_8AAE74[(unsigned char)dword_8AAE70++]);",
+    "          PitCrewStateMachine((_BYTE**)(a5+16436), v21);",
+    "        } else {",
+    "          float delta = a4[104] - *a4;",
+    "          ++*(int*)(a5+16444);",
+    "          *(float*)(a5+16536) = max(0.0f, *(float*)(a3+852) - delta);",
+    "          if (*(float*)(a5+16540) <= 0.0f || *(float*)(a5+16540) > *a4) *(float*)(a5+16540) = *a4;",
+    "          *(float*)(a5+16568) = *(float*)(a3+852) - flt_8ACF90 - delta;",
+    "          AIDriverSorting(a5);",
+    "          if (*(int*)(a5+16444) >= *(int*)(a3+860) || v18) {",
+    "            if (*(int*)(a5+16484) != 3) *(int*)(a5+16484) = 1;",
+    "            if (dword_7C56A4 == 7) v15 = 0;",
+    "          }",
+    "          a4[104] -= *a4;",
+    "        }",
+    "        *a4 = -1.0f;",
+    "      }",
+    "    }",
+    "  }",
+    "  ++a4;",
+    "  a4[104] += *(float*)(a3+848);",
+    "  a5 = *(int*)((char*)a4 + v20);",
+    "  int v7 = *(int*)(a5+13000);",
+    "  if (v7 != -1 && v7) { a2 = *(int*)(a5+16444); if (a2 < *(int*)(a3+860)) { a1 = (dword_7C56A4 == 7); continue; } }",
+    "} while (--v19);",
+    "dbl_8AFEA0 += *(float*)(a3+848);",
+    "if (!v15 || !v16) { AITickUpdate(a3); dbl_8AFEA0 = flt_8ACF90 + a7; }",
+    "return v15 && v16;"
+  ],
+  "unresolved": [
+    "The packet global table lists flt_59E440, flt_59E4E8, flt_59E7FC, flt_59E8B4, flt_59E8FC, flt_5ACAEC, flt_5ACAF0, flt_5ACDD8, flt_5ACDDC as read-only, but the visible source never references them; they are presumed physics/damage tuning constants from the fuller decompile and no operation is attributed to them.",
+    "The ABI is a __userpurge signature (ZF, ebx, ebp, edi, esi register args) with a positive-stack warning; argument roles are only partially reconstructed and a6 is unused in the visible source.",
+    "v20 (negative stack offset) selects the per-car pointer stride; its concrete value and the identity of the array it strides are not evidenced in this packet.",
+    "The exact semantic of engine-state values 1/2/3 at +16484 and of the TLS-free error literals is inferred from decompiler control flow, not from packet strings."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440",
+    "global:0x0059E4E8",
+    "global:0x0059E7FC",
+    "global:0x0059E8B4",
+    "global:0x0059E8FC",
+    "global:0x005ACAEC",
+    "global:0x005ACAF0",
+    "global:0x005ACDD8",
+    "global:0x005ACDDC"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

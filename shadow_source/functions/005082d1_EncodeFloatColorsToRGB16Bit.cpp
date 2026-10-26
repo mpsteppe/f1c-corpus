@@ -1,0 +1,45 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005082D1
+// Canonical corpus name: DXTColorEncoder
+// Owner: DXTColorEncoder [DERIVED]
+// Raw source: functions/DXTColorEncoder_005082d1.c
+
+void DXTColorEncoder::EncodeFloatColorsToRGB16Bit()
+{
+    // Encodes three floating-point vertex color channels into a packed 16-bit word. Each of the first three channel floats (input +0/+4/+8) is scaled by 15.0, offset by a base color, truncated to an integer, and packed as three 4-bit fields (12 bits used) per 16-bit output word. A format-conversion call may rewrite the input pointer first, and an unconditional utility call runs before the vertex loop.
+    // GUARD: If this[1042] (byte offset 0x1048) is non-zero, transform the input buffer format before encoding. [field:this:0x00001048, callee:0x00506CE2]
+    // CALL: Call DirectXVertexBufferFormatConversion(this, a4) and adopt its return value as the new input pointer a4. [callee:0x00506CE2]
+    // CALCULATION: Compute the base color source offset v5 = this[11] (byte offset 0x2C) + 4 * ((a3 & 3) + 8 * (a2 & 3)) from sub-cell coordinates a2, a3. [field:this:0x0000002C]
+    // CALL: Call UtilityFunction_7473() unconditionally before the encoding loop. [callee:0x00507473]
+    // GUARD: If this[1046] (byte offset 0x1058) is zero, skip the do-while loop. [field:this:0x00001058]
+    // LOOP: do-while loop over v7 from 0 while v7 < this[1046], advancing the input pointer by 16 bytes each iteration. [field:this:0x00001058]
+    // CALCULATION: Read the base color float v15 at v5 + 4 * (v7 & 3); scale each of the first three channel floats (input +0/+4/+8) by 15.0, add v15, and truncate to an integer. [source:raw]
+    // CALCULATION: Pack the three truncated channel values into a 16-bit word using the low 12 bits: (int)v14 | (16 * (v11 | (16 * v9))). [source:raw]
+    // ASSIGNMENT: Write the packed 16-bit word through the advancing destination pointer *v6++. [source:raw]
+    // RETURN: Return dword_8B009C. [global:0x008B009C]
+
+    // Conservative worker pseudocode:
+    //   int EncodeFloatColorsToRGB16Bit(int *this, char a2, char a3, int a4) {
+    //     int base, src, n, i, out;
+    //     if (this[1042]) a4 = DirectXVertexBufferFormatConversion(this, a4);
+    //     base = this[11] + 4 * ((a3 & 3) + 8 * (a2 & 3));
+    //     UtilityFunction_7473();
+    //     n = 0;
+    //     if (this[1046]) {
+    //       i = 0;
+    //       do {
+    //         float c = *(float *)(base + 4 * (n & 3));
+    //         int c0 = (int)(*(float *)(i + a4) * 15.0 + c);
+    //         int c1 = (int)(*(float *)(i + a4 + 4) * 15.0 + c);
+    //         int c2 = (int)(*(float *)(i + a4 + 8) * 15.0 + c);
+    //         i += 16;
+    //         *(_WORD *)out++ = c2 | (16 * (c1 | (16 * c0)));
+    //         ++n;
+    //       } while (n < this[1046]);
+    //     }
+    //     return dword_8B009C;
+    //   }
+    // UNRESOLVED: Destination word pointer v6 has no visible initialization in the raw source; it is a register-derived value (likely pre-loaded by the caller or from object state).
+    // UNRESOLVED: Read global flt_59E8D8 (0x0059E8D8) does not appear as a symbol in the supplied raw source text; its role is unproven (possibly a data-resident constant or shared state).
+    // UNRESOLVED: Prelabel identifies this function as a structural twin of TextureEncoderRGBA4444 (00507ee4); the packing here uses only three channels (12 bits).
+}

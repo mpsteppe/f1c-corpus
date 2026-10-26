@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "address": "0x005116D4",
+  "proposed_name": "FormatStringWithArgs",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["source:raw"]
+  },
+  "summary": "Selects a format string from a format-state object by index, falling back to the first primary-table string (overriding the stored argument) when the index is out of range, then scans the selected string for a '%s' (115) sequence to choose between varargs and va_list calling conventions and delegates to StringFormatWithBufferOverflowCheck.",
+  "local_names": {
+    "a1": "pointer to format-state object",
+    "a2": "destination buffer",
+    "v3": "selected format index",
+    "v4": "resolved format string"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load the format-state pointer v2 = *(DWORD**)a1 and read the stored format index v3 from the object.",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Range-check v3 against the primary table count and the alternate table start/end bounds; out-of-range indices route to the fallback path.",
+      "evidence_refs": [
+        "field:obj:0x00000074",
+        "field:obj:0x00000078",
+        "field:obj:0x0000007C",
+        "field:obj:0x00000080",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Alternate-range resolution: v4 = *(char**)(alternate table base + 4 * (v3 - alternate start index)).",
+      "evidence_refs": ["field:obj:0x00000078", "field:obj:0x0000007C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Primary-range resolution: v4 = *(char**)(primary table base + 4 * v3).",
+      "evidence_refs": ["field:obj:0x00000070", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Fallback when the resolved string pointer is null: write v3 into the stored argument field and use the first primary-table string as the format string.",
+      "evidence_refs": [
+        "field:*(obj+0x70):0x00000000",
+        "field:obj:0x00000018",
+        "field:obj:0x00000070",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan the selected format string for a null terminator or a '%' (37) character; if the terminator is reached first, return StringFormatWithBufferOverflowCheck(a2, v4, stored arguments) passing the stored argument fields.",
+      "evidence_refs": [
+        "callee:0x0058815F",
+        "field:obj:0x00000018",
+        "field:obj:0x0000001C",
+        "field:obj:0x00000020",
+        "field:obj:0x00000024",
+        "field:obj:0x00000028",
+        "field:obj:0x0000002C",
+        "field:obj:0x00000030",
+        "field:obj:0x00000034",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "After a '%' is found, check whether the following character is not 's' (115); when it is not '%s', call StringFormatWithBufferOverflowCheck with the individual stored arguments (varargs form).",
+      "evidence_refs": ["guard:0", "callee:0x0058815F", "field:obj:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "For the '%s' (115) case, return StringFormatWithBufferOverflowCheck(a2, v4, pointer to the stored argument fields) using the va_list-style form.",
+      "evidence_refs": ["callee:0x0058815F", "field:obj:0x00000018", "abi:lead", "function:0x005116D4", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "state = *(void**)a1; index = state->stored_index;",
+    "if (index within primary range) fmt = state->primary_table[index];",
+    "else if (index within alternate range) fmt = state->alternate_table[index - state->alternate_start];",
+    "else { state->stored_arg0 = index; fmt = state->primary_table[0]; }",
+    "if end of string reached before '%': return format(dst, fmt, args...);",
+    "if next char != 's': return format(dst, fmt, args...);",
+    "return format(dst, fmt, &args);"
+  ],
+  "unresolved": [
+    "exact format-state object type and the meaning of its fields are unknown",
+    "the varargs vs va_list call-form distinction is inferred from the '%s' (115) check only"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

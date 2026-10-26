@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "address": "0x0050FA0E",
+  "address_key": "0050fa0e",
+  "canonical_name": "BufferProcessingStateMachine",
+  "declared_name": "if",
+  "source": {
+    "path": "functions/BufferProcessingStateMachine_0050fa0e.c",
+    "text": "char __usercall sub_50FA0E@<al>(int a1@<esi>)\n{\n  unsigned int *v1; // edi\n  unsigned int v2; // eax\n  int v3; // ecx\n  unsigned int v4; // ebp\n\n  if ( *(_DWORD *)(a1 + 16) != 204 )\n  {\n    (**(void (__cdecl ***)(int))(a1 + 380))(a1);\n    *(_DWORD *)(a1 + 120) = 0;\n    *(_DWORD *)(a1 + 16) = 204;\n  }\n  if ( *(_BYTE *)(*(_DWORD *)(a1 + 380) + 8) )\n  {\n    v1 = (unsigned int *)(a1 + 120);\n    while ( 1 )\n    {\n      v2 = *v1;\n      if ( *v1 < *(_DWORD *)(a1 + 96) )\n        break;\nLABEL_10:\n      (*(void (__cdecl **)(int))(*(_DWORD *)(a1 + 380) + 4))(a1);\n      (**(void (__cdecl ***)(int))(a1 + 380))(a1);\n      *v1 = 0;\n      if ( !*(_BYTE *)(*(_DWORD *)(a1 + 380) + 8) )\n        goto LABEL_11;\n    }\n    while ( 1 )\n    {\n      v3 = *(_DWORD *)(a1 + 8);\n      if ( v3 )\n      {\n        *(_DWORD *)(v3 + 4) = v2;\n        *(_DWORD *)(*(_DWORD *)(a1 + 8) + 8) = *(_DWORD *)(a1 + 96);\n        (**(void (__cdecl ***)(int))(a1 + 8))(a1);\n      }\n      v4 = *v1;\n      (*(void (__cdecl **)(int, _DWORD, int, _DWORD))(*(_DWORD *)(a1 + 384) + 4))(a1, 0, a1 + 120, 0);\n      v2 = *v1;\n      if ( *v1 == v4 )\n        return 0;\n      if ( v2 >= *(_DWORD *)(a1 + 96) )\n        goto LABEL_10;\n    }\n  }\n  else\n  {\nLABEL_11:\n    *(_DWORD *)(a1 + 16) = (*(_BYTE *)(a1 + 65) != 0) + 205;\n    return 1;\n  }\n}\n"
+  },
+  "existing_analysis": {
+    "path": "skeletons_filled/BufferProcessingStateMachine_0050fa0e.md",
+    "text": "## BufferProcessingStateMachine_0050fa0e — Buffer processing state machine with batch dispatch\n\n**Summary:** Processes data buffers in state 204, tracking progress via counter (offset 0x78) against a limit (offset 0x60). For each chunk, calls a callback object (at this+0x8) and a processing function (at this+0x180+4). When batch completes, flushes via this+0x17C functions and resets counter. When processing flag clears, transitions to state 205 or 206.\n\n**Frame-path:** NOT_FOUND  \n**Call frequency:** UNKNOWN (no static path from tick root)\n\n**Called by:** StateMachineWithDispatch (0050fb3b)\n\n**Struct fields accessed:**\n\n| Base | Offset | R/W | Init (literal → value) | Purpose |\n|------|--------|-----|------------------------|---------|\n| *(this+0x17C) | 0x0 | R | — | Init/reset function (called when state != 204 to reinitialize) |\n| *(this+0x17C) | 0x4 | R | — | End-of-batch flush function (called after each batch completes) |\n| *(this+0x17C) | 0x8 | R | — | Processing active flag (when zero, batch processing is complete) |\n| *(this+0x180) | 0x4 | R | — | Data processing function (advances counter for each chunk) |\n| *(this+0x8) | 0x0 | R | — | Callback function (called per chunk if callback object exists) |\n| *(this+0x8) | 0x4 | RW | — | Counter value written to callback object per chunk |\n| *(this+0x8) | 0x8 | RW | — | Limit value written to callback object per chunk |\n| this | 0x8 | R | — | Pointer to callback object (called per chunk if non-null) |\n| this | 0x10 | RW | 204 | State variable (204 = active processing; 205/206 = completion) |\n| this | 0x41 | R | — | Flag byte determining final state (205 if nonzero, 206 if zero) |\n| this | 0x60 | R | — | Limit/capacity value (maximum counter before batch flush) |\n| this | 0x78 | RW | 0 | Counter value (current progress, incremented by processing function) |\n| this | 0x17C | R | — | Pointer to batch processing control block (init, flush, active flag) |\n| this | 0x180 | R | — | Pointer to data processing control block (processing function at +4) |\n\n**Written-by note (persistence):**\n- *(this+0x8) 0x4: conditional write (each chunk, if callback exists) — external poke does not survive\n- *(this+0x8) 0x8: conditional write (each chunk, if callback exists) — external poke does not survive\n- this 0x10: unconditional write (204 on init, 205/206 on completion) — external poke does not survive\n- this 0x78: unconditional write (0 after init, 0 after batch flush, updated during processing) — external poke does not survive\n\n**Globals referenced:**\n\n| Address | Name | R/W | Role |\n|---------|------|-----|------|\n\n**Functions called:**\n\n| Address | Name | Purpose |\n|---------|------|---------|\n\n**Guard conditions (deterministic — field vs literal):**\n\n| Base | Offset | Test | Value | Field / meaning |\n|------|--------|------|-------|-----------------|\n| this | 0x10 | != | 204 | State variable — if not 204, reinitialize and reset to 204 |\n| this | 0x41 | != | 0 | Flag byte at offset 0x41 — determines final state: 205 if nonzero, 206 if zero |\n\n**Guard interpretation:** If `this+0x10 != 204`, the state machine is reinitialized (call init function, zero counter, set state to 204) — this BLOCKS processing until state is correctly 204. If `*(this+0x17C)+0x8` flag is set, processing loops continue (chunk callback and data processing); when flag clears, transition to completion state 205/206 based on `this+0x41` — a nonzero byte produces state 205, zero produces state 206.\n"
+  },
+  "prelabel": {
+    "action": "llm"
+  },
+  "on_frame_path": false,
+  "subsystems": [],
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence": []
+  },
+  "abi": {
+    "name": "Buffer_Processing_State_Machine",
+    "address": 5306894,
+    "trust": "LEGACY",
+    "prototype": null
+  },
+  "fields": [
+    {
+      "base": "*(this+0x17C)",
+      "off_hex": "0x0",
+      "rw": "R",
+      "evidence_ref": "field:*(this+0x17C):0x00000000"
+    },
+    {
+      "base": "*(this+0x17C)",
+      "off_hex": "0x4",
+      "rw": "R",
+      "evidence_ref": "field:*(this+0x17C):0x00000004"
+    },
+    {
+      "base": "*(this+0x17C)",
+      "off_hex": "0x8",
+      "rw": "R",
+      "evidence_ref": "field:*(this+0x17C):0x00000008"
+    },
+    {
+      "base": "*(this+0x180)",
+      "off_hex": "0x4",
+      "rw": "R",
+      "evidence_ref": "field:*(this+0x180):0x00000004"
+    },
+    {
+      "base": "*(this+0x8)",
+      "off_hex": "0x0",
+      "rw": "R",
+      "evidence_ref": "field:*(this+0x8):0x00000000"
+    },
+    {
+      "base": "*(this+0x8)",
+      "off_hex": "0x4",
+      "rw": "RW",
+      "evidence_ref": "field:*(this+0x8):0x00000004"
+    },
+    {
+      "base": "*(this+0x8)",
+      "off_hex": "0x8",
+      "rw": "RW",
+      "evidence_ref": "field:*(this+0x8):0x00000008"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x8",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000008"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x10",
+      "rw": "RW",
+      "init_literal": 204,
+      "evidence_ref": "field:this:0x00000010"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x41",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000041"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x60",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000060"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x78",
+      "rw": "RW",
+      "init_literal": 0,
+      "evidence_ref": "field:this:0x00000078"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x17C",
+      "rw": "R",
+      "evidence_ref": "field:this:0x0000017C"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x180",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000180"
+    }
+  ],
+  "globals": [],
+  "guards": [
+    {
+      "base": "this",
+      "off_hex": "0x10",
+      "op": "!=",
+      "value": 204,
+      "value_hex": "0xCC"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x41",
+      "op": "!=",
+      "value": 0,
+      "value_hex": "0x0"
+    }
+  ],
+  "callees": [],
+  "callers": [
+    {
+      "addr": "0050fb3b",
+      "name": "StateMachineWithDispatch",
+      "address": "0x0050FB3B",
+      "evidence_ref": "caller:0x0050FB3B"
+    }
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "caller:0x0050FB3B",
+    "field:*(this+0x17C):0x00000000",
+    "field:*(this+0x17C):0x00000004",
+    "field:*(this+0x17C):0x00000008",
+    "field:*(this+0x180):0x00000004",
+    "field:*(this+0x8):0x00000000",
+    "field:*(this+0x8):0x00000004",
+    "field:*(this+0x8):0x00000008",
+    "field:this:0x00000008",
+    "field:this:0x00000010",
+    "field:this:0x00000041",
+    "field:this:0x00000060",
+    "field:this:0x00000078",
+    "field:this:0x0000017C",
+    "field:this:0x00000180",
+    "function:0x0050FA0E",
+    "guard:0",
+    "guard:1",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_source_schema.json",
+    "output": "shadow_source/ir/functions/0050fa0e.json"
+  },
+  "policy": "Raw source and deterministic facts outrank all semantic proposals."
+}

@@ -1,0 +1,39 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00520A7E
+// Canonical corpus name: QuaternionToRotationMatrix_0a7e
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/QuaternionToRotationMatrix_0a7e_00520a7e.c
+
+void UnknownObject::QuaternionToRotationMatrix()
+{
+    // SSE quaternion-to-rotation-matrix build. Reads a quaternion (a3), computes its squared length; if non-zero, normalizes it using an approximate inverse-sqrt (fsqrt) with Newton-Raphson refinement that lazily caches two shared constants (dword_8D6220/dword_8D6224 into xmmword_8D4690/xmmword_8D46A0, gated by byte_8D46B0 flag bits). Sign-negates the normalized quaternion with xmmword_5D8C60 XOR mask, multiplies it against the input matrix (a2) using shuffled-component dot products, and blends components via AND masks (xmmword_5D8C70/80/90) to assemble four output rows written to a1 (offsets 0x0/0x10/0x20/0x30) through an alignment-aware store path (unaligned storel/storeh when a1 is not 16-byte aligned, aligned __m128 stores otherwise). Returns a1. The exact geometric meaning of the five xmmword masks and the two cached constants is not recoverable from this function alone.
+    // ASSIGNMENT: Load input quaternion a3 into v3 and compute squared-length estimate: mask components with xmmword_5D8CA0, square them, horizontal-add to produce v7.m128_f32[0] (quatLenSq). [source:raw, global:0x005D8CA0]
+    // GUARD: Branch on squared quaternion length: normalization path only when v7.m128_f32[0] != 0.0; otherwise the raw quaternion is used as-is. [source:raw]
+    // STATE_TRANSITION: Lazy one-time cache of Newton-Raphson refinement factor: if byte_8D46B0 bit0 is clear, store dword_8D6220 into xmmword_8D4690 and set bit0; else reuse cached xmmword_8D4690. [global:0x008D46B0, global:0x008D6220, global:0x008D4690]
+    // STATE_TRANSITION: Lazy one-time cache of inverse-sqrt constant: if byte_8D46B0 bit1 is clear, store dword_8D6224 into xmmword_8D46A0 and set bit1; else reuse cached xmmword_8D46A0. [global:0x008D46B0, global:0x008D6224, global:0x008D46A0]
+    // CALCULATION: Newton-Raphson refinement of approximate inverse sqrt: v11 = 1.0 / fsqrt(quatLenSq); v9[0] = v9[0]*v11 * (v10 - quatLenSq*v11*v11). [source:raw]
+    // CALCULATION: Normalize quaternion: v7 = v3 * shuffle(v9, v9, 0), broadcasting the refined inverse-sqrt factor across all components. [source:raw]
+    // CALCULATION: Sign-negate normalized quaternion: v13 = v7 XOR xmmword_5D8C60 (sign-flip mask). [global:0x005D8C60]
+    // CALCULATION: Multiply quaternion by input matrix a2 and perform horizontal sums (v14, v15, v16) to build the four output row vectors v23/v20/v21/v22, blending components with AND masks xmmword_5D8C80 and xmmword_5D8C90 and matrix row via xmmword_5D8C70. [source:raw, global:0x005D8C70, global:0x005D8C80, global:0x005D8C90]
+    // ASSIGNMENT: Store the four assembled rows (v23, v20, v21, v22) into the output matrix a1 at row offsets 0x0, 0x10, 0x20, 0x30. [field:this:0x00000000, field:this:0x00000010, field:this:0x00000020, field:this:0x00000030]
+    // GUARD: Alignment-aware store path: when (a1 & 0xF) != 0 use unaligned _mm_storel_ps/_mm_storeh_ps pairs; otherwise use aligned __m128 stores. [source:raw]
+    // RETURN: Return the output matrix pointer a1 (result register eax set to a1). [abi:lead, function:0x00520A7E]
+
+    // Conservative worker pseudocode:
+    //   out = a1; mat = a2; q = a3;
+    //   lenSq = horizontal_sum((q & MASK_CA0) * (q & MASK_CA0));
+    //   if (lenSq != 0.0) {
+    //     if (!(initFlags & 1)) { cache1 = CONST_6220; initFlags |= 1; }
+    //     if (!(initFlags & 2)) { cache2 = CONST_6224; initFlags |= 2; }
+    //     invSqrt = refine(1.0/sqrtf(lenSq), cache1, cache2, lenSq);
+    //     q = q * invSqrt;
+    //   }
+    //   nq = q ^ XOR_5D8C60;
+    //   rows = assemble_rows(nq, mat, MASK_5D8C70, MASK_5D8C80, MASK_5D8C90);
+    //   store_rows(out, rows, aligned = ((out & 0xF) == 0));
+    //   return out;
+    // UNRESOLVED: Exact bit semantics of xmmword_5D8C70/80/90 (AND masks) and xmmword_5D8C60 (XOR mask) for row assembly unknown.
+    // UNRESOLVED: Source and meaning of the lazy-cached constants dword_8D6220/dword_8D6224 unknown; the cache (xmmword_8D4690/xmmword_8D46A0, byte_8D46B0 flags) appears shared across callers of the SSE math library.
+    // UNRESOLVED: Why the unaligned store path writes row halves via storel/storeh while the aligned path stores whole __m128 rows; both produce a 4-row matrix but layout equivalence is not proven here.
+    // UNRESOLVED: Owner class (UnknownObject) unconfirmed; the shared cache globals suggest a singleton SSE math library, unproven by this function alone.
+}

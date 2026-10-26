@@ -1,0 +1,21 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00579FD0
+// Canonical corpus name: sub_579FD0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_579FD0_00579fd0.c
+
+void UnknownObject::refCountDecrementWithCleanupWrapper()
+{
+    // Single-call delegation wrapper: invokes the named helper RefCountDecrementWithCleanup() with no arguments and returns its integer result directly. No guards, no fields and no other callees appear in the raw source. The address of this function is consumed as a callback pointer by a neighboring registration wrapper, but that caller is not recorded in this packet.
+    // CALL: Call the named helper RefCountDecrementWithCleanup() with no arguments; the helper name is evidenced only by the raw decompiled source, not by a callee record [source:raw]
+    // RETURN: Return the integer result produced by RefCountDecrementWithCleanup() as the function result [source:raw]
+    // UNKNOWN: No callers are recorded in the packet, so the registration context that invokes this wrapper cannot be grounded here [function:0x00579FD0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int refCountDecrementWithCleanupWrapper() {
+    //     return RefCountDecrementWithCleanup();
+    //   }
+    // UNRESOLVED: The actual target address of RefCountDecrementWithCleanup is not in the packet (no callee evidence), so the helper cannot be linked statically here.
+    // UNRESOLVED: The global unk_8D3BF1 (0x008D3BF1) is flagged by packet facts as read, but it appears nowhere in the raw decompiled source; its role in this wrapper is unverifiable.
+    // UNRESOLVED: The name RefCountDecrementWithCleanup is a semantic label from the raw source only; no refcount semantics are otherwise evidenced in this packet.
+}

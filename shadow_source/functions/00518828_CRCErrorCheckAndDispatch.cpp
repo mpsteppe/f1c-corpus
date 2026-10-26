@@ -1,0 +1,41 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00518828
+// Canonical corpus name: sub_518828
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_518828_00518828.c
+
+void UnknownObject::CRCErrorCheckAndDispatch()
+{
+    // Data-block processing wrapper with error dispatch. Sends a data block of size a2 to the block-processing helper sub_517F58 in full chunks of *(this+0xA0), with any remainder sent as a final partial call using the data pointer at *(this+0x9C). Then gates on AnimationStateCheck(this); when it returns zero the function returns 0 without dispatching. Otherwise a flag combination on *(this+0x10C) bit 5 and *(this+0x5D) bits 1/2 selects between DoubleBufferInit(this, "CRC error") and TwoStepDelegation(this, "CRC error"), and the function returns 1.
+    // LOOP: Chunked loop: for (i = *(this+0xA0); a2 > i; a2 -= i) call sub_517F58(this, *(this+0x9C), *(this+0xA0)) — sends full chunks until the remaining size is smaller than one chunk. [callee:0x00517F58, field:this:0x0000009C, field:this:0x000000A0, source:raw]
+    // CALL: Invoke the block-processing helper sub_517F58(this, *(this+0x9C), *(this+0xA0)) for each full chunk. [callee:0x00517F58, field:this:0x0000009C, field:this:0x000000A0, source:raw]
+    // GUARD: When a non-zero remainder a2 remains after the chunked loop, process it as a final partial block. [source:raw]
+    // CALL: Invoke the block-processing helper sub_517F58(this, *(this+0x9C), a2) for the trailing partial block. [callee:0x00517F58, field:this:0x0000009C, source:raw]
+    // CALL: Evaluate the animation-state gate AnimationStateCheck(this). [callee:0x00517F72, source:raw]
+    // GUARD: Return 0 immediately when AnimationStateCheck(this) returns false — no error dispatch occurs. [callee:0x00517F72, source:raw]
+    // GUARD: Select the dispatch path from flag combination: ((*(this+0x10C) & 0x20) == 0 || (*(this+0x5D) & 2) != 0) && ((*(this+0x10C) & 0x20) != 0 || (*(this+0x5D) & 4) == 0) chooses DoubleBufferInit, otherwise TwoStepDelegation. [field:this:0x0000010C, field:this:0x0000005D, source:raw]
+    // CALL: On the first flag path, call DoubleBufferInit(this, aCrcError "CRC error" string at 0x005AFB50) to reinitialize the double buffer. [callee:0x0051189C, global:0x005AFB50, source:raw]
+    // CALL: On the second flag path, call TwoStepDelegation(this, aCrcError "CRC error" string at 0x005AFB50) to delegate the error through the two-step callback chain. [callee:0x005118C1, global:0x005AFB50, source:raw]
+    // RETURN: Return 1 after successful processing and dispatch (or return 0 when the animation-state gate fails). [source:raw]
+    // CALL: Called by sub_511B7C (0x00511B7C), sub_5188B4 (0x005188B4), sub_518AAA (0x00518AAA), sub_518BD4 (0x00518BD4), sub_518C1E (0x00518C1E), sub_518D29 (0x00518D29), sub_518E18 (0x00518E18), sub_518FCF (0x00518FCF) and sub_519019 (0x00519019). [caller:0x00511B7C, caller:0x005188B4, caller:0x00518AAA, caller:0x00518BD4, caller:0x00518C1E, caller:0x00518D29, caller:0x00518E18, caller:0x00518FCF, caller:0x00519019, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_518828(int this, unsigned int size) {
+    //     unsigned int chunk = *(this+160);
+    //     for (unsigned int i = chunk; size > i; size -= i)
+    //       sub_517F58(this, *(this+156), chunk);
+    //     if (size)
+    //       sub_517F58(this, *(this+156), size);
+    //     if (!AnimationStateCheck(this)) return 0;
+    //     int ctrl = *(this+268) & 0x20;
+    //     int flags = *(this+93);
+    //     if ((ctrl == 0 || (flags & 2)) && (ctrl != 0 || (flags & 4) == 0))
+    //       DoubleBufferInit(this, "CRC error");
+    //     else
+    //       TwoStepDelegation(this, "CRC error");
+    //     return 1;
+    //   }
+    // UNRESOLVED: Owner object is unknown; the exact meanings of the control flag bit at *(this+0x10C) bit 5 and the flag bits at *(this+0x5D) bits 1/2 are not confirmed.
+    // UNRESOLVED: The data pointer semantics of *(this+0x9C) and the chunk size *(this+0xA0) are inferred from their use as sub_517F58 arguments; sub_517F58's role (reported as CRC accumulation) is not proven here.
+    // UNRESOLVED: Whether the "CRC error" dispatch is an error recovery path or a nominal flow is unknown without call-site context.
+}

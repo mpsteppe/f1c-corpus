@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "address": "0x00521895",
+  "proposed_name": "Normalize3DAudioListenerOrientation",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Normalizes a 4-component 3D audio listener orientation vector using 3DNow! packed single-precision math. Reads the two 64-bit halves of the input a2, extracts the 4th component (high dword of a2[1]) and tests it against packed 1.0. When the 4th component is >= 1.0 the input is copied to the output unchanged. Otherwise it runs SquareRootApproximation and a 3DNow! helper, then, when the absolute 4th component exceeds a small threshold (0x34000000 packed), refines a reciprocal via pfrcp/pfrcpit1/pfrcpit2 (Newton-Raphson) and scales both input halves by it, finally masking the second half with a low-dword quad mask before writing the normalized result to a1.",
+  "local_names": {
+    "a1": "output listener orientation vector (two packed 32-bit halves)",
+    "a2": "input listener orientation vector (two packed 32-bit halves)",
+    "m64_u64": "first 64-bit half of the orientation vector",
+    "v4": "second 64-bit half of the orientation vector",
+    "v5": "4th component duplicated into both lanes via punpckhdq",
+    "v8": "refined reciprocal of the 4th component"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Flush MMX/3DNow! floating-point state (_m_femms) on entry and again before returning.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read both 64-bit halves of the input orientation vector: m64_u64 = a2->m64_u64 and v4 = a2[1].",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Extract the 4th vector component: v5 = punpckhdq(v4, v4) duplicates the high dword of the second half into both lanes.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on pfcmpge(v5, packed 1.0, 0x3F8000003F800000): when the 4th component is >= 1.0 the normalization path is skipped and the input is copied through directly.",
+      "evidence_refs": ["global:0x005AF988", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call SquareRootApproximation(0, a2) to obtain a reciprocal-square-root estimate of the vector magnitude; its return value is ignored.",
+      "evidence_refs": ["callee:0x00529000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Save the low dword of the extracted component: v9 = cvtsi64_si32(v5).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call sub_529700(), a 3DNow! helper that contributes to the orientation refinement; no arguments are passed per the raw source.",
+      "evidence_refs": ["callee:0x00529700", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Re-read both halves of the input a2 after the helper calls, refreshing m64_u64 and v4.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on pfcmpge(pand(v5, absolute-value mask 0x7FFFFFFF7FFFFFFF), small threshold 0x3400000034000000): normalization scaling runs only when the absolute 4th component clears the threshold.",
+      "evidence_refs": ["global:0x005AF940", "global:0x005AF948", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Newton-Raphson reciprocal refinement: v7 = pfrcp(v5), then v8 = pfrcpit2(pfrcpit1(v5, v7), v7) folded through the low dword lane v6 = cvtsi32_si64(v9).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Scale both halves of the orientation vector by the refined reciprocal v8: m64_u64 = pfrmul(m64_u64, v8) and v4 = pfrmul(v4, v8).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the result: result->m64_u64 = m64_u64 (output this+0x0) and result[1].m64_u64 = v4 AND 0xFFFFFFFF low-dword quad mask (output this+0x8).",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "global:0x005AF950", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the output pointer a1 (after the trailing _m_femms).",
+      "evidence_refs": ["function:0x00521895", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "femms();",
+    "m64_u64 = a2[0]; v4 = a2[1];",
+    "v5 = punpckhdq(v4, v4); /* 4th component in both lanes */",
+    "if (v5 < 1.0) { /* pfcmpge(1.0) false */",
+    "  SquareRootApproximation(0, a2);",
+    "  v9 = low_dword(v5);",
+    "  sub_529700();",
+    "  m64_u64 = a2[0]; v4 = a2[1];",
+    "  if (abs(v5) >= 0x34000000) {",
+    "    v7 = pfrcp(v5);",
+    "    v8 = pfmul(dup32(v9), pfrcpit2(pfrcpit1(v5, v7), v7));",
+    "    m64_u64 = pfmul(m64_u64, v8);",
+    "    v4 = pfmul(v4, v8);",
+    "  }",
+    "}",
+    "a1[0] = m64_u64;",
+    "a1[1] = v4 & 0xFFFFFFFF;",
+    "femms();",
+    "return a1;"
+  ],
+  "unresolved": [
+    "Globals qword_5AF940 / qword_5AF948 / qword_5AF950 / qword_5AF988 are the backing data for the literal mask/constant operands (abs mask, threshold, quad mask, packed 1.0) per the prior analysis; the exact literal-to-global pairing is DERIVED and unverified.",
+    "The return value of SquareRootApproximation is discarded; whether sub_529700 mutates shared 3DNow! state that the subsequent re-read relies on is unknown.",
+    "Owner and call context are unknown; no static callers were found for this function."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

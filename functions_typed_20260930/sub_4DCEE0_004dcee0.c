@@ -1,0 +1,12 @@
+int __thiscall sub_4DCEE0(_DWORD *this, float a2, float a3, float a4, int a5)
+{
+  int v6; // eax
+  int v8; // [esp-10h] [ebp-10h]
+  int v9; // [esp-Ch] [ebp-Ch]
+
+  v9 = CRTFtol(a4);
+  v8 = CRTFtol((double)dword_5D6D64 * a3);
+  v6 = CRTFtol((double)dword_5D6D60 * a2);
+  return PositionComputationWithAlignment(this, v6, v8, v9, a5);
+}
+

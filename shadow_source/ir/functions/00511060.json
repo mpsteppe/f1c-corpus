@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "address": "0x00511060",
+  "proposed_name": "ReadStreamSegmentSize",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Reads a 2-byte big-endian segment size from a byte stream, dispatching it together with a stored value into a parameterized dispatcher object (state code 90), then skips the remaining segment bytes via a stream callback.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load the stream state object from this+0x14 and its current read pointer and remaining-byte count from stream-state words 0 and 1.",
+      "evidence_refs": ["field:this:0x00000014", "field:*(this+0x14):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the stream has no remaining bytes, refill via the stream refill callback and reload the read pointer and count.",
+      "evidence_refs": ["field:this:0x00000014", "field:*(this+0x14):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoke the refill callback stored in stream-state word 3; if it returns false, abort with 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the first byte as the high byte of a 16-bit value and advance the read pointer past it.",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If only one byte remained before the first read, refill again so the second byte can be read.",
+      "evidence_refs": ["field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Second invocation of the stream refill callback (word 3) when the stream is short; returning false aborts with 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Form the big-endian 16-bit size: second byte plus first byte shifted into the high byte.",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write dispatcher state: obj+0x14 = 90, obj+0x18 = stored value read from this+0x178, obj+0x1C = computed size.",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000014", "field:obj:0x00000018", "field:this:0x00000178", "field:obj:0x0000001C"]
+    },
+    {
+      "kind": "call",
+      "description": "Dispatch obj vtable entry at obj+0x4 with argument 1 (parameterized state dispatch).",
+      "evidence_refs": ["field:obj:0x00000004", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Consume the two bytes from the stream: read pointer becomes the second-byte position plus 1, remaining count becomes the pre-decrement count minus 1.",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoke the skip callback at stream-state plus 16 with the remaining segment byte count (size minus 2).",
+      "evidence_refs": ["field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 on success.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char sub_511060(StreamReader* this) {",
+    "  StreamState* s = (StreamState*)this->state;            // this+0x14",
+    "  unsigned char* p = s->pos; int remaining = s->remaining;",
+    "  if (remaining == 0) { if (!refill(this)) return 0; p = s->pos; remaining = s->remaining; }",
+    "  int hi = *p++; --remaining;",
+    "  if (remaining == 0) { if (!refill(this)) return 0; p = s->pos; remaining = s->remaining; }",
+    "  int size = (*p) + (hi << 8);                          // big-endian 16-bit",
+    "  Dispatcher* obj = (Dispatcher*)*this;                  // this+0x0",
+    "  obj->state = 90; obj->stored = this->stored; obj->size = size;   // obj+0x14 / +0x18 / +0x1C",
+    "  obj->paramDispatch(this, 1);                          // obj+0x4",
+    "  s->pos = p + 1; s->remaining = remaining - 1;",
+    "  this->state->skip(this, size - 2);                    // stream-state + 16",
+    "  return 1;",
+    "}"
+  ],
+  "unresolved": [
+    "Identity and semantics of the obj+0x4 dispatch and the stream-state plus 16 skip callback are caller-supplied.",
+    "The backing store of the stream refill callback (stream-state word 3) is not defined in this function."
+  ],
+  "unresolved_evidence_refs": ["field:this:0x00000018", "field:this:0x00000020", "field:this:0x00000024"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

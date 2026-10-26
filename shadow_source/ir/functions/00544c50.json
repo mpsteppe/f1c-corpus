@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "address": "0x00544C50",
+  "proposed_name": "TreeNodeAccumulator",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00544C50"]
+  },
+  "summary": "Recursive tree accumulation. Starting from node a2, walks the sibling chain (via the next-sibling pointer at a2+76), and for each node descends into its child-linked list at a2+516. For every linked entry it increments the child counter at this+0x34, adds the entry field v5[72] into this+0x38, then processes v5[70] inner entries at stride 64 from v5[71]: zeroes a WORD at entry+2, folds the DWORD at entry with its own value shifted left by 16, calls TwoCounterIncrements with the DWORD at entry+4, and accumulates the DWORD at entry+8 into the accumulator slot selected by the node flag at a2+60 (this+0x3C or the alternate slot). Then increments the visitation counter at this+0x64 and recursively processes the first child at a2+68 when non-null. Returns the last recursive result.",
+  "local_names": {
+    "this": "accumulator object (counters at +0x34, +0x38, +0x3C, +0x64)",
+    "a2": "current tree node being traversed",
+    "v2": "accumulator object alias reset to this after inner loops",
+    "v4": "selected per-entry accumulator slot (this+0x3C, or the alternate slot when the node flag at a2+60 has bit 0x10 set)",
+    "v5": "current node in the child-linked list at a2+516",
+    "v6": "incremented child counter value",
+    "v7": "inner entry loop counter",
+    "v8": "byte stride offset across inner entries",
+    "v10": "next sibling pointer at a2+76"
+  },
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Outer loop walks the sibling chain: after processing a node, read a2 = *(v3+76) and continue while non-null.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Select the accumulator slot: v4 = v2+16, but v4 = v2+15 when the byte at a2+60 has bit 0x10 clear.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the child-linked list head v5 = *(a2+516) and process each entry while v5 is non-null.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Increment the child counter this+0x34 and add the entry field v5[72] into this+0x38.",
+      "evidence_refs": ["field:this:0x00000034", "field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner do-while iterates v5[70] entries at a 64-byte stride starting from v5[71], while the entry counter is below v5[70].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the WORD at entry offset +2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Fold the DWORD at entry offset +0: entry |= entry << 16.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call TwoCounterIncrements with the DWORD at entry offset +4.",
+      "evidence_refs": ["callee:0x005473C0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate the DWORD at entry offset +8 into the selected accumulator slot *v4 (this+0x3C, or the alternate slot when the flag bit was set).",
+      "evidence_refs": ["field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Advance to the next linked entry: v5 = v5[4].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Increment the node visitation counter at this+0x64.",
+      "evidence_refs": ["field:this:0x00000064", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "If the first-child pointer at a2+68 is non-null, recurse: result = TreeNodeAccumulator(*(a2+68)).",
+      "evidence_refs": ["callee:0x00544C50", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result of the last recursive descent (or the last assigned result).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "do {",
+    "  v4 = (*(byte*)(a2+60) & 0x10) ? this+16 : this+15;",
+    "  v5 = *(dword**)(a2+516);",
+    "  while (v5) {",
+    "    this[13]++;",
+    "    this[14] += v5[72];",
+    "    for (i=0; i < v5[70]; i++) {",
+    "      *(word*)(v5[71]+i*64+2) = 0;",
+    "      *(dword*)(v5[71]+i*64) |= *(dword*)(v5[71]+i*64) << 16;",
+    "      TwoCounterIncrements(*(dword*)(v5[71]+i*64+4));",
+    "      *v4 += *(dword*)(v5[71]+i*64+8);",
+    "    }",
+    "    v5 = v5[4];",
+    "  }",
+    "  this[25]++;",
+    "  result = 0;",
+    "  if (*(dword*)(a2+68)) result = TreeNodeAccumulator(*(dword*)(a2+68));",
+    "  a2 = *(dword*)(a2+76);",
+    "} while (a2);",
+    "return result;"
+  ],
+  "unresolved": [
+    "When the node flag at a2+60 has bit 0x10 set, the accumulator target v4 becomes this+16 (offset 0x40), a second accumulator slot not present in the packet field table.",
+    "Semantics of the per-entry DWORDs (offsets +0, +4, +8) and the v5[70]/v5[72] fields are not established; the node layout (a2+60, +68, +76, +516) belongs to a different object than this.",
+    "Purpose of TwoCounterIncrements' two counters is unknown from this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

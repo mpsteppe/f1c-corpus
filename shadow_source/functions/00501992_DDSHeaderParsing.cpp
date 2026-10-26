@@ -1,0 +1,90 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00501992
+// Canonical corpus name: DDSHeaderParsing
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/DDSHeaderParsing_00501992.c
+
+void UnknownObject::DDSHeaderParsing()
+{
+    // Parse a compact DDS-style header and then either expose the surface's first-row data or fully decode its pixels into the object's buffers. Validates the input size and the header bytes a2[0]/a2[1]/a2[2]/a2[3]/a2[5]/a2[7]/a2[16]/a2[17], resolves a surface format code (20/21/24/25 uncompressed RGB, 41/50 block-compressed) into this+0x0, and stores width/height/stride/ownership fields at this+0xC/this+0x10/this+0x30/this+0x34/this+0x14. On the format-41 path it expands a 16/24/32-bit palette into a 1024-byte RGBA buffer at this+0x8 (owned via this+0x3C). It then either aliases the source buffer at this+0x4 (fast path, this+0x38 = 0) or allocates and decodes the full surface row-by-row into this+0x4 (this+0x38 = 1), honoring the orientation flags v40/v41 and the remaining-data budget v57. Returns 0 on success, -2147467259 on malformed or undersized input, -2147024882 on allocation failure.
+    // UNKNOWN: Entry contract: candidate 2 (DDS-header parser) of the seven-candidate format negotiation in caller DirectXSurfaceFormatNegotiation (caller:0x00502A15); receives the texture object this, the raw buffer a2 and its size a3. ABI name DDS_Header_Parsing (abi:lead). [abi:lead, caller:0x00502A15, function:0x00501992, source:raw]
+    // GUARD: Reject undersized input: if the buffer size a3 is below 18 (0x12) bytes, return -2147467259. [source:raw]
+    // GUARD: Header byte a2[1] (format/compression selector) must be 0 or 1; if (a2[1] & 0xFE) != 0 return -2147467259. [source:raw]
+    // GUARD: Header byte a2[2] must have all bits above bit 1 clear ((a2[2] & 0xFFFFFFF4) == 0) and the width (WORD at a2+12) and height (WORD at a2+14) must both be non-zero; otherwise return -2147467259. [source:raw]
+    // CALCULATION: Compute first-stage bytes-per-pixel v9 = (a2[7] + 7) >> 3 from the a2[7] bit-depth byte; used for the first-row size. [source:raw]
+    // STATE_TRANSITION: Map the first-stage bit depth a2[7] to the internal format code v46: 15 -> 24, 16 -> 25, 24 -> 20, 32 -> 21; any other value returns -2147467259. [source:raw]
+    // CALCULATION: Compute second-stage bytes-per-pixel v50 = (a2[16] + 7) >> 3 from the a2[16] bit-depth byte; used as the block copy unit for the surface data. [source:raw]
+    // STATE_TRANSITION: Map (a2[2] & 3) to the surface format code v49: 1 -> 41 (requires a2[1] == 0 and a2[16] == 8), 2 -> the same 20/21/24/25 mapping applied to a2[16], 3 -> 50 (requires a2[16] == 8); any violating combination returns -2147467259. [source:raw]
+    // ASSIGNMENT: Capture orientation flags from header byte a2[17]: v40 = (a2[17] & 0x20) == 0x20, v41 = (a2[17] & 0x10) != 0x10, and v39 = a2[2] & 8 (zero given the earlier guard). [source:raw]
+    // CALCULATION: Locate the payload: v17 = a2[0] (sub-header size), v55 = a3 - 18; if v55 < v17 return -2147467259; remaining size v56 = v55 - v17 and surface data pointer v51 = a2 + v17 + 18. [source:raw]
+    // CALCULATION: Compute the first-row size v36 = v9 * (WORD at a2+5); if v56 < v36 return -2147467259 because the buffer cannot hold even the first row. [source:raw]
+    // GUARD: The palette decode path runs only when the request flag this+0x40 is set and the resolved format v49 == 41. [field:this:0x00000040, source:raw]
+    // GUARD: Palette dimensions (WORD at a2+3 plus WORD at a2+5) must not exceed 256 entries; otherwise return -2147467259. [source:raw]
+    // CALL: Allocate a 1024-byte palette buffer via OperatorNewNhMallocWrapper and store it at this+0x8; a null allocation returns -2147024882. [callee:0x00587C03, field:this:0x00000008, source:raw]
+    // ASSIGNMENT: Mark the palette buffer as owned: this+0x3C = 1, then initialize the whole 0x400-byte palette to 0xFF via memset. [field:this:0x0000003C, source:raw]
+    // LOOP: Convert each palette entry from the v46 source format (20 = 24-bit BGR, 21 = 32-bit BGRA, 24 = RGB565 expand, 25 = RGB555 expand) to a 4-byte RGBA pixel (R at +0, G at +1, B at +2, A at +3), writing into this+0x8 until the destination pointer reaches 4 * (palette width + palette height). [field:this:0x00000008, source:raw]
+    // CALCULATION: After palette handling, derive the remaining size v57 = v56 - v36, the next-row pointer v28 = v51 + v36, and the full surface byte size v29 = v50 * width * height. [source:raw]
+    // ASSIGNMENT: Store the decoded header fields: format code v49 at this+0x0; first-row data pointer (v51 + v36) at this+0x4; row stride v50 * width at this+0x30; 0 at this+0x34; width at this+0xC; height at this+0x10; literal 1 at this+0x14. [field:this:0x00000000, field:this:0x00000004, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, field:this:0x00000030, field:this:0x00000034, source:raw]
+    // GUARD: If the request flag this+0x40 == 0, only the header was requested: return 0 without decoding any surface data (guard:0). [guard:0, field:this:0x00000040, source:raw]
+    // STATE_TRANSITION: Fast path: when v39 == 0 and v40 and v41 and the remaining data v57 covers the full surface size v29, point this+0x4 directly at the source-buffer position v28 (no allocation), clear the ownership flag this+0x38 = 0, and return 0. [field:this:0x00000004, field:this:0x00000038, source:raw]
+    // CALL: Otherwise allocate v29 bytes via OperatorNewNhMallocWrapper for the surface data, store the result at this+0x4, return -2147024882 if the allocation fails, and mark ownership this+0x38 = 1. [callee:0x00587C03, field:this:0x00000004, field:this:0x00000038, source:raw]
+    // ASSIGNMENT: Compute the first destination row base v32: this+0x4 when v40 is set, or this+0x4 + stride * (height - 1) otherwise (top-down vs bottom-up row order). [field:this:0x00000030, source:raw]
+    // LOOP: Per-row surface copy: for each of the height rows, copy v50-byte blocks from the source into the row destination v54, honoring the remaining-size budget v57 and returning -2147467259 when v57 < v50 mid-row; v41 controls the block direction along the row and v40 controls the row-to-row advance by +/- stride. The per-run bookkeeping (v45/v33/v43) only matters for the dead v39 run-length branch. [source:raw]
+    // RETURN: Fall through to -2147467259 when the source data is exhausted before a row copy loop completes. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int DDSHeaderParsing(this, a2, a3) {
+    //     if (a3 < 0x12) return -2147467259;
+    //     v6 = a2[1]; if (v6 & 0xFE) return -2147467259;
+    //     v7 = a2[2];
+    //     if ((v7 & 0xFFFFFFF4) != 0 || *(WORD*)(a2+12) == 0 || *(WORD*)(a2+14) == 0) return -2147467259;
+    //     v9 = (a2[7] + 7) >> 3;
+    //     switch (a2[7]) { case 15: v46=24; break; case 16: v46=25; break;
+    //                      case 24: v46=20; break; case 32: v46=21; break;
+    //                      default: return -2147467259; }
+    //     v50 = (a2[16] + 7) >> 3;
+    //     switch (v7 & 3) {
+    //       case 1: if (a2[1] != 0 || a2[16] != 8) return -2147467259; v49 = 41; break;
+    //       case 2: map a2[16] to v49 via 15/16/24/32 -> 24/25/20/21, else -2147467259; break;
+    //       case 3: if (a2[16] != 8) return -2147467259; v49 = 50; break;
+    //       default: return -2147467259; }
+    //     v39 = v7 & 8; v40 = (a2[17] & 0x20) == 0x20; v41 = (a2[17] & 0x10) != 0x10;
+    //     v17 = a2[0]; v55 = a3 - 18; if (v55 < v17) return -2147467259;
+    //     v56 = v55 - v17; v51 = &a2[v17 + 18];
+    //     v36 = v9 * *(WORD*)(a2+5); if (v56 < v36) return -2147467259;
+    //     if (this[0x40] != 0 && v49 == 41) {
+    //       if (*(WORD*)(a2+5) + *(WORD*)(a2+3) > 256) return -2147467259;
+    //       this[0x8] = OperatorNewNhMallocWrapper(1024);
+    //       if (this[0x8] == 0) return -2147024882;
+    //       this[0x3C] = 1; memset(this[0x8], 0xFF, 0x400);
+    //       for (p = this[0x8] + 4**(WORD*)(a2+3); p < this[0x8] + 4*(*(WORD*)(a2+3) + *(WORD*)(a2+5)); p += 4)
+    //         convert one v46-format source pixel to R at p[0], G at p[1], B at p[2], A at p[3];
+    //     }
+    //     v57 = v56 - v36; v28 = v51 + v36; v29 = v50 * *(WORD*)(a2+12) * *(WORD*)(a2+14);
+    //     this[0x0] = v49; this[0x4] = v51 + v36; this[0x30] = v50 * *(WORD*)(a2+12);
+    //     this[0x34] = 0; this[0xC] = *(WORD*)(a2+12); this[0x10] = *(WORD*)(a2+14); this[0x14] = 1;
+    //     if (this[0x40] == 0) return 0;
+    //     if (v39 == 0 && v40 && v41 && v57 >= v29) { this[0x4] = v28; this[0x38] = 0; return 0; }
+    //     this[0x4] = OperatorNewNhMallocWrapper(v29);
+    //     if (this[0x4] == 0) return -2147024882;
+    //     this[0x38] = 1;
+    //     v32 = v40 ? this[0x4] : this[0x4] + this[0x30] * (*(WORD*)(a2+14) - 1);
+    //     for (row = 0; row < *(WORD*)(a2+14); ++row) {
+    //       dst = v41 ? v32 : v32 + this[0x30] - v50;
+    //       for (off = 0, run = *(WORD*)(a2+12); off < run; off += ??? ) {
+    //         if (v57 < v50) return -2147467259;
+    //         qmemcpy(dst, src, v50); src += v50; v57 -= v50;
+    //         dst = v41 ? dst + v50 : dst - v50;
+    //       }
+    //       v32 = v40 ? v32 + this[0x30] : v32 - this[0x30];
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: The header layout deviates from the standard 124-byte DDS header; the exact meanings of a2[0] (sub-header size), a2[1], a2[2], a2[3], a2[5], a2[7], a2[16] and a2[17] are inferred from their uses, not confirmed.
+    // UNRESOLVED: Internal format codes 20/21/24/25/41/50 (mapped to 24bpp, 32bpp, RGB565, RGB555 and two block-compressed variants) are DERIVED from the switch chains; their relation to standard DDS fourcc values is not established.
+    // UNRESOLVED: Field this+0x34 is always written 0; its role is unknown.
+    // UNRESOLVED: Field this+0x40 is read-only here and written by the caller; whether it selects surface-data/mip decoding or something else is unknown.
+    // UNRESOLVED: this+0x14 is set to 1; whether it is a surface count or a mip count is unknown.
+    // UNRESOLVED: The fast path leaves this+0x4 pointing into the caller's buffer with this+0x38 == 0; the ownership discipline with caller 0x00502A15 is not fully resolved.
+    // UNRESOLVED: v39 = a2[2] & 8 is always 0 because of the earlier header guard, so the run-length decode branch (v43/v33/v45) is dead in practice; its intended semantics are unconfirmed.
+}

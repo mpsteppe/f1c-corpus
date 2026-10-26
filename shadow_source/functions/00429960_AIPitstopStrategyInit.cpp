@@ -1,0 +1,77 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00429960
+// Canonical corpus name: sub_429960
+// Owner: F1CVehicle [CONFIRMED]
+// Raw source: functions/sub_429960_00429960.c
+
+void F1CVehicle::AIPitstopStrategyInit()
+{
+    // Per-frame AI pit-stop strategy initializer on an F1CVehicle. Resolves the tire compound by name and stores it at +0x458C; seeds the five-slot pit-schedule stride array (dword_8ACF8C / 1 / 1176256410 / 0); computes a fuel-adjusted lap factor from fuelConsumptionFactor (+0x3990) times flt_5EA40C clamped to >= 1.0 and stored at +0x45E8. For race sessions (dword_7C56A4 == 7) parses a 'PitStopStrategy' config entry into a stop count (+0x4588) and lap targets (+0x4590/+0x45A0/+0x45B0/+0x45C0), then fuel-adjusts them. For non-race sessions picks 3-4 stops via RandLCGRandomNumberGenerator with session-type-dependent spacing. Finally clamps the first lap target to >= 1, computes the speed/lap-time factor at +0x45F0, clamps it against fuelLoad (+0x3988), and when the obj+0x32C8 flag equals 1 pushes it through SpeedValueSetterWithGlobalMirror, RandomWeightedTierSelection and LoopWithConditionalSubCall.
+    // CALL: Call TireNameAccessor(this + 3) to obtain the tire-name handle. [callee:0x004F1630, source:raw]
+    // ASSIGNMENT: Write TireCompoundNameIDMapping(v2) into this[4451] at +0x458C (nextChosenTires). [callee:0x004A4830, field:this:0x0000458C, source:raw]
+    // LOOP: Five-iteration stride-4 dword loop seeding the schedule array anchored at +0x4598: each pass writes dword_8ACF8C to slot-2, 1 to slot, 1176256410 to slot-1, and 0 to slot+1. Packet-listed anchors touched across passes: +0x4590, +0x4594, +0x4598, +0x459C, +0x45A0, +0x45B0, +0x45C0, +0x45D0; the intermediate stride slots are not packet-listed. [global:0x008ACF8C, field:this:0x00004590, field:this:0x00004594, field:this:0x00004598, field:this:0x0000459C, field:this:0x000045A0, field:this:0x000045B0, field:this:0x000045C0, field:this:0x000045D0, source:raw]
+    // CALCULATION: Compute v5 = fuelConsumptionFactor (+0x3990) * flt_5EA40C, clamp v5 to a minimum of 1.0, and store it to the float slot at +0x45E8. [field:this:0x00003990, global:0x005EA40C, field:this:0x000045E8, source:raw]
+    // CALCULATION: If v5 is below (double)dword_7D0B64 * 1.2, store max(that threshold, 1.0) into +0x45E8. [global:0x007D0B64, field:this:0x000045E8, source:raw]
+    // ASSIGNMENT: Zero this[4472] at +0x45E0 and write 1176255488 to this[4476] at +0x45F0. [field:this:0x000045E0, field:this:0x000045F0, source:raw]
+    // GUARD: If session type dword_7C56A4 == 7, take the race-session config path; otherwise fall through to the session-type switch. [global:0x007C56A4, source:raw]
+    // CALL: Call SeasonRacesSectionFinder(0) to locate the season-races section. [callee:0x004C5840, source:raw]
+    // CALL: Call StringKeyedLinkedListSearch(aPitstopstrateg) to find the 'PitStopStrategy' config entry. [callee:0x005679C0, global:0x005C3284, source:raw]
+    // CALL: Call StringKeyedLinkedListSearch(*this + 17952) using the pointer read at +0x0. [callee:0x005679C0, field:this:0x00000000, source:raw]
+    // CALL: Copy the config string into the local buffer via strcpy from DataEntryAccessor(v7). [callee:0x00567970, source:raw]
+    // CALCULATION: Switch on the first character of the config string: '1'/'2'/'3' select stop counts 1/2/3 at +0x4588, the default selects 4; each case also writes dword_8ACF8C into the trailing lap slot (+0x45A0, +0x45B0, +0x45C0 as the count grows). [field:this:0x00004588, field:this:0x000045A0, field:this:0x000045B0, field:this:0x000045C0, global:0x008ACF8C, source:raw]
+    // CALL: Call StrlenFormatCallWrapper with the "%d[,%d[,%d[,%d]]]" format strings (aDDDD/aDDD/aDD/aD_1) to parse lap targets into +0x4590, +0x45A0, +0x45B0, +0x45C0. [callee:0x005887ED, global:0x005C3260, global:0x005C326C, global:0x005C3278, global:0x005C3280, field:this:0x00004590, field:this:0x000045A0, field:this:0x000045B0, field:this:0x000045C0, source:raw]
+    // LOOP: While v8 < stop count at +0x4588 (guard:1), convert each lap target at +0x4590/+0x45A0/+0x45B0/+0x45C0: if (float)dword_7D0B64 is 0 write 0, else write CRTFtol(target / v36). [callee:0x00587BDC, global:0x007D0B64, field:this:0x00004588, field:this:0x00004590, field:this:0x000045A0, field:this:0x000045B0, field:this:0x000045C0, guard:1, source:raw]
+    // LOOP: Scan the schedule: while i < stop count (+0x4588), read the stored lap number at dword index 1113+i (region not packet-listed) and if it exceeds dword_8ACF8C - 5, truncate the stop count to i and refill the remaining stride slots with dword_8ACF8C. [global:0x008ACF8C, field:this:0x00004588, field:this:0x00004590, field:this:0x000045A0, field:this:0x000045B0, field:this:0x000045C0, source:raw]
+    // LOOP: Fuel-adjustment loop: for each of the stop-count entries, v37 = next target - current target across +0x4590/+0x45A0/+0x45B0/+0x45C0, and write (double)v37 * multiplier (+0x45E8) into the slot three dwords before the current target, which for the second entry is +0x4594; the sibling targets are not packet-listed. [field:this:0x000045E8, field:this:0x00004590, field:this:0x000045A0, field:this:0x000045B0, field:this:0x000045C0, field:this:0x00004594, source:raw]
+    // CALCULATION: If dword_7D0B64 == 0 and dword_7D0C60 == 0, set stop count (+0x4588) to 0 and the first lap target (+0x4590) to dword_8ACF8C. [global:0x007D0B64, global:0x007D0C60, field:this:0x00004588, field:this:0x00004590, global:0x008ACF8C, source:raw]
+    // ASSIGNMENT: Write 8 (compound code) to the schedule slot at dword index 4455 + 4*stopCount, which is +0x459C when the stop count is 0. [field:this:0x0000459C, field:this:0x00004588, source:raw]
+    // LOOP: Non-race sessions 0/1/2/6: pick stop count 3 or 4 via RandLCGRandomNumberGenerator(%2) into +0x4588, fill lap targets at +0x4590/+0x45A0/+0x45B0 as cumulative RNG-summed values via CRTFtol, write compound code 8 to +0x459C, then fuel-adjust each target by (diff + 2.0) * multiplier (+0x45E8). [callee:0x005884ED, callee:0x00587BDC, global:0x007C56A4, field:this:0x00004588, field:this:0x00004590, field:this:0x000045A0, field:this:0x000045B0, field:this:0x0000459C, field:this:0x000045E8, source:raw]
+    // LOOP: Non-race sessions 3/4/5: pick stop count 3 or 4 via RandLCGRandomNumberGenerator(%21) into +0x4588, space targets evenly (12/count, plus 2) writing lap numbers to +0x4590/+0x45A0, fuel-adjusted values to +0x4594 (and stride siblings not packet-listed), compound code 8 to +0x459C, then run the fuel-adjustment loop against +0x4590/+0x45A0/+0x45B0/+0x45C0 with multiplier +0x45E8. [callee:0x005884ED, callee:0x00587BDC, global:0x007C56A4, field:this:0x00004588, field:this:0x00004590, field:this:0x00004594, field:this:0x0000459C, field:this:0x000045A0, field:this:0x000045B0, field:this:0x000045C0, field:this:0x000045E8, source:raw]
+    // CALCULATION: If the first lap target at +0x4590 is below 1 (guard:2), clamp it to 1. [field:this:0x00004590, guard:2, source:raw]
+    // CALCULATION: Write ((int)this[4452] + 2.0) * multiplier (+0x45E8) into the float slot at +0x45F0. [field:this:0x00004590, field:this:0x000045E8, field:this:0x000045F0, source:raw]
+    // CALCULATION: If dword_7D0B64 == 0, overwrite +0x45F0 with 1065353216 (1.0f). [global:0x007D0B64, field:this:0x000045F0, source:raw]
+    // CALCULATION: If fuelLoad at +0x3988 is below the value at +0x45F0, clamp +0x45F0 down to the fuelLoad value. [field:this:0x00003988, field:this:0x000045F0, source:raw]
+    // CALL: Call SpeedValueSetterWithGlobalMirror(value at +0x45F0). [callee:0x004F1890, field:this:0x000045F0, source:raw]
+    // GUARD: If the flag at obj+0x32C8 (read through the +0x0 pointer at byte offset 13000) equals 1 (guard:0), take the speed-setter tail path. [field:obj:0x000032C8, field:this:0x00000000, guard:0, source:raw]
+    // CALL: Call RandomWeightedTierSelection(this). [callee:0x00429FD0, source:raw]
+    // RETURN: Return LoopWithConditionalSubCall(v34, 1). [callee:0x004F1A60, source:raw]
+    // RETURN: When the obj+0x32C8 flag is not 1, return the pointer value read at +0x0 instead. [field:this:0x00000000, source:raw]
+
+    // Conservative worker pseudocode:
+    //   init_pitstop_strategy(vehicle) {
+    //       next_tire = TireCompoundNameIDMapping(TireNameAccessor(vehicle + 3));
+    //       seed 5-slot stride array (8ACF8C, 1, 1176256410, 0);
+    //       factor = max(fuelConsumptionFactor(+0x3990) * flt_5EA40C, 1.0);
+    //       if (factor < dword_7D0B64 * 1.2) factor = max(dword_7D0B64 * 1.2, 1.0);
+    //       +0x45E8 = factor;
+    //       +0x45E0 = 0;  +0x45F0 = 1176255488;
+    //       if (dword_7C56A4 == 7) {
+    //           if (SeasonRacesSectionFinder(0) && find("PitStopStrategy") && find(*vehicle + 17952)) {
+    //               parse config string -> stop_count(+0x4588), lap targets(+0x4590..+0x45C0);
+    //               convert targets via /dword_7D0B64; truncate if a target exceeds laps-5;
+    //               fuel-adjust targets by factor;
+    //           }
+    //           if (!dword_7D0B64 && !dword_7D0C60) { stop_count = 0; target0 = dword_8ACF8C; }
+    //           schedule_slot(stop_count) = 8;
+    //       } else {
+    //           switch (dword_7C56A4) {
+    //               0/1/2/6: random 3-4 stops, cumulative RNG lap targets;
+    //               3/4/5:   random 3-4 stops, equal-spaced lap targets;
+    //           }
+    //       }
+    //       clamp target0 >= 1;
+    //       +0x45F0 = (target0 + 2.0) * factor;
+    //       if (!dword_7D0B64) +0x45F0 = 1.0f;
+    //       if (fuelLoad(+0x3988) < +0x45F0) +0x45F0 = fuelLoad(+0x3988);
+    //       if (*(obj + 0x32C8) == 1) {
+    //           SpeedValueSetterWithGlobalMirror(+0x45F0);
+    //           return LoopWithConditionalSubCall(RandomWeightedTierSelection(vehicle), 1);
+    //       }
+    //       return *vehicle;
+    //   }
+    // UNRESOLVED: The stride loops (anchor +0x4598, stride 4 dwords) touch intermediate schedule slots between the packet-listed anchors that are not individually listed in the packet field list; those targets cannot be named from packet evidence.
+    // UNRESOLVED: The fuel-adjustment loops write to float slots three dwords before the current target (dword indices 4449/4453/4457/4461); only +0x4594 is packet-listed.
+    // UNRESOLVED: The lap-target scan loop reads lap numbers at dword index 1113+i, a schedule array region that is not packet-listed; the relationship between that array and the +0x4590..+0x45C0 targets is not evidenced.
+    // UNRESOLVED: Several packet globals have no visible read site in the raw source body: flt_59E43C, flt_59E440, flt_59E800, flt_59E8BC, flt_59E96C, unk_8AC368, and the jump-table globals jpt_429C9B / byte_429EA8; they are presumed consumed by the decompiler-hidden switch dispatch or inside a callee.
+    // UNRESOLVED: The dword literals 1176256410 and 1176255488 are float bit patterns; per policy they are kept as opaque dwords and not decoded to float values.
+}

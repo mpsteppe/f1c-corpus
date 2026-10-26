@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "address": "0x0053C800",
+  "proposed_name": "StringRegistryRegister",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0053C800"]
+  },
+  "summary": "Registers the input string in a fixed-capacity (32 entries x 132 bytes) most-recent-first string registry. Copies the input into a 256-byte stack buffer, preprocesses it via sub_589901, then scans the existing entries of byte_8B5A3C with strcmp. If a duplicate is found it returns without inserting. Otherwise, when entries exist, every entry is shifted up one 132-byte slot (copied with ArithmeticComparison_c6b0, indexed through dword_8B5A38), the new string is written into slot 0 of byte_8B5A3C and the global count dword_8B8E30 is incremented.",
+  "local_names": {
+    "a1": "input string to register",
+    "SrcStr": "256-byte stack buffer holding the copied input",
+    "v3": "snapshot of the registry count (dword_8B8E30)",
+    "v4": "scan index over existing registry entries",
+    "v5": "cursor into byte_8B5A3C advancing by 132 bytes per entry during the dedupe scan",
+    "v6": "dword-indexed cursor into dword_8B5A38 (stride 33 dwords) during the shift loop",
+    "v7": "shift iteration counter",
+    "v8": "previous 132-byte slot start",
+    "result": "return value: 0 on duplicate, terminating index + 1 after a copy"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Registration proceeds only when the input's first byte is non-null (non-empty string) and the registry count dword_8B8E30 is below 32",
+      "evidence_refs": ["field:this:0x00000000", "global:0x008B8E30", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Copy the input string (read through this+0) into the 256-byte stack buffer SrcStr, byte by byte, until the NUL terminator",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_589901(SrcStr) preprocesses the stack copy before it is stored in the registry",
+      "evidence_refs": ["callee:0x00589901", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Dedupe scan: strcmp SrcStr against each 132-byte-strided entry of byte_8B5A3C; a match breaks out and skips insertion",
+      "evidence_refs": ["global:0x008B5A3C", "global:0x008B8E30", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "When no duplicate is found and count > 0, shift every existing entry up one 132-byte slot by copying with ArithmeticComparison_c6b0, indexing the entries through dword_8B5A38 (dword stride 33) so slot 0 becomes free",
+      "evidence_refs": ["global:0x008B5A38", "global:0x008B5A3C", "global:0x008B8E30", "callee:0x0053C6B0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy SrcStr into byte_8B5A3C starting at slot 0, byte by byte until the NUL terminator",
+      "evidence_refs": ["global:0x008B5A3C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Registry count dword_8B8E30 is set to count + 1",
+      "evidence_refs": ["global:0x008B8E30", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns 0 when the string was already present, or the copy's terminating index + 1 after a successful insert",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Used by pit-crew/animation setup, SpecialFX_Init, VidMan_Init and StringCompareCopy paths as a shared string registry",
+      "evidence_refs": ["caller:0x0049CD80", "caller:0x004A3220", "caller:0x004A3910", "caller:0x004A4900", "caller:0x004CF070", "caller:0x004DC450", "caller:0x004F8D70", "caller:0x004FA320", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_53C800(a1) {",
+    "  char SrcStr[256];",
+    "  if (*a1 && dword_8B8E30 < 32) {",
+    "    copy a1 into SrcStr until NUL;",
+    "    sub_589901(SrcStr);",
+    "    if (dword_8B8E30 > 0) {",
+    "      for (i = 0; i < dword_8B8E30; ++i)",
+    "        if (strcmp(SrcStr, byte_8B5A3C + 132 * i) == 0) return 0;",
+    "      for (i = dword_8B8E30; i > 0; --i)",
+    "        ArithmeticComparison_c6b0(&dword_8B5A38[33 * i], &dword_8B5A38[33 * (i - 1)]);",
+    "    }",
+    "    copy SrcStr into byte_8B5A3C until NUL;",
+    "    dword_8B8E30 += 1;",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "What sub_589901 does to SrcStr (normalization, lowercasing, trimming) is unknown.",
+    "The differing return values (0 on duplicate vs terminating index + 1 on insert) have unclear consumer semantics.",
+    "Why the registry keeps the newest entry at slot 0 (MRU-front ordering) and who reads the entries is unknown.",
+    "The structural relation between dword_8B5A38 (indexed in 33-dword steps) and byte_8B5A3C (132-byte slots) is consistent only arithmetically (132 = 33 * 4); the real layout is unverified.",
+    "The field this+0 is read only as the input string's first byte; no further object state is used."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

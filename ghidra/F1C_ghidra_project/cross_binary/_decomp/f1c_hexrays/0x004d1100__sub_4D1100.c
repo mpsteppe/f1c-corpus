@@ -1,0 +1,7 @@
+// f1c  0x004d1100  size=53
+_DWORD *__stdcall sub_4D1100(_DWORD *a1, _DWORD *a2, _DWORD *a3)
+{
+  if ( (int)a1[4649] < 0 )
+    sub_4C6F10(a1);
+  return sub_403F70(dword_5EA2C0, a1[4649], a2, a3);
+}

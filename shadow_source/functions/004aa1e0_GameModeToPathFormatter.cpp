@@ -1,0 +1,44 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004AA1E0
+// Canonical corpus name: sub_4AA1E0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4AA1E0_004aa1e0.c
+
+void UnknownObject::GameModeToPathFormatter()
+{
+    // Maps a game-mode index a1 (0-6) to one of seven prefix string globals and formats the output buffer a3 with StringFormatWithBufferOverflowCheck(a3, aSS, prefix, a2) using the "%s%s" format; returns 1 on a recognized mode. Any other index writes 0 to a3[0] and returns 0.
+    // ASSIGNMENT: Initialize the local result to 0. [source:raw]
+    // GUARD: Dispatch on the mode index a1 via the jump table jpt_4AA1EB. [global:0x004AA248, source:raw]
+    // ASSIGNMENT: Case 0: select the prefix aCurnt (0x005CD6FC). [global:0x005CD6FC, source:raw]
+    // ASSIGNMENT: Case 1: select the prefix aPract (0x005CD6F4). [global:0x005CD6F4, source:raw]
+    // ASSIGNMENT: Case 2: select the prefix aQuick (0x005CD6EC). [global:0x005CD6EC, source:raw]
+    // ASSIGNMENT: Case 3: select the prefix aGprix (0x005CD6E4). [global:0x005CD6E4, source:raw]
+    // ASSIGNMENT: Case 4: select the prefix aChamp (0x005CD6DC). [global:0x005CD6DC, source:raw]
+    // ASSIGNMENT: Case 5: select the prefix aMulti (0x005CD6D4). [global:0x005CD6D4, source:raw]
+    // ASSIGNMENT: Case 6: select the prefix aRplay (0x005CD6CC). [global:0x005CD6CC, source:raw]
+    // CALL: For modes 0-6: call StringFormatWithBufferOverflowCheck(a3, aSS, selected prefix, a2) to build the combined "%s%s" string in a3. [callee:0x0058815F, global:0x005BE860, source:raw]
+    // ASSIGNMENT: Set result to 1 after a successful mode 0-6 format. [source:raw]
+    // STATE_TRANSITION: Default case: write 0 to a3[0], leaving the output buffer empty. [source:raw]
+    // RETURN: Return result (1 if a1 was a recognized mode 0-6, otherwise 0). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char format(a1, a2, a3) {
+    //     result = 0;
+    //     switch (a1) {
+    //       case 0: prefix = aCurnt; break;
+    //       case 1: prefix = aPract; break;
+    //       case 2: prefix = aQuick; break;
+    //       case 3: prefix = aGprix; break;
+    //       case 4: prefix = aChamp; break;
+    //       case 5: prefix = aMulti; break;
+    //       case 6: prefix = aRplay; break;
+    //       default: a3[0] = 0; return 0;
+    //     }
+    //     StringFormatWithBufferOverflowCheck(a3, aSS, prefix, a2);
+    //     return 1;
+    //   }
+    // UNRESOLVED: The actual string contents of the prefix globals (aCurnt, aPract, aQuick, aGprix, aChamp, aMulti, aRplay) are not included in the packet; their names are legacy/DERIVED labels only.
+    // UNRESOLVED: The meaning of the mode-index enum (0..6) is not defined in the packet.
+    // UNRESOLVED: Capacity and lifetime of the output buffer a3 are unknown.
+    // UNRESOLVED: The caller PlayerOptionsInitializer (0x004AA270) passes arguments whose meaning is not evidenced here.
+}

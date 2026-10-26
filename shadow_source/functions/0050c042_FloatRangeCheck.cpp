@@ -1,0 +1,22 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0050C042
+// Canonical corpus name: FloatRangeCheck
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/FloatRangeCheck_0050c042.c
+
+void UnknownObject::FloatRangeCheck()
+{
+    // Returns TRUE when the double-precision difference between the two float arguments a1 and a2 lies inside the symmetric tolerance band [-0.00000011920929, +0.00000011920929]. This is a float-equality / near-zero tolerance check; eleven vector and quaternion normalization and rotation callers (QuatNormalize 0x0050DECF, QuaternionConjugateAndNormalize 0x0050DF9B, RotationVectorToQuaternion 0x0050E055, AxisAngleToQuaternion 0x0050E0D9, sub_50E342, Vector4NormalizeWithLengthThreshold 0x0050E3E0, F_2DVectorNormalizeWithFallback 0x0050E6D3, sub_50E7CB, VectorNormalization 0x0050E887, F_44MatrixTransform 0x0050E927, QuaternionNormalize 0x0050ED19) use it as the magnitude near-zero gate before normalizing.
+    // CALCULATION: Compute v2 = a1 - a2 in double precision. [source:raw]
+    // GUARD: Compare v2 against the symmetric epsilon band: pass when v2 >= -0.00000011920929 and v2 <= 0.00000011920929. The two epsilon literals are backed by the packet read-globals flt_5AC9C0 (0x005AC9C0) and flt_5ADE3C (0x005ADE3C); which global backs which literal is DERIVED. [global:0x005AC9C0, global:0x005ADE3C, source:raw]
+    // RETURN: Return the boolean result of the tolerance comparison (nonzero when inside the band). [source:raw]
+    // CALL: Used by the normalization and rotation callers (e.g. QuatNormalize 0x0050DECF, QuaternionNormalize 0x0050ED19) as the near-zero tolerance gate before normalizing. [caller:0x0050DECF, caller:0x0050ED19, source:raw]
+
+    // Conservative worker pseudocode:
+    //   BOOL FloatRangeCheck(float a1, float a2) {
+    //     double diff = (double)a1 - (double)a2;
+    //     return diff >= -0.00000011920929 && diff <= 0.00000011920929;
+    //   }
+    // UNRESOLVED: The exact mapping of the two epsilon literals to the read-globals flt_5AC9C0 (0x005AC9C0) and flt_5ADE3C (0x005ADE3C) is not pinned by the packet; the literals appear inline in the raw source and the globals are only listed as packet reads.
+    // UNRESOLVED: The purpose (magnitude gate vs equality check) of the 1.1920929e-7 band is inferred from the normalization/rotation caller set, not confirmed by this packet alone.
+}

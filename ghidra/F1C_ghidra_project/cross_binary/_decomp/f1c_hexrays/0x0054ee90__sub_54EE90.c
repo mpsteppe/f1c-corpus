@@ -1,0 +1,6 @@
+// f1c  0x0054ee90  size=49
+double __fastcall sub_54EE90(int a1, int a2, int a3, int a4, int a5)
+{
+  return (*(float *)(a3 + 4 * a5) - *(float *)(a2 + 4 * a5)) * (*(float *)(a1 + 4 * a4) - *(float *)(a2 + 4 * a4))
+       - (*(float *)(a1 + 4 * a5) - *(float *)(a2 + 4 * a5)) * (*(float *)(a3 + 4 * a4) - *(float *)(a2 + 4 * a4));
+}

@@ -1,0 +1,49 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051DA17
+// Canonical corpus name: sub_51DA17
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_51DA17_0051da17.c
+
+void UnknownObject::VQBlockErrorBufferFill()
+{
+    // For each palette entry index read from a source byte array, computes a weighted squared color distance against target components (a2, a3, a4) using the palette's three component arrays behind this+0x74. Fills a 128-entry distance buffer (initialized to 0x7FFFFFFF) and a parallel 128-byte output index buffer through a 4x8x4 nested loop, storing the palette index wherever the computed distance is smaller than the current best. Called by BitstreamTextureBlockCopy to build per-block best-match index maps.
+    // ASSIGNMENT: Initialize the 128-dword distance buffer v17 to 0x7FFFFFFF via memset32, and seed result to 0x7FFFFFFF. [source:raw]
+    // GUARD: Guard on a5 > 0; when the entry count is not positive, the entire processing loop is skipped and the function returns the initial 0x7FFFFFFF result. [source:raw]
+    // LOOP: Outer do-while loop over a5 source entries; v26 indexes the source palette-index byte array a6. [source:raw]
+    // ASSIGNMENT: Read the palette entry index v8 as a byte from the source array a6 at position v26. [source:raw]
+    // CALCULATION: Load the palette structure pointer from this+0x74 and read the R component of palette entry v8 from its first byte array, forming delta v10 = a2 - palR[v8]. [field:this:0x00000074, field:*(this+0x74):0x00000000]
+    // CALCULATION: Read the G component of palette entry v8 from the second byte array and scale the delta: v11 = 3 * (a3 - palG[v8]). [field:*(this+0x74):0x00000004]
+    // CALCULATION: Read the B component of palette entry v8 from the third byte array: v12 = a4 - palB[v8], and weight the R delta by 2. [field:*(this+0x74):0x00000008]
+    // CALCULATION: Compute weighted squared color distance v13 = (2*dr)^2 + (3*dg)^2 + (db)^2 from the three weighted deltas. [source:raw]
+    // CALCULATION: Precompute per-position distance increments v14, v15, v27 from the weighted deltas for the 4x8x4 block scan. [source:raw]
+    // LOOP: Triple nested loop covering 4*8*4 = 128 block positions over distance buffer v17 and output index buffer a7. [source:raw]
+    // ASSIGNMENT: At each block position, when the accumulated distance v16 is less than the stored best *v24, write v16 into the distance buffer and the palette index v8 into the output byte buffer a7. [source:raw]
+    // CALCULATION: Advance the position walkers across the block: inner stride 128, middle stride 288, outer stride 512, incrementing both buffer pointers each inner step. [source:raw]
+    // RETURN: Return result, set to the incremented entry counter each outer iteration (or the initial 0x7FFFFFFF when the guard blocked the loop). [function:0x0051DA17, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int VQBlockErrorBufferFill(int paletteOwner, int targetR, int targetG, int targetB,
+    //                              int entryCount, char *srcIndices, char *outIndices)
+    //   {
+    //       int dist[128];
+    //       memset32(dist, 0x7FFFFFFF, 0x80);
+    //       int result = 0x7FFFFFFF;
+    //       for (int i = 0; i < entryCount; i++) {
+    //           int palIdx = srcIndices[i];
+    //           int dr = targetR - palR[palIdx];      /* palR/G/B reachable via paletteOwner+0x74 * /
+    //           int dg = 3 * (targetG - palG[palIdx]);
+    //           int db = targetB - palB[palIdx];
+    //           int d = (2*dr)*(2*dr) + dg*dg + db*db;
+    //           /* 4x8x4 = 128 block positions; exact per-position strides in raw source * /
+    //           for (each of 128 positions) {
+    //               if (d < dist[pos]) { dist[pos] = d; outIndices[pos] = palIdx; }
+    //           }
+    //           result = i + 1;
+    //       }
+    //       return result;
+    //   }
+    // UNRESOLVED: Exact meaning of target components a2/a3/a4 (assumed R/G/B reference color) is inferred from the component-wise deltas, not confirmed by a caller-site read.
+    // UNRESOLVED: The 4x8x4 block scan with increments 128/288/512 is not fully explained; it likely encodes a tiled or interpolated sub-position layout whose semantics the raw source alone does not reveal.
+    // UNRESOLVED: The palette object behind this+0x74 is an unknown class; only its three byte component arrays are observed.
+    // UNRESOLVED: Weights 2 (R) and 3 (G) are grounded literals from the raw source, but the perceptual rationale is not documented.
+}

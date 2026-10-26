@@ -1,0 +1,365 @@
+{
+  "schema_version": 1,
+  "address": "0x0043EF20",
+  "proposed_name": "EngineStressSimulation",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": [
+      "source:raw"
+    ]
+  },
+  "summary": "Per-frame engine durability, thermal and component-failure simulation on a vehicle object. Applies RPM/load-driven durability damage to the engine wear value this+412 and, when it is exhausted, flags the failure-state slot (value 9). Runs coupled coolant and oil temperature dynamics over the this+7500..7588 block (including overheat sine damping at 373.16 kelvin) and drives a random component-failure/repair state machine over the this+7604..7672 block, clearing the per-component time array and calling sub_41AC50 on the failure object. Called per frame from VehiclePhysicsIntegrationStep; reuses a global random-sample index (dword_8AAE70) and two global random tables.",
+  "local_names": {
+    "this+412": "engine durability / lifetime value (decremented by RPM-induced damage)",
+    "this+428": "damage scaling factor (RPM-to-durability)",
+    "this+8": "engine RPM input (double)",
+    "this+468": "engine-power sub-struct pointer (power output and inverse multiplier)",
+    "this+5616": "engine-model pointer (torque components)",
+    "this+7936": "failure/state object pointer",
+    "this+7260": "absolute per-frame excitation input v56",
+    "this+7500": "coolant temperature (double)",
+    "this+7564": "oil temperature (double)",
+    "this+7604": "component failure countdown / damage tick",
+    "this+7596": "component time accumulator",
+    "this+7652": "component damage value 1 (with +4 high dword at 7656)",
+    "this+7660": "component damage value 2 (with +4 high dword at 7664)",
+    "this+7668": "component damage value 3 (with +4 high dword at 7672)",
+    "dword_8AAE70": "global random-sample index",
+    "flt_8AAE74": "global random table A",
+    "flt_8AB274": "global random table B",
+    "flt_8AFEF0": "ambient-temperature base (kelvin)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Engine durability gate: when this+412 (durability) is above zero, v2 = this+428 * this+8 (RPM) * |this+7260| is computed and this+412 is reduced by v2 * this+436; if it reaches zero or below, this+412 and this+416 are zeroed and, when the failure-state slot at *(this+7936)+16488 is clear, it is set to 9 (durability-exhausted code). On the surviving path the engine-power sub-struct is written: *(this+468)+172 = this+412 * 0.75 + 1.0 and *(this+468)+180 = 1.0 / that value.",
+      "evidence_refs": [
+        "field:this:0x0000019C",
+        "field:this:0x000001AC",
+        "field:this:0x00000008",
+        "field:this:0x000001B4",
+        "field:this:0x000001A0",
+        "field:this:0x00001C5C",
+        "field:this:0x00001D4",
+        "field:this:0x00001F00",
+        "field:*(this+0x1D4):0x000000AC",
+        "field:*(this+0x1D4):0x000000B4",
+        "field:*(this+0x1F00):0x00004068",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "v56 = fabs(this+7260): the absolute value of the per-frame excitation input is taken once and reused by every thermal and damage equation.",
+      "evidence_refs": [
+        "field:this:0x00001C5C",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Coolant temperature-rate term: v60 = v2*this+7516 + v56*this+7524 + (flt_8AFEF0 + 273.16 - this+7500)*this+7532, mixing the damage term, the excitation and an ambient-temperature term (flt_8AFEF0 is the kelvin/ambient base).",
+      "evidence_refs": [
+        "field:this:0x00001D5C",
+        "field:this:0x00001D64",
+        "field:this:0x00001D6C",
+        "field:this:0x00001D4C",
+        "global:0x008AFEF0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Heat-sink term: v7 = this+7548, boosted by v56*this+7556 when this+7500 exceeds this+7508 - 10.0 (a threshold with 10.0 hysteresis); then v8 = v7 * (this+7500 - this+7564).",
+      "evidence_refs": [
+        "field:this:0x00001D7C",
+        "field:this:0x00001D84",
+        "field:this:0x00001D4C",
+        "field:this:0x00001D54",
+        "field:this:0x00001D8C",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Advance coolant temperature: v57 = (v60 - v8) * this+104 (time delta) + this+7500, stored as an 8-byte double over this+7500 (low dword) and this+7504 (high dword).",
+      "evidence_refs": [
+        "field:this:0x00000068",
+        "field:this:0x00001D4C",
+        "field:this:0x00001D50",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "When the new coolant temperature v57 is not below (and not equal to) the cap this+7508, the excitation contribution v9 = v56*0.5358549222797928 is clamped by the sine factor sin(this+7508 * 3.141592653589793 / (v57+v57)), floored at zero when negative.",
+      "evidence_refs": [
+        "field:this:0x00001D54",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Smoothed coolant output: this+7540 = (v9 - this+7540) * this+104 * 4.0 + this+7540 (exponential smoothing with a 4.0 gain).",
+      "evidence_refs": [
+        "field:this:0x00001D74",
+        "field:this:0x00000068",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Engine-model torque moment: v13 = *(this+5616); v14 = *(v13+92)**(v13+116) + *(v13+108)**(v13+68) + *(v13+44)**(v13+100); v15 = v14*0.2 when v14 is non-negative, otherwise v15 = -v14.",
+      "evidence_refs": [
+        "field:this:0x000015F0",
+        "field:*(this+0x15F0):0x0000002C",
+        "field:*(this+0x15F0):0x00000044",
+        "field:*(this+0x15F0):0x0000005C",
+        "field:*(this+0x15F0):0x00000064",
+        "field:*(this+0x15F0):0x0000006C",
+        "field:*(this+0x15F0):0x00000074",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Oil-temperature rate: v58 = (v8 + (v15*this+7580 + this+7572) * (flt_8AFEF0 + 273.16 - this+7564)) * this+104 + this+7564, then stored back into this+7564.",
+      "evidence_refs": [
+        "field:this:0x00001D9C",
+        "field:this:0x00001D94",
+        "field:this:0x00001D8C",
+        "global:0x008AFEF0",
+        "field:this:0x00000068",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Overheat damping: when the oil temperature v58 exceeds 373.16 (boiling point in kelvin), v16 = v56*0.301625 is scaled by sin(1172.316714613567 / (v58+v58)), floored at zero; then this+7588 = (v16 - this+7588) * this+104 * 4.0 + this+7588.",
+      "evidence_refs": [
+        "field:this:0x00001DA4",
+        "field:this:0x00000068",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Component failure countdown: when this+7604 is positive, sub_5881F0 is called twice with the constant 2.0 (accumulating a time/heat contribution), then this+7604 = this+7604 - (2.0 * 0.5 + this+7596) * this+104; when this+7604 stays positive the function returns early.",
+      "evidence_refs": [
+        "field:this:0x00001DB4",
+        "field:this:0x00001DAC",
+        "field:this:0x00000068",
+        "callee:0x005881F0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Failure trigger: when the countdown reaches zero, this+7604 and this+7608 are zeroed and the failure-state slot at *(this+7936)+16488 is set to 1 (component-failure code) when currently clear.",
+      "evidence_refs": [
+        "field:this:0x00001DB4",
+        "field:this:0x00001DB8",
+        "field:this:0x00001F00",
+        "field:*(this+0x1F00):0x00004068",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Random failure selection setup: v59 is the prior countdown value; when it equals the double-precision smallest normal 2.225073858507201e-308, a no-selection flag v22 is cleared using flt_8AB274[dword_8AAE70]; otherwise v24 = flt_8AAE74[dword_8AAE70] is sampled and the global index dword_8AAE70 is advanced. v23 detects whether all three component fields (this+7652, this+7660, this+7668) are zero.",
+      "evidence_refs": [
+        "global:0x008AAE70",
+        "global:0x008AAE74",
+        "global:0x008AB274",
+        "field:this:0x00001DE4",
+        "field:this:0x00001DEC",
+        "field:this:0x00001DF4",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "When v24 < 0.5, v22 set and all components currently zero, a single component is picked: v29 = v24 +/- 0.04 (sign from compare-flag residue), then threshold bands (below 0.3, 0.3-0.4, 0.4-0.5) write the chosen component field (this+7652, this+7660 or this+7668) = flt_8AB274[sample]*0.4 - 0.1, set this+7604 = scaled v29 + 1.0 and this+7596 = flt_8AB274[sample]*0.1 + 0.15, then return.",
+      "evidence_refs": [
+        "global:0x008AAE70",
+        "global:0x008AB274",
+        "field:this:0x00001DE4",
+        "field:this:0x00001DEC",
+        "field:this:0x00001DF4",
+        "field:this:0x00001DB4",
+        "field:this:0x00001DAC",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "When v24 >= 0.5 and v22 set, v35 = flt_8AAE74[advancing index] selects a component to reset to exactly 1.0: below 0.4 resets this+7652/this+7656, below 0.65 resets this+7660/this+7664, below 0.9 resets this+7668/this+7672 (each pair written as the low/high dwords of 1.0).",
+      "evidence_refs": [
+        "global:0x008AAE74",
+        "global:0x008AAE70",
+        "field:this:0x00001DE4",
+        "field:this:0x00001DE8",
+        "field:this:0x00001DEC",
+        "field:this:0x00001DF0",
+        "field:this:0x00001DF4",
+        "field:this:0x00001DF8",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Component repair pass (LABEL_57): the still-zero components are drifted back toward 1.0 by writing 1.0 - flt_8AAE74[sample]*0.3 into them (this+7652, this+7660, this+7668), with flt_8AAE74 indexing advancing the global dword_8AAE70; a 0.2-bounded branch adds sample+0.1 to a zero component.",
+      "evidence_refs": [
+        "global:0x008AAE74",
+        "global:0x008AAE70",
+        "field:this:0x00001DE4",
+        "field:this:0x00001DEC",
+        "field:this:0x00001DF4",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-component time-array reset: this+7596 and this+7600 are zeroed, then for v45 in 0..this+7432-1 the dword at *(this+7420) + 8*v45 + 4 is cleared; finally sub_41AC50(*(this+7936), 0) is called on the failure object.",
+      "evidence_refs": [
+        "field:this:0x00001D08",
+        "field:this:0x00001CFC",
+        "field:this:0x00001DAC",
+        "field:this:0x00001DB0",
+        "field:this:0x00001F00",
+        "callee:0x0041AC50",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Long-quiet branch: when this+7604 < -15.4 and this+7596 > 0, this+7596 = this+104*0.002 + this+7596; when it exceeds 0.6 the pair is clamped by writing the literal dwords 858993459 and 1071854387 into this+7596 and this+7600 (matching the init literals).",
+      "evidence_refs": [
+        "field:this:0x00001DB4",
+        "field:this:0x00001DAC",
+        "field:this:0x00001DB0",
+        "field:this:0x00000068",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "In-range decay: when this+7604 lies in [-15.4, 0], this+7604 = this+7604 - this+104; on one compare-flag branch all six component dwords (this+7652..this+7672) are zeroed, on another branch (crossing below -10.1 from above) this+7668 and this+7672 are zeroed and this+7652/this+7660 are halved.",
+      "evidence_refs": [
+        "field:this:0x00001DB4",
+        "field:this:0x00000068",
+        "field:this:0x00001DE4",
+        "field:this:0x00001DE8",
+        "field:this:0x00001DEC",
+        "field:this:0x00001DF0",
+        "field:this:0x00001DF4",
+        "field:this:0x00001DF8",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read-only floating-point constants loaded from the global pool (0x0059E420 through 0x0059ED00 plus 0x005EB978) and rendered as immediates in the raw source (0.75, 0.5358549222797928, 0.301625, 3.141592653589793, 1172.316714613567, 273.16, 373.16, 2.225073858507201e-308, 10.0, 15.4, 0.2, 0.04, 0.1, 0.15, 0.3, 0.4, 0.5, 0.6, 0.65, 0.9, 4.0).",
+      "evidence_refs": [
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "global:0x0059E7D8",
+        "global:0x0059E880",
+        "global:0x0059E890",
+        "global:0x0059E8B4",
+        "global:0x0059E900",
+        "global:0x0059EA60",
+        "global:0x0059EA68",
+        "global:0x0059EAC8",
+        "global:0x0059EB28",
+        "global:0x0059EB30",
+        "global:0x0059EB38",
+        "global:0x0059EB48",
+        "global:0x0059EBA0",
+        "global:0x0059EC60",
+        "global:0x0059EC70",
+        "global:0x0059EC80",
+        "global:0x0059EC98",
+        "global:0x0059ECA0",
+        "global:0x0059ECA8",
+        "global:0x0059ECB0",
+        "global:0x0059ECB8",
+        "global:0x0059ECC0",
+        "global:0x0059ECC8",
+        "global:0x0059ECD0",
+        "global:0x0059ECD8",
+        "global:0x0059ECE0",
+        "global:0x0059ECE8",
+        "global:0x0059ECF0",
+        "global:0x0059ECF8",
+        "global:0x0059ED00",
+        "global:0x005EB978",
+        "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "v56 = fabs(this+7260);",
+    "if (this+412 > 0) {",
+    "  v2 = (this+428) * (this+8) * v56;",
+    "  this+412 -= v2 * (this+436);",
+    "  if (this+412 <= 0) {",
+    "    this+412 = 0; this+416 = 0;",
+    "    if (!(*(this+7936)+16488)) *(this+7936)+16488 = 9;",
+    "  }",
+    "  *(this+468)+172 = this+412 * 0.75 + 1.0;",
+    "  *(this+468)+180 = 1.0 / *(this+468)+172;",
+    "}",
+    "v60 = v2*(this+7516) + v56*(this+7524) + (flt_8AFEF0 + 273.16 - this+7500)*(this+7532);",
+    "v7 = this+7548; if (this+7508 - 10.0 < this+7500) v7 += v56*(this+7556);",
+    "v8 = v7 * (this+7500 - this+7564);",
+    "v57 = (v60 - v8)*(this+104) + this+7500; this+7500/7504 = v57;",
+    "v9 = v56 * 0.5358549222797928;",
+    "if (v57 >= this+7508) v9 *= max(0.0, sin(this+7508*3.141592653589793/(v57+v57)));",
+    "this+7540 = (v9 - this+7540)*this+104*4.0 + this+7540;",
+    "v13 = *(this+5616);",
+    "v14 = *(v13+92)**(v13+116) + *(v13+108)**(v13+68) + *(v13+44)**(v13+100);",
+    "v15 = (v14 >= 0.0) ? v14*0.2 : -v14;",
+    "v58 = (v8 + (v15*(this+7580) + this+7572)*(flt_8AFEF0 + 273.16 - this+7564))*this+104 + this+7564;",
+    "this+7564 = v58;",
+    "v16 = v56 * 0.301625;",
+    "if (v58 > 373.16) v16 *= max(0.0, sin(1172.316714613567/(v58+v58)));",
+    "this+7588 = (v16 - this+7588)*this+104*4.0 + this+7588;",
+    "if (this+7604 > 0) {",
+    "  sub_5881F0(2.0); sub_5881F0(2.0);",
+    "  this+7604 -= (2.0*0.5 + this+7596)*this+104;",
+    "  if (this+7604 > 0) return;",
+    "  this+7604 = 0; this+7608 = 0;",
+    "  if (!(*(this+7936)+16488)) *(this+7936)+16488 = 1;",
+    "  ... random component selection/repair from flt_8AB274 / flt_8AAE74 via dword_8AAE70 ...",
+    "  clear dwords *(this+7420) + 8*v45 + 4 for v45 < this+7432;",
+    "  this+7596 = 0; this+7600 = 0;",
+    "  sub_41AC50(*(this+7936), 0);",
+    "  return;",
+    "}",
+    "if (this+7604 < -15.4) {",
+    "  if (this+7596 > 0) {",
+    "    this+7596 += this+104*0.002;",
+    "    if (this+7596 > 0.6) { this+7596 = 858993459; this+7600 = 1071854387; }",
+    "  }",
+    "} else {",
+    "  this+7604 -= this+104;",
+    "  if (flag) zero this+7652..7672;",
+    "  else if (crossed -10.1) { this+7668 = 0; this+7672 = 0; this+7652 *= 0.5; this+7660 *= 0.5; }",
+    "}"
+  ],
+  "unresolved": [
+    "The exact mapping between the read-only global-pool doubles/floats (0x0059E420..0x0059ED00 plus 0x005EB978) and the floating-point immediates in the raw source is not independently established; the raw source renders those globals as literals.",
+    "The compare-flag residue reads v27/v28/v47/v48/v52/v53 (unsigned __int8 C0/C3/C2 flag captures) leave the exact sign and strictness of several branches ambiguous.",
+    "The identity and side effects of sub_5881F0 (called twice with the constant 2.0) and sub_41AC50 (called with *(this+7936) and 0) are not evidenced by this packet; the existing fill interprets the latter as a failure reset.",
+    "Whether this+7500/this+7564 are coolant and oil temperatures, this+7604 a failure countdown and this+7596/this+7600 time accumulators is a DERIVED interpretation from the existing analysis fill, not proven by this packet.",
+    "The literal dword 858993459 written into this+7596 is reported from the source verbatim; its floating-point reinterpretation is not established."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

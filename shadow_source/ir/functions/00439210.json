@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "address": "0x00439210",
+  "proposed_name": "VehiclePhysicsInitializer",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Per-frame vehicle physics initializer: loads per-corner suspension setup data, computes ride-height/weight-distribution/center-of-mass, builds the body-coupling transforms and corner force structures, then runs the per-element steering/relative-velocity/matrix update passes before returning the vehicle rotation matrix pointer. Called each frame from TireModelInit (0x0043E050).",
+  "local_names": {
+    "v204": "corner_diff",
+    "v207": "tmp_vec",
+    "v208": "tmp_vec2",
+    "v209": "corner_cg",
+    "v216": "corner_weight_front_left",
+    "v225": "euler_angles",
+    "v229": "corner_weights",
+    "v238": "corner_deflections"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Entry: per-frame physics setup invoked from TireModelInit (0x0043E050).",
+      "evidence_refs": ["caller:0x0043E050", "function:0x00439210"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load corner setup blocks from vehicle config (this+0x1F00): copy four per-corner float triplets (ride-height/spring/damper data) from the corner setup arrays at this+0x1F00+0x8C8 area into stack locals.",
+      "evidence_refs": ["field:this:0x00001F00", "field:*(this+0x1F00):0x000008C8", "field:*(this+0x1F00):0x000008CC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Weighted sum of corner setup floats (distinct coefficients per corner) stored to this+0x1F34; rear/front ride-height adjustments applied from a3 offsets before the sum is finalized.",
+      "evidence_refs": ["field:this:0x00001F34", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Per-corner loop (4 iterations, stride 0x128): call ThreeFieldSetterWithSubCall on each corner setup triplet.",
+      "evidence_refs": ["callee:0x0054B3B0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Vehicle body sub-object (this+0x1D4): zero 0xAC/0xB4 and write 0x3FF00000 (1.875f) to 0xB0/0xB8 each frame; 0xAC/0xB0 subsequently overwritten with computed body mass and inverse mass.",
+      "evidence_refs": ["field:this:0x000001D4", "field:*(this+0x1D4):0x000000AC", "field:*(this+0x1D4):0x000000B0", "field:*(this+0x1D4):0x000000B4", "field:*(this+0x1D4):0x000000B8", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate attached-body mass: iterate count this+0x15AC over body list base this+0x15B0 (stride 0x244), excluding this+0x15F0 index and self pointer this+0x1E8; store total mass to this+0x15F4 and write mass/inverse-mass into the corner struct at *(this+0x15F0)+0xAC / +0xB4.",
+      "evidence_refs": ["field:this:0x000015AC", "field:this:0x000015B0", "field:this:0x000015F0", "field:this:0x000015F4", "field:this:0x00001E8", "field:*(this+0x15F0):0x000000AC", "field:*(this+0x15F0):0x000000B4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per-corner center-of-mass accumulation: iterate 4 corners over the this+0x3E8 body-pointer array (count this+0x3EC), summing mass moments; add coupled-body (this+0x141C) contributions using corner offsets read from *(this+0x1114)+0x4/0xC/0x14 and *(this+0xCB0)+0x4/0xC/0x14.",
+      "evidence_refs": ["field:this:0x000003E8", "field:this:0x000003EC", "field:this:0x0000141C", "field:this:0x00001114", "field:this:0x00000CB0", "field:*(this+0x1114):0x00000004", "field:*(this+0x1114):0x0000000C", "field:*(this+0x1114):0x00000014", "field:*(this+0xCB0):0x00000004", "field:*(this+0xCB0):0x0000000C", "field:*(this+0xCB0):0x00000014", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute center-of-mass / CG offset combining corner geometry with track-width read *(this+0x1F00)+0x76C and a3 ride-height inputs; final total mass stored on the vehicle body sub-object (this+0x1D4).",
+      "evidence_refs": ["field:*(this+0x1F00):0x00000076C", "field:this:0x00001114", "field:this:0x00000CB0", "field:this:0x00001D4", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write three per-corner force-result floats into the vehicle config struct at *(this+0x1F00)+0x738/0x73C/0x740 (converted from computed corner force values).",
+      "evidence_refs": ["field:*(this+0x1F00):0x00000738", "field:*(this+0x1F00):0x0000073C", "field:*(this+0x1F00):0x00000740", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write CG/anchor position deltas to this+0x1614/0x161C/0x1624 and to this+0x15F8; copy corner anchor vectors into the per-corner suspension force buffer through the *(this+0x15F0) array.",
+      "evidence_refs": ["field:this:0x00001614", "field:this:0x0000161C", "field:this:0x00001624", "field:this:0x000015F0", "field:this:0x000015F8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Tire compound selection: TireBrandLookup(a3+136); if brand set, CompoundIndexLookup(*(a2+3012)), else compound index 0.",
+      "evidence_refs": ["callee:0x004D7880", "callee:0x004D7570", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per-corner suspension setup loop (4 corners, stride 0x464): compound data drives VehicleSuspensionForceHelper for spring/damper, else defaults 275000.0 / 0.325; writes per-corner fields this+0x451..0x470 (activity flag, indices, damper rate, anti-roll) and reads corner suspension travel from *(this+0x3EC)+0xAC and *(this+0x141C)+0xAC.",
+      "evidence_refs": ["callee:0x004D6AE0", "field:this:0x00000451", "field:this:0x00000454", "field:this:0x00000458", "field:this:0x0000045C", "field:this:0x00000464", "field:this:0x0000046C", "field:this:0x00000470", "field:*(this+0x3EC):0x000000AC", "field:*(this+0x141C):0x000000AC", "field:this:0x000003EC", "field:this:0x0000141C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Coupled-body center-of-gravity update: if this+0x141C set, read corner offsets via *(this+0x1114)+4 and *(this+0xCB0)+4, average against local corner positions, and write resulting CG into *(this+0x141C)+4.",
+      "evidence_refs": ["field:this:0x0000141C", "field:this:0x00001114", "field:this:0x00000CB0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Contact-pair loop (count this+0x15B4, base this+0x15B8, stride 48): TransformApply3D on contact points, F_3DVectorTransformBy33Matrix, F_3x3RotationTensorMatrixTransform and FloatConvertWrapper to build/normalize the coupling rotation.",
+      "evidence_refs": ["field:this:0x000015B4", "field:this:0x000015B8", "callee:0x0043AEE0", "callee:0x004361D0", "callee:0x005691D0", "callee:0x00588570", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Body-coupling loop (count this+0x15C4, base this+0x15C8, stride 72): TransformApply3D, F_3DVectorTransformBy33Matrix, Mat3x3MulVec and Matrix3x3VectorMultiply on coupled body pairs; intermediate written to this+0x1420.",
+      "evidence_refs": ["field:this:0x000015C4", "field:this:0x000015C8", "callee:0x0043AEE0", "callee:0x004361D0", "callee:0x004388D0", "callee:0x00435E00", "field:this:0x00001420", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Per-corner rotation setup loop (4 iterations, stride 0x464): EulerAnglesTo33RotationMatrix on a per-corner Euler buffer, then sub_56BDE0 on the corner slot at this+0x454.",
+      "evidence_refs": ["callee:0x0056BD40", "callee:0x0056BDE0", "field:this:0x00000454", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Per-corner struct copy loop (4 iterations, stride 0x464): StructCopyWithReciprocalDivision on corner data at *(this+0x3E8)+188.",
+      "evidence_refs": ["callee:0x005697A0", "field:this:0x000003E8", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy center-of-mass from a3: this+0xD4/0xDC/0xE4 = a3+72/80/88; then subtract each attached body (count this+0x15AC, base this+0x15B0, stride 0x244) contribution from the COM values.",
+      "evidence_refs": ["field:this:0x000000D4", "field:this:0x000000DC", "field:this:0x000000E4", "field:this:0x000015AC", "field:this:0x000015B0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "this+0x3EC == 0: vehicle has zero suspension travel, blocks suspension processing branches.",
+      "evidence_refs": ["guard:0", "field:this:0x000003EC"]
+    },
+    {
+      "kind": "guard",
+      "description": "this+0x15AC > 0: suspension mode flag positive, gates suspension geometry computation.",
+      "evidence_refs": ["guard:1", "field:this:0x000015AC"]
+    },
+    {
+      "kind": "guard",
+      "description": "this+0x15B4 <= 0 and this+0x15B4 > 0: front suspension travel bounds checks gate the front-suspension setup branch.",
+      "evidence_refs": ["guard:2", "guard:3", "field:this:0x000015B4"]
+    },
+    {
+      "kind": "guard",
+      "description": "this+0x15BC > 0: front roll stiffness positive, passes into anti-roll bar computation.",
+      "evidence_refs": ["guard:4", "field:this:0x000015BC"]
+    },
+    {
+      "kind": "guard",
+      "description": "this+0x15C4 > 0: front spring rate positive, passes into spring rate computation.",
+      "evidence_refs": ["guard:5", "field:this:0x000015C4"]
+    },
+    {
+      "kind": "call",
+      "description": "Invalid-dimension dev log: if any COM dimension <= 0 and session type != 5 (dword_7C569C), StringSplitLoop(1, aDDevF119992002, 2560) then DebugLogWrite(&dword_8AD25C, aVehicleHasZero).",
+      "evidence_refs": ["global:0x007C569C", "global:0x005C421C", "global:0x005C41DC", "global:0x008AD25C", "callee:0x004D7A50", "callee:0x004D7AA0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Front steering geometry pass: StructCopyWithReciprocalDivision on COM vector, then FrontSteeringGeometrySetup(a2, a3) and SteeringGeometryComputation(a2, a3).",
+      "evidence_refs": ["callee:0x005697A0", "callee:0x0043B040", "callee:0x0043B590", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Per-element update passes (count/base this+0x15C4/0x15C8, stride 72): RelativeVelocityCompute followed by sub_56D2D0 on each suspension element.",
+      "evidence_refs": ["callee:0x0056D1C0", "callee:0x0056D2D0", "field:this:0x000015C4", "field:this:0x000015C8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Contact transform passes: F_3x3MatrixVectorMultiply (count this+0x15B4, base this+0x15B8, stride 48) and F_3x3MatrixInverseCoordinateTransform (count this+0x15BC, base this+0x15C0, stride 48).",
+      "evidence_refs": ["callee:0x0056CF70", "callee:0x0056D020", "field:this:0x000015B4", "field:this:0x000015B8", "field:this:0x000015BC", "field:this:0x000015C0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Tire model mode factor: if dword_7CE958 set, scale factors 0.605/0.73 are written to a3+1336 region, else 1.0/1.0.",
+      "evidence_refs": ["global:0x007CE958", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Corner force/stiffness loop (4 corners, stride 0x464): rotation dot-products from *(this+0x3E8) corner structs written to this+0x400/0x420/0x428/0x430; per-corner static/dynamic force terms accumulated.",
+      "evidence_refs": ["field:this:0x00000400", "field:this:0x00000420", "field:this:0x00000428", "field:this:0x00000430", "field:this:0x000003E8", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero angular state this+0x1428/0x142C and compute this+0x1430 (angular rate term from sqrt(a3+5752) * a3+104).",
+      "evidence_refs": ["field:this:0x00001428", "field:this:0x0000142C", "field:this:0x00001430", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "DeltaUpdateTracking(a2 setup) and CollisionEnergy(a2, a3) for collision impulse; scaled energy written to this+0x1448 and this+0x1450.",
+      "evidence_refs": ["callee:0x0043BB00", "callee:0x004390A0", "field:this:0x00001448", "field:this:0x00001450", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Final CG/corner sum: read corner offsets *(this+0x1114)+0x4/0xC/0x14 and *(this+0xCB0)+0x4/0xC/0x14, combine with vehicle rotation matrix (*(this+0x15F0)+28) and a3 COM/anchor offsets, store to this+0x1DFC.",
+      "evidence_refs": ["field:this:0x00001114", "field:this:0x00000CB0", "field:*(this+0x1114):0x00000004", "field:*(this+0x1114):0x0000000C", "field:*(this+0x1114):0x00000014", "field:*(this+0xCB0):0x00000004", "field:*(this+0xCB0):0x0000000C", "field:*(this+0xCB0):0x00000014", "field:this:0x000015F0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return pointer to the vehicle rotation matrix at *(this+0x15F0)+28.",
+      "evidence_refs": ["field:this:0x000015F0", "function:0x00439210"]
+    }
+  ],
+  "clean_pseudocode": [
+    "load corner setup triplets from *(this+0x1F00) into local weights;",
+    "write weighted corner sum to this+0x1F34;",
+    "for each corner: ThreeFieldSetterWithSubCall(cornerSetupTriplet);",
+    "init body sub-object *(this+0x1D4)+0xAC..0xB8 (0, 1.875f, 0, 1.875f);",
+    "sum attached-body masses (this+0x15AC/0x15B0) into this+0x15F4; store mass+inverse into *(this+0x15F0)+0xAC/0xB4;",
+    "accumulate corner center-of-mass via *(this+0x1114)/*(this+0xCB0) corner offsets and coupled body this+0x141C;",
+    "choose tire compound via TireBrandLookup/CompoundIndexLookup;",
+    "per-corner suspension setup (this+0x451..0x470) with VehicleSuspensionForceHelper or defaults;",
+    "build coupling transforms and run per-element RelativeVelocityCompute/sub_56D2D0 and matrix passes;",
+    "apply tire-mode scale factors from dword_7CE958;",
+    "compute collision energy (CollisionEnergy) into this+0x1448/0x1450;",
+    "final CG/corner transform written to this+0x1DFC; return *(this+0x15F0)+28."
+  ],
+  "unresolved": [
+    "Read-only corner-geometry field evidence at *(this+0x141C)+0x4..0x5C (front-left corner ride height/spring/damper/anti-roll/geometry) could not be localized to a specific statement in the decompiled text.",
+    "Read-only corner-geometry field evidence at *(this+0x15F0)+0x4..0x5C (computed per-corner ride height/spring/damper forces) could not be localized to a specific statement in the decompiled text.",
+    "Rear-left suspension travel read *(this+0x15B0)+0xAC could not be localized to a specific statement.",
+    "18 physics-constant globals (dbl_59E420..dbl_59EC08) are read-only but do not appear as named references in the Hex-Rays output; likely folded into floating-point literals. Their mapping is unknown.",
+    "Global dword_8AD254 appears in the fact table but not in the decompiled text; purpose unknown.",
+    "Writes to this+0x15FC (qmemcpy of coupling delta, 0x18 bytes) and this+0x1DFC (final CG/anchor result) are not present in the packet field list; referenced only via source:raw.",
+    "Semantics of a2 (setup/vehicle-config source) and a3 (vehicle state) parameter struct offsets are only partially interpreted; several a2/a3 relative offsets (e.g. a2+3012, a3+5216) remain unlabeled.",
+    "Guard set (this+0x3EC, 0x15AC, 0x15B4, 0x15BC, 0x15C4) is taken from the IDB guard table; exact branch mapping in the decompiled control flow is not fully verified.",
+    "Vehicle body sub-object init literal 0x3FF00000 is emitted as 1072693248 in the packet; rendered as 1.875f only in the prose tier (DERIVED)."
+  ],
+  "unresolved_evidence_refs": [
+    "field:*(this+0x141C):0x00000004",
+    "field:*(this+0x141C):0x0000000C",
+    "field:*(this+0x141C):0x00000014",
+    "field:*(this+0x141C):0x0000001C",
+    "field:*(this+0x141C):0x00000024",
+    "field:*(this+0x141C):0x0000002C",
+    "field:*(this+0x141C):0x00000034",
+    "field:*(this+0x141C):0x0000003C",
+    "field:*(this+0x141C):0x00000044",
+    "field:*(this+0x141C):0x0000004C",
+    "field:*(this+0x141C):0x00000054",
+    "field:*(this+0x141C):0x0000005C",
+    "field:*(this+0x15B0):0x000000AC",
+    "field:*(this+0x15F0):0x00000004",
+    "field:*(this+0x15F0):0x0000000C",
+    "field:*(this+0x15F0):0x00000014",
+    "field:*(this+0x15F0):0x0000001C",
+    "field:*(this+0x15F0):0x00000024",
+    "field:*(this+0x15F0):0x0000002C",
+    "field:*(this+0x15F0):0x00000034",
+    "field:*(this+0x15F0):0x0000003C",
+    "field:*(this+0x15F0):0x00000044",
+    "field:*(this+0x15F0):0x0000004C",
+    "field:*(this+0x15F0):0x00000054",
+    "field:*(this+0x15F0):0x0000005C",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E880",
+    "global:0x0059EA58",
+    "global:0x0059EA60",
+    "global:0x0059EBA8",
+    "global:0x0059EBB0",
+    "global:0x0059EBB8",
+    "global:0x0059EBC0",
+    "global:0x0059EBC8",
+    "global:0x0059EBD0",
+    "global:0x0059EBD8",
+    "global:0x0059EBE0",
+    "global:0x0059EBE8",
+    "global:0x0059EBF0",
+    "global:0x0059EBF8",
+    "global:0x0059EC00",
+    "global:0x0059EC08",
+    "global:0x008AD254"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

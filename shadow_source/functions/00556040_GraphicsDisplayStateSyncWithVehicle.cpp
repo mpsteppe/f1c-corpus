@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00556040
+// Canonical corpus name: GraphicsDisplayStateSyncWithVehicle
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/GraphicsDisplayStateSyncWithVehicle_00556040.c
+
+void UnknownObject::GraphicsDisplayStateSyncWithVehicle()
+{
+    // Synchronizes vehicle-derived dashboard display state onto a D3D device (this+0x1100) through its vtable method at offset 200 (0xC8). When the vehicle state flags at a2+412 have no display bit set ((flags & 0xE0000) == 0), disables the display (this+0x14F0 = 0) and issues D3D call 28 with argument 0. Otherwise enables the display and lazily pushes changed values: a packed 16-bit dashboard combination (from a2+392/394/396) via D3D call 34, three floats (from a2+400/404/408) via calls 38/36/37, and the state-flag-derived mode (switch on a2+412: 0x20000->3, 0x40000->1, 0x80000->2, else the raw vehicle pointer) via call 35 when capability bit 0x4000 at this+0x13A8 is set, or call 140 when bit 0x8000 is set, otherwise disables again. Caches all pushed values (this+0x14F4..0x1504) to skip redundant D3D calls. Called from sub_5550E0.
+    // GUARD: Test whether vehicle state flags at a2+412 have any display bit set: (flags & 0xE0000) == 0 means no display state, taking the disable path [source:raw]
+    // ASSIGNMENT: On the no-display path set this+0x14F0 (display enabled flag) to 0 [field:this:0x000014F0, source:raw]
+    // CALL: On the no-display path call the D3D device setter (vtable offset 200) with parameter 28 and argument 0, storing the result in this+0x0 [field:*(this+0x1100):0x000000C8, field:this:0x00001100, field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Otherwise set this+0x14F0 (display enabled flag) to 1 [field:this:0x000014F0, source:raw]
+    // CALCULATION: Pack the three 16-bit dashboard fields from vehicle a2+392/394/396 into v13 [source:raw]
+    // GUARD: Push the packed combination only if it differs from the cached this+0x14F4 [field:this:0x000014F4, source:raw]
+    // ASSIGNMENT: Store the packed combination into this+0x14F4 and call the D3D setter with parameter 34 and the packed value, storing the result in this+0x0 [field:*(this+0x1100):0x000000C8, field:this:0x000014F4, field:this:0x00000000, source:raw]
+    // GUARD: Push vehicle float at a2+404 only if it differs from cached this+0x14FC [field:this:0x000014FC, source:raw]
+    // ASSIGNMENT: Store a2+404 into this+0x14FC and call the D3D setter with parameter 36 and the cached float, storing the result in this+0x0 [field:*(this+0x1100):0x000000C8, field:this:0x000014FC, field:this:0x00000000, source:raw]
+    // GUARD: Push vehicle float at a2+408 only if it differs from cached this+0x1500 [field:this:0x00001500, source:raw]
+    // ASSIGNMENT: Store a2+408 into this+0x1500 and call the D3D setter with parameter 37 and the cached float, storing the result in this+0x0 [field:*(this+0x1100):0x000000C8, field:this:0x00001500, field:this:0x00000000, source:raw]
+    // GUARD: Push vehicle float at a2+400 only if it differs from cached this+0x14F8 [field:this:0x000014F8, source:raw]
+    // ASSIGNMENT: Store a2+400 into this+0x14F8 and call the D3D setter with parameter 38 and the cached float, storing the result in this+0x0 [field:*(this+0x1100):0x000000C8, field:this:0x000014F8, field:this:0x00000000, source:raw]
+    // GUARD: Early return if vehicle state flags at a2+412 equal the cached this+0x1504 (nothing further to push) [field:this:0x00001504, source:raw]
+    // STATE_TRANSITION: Cache a2+412 into this+0x1504 and map it to a mode value: 0x20000->3, 0x40000->1, 0x80000->2, default keeps the raw a2 pointer [field:this:0x00001504, source:raw]
+    // GUARD: Read capability flags this+0x13A8; if bit 0x4000 is set, push the mode via D3D setter parameter 35, storing the result in this+0x0 [field:this:0x000013A8, field:*(this+0x1100):0x000000C8, field:this:0x00000000, source:raw]
+    // GUARD: Else if bit 0x8000 of this+0x13A8 is set, push the mode via D3D setter parameter 140, storing the result in this+0x0 [field:this:0x000013A8, field:*(this+0x1100):0x000000C8, field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Otherwise disable the display: set this+0x14F0 to 0 and call the D3D setter with parameter 28 and argument 0, storing the result in this+0x0 [field:this:0x000014F0, field:*(this+0x1100):0x000000C8, field:this:0x00000000, source:raw]
+    // RETURN: Return 0 on all completion paths [source:raw]
+    // CALL: Invoked by sub_5550E0 (005550e0) [caller:0x005550E0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if ((a2->flags & 0xE0000) == 0) {
+    //     this[1340] = 0;
+    //     this[0] = Device->vtbl[200](this[1088], 28, 0);
+    //     return 0;
+    //   }
+    //   this[1340] = 1;
+    //   v13 = (int16(a2+392)) | ((int16(a2+394) | (int16(a2+396) << 8)) << 8);
+    //   if (v13 != this[1341]) { this[1341] = v13; this[0] = Device->vtbl[200](this[1088], 34, v13); }
+    //   if (*(float*)(a2+404) != this[1343]) { this[1343] = *(float*)(a2+404); this[0] = Device->vtbl[200](this[1088], 36, this[1343]); }
+    //   if (*(float*)(a2+408) != this[1344]) { this[1344] = *(float*)(a2+408); this[0] = Device->vtbl[200](this[1088], 37, this[1344]); }
+    //   if (*(float*)(a2+400) != this[1342]) { this[1342] = *(float*)(a2+400); this[0] = Device->vtbl[200](this[1088], 38, this[1342]); }
+    //   if (a2->flags == this[1345]) return 0;
+    //   this[1345] = a2->flags;
+    //   switch (a2->flags) { case 0x20000: v7 = 3; break; case 0x40000: v7 = 1; break; case 0x80000: v7 = 2; break; default: v7 = a2; break; }
+    //   if (this[1258] & 0x4000) { this[0] = Device->vtbl[200](this[1088], 35, v7); return 0; }
+    //   if (this[1258] & 0x8000) { this[0] = Device->vtbl[200](this[1088], 140, v7); }
+    //   else { this[1340] = 0; this[0] = Device->vtbl[200](this[1088], 28, 0); }
+    //   return 0;
+    // UNRESOLVED: The vtable index 200 (0xC8) is treated as a generic D3D state setter; the specific render-state/D3D semantics of parameters 28, 34, 35, 36, 37, 38, and 140 are not evidenced in this function
+    // UNRESOLVED: The vehicle-side fields at a2+392/394/396/400/404/408/412 are referenced through a2 without evidence refs in the packet; their dashboard meaning is inherited from the fill prose
+    // UNRESOLVED: The mode-switch default case assigns the raw a2 pointer to v7, which appears to be a decompiler artifact for the switch's implicit default; its meaning when no recognized flag is set is unresolved
+}

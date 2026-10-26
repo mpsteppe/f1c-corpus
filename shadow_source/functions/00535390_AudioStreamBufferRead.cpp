@@ -1,0 +1,67 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00535390
+// Canonical corpus name: AudioStreamBufferRead
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AudioStreamBufferRead_00535390.c
+
+void UnknownObject::AudioStreamBufferRead()
+{
+    // Buffered stream read routine (mode-driven): reads a2 bytes from the audio/file stream object a1. Mode a3==0 reads at an absolute offset, a3==1 reads relative to the current position at a1+20; a3==2 returns -1. Lazily allocates 0x4000 scratch buffers (a1+68 / a1+72) via MallocWrapperForNhMalloc and fills them through BufferFillWithTimeout or BufferedFileReader loops, updating stream position fields. Called from file loaders, HDV parsing and resource dispatch paths.
+    // GUARD: If a1 is null or a3 == 2, skip all read paths and fall through to return -1. [source:raw]
+    // GUARD: State dword at a1+56 must not equal -1 or -3, otherwise the read is refused. [source:raw]
+    // GUARD: Mode-byte check: when *(BYTE*)(a1+92) == 119 ('w') the absolute/relative stream-read path is taken. [source:raw]
+    // CALCULATION: When a3 == 0, v4 = a2 - *(DWORD*)(a1+8), making the request absolute relative to the stream offset stored at a1+8. [source:raw]
+    // CALL: Lazily allocate a 0x4000 buffer via MallocWrapperForNhMalloc into a1+68 and zero it with memset(0x4000) when a1+68 is null. [callee:0x0058A935, source:raw]
+    // RETURN: If v4 <= 0, return *(DWORD*)(a1+8) without reading. [source:raw]
+    // LOOP: Fill loop: repeatedly call BufferFillWithTimeout(a1, *(a1+68), min(0x4000, v4)), subtract the bytes filled from v4, and return *(a1+8) once v4 <= 0 or break when a fill call returns 0. [callee:0x00535220, source:raw]
+    // CALCULATION: When a3 == 1, v4 = *(DWORD*)(a1+20) + a2, i.e. relative to the position tracked at a1+20. [source:raw]
+    // GUARD: When the flag at a1+88 is set: reset *(a1+4) to 0, set *a1 = *(a1+68), then call sub_587F64(*(a1+64), v4, 0); on success store v4 to a1+20 and a1+8 and return v4, else return -1. [callee:0x00587F64, source:raw]
+    // CALL: When v4 < *(a1+20) call sub_5354E0(a1) (returns -1 on failure), otherwise subtract the stored position *(a1+20) from v4. [callee:0x005354E0, source:raw]
+    // RETURN: If v4 became 0 after the position adjustment, return *(DWORD*)(a1+20). [source:raw]
+    // CALL: Lazily allocate a 0x4000 buffer into a1+72 via MallocWrapperForNhMalloc when it is null. [callee:0x0058A935, source:raw]
+    // LOOP: Read loop: repeatedly call BufferedFileReader(a1, *(a1+72), min(0x4000, v4)), subtract the bytes read from v4, and return *(a1+20) once v4 <= 0 or break when the reader returns <= 0. [callee:0x00534F90, source:raw]
+    // RETURN: Fallback return of -1 for any path that fails or is refused. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (!a1 || a3 == 2) return -1;
+    //   if (state_at(a1,56) == -1 || state_at(a1,56) == -3) return -1;
+    //   int v4 = a2;
+    //   if (byte_at(a1,92) == 'w') {
+    //       if (a3 == 0) v4 = a2 - dword_at(a1,8);
+    //       if (v4 >= 0) {
+    //           if (!dword_at(a1,68)) { dword_at(a1,68) = MallocWrapperForNhMalloc(0x4000); memset(dword_at(a1,68), 0, 0x4000); }
+    //           if (v4 <= 0) return dword_at(a1,8);
+    //           for (;;) {
+    //               int n = BufferFillWithTimeout(a1, dword_at(a1,68), min(0x4000, v4));
+    //               if (!n) break;
+    //               v4 -= n;
+    //               if (v4 <= 0) return dword_at(a1,8);
+    //           }
+    //       }
+    //       return -1;
+    //   }
+    //   if (a3 == 1) v4 = dword_at(a1,20) + a2;
+    //   if (v4 >= 0) {
+    //       if (dword_at(a1,88)) {
+    //           dword_at(a1,4) = 0;
+    //           dword_at(a1,0) = dword_at(a1,68);
+    //           if (sub_587F64(dword_at(a1,64), v4, 0) >= 0) { dword_at(a1,20) = v4; dword_at(a1,8) = v4; return v4; }
+    //           return -1;
+    //       }
+    //       if (v4 < dword_at(a1,20)) { if (sub_5354E0(a1) < 0) return -1; }
+    //       else v4 -= dword_at(a1,20);
+    //       if (!v4) return dword_at(a1,20);
+    //       if (!dword_at(a1,72)) dword_at(a1,72) = MallocWrapperForNhMalloc(0x4000);
+    //       if (v4 <= 0) return dword_at(a1,20);
+    //       for (;;) {
+    //           int n = BufferedFileReader(a1, dword_at(a1,72), min(0x4000, v4));
+    //           if (n <= 0) break;
+    //           v4 -= n;
+    //           if (v4 <= 0) return dword_at(a1,20);
+    //       }
+    //   }
+    //   return -1;
+    // UNRESOLVED: No field offsets are asserted as packet evidence (packet field list is empty); all offset references above are transcribed from the raw source text.
+    // UNRESOLVED: Object layout (a1+0/4/8/20/56/64/68/72/88/92) and the meaning of mode a3 (0/1/2) and byte 'w' at a1+92 are structural, not semantically proven.
+    // UNRESOLVED: prelabel note: structural twin of MemoryAllocation_5160 (00405160) is DERIVED and unverified.
+}

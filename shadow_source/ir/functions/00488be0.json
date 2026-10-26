@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "address": "0x00488BE0",
+  "proposed_name": "UILargeRenderDispatcher",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Main UI render dispatcher. Reads the stored text pointer (this+0xB0, defaulting to byte_5EA438) and, when the string-table flag at this+0xE8 is set, resolves it through BinarySearchInStringTable into the shared buffer byte_5EC4CC before copying into a local buffer; otherwise copies it directly. Derives the alignment mode at this+0xE0 (1 left / 2 center / 3 right) from the first character of the alignment string at this+0xB8 via sub_589A35. Reads the render box from this+0x4/0x8/0xC/0x10, measures the text with TextRenderToSurface, and handles overflow: when the max-width limit this+0xE4 is <= 0 it re-centers the text within the box (CRTFtol rounding, alignment-aware), and when the limit is positive it truncates trailing characters until the text fits. Finally dispatches the actual draw by alignment mode (BitmapDraw / BitmapDrawWithAlpha / BitmapDraw_81f0) and writes the final rect to the four out-parameters. Called by UIRenderDispatchWrapper (0x488F40) and ConditionalRenderingCall (0x48D6F0). Returns 0 on success.",
+  "local_names": {
+    "v36": "local text buffer copied from the stored/resolved string",
+    "v6": "stored text pointer this+0xB0 (string-table branch)",
+    "v9": "stored text pointer this+0xB0 (direct-copy branch)",
+    "v10": "alignment-character string pointer at this+0xB8",
+    "v11": "alignment code from sub_589A35(first char)",
+    "v13": "Y top of the render box (this+0x4)",
+    "v12": "X left of the render box (this+0x8)",
+    "v32": "X right of the render box (this+0xC)",
+    "v14": "Y bottom of the render box (this+0x10)",
+    "v30": "measured text width",
+    "v31": "measured text height",
+    "v29": "string-table flag byte at this+0xE8"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "guard: branch on the string-table flag at this+0xE8; when set, resolve the stored string through the message display buffer, otherwise copy the stored string directly into the local text buffer",
+      "evidence_refs": ["field:this:0x000000E8", "field:this:0x000000B0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "string-table branch: call BinarySearchInStringTable(byte_5EC4C0, storedText, byte_5EC4CC); on a match strcpy the stored text into byte_5EC4CC (or clear it when null) and use byte_5EC4CC as the display text",
+      "evidence_refs": ["callee:0x00423A00", "global:0x005EC4C0", "global:0x005EC4CC", "global:0x005EA438"]
+    },
+    {
+      "kind": "assignment",
+      "description": "copy the resolved text (stored pointer this+0xB0, defaulting to byte_5EA438 when null) into the local buffer v36",
+      "evidence_refs": ["global:0x005EA438", "field:this:0x000000B0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "read the alignment-character string pointer at this+0xB8 (defaulting to byte_5EA438 when null) and call sub_589A35 on its first character to produce the alignment code",
+      "evidence_refs": ["field:*(this+0xB8):0x00000000", "field:this:0x000000B8", "global:0x005EA438", "callee:0x00589A35"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "switch on the alignment code: 'C' sets this+0xE0 = 2 (center), 'L' sets this+0xE0 = 1 (left), 'R' sets this+0xE0 = 3 (right)",
+      "evidence_refs": ["field:this:0x000000E0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "read the render box into local coordinates: this+0x4 (Y top), this+0x8 (X left), this+0xC (X right), this+0x10 (Y bottom)",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "guard: when the local text buffer is empty, skip the whole render body and return 0",
+      "evidence_refs": ["source:raw", "function:0x00488BE0"]
+    },
+    {
+      "kind": "guard",
+      "description": "guard: when the max-width limit this+0xE4 <= 0 the limit is disabled; measure the text with TextRenderToSurface and if it overflows the available box recompute an alignment-aware centered rectangle using CRTFtol rounding",
+      "evidence_refs": ["guard:2", "field:this:0x000000E4", "callee:0x004983B0", "callee:0x00587BDC"]
+    },
+    {
+      "kind": "call",
+      "description": "measure the text: call TextRenderToSurface(text, &v30, &v31, 1) to obtain the text width v30 and height v31",
+      "evidence_refs": ["callee:0x004983B0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "on the disabled-limit path with the flag at this+0xE8 set, re-resolve v36 into byte_5EC4CC via BinarySearchInStringTable(byte_5EC4C0, v36, byte_5EC4CC) and measure byte_5EC4CC instead",
+      "evidence_refs": ["callee:0x00423A00", "callee:0x004983B0", "global:0x005EC4C0", "global:0x005EC4CC", "field:this:0x000000E8"]
+    },
+    {
+      "kind": "loop",
+      "description": "enabled-limit path: when the measured width v30 exceeds this+0xE4, drop the last character and re-measure with TextRenderToSurface until the text fits or only the first character remains",
+      "evidence_refs": ["callee:0x004983B0", "field:this:0x000000E4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "overflow path: compute the box width (bottom - right) and height (left - top); when the measured text exceeds either, center the text horizontally via CRTFtol((double)width * 0.5 + 0.5) and place it per the alignment mode at this+0xE0 (center: centered, right: flush right, else flush left), vertically centered within the box, then call ShortComputation_a9c0(x, y, width, height) on the final rectangle",
+      "evidence_refs": ["callee:0x00587BDC", "callee:0x0049A9C0", "field:this:0x000000E0", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "dispatch the draw by alignment mode at this+0xE0: == 2 calls BitmapDraw, == 3 calls BitmapDrawWithAlpha, otherwise BitmapDraw_81f0, each receiving the local text buffer, the computed rectangle and the string-table flag byte this+0xE8",
+      "evidence_refs": ["guard:0", "guard:1", "callee:0x004980D0", "callee:0x004981F0", "callee:0x004982C0", "field:this:0x000000E0", "field:this:0x000000E8"]
+    },
+    {
+      "kind": "assignment",
+      "description": "write the final rectangle to the out-parameters: *a2 = top, *a3 = left, *a4 = right, *a5 = bottom",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "return 0 on success",
+      "evidence_refs": ["source:raw", "function:0x00488BE0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if ( *(BYTE*)(this + 0xE8) )",
+    "{",
+    "    const char* s = *(const char**)(this + 0xB0);",
+    "    if ( !s ) s = byte_5EA438;",
+    "    if ( BinarySearchInStringTable(byte_5EC4C0, s, byte_5EC4CC) )",
+    "        strcpy(byte_5EC4CC, s);",
+    "    else",
+    "        byte_5EC4CC[0] = 0;",
+    "    strcpy(v36, byte_5EC4CC);",
+    "}",
+    "else",
+    "{",
+    "    const char* s = *(const char**)(this + 0xB0);",
+    "    if ( !s ) s = byte_5EA438;",
+    "    strcpy(v36, s);",
+    "}",
+    "char* alignStr = *(char**)(this + 0xB8);",
+    "if ( !alignStr ) alignStr = byte_5EA438;",
+    "switch ( sub_589A35(*alignStr) )",
+    "{",
+    "    case 'C': *(DWORD*)(this + 0xE0) = 2; break;",
+    "    case 'L': *(DWORD*)(this + 0xE0) = 1; break;",
+    "    case 'R': *(DWORD*)(this + 0xE0) = 3; break;",
+    "}",
+    "int top = *(DWORD*)(this + 0x4);",
+    "int left = *(DWORD*)(this + 0x8);",
+    "int right = *(DWORD*)(this + 0xC);",
+    "int bottom = *(DWORD*)(this + 0x10);",
+    "if ( strlen(v36) )",
+    "{",
+    "    int w, h;",
+    "    if ( *(DWORD*)(this + 0xE4) <= 0 )",
+    "    {",
+    "        if ( *(BYTE*)(this + 0xE8) && BinarySearchInStringTable(byte_5EC4C0, v36, byte_5EC4CC) )",
+    "        {",
+    "            strcpy(byte_5EC4CC, v36);",
+    "            TextRenderToSurface(byte_5EC4CC, &w, &h, 1);",
+    "        }",
+    "        else",
+    "            TextRenderToSurface(v36, &w, &h, 1);",
+    "        if ( (bottom - right) < w || (left - top) < h )",
+    "        {",
+    "            int mode = *(DWORD*)(this + 0xE0);",
+    "            int x, y = top, x2, y2;",
+    "            if ( mode == 2 )",
+    "                x = bottom - CRTFtol((double)(bottom - right) * 0.5 + 0.5) - CRTFtol((double)w * 0.5 + 0.5);",
+    "            else if ( mode == 3 )",
+    "                x = bottom - w;",
+    "            else",
+    "                x = right;",
+    "            y2 = h / 2;",
+    "            if ( (left - top) / 2 > h / 2 )",
+    "                y = top + (left - top) / 2 - h / 2;",
+    "            x2 = x;",
+    "            ShortComputation_a9c0(y, y + h, x, y2);",
+    "        }",
+    "    }",
+    "    else",
+    "    {",
+    "        TextRenderToSurface(v36, &w, &h, 1);",
+    "        while ( w > *(DWORD*)(this + 0xE4) )",
+    "        {",
+    "            if ( v36 == v36 + strlen(v36) ) break;",
+    "            v36[strlen(v36) - 1] = 0;",
+    "            TextRenderToSurface(v36, &w, &h, 1);",
+    "        }",
+    "    }",
+    "    if ( *(DWORD*)(this + 0xE0) == 2 )",
+    "        BitmapDraw(v36, top, left, right, bottom, *(BYTE*)(this + 0xE8));",
+    "    else if ( *(DWORD*)(this + 0xE0) == 3 )",
+    "        BitmapDrawWithAlpha(v36, top, left, right, bottom, *(BYTE*)(this + 0xE8));",
+    "    else",
+    "        BitmapDraw_81f0(v36, top, left, right, bottom, *(BYTE*)(this + 0xE8));",
+    "    *a2 = top;",
+    "    *a3 = left;",
+    "    *a4 = right;",
+    "    *a5 = bottom;",
+    "    return 0;",
+    "}",
+    "return 0;"
+  ],
+  "unresolved": [
+    "flt_59E450 is listed as a read global but does not appear in the raw source for this function; it is likely consumed inside one of the callees (e.g. ShortComputation_a9c0 or a draw routine), which is not established by this packet.",
+    "The exact semantics of sub_589A35 (called on the first character of the alignment string) are not established beyond producing a character compared against 'C', 'L' and 'R'."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059E450"],
+  "confidence": {
+    "semantics": "HIGH",
+    "control_flow": "HIGH",
+    "owner": "LOW"
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "address": "0x0050A92D",
+  "proposed_name": "VertexColorPackRGBto16",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0050A92D"]
+  },
+  "summary": "Vertex-color encoder: reads floating-point RGBA vertex color data from the source stream, converts each texel to a luma-plus-two-chroma (YCbCr-like) representation using coefficient constants, offsets and clamps each channel to the 8-bit range, and packs pairs of channels into 16-bit words written to a destination buffer. Runs only while both a work flag (this+0x108C) and an enable flag (this+0x1090) are set, then clears the work flag. The destination WORD pointer is computed from this+0x18 plus pitch/stride products and the starting index.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard: the packing pass runs only when both the work flag this+0x108C and the enable flag this+0x1090 are non-zero.",
+      "evidence_refs": ["field:this:0x0000108C", "field:this:0x00001090"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v1 = a1[1052]; load the starting vertex index / loop counter seed from this+0x1070.",
+      "evidence_refs": ["field:this:0x00001070"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the destination WORD pointer: base this+0x18 plus (this+0x1050 * this+0x1074) plus (this+0x1054 * this+0x1080) plus 2*v1.",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x00001050", "field:this:0x00001074", "field:this:0x00001054", "field:this:0x00001080"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v2 = (float*)a1[1051]; source vertex-color float stream read from this+0x106C.",
+      "evidence_refs": ["field:this:0x0000106C"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: the do-while loop runs only while the loop counter is below this+0x1078 (vertex count bound).",
+      "evidence_refs": ["field:this:0x00001078"]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-texel do-while loop: each iteration advances the source pointer by 8 floats (one RGBA texel plus one stride texel), the destination pointer by 2 WORDs, and the loop counter by 2 dwords.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Luma-like weighted channel sum v12 = 65.481003*v2[4] + 24.966*v2[6] + 128.55299*v2[5], using coefficient constants backed by the conversion-coefficient globals.",
+      "evidence_refs": ["global:0x0059E450", "global:0x005ADBF8", "global:0x005ADBFC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "First chroma-like channel v10 = 112.0*v2[2] - 74.203003*v2[1] - 37.797001*v2[0], using coefficient constants backed by the conversion-coefficient globals.",
+      "evidence_refs": ["global:0x005ADC00", "global:0x005ADC04", "global:0x005ADC08", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Second chroma-like channel v8 = 112.0*v2[0] - (93.786003*v2[1] + 18.214001*v2[2]), and the second luma sample v14 = 65.481003*v2[0] + 128.55299*v2[1] + 24.966*v2[2] + 0.5, with the 0.5 rounding add-in backed by a conversion-coefficient global.",
+      "evidence_refs": ["global:0x005ADC0C", "global:0x005ADC10", "global:0x005ADC14", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Convert to integer channels with offsets: v3 = (int)v14 + 16, v4 = (int)(v12+0.5) + 16, v5 = (int)(v10+0.5) + 128, v6 = (int)(v8+0.5) + 128.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp v3 to the 8-bit range [0, 255].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp v4 to the 8-bit range [0, 255].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp v5 to the 8-bit range [0, 255].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp v6 to the 8-bit range [0, 255].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Pack two 16-bit words per texel: first word = (v5 << this+0x1098) | (v3 << this+0x1094), second word = (v6 << this+0x1098) | (v4 << this+0x1094), using the two shift-amount fields.",
+      "evidence_refs": ["field:this:0x00001094", "field:this:0x00001098", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "After the packing loop, clear the work flag: a1[1059] = 0 (this+0x108C).",
+      "evidence_refs": ["field:this:0x0000108C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0.",
+      "evidence_refs": ["source:raw", "function:0x0050A92D"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int VertexColorPackRGBto16(_DWORD *this) {",
+    "  if (!this[0x108C/4] || !this[0x1090/4]) return 0;",
+    "  v1 = this[0x1070/4];",
+    "  dst = (WORD*)(this[0x18/4] + this[0x1050/4] * this[0x1074/4]",
+    "              + this[0x1054/4] * this[0x1080/4] + 2 * v1);",
+    "  src = (float*)this[0x106C/4];",
+    "  if (v1 < this[0x1078/4]) {",
+    "    do {",
+    "      luma1 = 65.481003*src[4] + 24.966*src[6] + 128.55299*src[5];",
+    "      c1    = 112.0*src[2] - 74.203003*src[1] - 37.797001*src[0];",
+    "      c2    = 112.0*src[0] - (93.786003*src[1] + 18.214001*src[2]);",
+    "      luma2 = 65.481003*src[0] + 128.55299*src[1] + 24.966*src[2] + 0.5;",
+    "      v3 = (int)luma2 + 16;  v4 = (int)(luma1+0.5) + 16;",
+    "      v5 = (int)(c1+0.5) + 128;  v6 = (int)(c2+0.5) + 128;",
+    "      clamp each of v3, v4, v5, v6 to [0, 255];",
+    "      dst[0] = (v5 << this[0x1098/4]) | (v3 << this[0x1094/4]);",
+    "      dst[1] = (v6 << this[0x1098/4]) | (v4 << this[0x1094/4]);",
+    "      v1 += 2; src += 8; dst += 2;",
+    "    } while (v1 < this[0x1078/4]);",
+    "  }",
+    "  this[0x108C/4] = 0;",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "Fields this+0x107C and this+0x1084 are listed as accessed by the deterministic extractor but do not appear in the raw source; their roles are unknown.",
+    "Which specific coefficient global backs which specific conversion constant is not provable from the packet; the raw source shows the constants as float literals."
+  ],
+  "unresolved_evidence_refs": ["field:this:0x0000107C", "field:this:0x00001084"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

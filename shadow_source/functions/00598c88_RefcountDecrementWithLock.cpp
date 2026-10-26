@@ -1,0 +1,31 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00598C88
+// Canonical corpus name: RefcountDecrementWithLock
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/RefcountDecrementWithLock_00598c88.c
+
+void UnknownObject::RefcountDecrementWithLock()
+{
+    // Decrements a reference-count-style dword at a1+0x4 guarded by two bracketing calls to sub_59A54D / sub_59A5E9 with a 4-byte stack object, then returns the object pointer a1 when the count reaches zero and 0 otherwise. Called by NullCheckWithVirtualDispatch (00598c70), sub_59AAB9, and ObjectTeardownWithIteratorCleanup (0059ac7f).
+    // CALL: Call sub_59A54D with the 4-byte stack object v5 before touching the counter; per surrounding analysis this is an acquire-side synchronization/refcount helper. [callee:0x0059A54D, source:raw]
+    // ASSIGNMENT: Read the counter dword at a1+0x4 into v2. [field:this:0x00000004, source:raw]
+    // GUARD: Skip the decrement unless v2 is non-zero and not equal to the sentinel -1; a zero or sentinel count is left unchanged. [field:this:0x00000004, source:raw]
+    // ASSIGNMENT: Write v2 - 1 back to the counter at a1+0x4. [field:this:0x00000004, source:raw]
+    // CALCULATION: Test whether the counter at a1+0x4 is now zero (guard evidence this+4 == 0); v3 becomes a1 when it is, else 0. [field:this:0x00000004, guard:0, source:raw]
+    // CALL: Call sub_59A5E9 with the same stack object v5 after the counter update; per surrounding analysis this is the release-side synchronization/refcount helper. [callee:0x0059A5E9, source:raw]
+    // RETURN: Return v3: the object pointer when the count reached zero (cleanup signal to caller), otherwise 0. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int RefcountDecrementWithLock(int obj) {
+    //     int lock = stackObject4;
+    //     sub_59A54D(&lock);
+    //     int count = *(int*)(obj + 4);
+    //     if (count && count != -1) *(int*)(obj + 4) = count - 1;
+    //     int result = *(int*)(obj + 4) == 0 ? obj : 0;
+    //     sub_59A5E9(&lock);
+    //     return result;
+    //   }
+    // UNRESOLVED: The exact roles of sub_59A54D and sub_59A5E9 are inferred (synchronization/refcount bracketing) from surrounding analysis; the packet labels them only as sub_59A54D / sub_59A5E9.
+    // UNRESOLVED: The meaning of the -1 sentinel (uninitialized / released / immortal count) is not established by this packet.
+    // UNRESOLVED: The nature of the 4-byte stack object v5 (lock flag, guard cookie, or count shadow) is unknown.
+}

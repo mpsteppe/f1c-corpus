@@ -1,0 +1,45 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C38D0
+// Canonical corpus name: FileINILoader
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/FileINILoader_004c38d0.c
+
+void UnknownObject::FileINILoader()
+{
+    // Texture-filename resolver. Reads the input path string from *(this+0) (fallback byte_5EA438), extracts the filename after the last '\' (0x5C), copies it to this+992, truncates at the last '.' (0x2E), appends ".tga", then calls TGATextureFileScanner on a zeroed local to enumerate matching texture files. Stores the scanner result at this+0x420 and returns that same value. The scanner's linked-list output is walked and freed via FreeWrapper_7bcf (node at +4, data at +0, ownership flag at +8).
+    // ASSIGNMENT: Load input path v2 = *(const char**)this; when null substitute the default directory byte_5EA438, then strcpy it into the local buffer v18. [field:this:0x00000000, global:0x005EA438, source:raw]
+    // LOOP: Scan backwards from the end of v18 for the last '\' (0x5C); v3 ends up pointing just past the final backslash (the filename start), guarded so it never walks before v18. [source:raw]
+    // CALCULATION: Copy the filename to this+992 via a byte-by-byte loop with destination stride v5 = (this+992) - v3. [source:raw]
+    // LOOP: Scan backwards from the end of this+992 for the last '.' (0x2E) and truncate there (*v7 = 0), bounded so it never walks before the buffer start. [source:raw]
+    // ASSIGNMENT: Append the extension: strcat(this+992, ".tga"). [source:raw]
+    // CALL: Enumerate matching texture files: TGATextureFileScanner(v16) fills the local scanner-output structure. [callee:0x004C3A00, source:raw]
+    // ASSIGNMENT: Store the scanner result: *((_DWORD*)this + 264) = v17 (this+0x420); this value is also the function return. [field:this:0x00000420, source:raw]
+    // LOOP: Walk the scanner linked list from v16[0] (next pointer at node+4, data pointer at node+0, ownership flag at node+8); when the ownership flag is set free the node's data pointer first, then free every node via FreeWrapper_7bcf. [callee:0x00587BCF, source:raw]
+    // RETURN: Return v11, the stored scanner result value. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int FileINILoader(char* this) {
+    //     const char* p = *(const char**)this ? *(const char**)this : byte_5EA438;
+    //     char v18[512]; strcpy(v18, p);
+    //     char* v3 = &v18[strlen(v18)];
+    //     while (v3 > v18 && *v3 != 92) --v3;
+    //     if (v3 > v18) ++v3;
+    //     char* dst = this + 992;
+    //     strcpy(dst, v3);
+    //     char* v7 = &dst[strlen(dst)];
+    //     while (v7 > dst && *v7 != 46) --v7;
+    //     if (v7 > dst) *v7 = 0;
+    //     strcat(dst, ".tga");
+    //     int v16[3]; memset(v16, 0, sizeof(v16)); int v17 = 0;
+    //     TGATextureFileScanner(v16);
+    //     *((_DWORD*)this + 264) = v17;
+    //     for (int* node = v16[0]; node; node = *(int**)(node+4)) {
+    //       if (*(BYTE*)(node+8)) { if (*(void**)*node) FreeWrapper_7bcf(*(void**)*node); FreeWrapper_7bcf(*(void**)node); }
+    //       FreeWrapper_7bcf(node);
+    //     }
+    //     return v17;
+    //   }
+    // UNRESOLVED: The globals dword_5D306C and byte_5D3070 are flagged by the IDB (extension suffix / '.' delimiter evidence) but do not appear as named references in the decompiled body; their exact role is unverified.
+    // UNRESOLVED: The meaning of the stored this+0x420 value (the scanner result) and how the caller VehFileParser consumes it is not established.
+    // UNRESOLVED: The ownership-flag semantics at scanner node+8 and the exact allocation source of the node/data pointers are not established.
+}

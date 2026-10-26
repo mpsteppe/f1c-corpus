@@ -1,0 +1,40 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0057B100
+// Canonical corpus name: LinkedListBufferManagerDestructor
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LinkedListBufferManagerDestructor_0057b100.c
+
+void UnknownObject::LinkedListBufferManagerDestructor()
+{
+    // Destructor for a buffer manager owning two singly-linked lists of nodes. Clears the flag byte at 0x4, then frees list 1 (head at this+8) and list 2 (head at this+0x18). Each node carries a data pointer at node+0, a next pointer at node+4, and a flag byte at node+8; the node is freed via FreeWrapper_7bcf and, when the flag byte is set, its data pointer is also freed via FreeWrapper_7bcf. After each traversal the four list fields (head, tail, secondary tail, counter at 0x8/0xC/0x10/0x14 and 0x18/0x1C/0x20/0x24) are zeroed. Returns the last FreeWrapper_7bcf result.
+    // ASSIGNMENT: Clear the flag byte at this + 0x4. [field:this:0x00000004, source:raw]
+    // LOOP: Traverse list 1 from the head pointer at this + 0x8, following node next pointers (node + 4). Free each node via FreeWrapper_7bcf and, when the node flag byte (node + 8) is non-zero, also free the node data pointer (node + 0) via FreeWrapper_7bcf. [callee:0x00587BCF, field:this:0x00000008, field:*(this+0x8):0x00000000, field:*(this+0x8):0x00000008, field:*(*(this+0x8)+0x4):0x00000004, source:raw]
+    // ASSIGNMENT: Zero list 1 bookkeeping fields: head at 0x8, tail at 0xC, secondary tail at 0x10, counter at 0x14. [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, source:raw]
+    // LOOP: Traverse list 2 from the head pointer at this + 0x18, following node next pointers (node + 4). Free each node via FreeWrapper_7bcf and, when the node flag byte (node + 8) is non-zero, also free the node data pointer (node + 0) via FreeWrapper_7bcf. [callee:0x00587BCF, field:this:0x00000018, field:*(this+0x18):0x00000000, field:*(this+0x18):0x00000008, field:*(*(this+0x18)+0x4):0x00000004, source:raw]
+    // ASSIGNMENT: Zero list 2 bookkeeping fields: head at 0x18, tail at 0x1C, secondary tail at 0x20, counter at 0x24. [field:this:0x00000018, field:this:0x0000001C, field:this:0x00000020, field:this:0x00000024, source:raw]
+    // RETURN: Return the last FreeWrapper_7bcf result left in the result register. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_57B100(void* self) {
+    //     *(BYTE*)((BYTE*)self + 4) = 0;
+    //     for (node = *(DWORD*)((BYTE*)self + 8); node;) {
+    //       int next = *(DWORD*)(node + 4);
+    //       if (*(BYTE*)(node + 8)) FreeWrapper_7bcf(*(LPVOID*)node);
+    //       FreeWrapper_7bcf((LPVOID*)node);
+    //       node = next;
+    //     }
+    //     *(DWORD*)((BYTE*)self + 8) = 0; *(DWORD*)((BYTE*)self + 12) = 0;
+    //     *(DWORD*)((BYTE*)self + 16) = 0; *(DWORD*)((BYTE*)self + 20) = 0;
+    //     for (node = *(DWORD*)((BYTE*)self + 24); node;) {
+    //       int next = *(DWORD*)(node + 4);
+    //       if (*(BYTE*)(node + 8)) FreeWrapper_7bcf(*(LPVOID*)node);
+    //       FreeWrapper_7bcf((LPVOID*)node);
+    //       node = next;
+    //     }
+    //     *(DWORD*)((BYTE*)self + 24) = 0; *(DWORD*)((BYTE*)self + 28) = 0;
+    //     *(DWORD*)((BYTE*)self + 32) = 0; *(DWORD*)((BYTE*)self + 36) = 0;
+    //     return result;
+    //   }
+    // UNRESOLVED: The meaning of the two lists (heads at 0x8 and 0x18) and of the per-node flag byte at node + 8 is caller-defined and unknown here.
+    // UNRESOLVED: No callers are recorded in the packet, so the owning subsystem is unverified.
+}

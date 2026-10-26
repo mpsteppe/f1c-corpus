@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "address": "0x00594529",
+  "proposed_name": "SlabHeapInitBitmapAndFreeLists",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Initializes a newly committed 32KB slab for first use. Derives the size-class index v3 from the free-block bitmask, initializes 64 free-list heads inside the slab descriptor, commits the slab memory via VirtualAlloc, writes block-header sentinels across the slab, links the slab blocks into the descriptor's free-list head/tail slots, writes bitmap tracking entries, bumps the slab reference-count byte, clears the size-class bit in the free-block bitmask, and returns the size-class index (or -1 when VirtualAlloc fails).",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load v1 = a1[4], the pointer to the slab descriptor array holding bitmap and free-list state.",
+      "evidence_refs": ["field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load v2 = a1[2], the free-block bitmask used to derive the size-class index.",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Compute size-class index v3 by repeatedly doubling v2 until it becomes negative (leading-bit count).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v5 = 516*v3 + v1 + 324, the address of this size class's free-list head array inside the descriptor.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Initialize 64 free-list heads (8 bytes each) by linking each head slot to itself.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v6 = a1[3] + (v3 << 15), the 32KB slab base address for this size class.",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call VirtualAlloc(v6, 0x8000, 0x1000, 4) to commit the 32KB slab as read-write memory.",
+      "evidence_refs": ["global:0x0059E0A0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If VirtualAlloc returns 0, return -1 to signal slab allocation failure.",
+      "evidence_refs": ["global:0x0059E0A0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Initialize block headers across the committed slab by writing -1/4080 sentinels and block links every 4096 bytes.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Link the first and last slab block (v6+3 and v6+7171) into the descriptor free-list head/tail slots at 516*v3+v1+832 and +836.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write bitmap tracking entries: 0 at v1+4*v3+68 and 1 at v1+4*v3+196.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Increment the reference-count byte at v1+67 (this+0x53); if it was previously zero, set bit 0 of this+0x4 (a1[1] |= 1).",
+      "evidence_refs": ["field:this:0x00000053", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Clear the size-class bit in the free-block bitmask: a1[2] &= ~(0x80000000 >> v3).",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the computed size-class index v3.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_594529(_DWORD* a1) {",
+    "  int v1 = a1[4];             // slab descriptor array (bitmap + free lists)",
+    "  int v2 = a1[2];             // free-block bitmask",
+    "  int v3 = 0;",
+    "  while (v2 >= 0) { v2 *= 2; ++v3; }   // size-class index from bitmask",
+    "  // init 64 free-list heads at 516*v3 + v1 + 324",
+    "  v6 = a1[3] + (v3 << 15);    // 32KB slab base",
+    "  if (!VirtualAlloc(v6, 0x8000, 0x1000, 4)) return -1;",
+    "  // init block headers across the slab, link free lists",
+    "  // set bitmap entries, bump refcount byte v1+67, clear bit v3 of a1[2]",
+    "  return v3;",
+    "}"
+  ],
+  "unresolved": [
+    "Semantics of the two bitmap entries at v1+4*v3+68 and v1+4*v3+196 (allocated/tracked counts) are inferred, not proven.",
+    "The 516-byte descriptor row layout (head array at +324, free-list slots at +832/+836, bitmap slots at +68/+196) is only partially mapped.",
+    "Slab address encoding (v3 << 15) and why block headers are 4096 bytes apart are unconfirmed."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

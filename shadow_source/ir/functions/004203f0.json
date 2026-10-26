@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "address": "0x004203F0",
+  "proposed_name": "SessionTimingAnomalyDetect",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Session timing/session-state check over entrant records: fetches two entrant records via BestLapEntrantFinder, reads a threshold from the first record and a base value at byte offset 408 of the second, then derives result = base + 10 * (sceneOrder - flags) from two dereferences of the linked list dword_7D2DB0. When the derived value falls in a small window starting at the threshold, a sentinel-initialized structure is returned instead of the derived pointer.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Fetch the first entrant record via BestLapEntrantFinder(0, 0).",
+      "evidence_refs": ["source:raw", "callee:0x0041E920"]
+    },
+    {
+      "kind": "guard",
+      "description": "Continue only when the first entrant record result is non-null.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Dereference the record's first element; when it is null, use the global buffer byte_5EA438 as the default string.",
+      "evidence_refs": ["source:raw", "global:0x005EA438"]
+    },
+    {
+      "kind": "call",
+      "description": "Fetch a second entrant record via BestLapEntrantFinder((int)v2, 1) keyed on the string v2.",
+      "evidence_refs": ["source:raw", "callee:0x0041E920"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the threshold v4 from element index 102 (dword stride) of the first entrant record.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read v5 as the dword at byte offset 408 of the second entrant record.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Dereference the linked-list head dword_7D2DB0 via LinkedListDereference.",
+      "evidence_refs": ["source:raw", "callee:0x004C2850", "global:0x007D2DB0"]
+    },
+    {
+      "kind": "call",
+      "description": "Read session flags from the dereferenced list node via FlagsGetter.",
+      "evidence_refs": ["source:raw", "callee:0x004C11D0"]
+    },
+    {
+      "kind": "call",
+      "description": "Dereference the linked-list head dword_7D2DB0 a second time via LinkedListDereference.",
+      "evidence_refs": ["source:raw", "callee:0x004C2850", "global:0x007D2DB0"]
+    },
+    {
+      "kind": "call",
+      "description": "Read the current scene order from the second dereferenced node via SceneOrderReader.",
+      "evidence_refs": ["source:raw", "callee:0x004C1190"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute result = v5 + 10 * (sceneOrder - flags), an offset depending on flag and scene-order state.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the derived value is at or above the threshold v4 and below one of v4 + 1, v4 + 2, v4 + 3, v4 + 4 or v4 + 6, take the sentinel path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return a sentinel-initialized structure via StructInitWithSentinelValues when the window guard passes.",
+      "evidence_refs": ["source:raw", "callee:0x004144D0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the derived result otherwise, or the null record when the first entrant lookup failed.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char **sub_4203F0() {",
+    "  _DWORD v9[8];",
+    "  char **result = BestLapEntrantFinder(0, 0);",
+    "  char **v1 = result;",
+    "  if (result) {",
+    "    char *v2 = *result ? *result : &byte_5EA438;",
+    "    int v3 = BestLapEntrantFinder((int)v2, 1);",
+    "    int v4 = (int)v1[102];",
+    "    int v5 = *(_DWORD *)(v3 + 408);",
+    "    int v6 = LinkedListDereference(&dword_7D2DB0);",
+    "    int v7 = FlagsGetter(v6);",
+    "    int v8 = LinkedListDereference(&dword_7D2DB0);",
+    "    result = (char **)(v5 + 10 * (SceneOrderReader(v8) - v7));",
+    "    if ((int)result >= v4 && ((int)result < v4 + 1 || (int)result < v4 + 2 ||",
+    "        (int)result < v4 + 3 || (int)result < v4 + 4 || (int)result < v4 + 6)) {",
+    "      return (char **)StructInitWithSentinelValues(v9);",
+    "    }",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Field meanings of v1[102], the dword at offset 408, and the v5 + 10 * (sceneOrder - flags) formula depend on the entrant record layout, which is unresolved.",
+    "The OR chain over v4 + 1..v4 + 6 (skipping v4 + 5) is a Hex-Rays collapse of a relational expression; the exact intended comparison set is ambiguous.",
+    "Relationship to the structural twin BestLapEntrantFinder (0x0041E920) beyond the cluster hint is unresolved."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

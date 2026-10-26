@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "address": "0x0059B650",
+  "proposed_name": "FileHandleDupTransfer",
+  "owner": {
+    "type": "FileHandleManager",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x0059B650",
+      "global:0x008D4920"
+    ]
+  },
+  "summary": "Duplicates the open file handle of slot a1 into a newly allocated slot via DuplicateHandle under per-file critical sections, clears the source status flag's bit 4 on success, and returns the new slot index or -1 with a TLS error code.",
+  "local_names": {
+    "a1": "source file slot index",
+    "v3": "newly allocated file slot index",
+    "v2": "source slot status byte",
+    "LastError": "DuplicateHandle failure code"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Entry guard: a1 < uNumber and the status byte at dword_8D4920[a1>>5] + 36*(a1&0x1F) + 4 has bit 0 set (slot open); otherwise take the guard-failure path.",
+      "evidence_refs": [
+        "global:0x008D4A20",
+        "global:0x008D4920",
+        "function:0x0059B650"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "CriticalSectionEnterWithLazyInit(a1) enters the per-file critical section for the source slot.",
+      "evidence_refs": [
+        "callee:0x00595A61"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Save the current source slot status byte into v2 for the later flag update.",
+      "evidence_refs": [
+        "global:0x008D4920"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "sub_595801() allocates a new free file slot index; -1 signals allocation failure.",
+      "evidence_refs": [
+        "callee:0x00595801"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "On allocation failure set TLS error 24 via TLSOffsetGetter, TLS errno 0 via TLSOffsetGetter_afd8, leave the source slot critical section, and return -1.",
+      "evidence_refs": [
+        "callee:0x0058AFCF",
+        "callee:0x0058AFD8",
+        "callee:0x00595AC0"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "GetCurrentProcess and sub_595A1F(a1) retrieve the source handle for slot a1.",
+      "evidence_refs": [
+        "global:0x0059E18C",
+        "callee:0x00595A1F"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "DuplicateHandle duplicates the source handle into TargetHandle (inheritable, DUPLICATE_SAME_ACCESS); on success sub_595924(v3, TargetHandle) stores it into the new slot and LastError is 0, otherwise LastError = GetLastError().",
+      "evidence_refs": [
+        "global:0x0059E100",
+        "callee:0x00595924"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "On DuplicateHandle failure capture GetLastError() as LastError.",
+      "evidence_refs": [
+        "global:0x0059E188"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "FileCriticalSectionLeave(v3) then FileCriticalSectionLeave(a1) release both slot critical sections.",
+      "evidence_refs": [
+        "callee:0x00595AC0"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "If no error, clear bit 4 of the new slot status byte (v2 & 0xEF) at dword_8D4920[v3>>5] + 36*(v3&0x1F) + 4 and return the new slot index v3.",
+      "evidence_refs": [
+        "global:0x008D4920",
+        "function:0x0059B650"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "On error ErrorIDLookupTable(LastError) raises the mapped error before the function returns -1.",
+      "evidence_refs": [
+        "callee:0x0058AF5C"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Guard-failure path: set TLS error 9 via TLSOffsetGetter and TLS errno 0 via TLSOffsetGetter_afd8.",
+      "evidence_refs": [
+        "callee:0x0058AFCF",
+        "callee:0x0058AFD8"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "All failure paths return -1.",
+      "evidence_refs": [
+        "function:0x0059B650"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (a1 < uNumber && (slot_status(a1) & 1)) {",
+    "    enter_critical_section(a1);",
+    "    byte v2 = slot_status(a1);",
+    "    int v3 = allocate_file_slot();",
+    "    if (v3 == -1) { set_tls_error(24); leave_critical_section(a1); return -1; }",
+    "    HANDLE source = get_slot_handle(a1);",
+    "    if (DuplicateHandle(GetCurrentProcess(), source, GetCurrentProcess(), &target, 0, TRUE, 2)) {",
+    "        store_slot_handle(v3, target);",
+    "        error = 0;",
+    "    } else {",
+    "        error = GetLastError();",
+    "    }",
+    "    leave_critical_section(v3);",
+    "    leave_critical_section(a1);",
+    "    if (!error) { slot_status(v3) = v2 & 0xEF; return v3; }",
+    "    raise_error(error);",
+    "} else {",
+    "    set_tls_error(9);",
+    "}",
+    "return -1;"
+  ],
+  "unresolved": [
+    "Purpose of status byte bit 4 (cleared via v2 & 0xEF on successful duplicate) is not labelled in packet evidence."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

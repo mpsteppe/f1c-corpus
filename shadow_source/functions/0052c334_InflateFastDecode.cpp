@@ -1,0 +1,72 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0052C334
+// Canonical corpus name: sub_52C334
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_52C334_0052c334.c
+
+void UnknownObject::InflateFastDecode()
+{
+    // DEFLATE fast-path decoder (zlib-style inflate_fast equivalent). Decodes a run of literal/length and distance Huffman codes directly from the bit stream, emits literal bytes into the circular output window, and copies length-distance matches with wraparound, as long as the output window has at least 0x102 bytes free and the input has at least 0xA bits buffered. Uses the per-table node layout (bit length at node+1, flags/symbol at node+0, base at node+4) and the dword_5DA520 bit-mask table to walk the literal/length table a3 and distance table a4. Writes 'invalid distance code' / 'invalid literal/length code' into the stream error slot on malformed symbols, and persists the bit accumulator, bit count, input pointer/counters and output cursor into the inflate context a5 and stream a6 before returning 1 (block complete), 0 (ran out of window space or input), or -3 (invalid code). Called by sub_529B2C (InflateDecompressionStateMachine).
+    // ASSIGNMENT: Snapshot stream and context state into locals: input read pointer v42 = *a6, remaining input v43 = a6[1], output cursor v51 = a5[13], bit accumulator v9 = a5[8], bit count j = a5[7], window capacity v11 = a5[12]. [source:raw]
+    // CALCULATION: Compute the available output-window space v40: window-end a5[11] minus cursor when the cursor is at/above capacity, otherwise capacity v11 minus cursor minus 1. [source:raw]
+    // CALCULATION: Load the two bit masks from the dword_5DA520 table: v39 = dword_5DA520[a1] (literal mask) and v38 = dword_5DA520[a2] (distance mask). [global:0x005DA520, source:raw]
+    // LOOP: Top-up loop: while the bit count j is below 0x14, consume one input byte (--v43) and accumulate it into the bit buffer: v9 |= *v42++ << j; j += 8. [source:raw]
+    // CALCULATION: Decode a literal/length symbol: index the literal/length table by 8 * (v9 & v39) from base a3, read the node flag/len byte v47 = *node and the code bit length from node+1, then consume the code: v9 >>= len; j -= len. [global:0x005DA520, source:raw]
+    // GUARD: Literal case (node flag byte zero): write the literal byte from node+4 into the output window (*v51++ = node[4]) and decrement the available space v40. [source:raw]
+    // GUARD: Run-exhaustion guard: if the window space v40 drops below 0x102 or the remaining input v43 drops below 0xA, leave the fast path and go to the state-persist/return path with result 0. [source:raw]
+    // CALCULATION: Length-code case (node flag & 0x10): compute the match length v41 = (dword base at node+4) + (v9 & dword_5DA520[flag & 0xF]) from the extra bits; top up the buffer until the bit count reaches 0xF, then decode the distance code by indexing table a4 with 8 * (v9 & v38). [global:0x005DA520, source:raw]
+    // CALCULATION: Walk the distance table: for each node read the flag/len byte and code bit length from node+1, consume the code, and advance to the next node by 8 * (extra length at node+4) + 8 * (v45 & dword_5DA520[flag]) until a terminal (length-code or invalid) node is reached. [global:0x005DA520, source:raw]
+    // STATE_TRANSITION: Distance-code case (distance node flag & 0x10): compute the match distance v24 = (dword base at node+4) + (v45 & dword_5DA520[flag & 0xF]), top up to the node's extra-bit count, and copy the v41-byte match from the window at (cursor - v24) into the output, wrapping through the window start a5[10] when the source precedes the window start and decrementing v40 by the match length. [global:0x005DA520, source:raw]
+    // GUARD: Invalid-distance error: when a distance node carries the 0x40 flag, write the string 'invalid distance code' (global aInvalidDistanc, 0x005B0840) into the stream error slot a6[6] and set the return code -3. [global:0x005B0840, source:raw]
+    // GUARD: Invalid-literal error: when a literal/length node carries the 0x40 flag, write the string 'invalid literal/length code' (global aInvalidLiteral, 0x005B0858) into the stream error slot a6[6] and set the return code -3. [global:0x005B0858, source:raw]
+    // STATE_TRANSITION: End-of-block: when the final literal/length symbol carries the 0x20 flag, the block is complete and the return code is 1. [source:raw]
+    // RETURN: Persist state and return: store the bit accumulator into a5[8], the adjusted bit count (j - 8 * consumed) into a5[7], the output cursor into a5[13], the advanced input pointer into *a6, the remaining input count into a6[1] and the consumed-byte delta into a6[2]; return 1 (block complete), 0 (needs slow path / more input or window space) or -3 (invalid code). [function:0x0052C334, source:raw]
+
+    // Conservative worker pseudocode:
+    //   // DEFLATE fast decode (inflate_fast-style). a3 = literal/length table,
+    //   // a4 = distance table, a5 = inflate context, a6 = stream.
+    //   int InflateFastDecode(a1, a2, a3, a4, a5, a6) {
+    //     in = a6[0]; in_left = a6[1]; hold = a5[8]; bits = a5[7];
+    //     out = a5[13]; space = window_space(a5[11], a5[12], out);
+    //     lmask = dword_5DA520[a1]; dmask = dword_5DA520[a2];
+    //     for (;;) {
+    //       if (bits < 0x14) { // top up to 20 bits
+    //         do { --in_left; hold |= *in++ << bits; bits += 8; } while (bits < 0x14);
+    //       }
+    //       node = &a3[8 * (hold & lmask)];
+    //       if (!*node) {              // literal
+    //         hold >>= node[1]; bits -= node[1];
+    //         *out++ = node[4]; --space;
+    //         if (space < 0x102 || in_left < 0xA) break;  // run exhausted
+    //         continue;
+    //       }
+    //       hold >>= node[1]; bits -= node[1];
+    //       if (*node & 0x10) {        // length code
+    //         len = node_dword(node,1) + (hold & dword_5DA520[*node & 0xF]);
+    //         top_up_to(bits, 0xF);
+    //         dnode = &a4[8 * (hold & dmask)];
+    //         for (;;) {
+    //           dnode += 8 * node_dword(dnode,1) + 8 * (hold & dword_5DA520[*dnode]);
+    //           if (*dnode & 0x10) {   // distance code
+    //             dist = node_dword(dnode,1) + (hold & dword_5DA520[*dnode & 0xF]);
+    //             top_up_to(*dnode & 0xF);
+    //             copy_match(out, out - dist, len, window_start a5[10]);
+    //             space -= len; break;
+    //           }
+    //           if (*dnode & 0x40) { a6[6] = "invalid distance code"; goto err; }
+    //         }
+    //         if (space < 0x102 || in_left < 0xA) break;
+    //         continue;
+    //       }
+    //       if (*node & 0x40) { a6[6] = "invalid literal/length code"; goto err; }
+    //       node += 8 * node_dword(node,1) + 8 * (hold & dword_5DA520[*node]);
+    //     }
+    //     return (*node & 0x20) ? 1 : 0;
+    //   err:
+    //     return -3;
+    //   }
+    // UNRESOLVED: The decode-table node layout (flags/len byte at node+0, code bit length at node+1, base/extras dword at node+4, 8-byte stride) is inferred from the raw-source byte indexing of the a3/a4 table pointers and is not backed by a packet struct.
+    // UNRESOLVED: The exact mapping of a1 and a2 (bit-count indices into dword_5DA520) and the full contents of the dword_5DA520 mask table are not available in this packet; the literal/distance masks are read but their source values come from the caller's table setup.
+    // UNRESOLVED: a5[10]/a5[11]/a5[12] (window start/end/capacity) and a5[7]/a5[8]/a5[13] (bit count/accumulator/cursor) are treated as the same inflate-context object used by sub_529B2C and sub_527752; the exact struct base alignment across the three callers is not proven by this packet alone.
+    // UNRESOLVED: The caller sub_529B2C (InflateDecompressionStateMachine) invokes this fast path only when at least 0x102 bytes of window space and 0xA bits are available; the handoff contract (which values persist into a5/a6) is caller-side and matched here from the raw-source writes.
+}

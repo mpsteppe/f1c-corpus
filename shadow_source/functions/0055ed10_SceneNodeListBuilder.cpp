@@ -1,0 +1,42 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0055ED10
+// Canonical corpus name: sub_55ED10
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_55ED10_0055ed10.c
+
+void UnknownObject::SceneNodeListBuilder()
+{
+    // Collects up to 8 scene nodes from a linked list rooted at this+0x128 into a caller-provided array at a3+272, storing each accepted node pointer followed by a reciprocal weight (1.0 / node value at node+0x50) at 56-byte stride. The whole collection is skipped when the byte at a3+20 has bit 0x20 set, and the node world position is fetched via SceneNodePositionGetter unless the byte at a2+60 has bit 0x10 set. Traversal only runs while the flag dword at offset 0 of the struct reached through *(this+0x194) has bit 0x100 set.
+    // GUARD: When the byte at a3+20 has bit 0x20 set, the entire node-collection body is skipped and the function returns immediately. [function:0x0055ED10, source:raw]
+    // GUARD: When the byte at a2+60 has bit 0x10 clear, the world position of the node is fetched before any collection. [source:raw]
+    // CALL: SceneNodePositionGetter(a2, &v10, &v11, &v12) reads the node world position into three stack locals. [callee:0x0054B950, source:raw]
+    // ASSIGNMENT: Read the flag-pointer from a3+284 into v5 and reset the collector count dword at a3+268 to 0. [source:raw]
+    // GUARD: When the flag dword at offset 0 of the struct reached through *(this+0x194) has bit 0x100 set, the node traversal runs; otherwise the collector array stays empty. [field:*(this+0x194):0x00000000, source:raw]
+    // LOOP: Iterate the linked list from the head stored at this+0x128 (this[74]), following the next-pointer at node offset 0x6C until a null pointer terminates the walk. [field:this:0x00000128, field:*(this+0x194):0x0000006C, source:raw]
+    // GUARD: Stop collecting when the count at a3+268 reaches 8 (the collector array is full). [source:raw]
+    // GUARD: Accept only nodes whose byte at offset 0 matches pattern (byte & 0xA0) == 0x80, and only while the preceding byte test leaves no borrow (flag v9 clear). [source:raw]
+    // ASSIGNMENT: Store the accepted node pointer at entry 56*v7 of the array at a3+272. [source:raw]
+    // ASSIGNMENT: Write the reciprocal weight 1.0 / node_value into the slot at array entry + 16, where node_value is the float at node offset 0x50, then increment the count at a3+268. [field:*(this+0x194):0x00000050, source:raw]
+
+    // Conservative worker pseudocode:
+    //   void SceneNodeListBuilder(void* this, void* a2, void* a3, void* a4) {
+    //     if ((*(char*)(a3 + 20) & 0x20) == 0) {
+    //       if ((*(char*)(a2 + 60) & 0x10) == 0)
+    //         SceneNodePositionGetter(a2, &v10, &v11, &v12);
+    //       v5 = *(void**)(a3 + 284);
+    //       *(int*)(a3 + 268) = 0;
+    //       if ((*(int*)v5 & 0x100) != 0) {
+    //         for (i = this[74]; i; i = *(int*)(i + 108)) {
+    //           if (*(int*)(a3 + 268) >= 8) break;
+    //           if ((*(char*)i & 0xA0) == 0x80 && !v9) {
+    //             *(int*)(56 * *(int*)(a3 + 268) + *(int*)(a3 + 272)) = i;
+    //             *(float*)(56 * (*(int*)(a3 + 268))++ + *(int*)(a3 + 272) + 16) = 1.0 / *(float*)(i + 80);
+    //           }
+    //         }
+    //       }
+    //     }
+    //   }
+    // UNRESOLVED: flt_59E43C (global 0x0059E43C) is listed as an accessed global but does not appear in the raw source text; its role is unknown.
+    // UNRESOLVED: The collector array base at a3+272, its 56-byte element stride, the count at a3+268 and the flag-pointer at a3+284 have no named field evidence in the packet; their exact structure is unknown.
+    // UNRESOLVED: The linked-list node fields are reported with base *(this+0x194) for offsets 0x0, 0x50 and 0x6C, while the traversal head sits at this+0x128; the relationship between these two bases is not fully established by the packet.
+}

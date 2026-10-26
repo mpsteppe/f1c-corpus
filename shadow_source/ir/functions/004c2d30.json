@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "address": "0x004C2D30",
+  "proposed_name": "ScaledRunningAverageWithClamp",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes a running average of a per-call input scaled by 100.0, weighted by a sample count stored at this+0x28, and stores the result at this+0x4C. For count 0 the scaled input is stored directly; for count 1 the previous average is kept; for count > 1 a weighted ((count-1)*average + scaled_input)/count average is computed. The stored average is then post-processed through a compare-status branch against 100.0 that replaces it with a constant when the comparison is unordered or when it exceeds 100.0.",
+  "local_names": {
+    "v2": "sample count read from this+0x28",
+    "v9": "input scaled by 100.0 (a2 * 100.0)",
+    "v3": "weighted numerator before adding scaled input",
+    "v4": "v3 + scaled input",
+    "v5": "computed average (v4 / count)",
+    "v7/v8": "compare-status flags from the final comparison (decompiler locals)"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "v2 := sample count read from this+0x28",
+      "evidence_refs": ["field:this:0x00000028"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v9 := a2 * 100.0 — input scaled by 100.0",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on count v2: if v2==0 seed v3 with scaled input v9; if v2==1 keep previous average at this+0x4C; if v2>1 use (v2-1) * previous average at this+0x4C",
+      "evidence_refs": ["field:this:0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "if v2 <= 0: this+0x4C := v9 — count zero or negative stores the scaled input directly",
+      "evidence_refs": ["field:this:0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v4 := v3 + v9; v5 := v4 / v2 — combine and divide by the sample count",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "this+0x4C := v5 — store the computed average",
+      "evidence_refs": ["field:this:0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Compare v5 against 100.0: if the comparison status is unordered, this+0x4C := 1084227584; else if v5 > 100.0, this+0x4C := 1120403456",
+      "evidence_refs": ["field:this:0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Function completes without a return value; the updated average persists at this+0x4C",
+      "evidence_refs": ["function:0x004C2D30", "field:this:0x0000004C"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v2 = *(this + 40);",
+    "v9 = a2 * 100.0;",
+    "if (v2 <= 1) {",
+    "    if (v2 == 1) v3 = *(float*)(this + 76);",
+    "    else v3 = v9;",
+    "} else {",
+    "    v3 = (double)(v2 - 1) * *(float*)(this + 76);",
+    "}",
+    "v4 = v3 + v9;",
+    "if (v2 <= 0) *(float*)(this + 76) = v9;",
+    "v5 = v4 / (double)v2;",
+    "*(float*)(this + 76) = v5;",
+    "if (compare_status_unordered) *(this + 76) = 1084227584;",
+    "else if (v5 > 100.0) *(this + 76) = 1120403456;"
+  ],
+  "unresolved": [
+    "flt_59E6F8 (0x0059E6F8) and flt_59E7EC (0x0059E7EC) are data xrefs recorded by the fact table but absent from the raw source text; their runtime role in this function is not established.",
+    "Literal 1084227584 has no float interpretation given in the packet; decoded as 5.0f it is applied only on the unordered compare branch, not as a symmetric lower clamp.",
+    "The v7/v8 locals are decompiler artifacts of the final compare-status branch; the exact x87 flag mapping is unverified.",
+    "The owner (UnknownObject) and the running-average purpose are DERIVED from structure and the legacy ABI label, not independently confirmed."
+  ],
+  "unresolved_evidence_refs": ["abi:lead", "caller:0x004C29F0", "global:0x0059E6F8", "global:0x0059E7EC"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

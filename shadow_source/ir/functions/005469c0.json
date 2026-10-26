@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "address": "0x005469C0",
+  "proposed_name": "ReferenceCountedResourceRelease",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Reference-counted resource release. Returns -2 immediately if the release-blocking flag bit (this+0x9C bit 2) is set. Otherwise decrements both ref counts at this+0x84 and this+0x88; if this+0x88 is still non-zero it returns -2 (more references outstanding). When the count reaches zero it iterates the sub-resource slots at this+0xA8 (count this+0xA4), finds each slot's node in the linked list headed at this+0xB8, decrements that node's reference count, and when it reaches zero destructs its per-element data (count at node+0x4C), removes the node with DoublyLinkedListNodeRemovalWithArrayCleanup, and zeroes the slot pointer. Finally ORs this+0x9C with 3 and returns 0.",
+  "local_names": {
+    "this": "reference-counted resource object",
+    "v2": "decremented remaining ref count at this+0x88",
+    "v3": "sub-resource slot pointer, advancing 37 dwords per slot from base this+0xA8",
+    "v5": "sub-resource node pointer stored in the slot (at this+0xA8 + 0x8C)",
+    "v4": "linked-list walk node starting from the list head at this+0xB8 + 0x28",
+    "v7": "sub-resource node pointer re-read before element destruction",
+    "v8": "element index used to walk and destruct per-element data",
+    "v11": "sub-resource slot loop counter, bounded by this+0xA4"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Release-blocking check: if bit 1 of the flags at this+0x9C is set, return -2 immediately without touching ref counts.",
+      "evidence_refs": ["field:this:0x0000009C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Decrement both ref counts: this+0x84 and this+0x88 are each reduced by 1.",
+      "evidence_refs": ["field:this:0x00000084", "field:this:0x00000088", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "If the remaining count this+0x88 is still non-zero, return -2 (further references are alive).",
+      "evidence_refs": ["field:this:0x00000088", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Outer sub-resource loop only runs when the slot count this+0xA4 is greater than 0.",
+      "evidence_refs": ["guard:0", "field:this:0x000000A4", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the sub-resource slots starting at this+0xA8, advancing 37 dwords (148 bytes) per slot, once per slot in this+0xA4.",
+      "evidence_refs": ["field:this:0x000000A8", "field:this:0x000000A4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Match the slot's node pointer (stored at the sub-resource slot offset 0x8C) against the linked list headed at this+0xB8: walk nodes from list-head + 0x28 following the next pointer at dword index 23 until a match or the end of the list.",
+      "evidence_refs": ["field:*(this+0xB8):0x00000028", "field:*(*(this+0xB8)+0x28):0x000000B8", "field:this:0x000000B8", "field:*(this+0xA8):0x0000008C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Decrement the matched node's reference count (field 0x0 of the sub-resource node); when it drops from 1 to 0 the node is freed.",
+      "evidence_refs": ["field:*(*(this+0xA8)+0x8C):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Per-element destruction only runs when the node's element count (at node + 0x4C) is greater than 0.",
+      "evidence_refs": ["guard:1", "field:*(*(this+0xA8)+0x8C):0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Loop over the node's elements in 24-byte steps, calling DestructorWithConditionalFreeFlagClear on each element pointer.",
+      "evidence_refs": ["field:*(*(this+0xA8)+0x8C):0x0000004C", "callee:0x005502C0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "DoublyLinkedListNodeRemovalWithArrayCleanup unlinks the node from the linked list and cleans up its backing array.",
+      "evidence_refs": ["callee:0x005478B0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the sub-resource slot pointer at the node (this+0xA8 + 0x8C), marking the slot released.",
+      "evidence_refs": ["field:*(this+0xA8):0x0000008C", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "On successful release OR the flags at this+0x9C with 3, marking the resource as released/cleaned.",
+      "evidence_refs": ["field:this:0x0000009C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 on a fully completed release.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by sub_547710 (00547710) and LinkedListWalkWithExitCheck (005487E0).",
+      "evidence_refs": ["caller:0x00547710", "caller:0x005487E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_5469C0(int this) {",
+    "  if (this[0x9C/4] & 2) return -2;",
+    "  --this[0x84/4];",
+    "  int remaining = --this[0x88/4];",
+    "  if (remaining) return -2;",
+    "  if (this[0xA4/4] > 0) {",
+    "    _DWORD *slot = this[0xA8/4] + 140/4;",
+    "    for (int n = 0; n < this[0xA4/4]; ++n, slot += 37) {",
+    "      _DWORD *node = *slot;",
+    "      _DWORD *walk = *(this[0xB8/4] + 40/4);",
+    "      while (walk && walk != node) walk = walk[23];",
+    "      if (walk == node && --node[0] == 0) {",
+    "        if (node[76/4] > 0)",
+    "          for (int e = 0; e < node[76/4]; ++e)",
+    "            DestructorWithConditionalFreeFlagClear(node + e * 24/4);",
+    "        DoublyLinkedListNodeRemovalWithArrayCleanup(node);",
+    "        *slot = 0;",
+    "      }",
+    "    }",
+    "  }",
+    "  this[0x9C/4] |= 3;",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "The linked-list node layout (next pointer at dword index 23, element count at 0x4C, ref count at 0x0) is only partially recovered; the head pointer at this+0xB8 and its +0x28 indirection are read as two distinct evidence fields whose exact object roles are not established.",
+    "The 148-byte sub-resource slot stride and the 24-byte element stride are inferred from the loop increments and have no named struct backing.",
+    "The meaning of returning -2 versus 0 to the caller (sub_547710, LinkedListWalkWithExitCheck) is not established by this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

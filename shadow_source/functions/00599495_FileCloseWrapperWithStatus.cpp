@@ -1,0 +1,26 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00599495
+// Canonical corpus name: FileCloseWrapperWithStatus
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/FileCloseWrapperWithStatus_00599495.c
+
+void UnknownObject::FileCloseWrapperWithStatus()
+{
+    // Close a stored file handle with status reporting. If the handle field this[20] (byte offset 0x50) is null, or the close call succeeds, return null (success). Otherwise report an error through ObjectInitializationWithBufferBoundsSetup(0, 2) and return this to signal failure.
+    // GUARD: Guard on the stored file handle this[20] (byte offset 0x50, read): a null handle short-circuits to the success path without calling the closer. [field:this:0x00000050]
+    // CALL: Close the file handle by calling FileCloseWithLock(this[20]); the return value contributes to the guard that decides success versus error reporting. [callee:0x00587D02]
+    // RETURN: Success path: when the handle is null or the close call succeeds, return 0. [source:raw]
+    // CALL: Failure path: report the error by calling ObjectInitializationWithBufferBoundsSetup with arguments (0, 2). [callee:0x005994BC]
+    // RETURN: Failure path: return this (non-null) so callers can detect that closing failed. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int *sub_599495(int *this) {
+    //     if (!this[20] || FileCloseWithLock(this[20]))
+    //       return 0;
+    //     ObjectInitializationWithBufferBoundsSetup(0, 2);
+    //     return this;
+    //   }
+    // UNRESOLVED: What error state ObjectInitializationWithBufferBoundsSetup(0, 2) raises (exception, error flag, or other) is not established here.
+    // UNRESOLVED: The meaning of the literal 2 argument to ObjectInitializationWithBufferBoundsSetup is unresolved.
+    // UNRESOLVED: Whether the returned non-null pointer is itself consumed as an error object or merely used as a boolean is unresolved.
+}

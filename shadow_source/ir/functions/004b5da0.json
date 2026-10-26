@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "address": "0x004B5DA0",
+  "proposed_name": "PitStallProximityCheck",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Pit-stall proximity check driven from a circular buffer of pit stall entries. Queries the stall buffer; if empty, reinitializes it by setting the pit-stop action (PitstopActionSet) and re-queries. Iterates the buffer backward from the current index (this+0x9B8) modulo the buffer size (this+0x9B4), resolves each entry to a stall pointer, and skips entries whose Z-threshold (entry+108) is at or beyond the vehicle Z-position (a2+4). When the first stall within reach is found (Z-distance below 1.5), registers the contact via CollisionObjectInsertion.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Query CircularBufferCheck for the stall buffer count; if it returns zero, call PitstopActionSet with a3 (interpreted as a float) to (re)initialize the buffer, then re-query CircularBufferCheck(this).",
+      "evidence_refs": ["function:0x004B5DA0", "source:raw", "callee:0x004B68C0", "callee:0x004B6940"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate v4 buffer entries from index 0 upward: compute the circular index as (current index this[0x9B8] - i) modulo the buffer size this[0x9B4], and resolve each index to a stall pointer via IndexedPointerLookup.",
+      "evidence_refs": ["source:raw", "field:this:0x000009B8", "field:this:0x000009B4", "callee:0x004B6920"]
+    },
+    {
+      "kind": "guard",
+      "description": "Skip the stall when the vehicle Z-position (a2+4) is at or beyond the stall Z-threshold (v7+108); break on the first stall that is within reach.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the Z-distance (vehicle Z minus stall threshold) is less than 1.5, call CollisionObjectInsertion with the stall pointer, the vehicle data, and a3 to register the stall contact.",
+      "evidence_refs": ["source:raw", "callee:0x004B48E0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return early once all v4 entries have been scanned without finding a stall within reach.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void sub_4B5DA0(int this, int a2, int a3) {",
+    "  int count = CircularBufferCheck();",
+    "  if (!count) {",
+    "    PitstopActionSet(*(float*)&a3);",
+    "    count = CircularBufferCheck(this);",
+    "  }",
+    "  for (int i = 0; i < count; ++i) {",
+    "    int idx = this[622] - i;",
+    "    if (idx < 0) idx += this[621];",
+    "    char* stall = IndexedPointerLookup(idx);",
+    "    if (*(float*)(a2 + 4) >= *(float*)(stall + 108))",
+    "      return;",
+    "  }",
+    "  if (*(float*)(a2 + 4) - *(float*)(stall + 108) < 1.5)",
+    "    CollisionObjectInsertion(stall, a2, a3);",
+    "}"
+  ],
+  "unresolved": [
+    "The exact meaning of the entry float written at stall+108 and the vehicle value at a2+4 (interpreted as Z-position) is DERIVED from the comparison shape, not independently confirmed.",
+    "The global flt_59E8A4 appears in the packet's globals list but the raw source text contains no reference to it; likely a packet join artifact.",
+    "The first CircularBufferCheck call appears argument-less in the decompiler output; whether it also receives `this` is unclear."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E8A4"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

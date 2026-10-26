@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "address": "0x005896EE",
+  "proposed_name": "SystemTimeToInternalTimeConvert",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Reads local and UTC system time, then converts UTC time to an internal time format via sub_591EDF. Timezone/DST determination is cached in dword_8D3E58 and reused while the cached system-time copy (xmmword_8D3E60) still matches the current UTC time. Optionally writes the result through an output pointer. Free __cdecl utility, not a member function.",
+  "local_names": {
+    "SystemTime": "local UTC time from GetSystemTime",
+    "v5": "second UTC SYSTEMTIME used for cache comparison",
+    "TimeZoneInformation": "timezone/DST data from GetTimeZoneInformation",
+    "v1": "DST flag fed to sub_591EDF"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Get UTC system time into SystemTime via GetSystemTime.",
+      "evidence_refs": ["global:0x0059E1E4"]
+    },
+    {
+      "kind": "call",
+      "description": "Get local time into a second SYSTEMTIME via GetLocalTime.",
+      "evidence_refs": ["global:0x0059E1E0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Cache-hit check: compare minute/hour/day/month/year of the current UTC time against the cached copy xmmword_8D3E60 (byte components 8D3E62/8D3E66/8D3E68/8D3E6A).",
+      "evidence_refs": [
+        "global:0x008D3E60",
+        "global:0x008D3E62",
+        "global:0x008D3E66",
+        "global:0x008D3E68",
+        "global:0x008D3E6A"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "On cache hit, reuse the previously computed flag dword_8D3E58.",
+      "evidence_refs": ["global:0x008D3E58"]
+    },
+    {
+      "kind": "call",
+      "description": "On cache miss, query timezone/DST data via GetTimeZoneInformation.",
+      "evidence_refs": ["global:0x0059E1E8"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute DST flag: -1 on GetTimeZoneInformation error, else 1 when return code is 2 (daylight) and both DaylightDate.wMonth and DaylightBias are non-zero.",
+      "evidence_refs": ["global:0x0059E1E8", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Refresh cache: store current UTC time into xmmword_8D3E60 and the computed flag into dword_8D3E58.",
+      "evidence_refs": ["global:0x008D3E60", "global:0x008D3E58"]
+    },
+    {
+      "kind": "call",
+      "description": "Convert SystemTime year/month/day/hour/minute/second plus DST flag to internal time via sub_591EDF.",
+      "evidence_refs": ["callee:0x00591EDF"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the output pointer a1 is non-null, write the result to *a1.",
+      "evidence_refs": ["field:this:0x00000000"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the converted internal time.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int SystemTimeToInternalTimeConvert(int* out) {",
+    "  GetLocalTime(&local);",
+    "  GetSystemTime(&utc);",
+    "  int dstFlag;",
+    "  if (utc.minute == cache.minute && utc.hour == cache.hour &&",
+    "      utc.day == cache.day && utc.month == cache.month && utc.year == cache.year) {",
+    "    dstFlag = cachedDstFlag;",
+    "  } else {",
+    "    DWORD r = GetTimeZoneInformation(&tzi);",
+    "    if (r == -1) dstFlag = -1;",
+    "    else dstFlag = (r == 2 && tzi.DaylightDate.wMonth != 0 && tzi.DaylightBias != 0);",
+    "    cache = utc;",
+    "    cachedDstFlag = dstFlag;",
+    "  }",
+    "  int result = sub_591EDF(utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second, dstFlag);",
+    "  if (out) *out = result;",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Internal time format produced by sub_591EDF (epoch base, units) unknown from this function.",
+    "Global byte reads at 0xFF00000000005455..0xFF00000000005467 are decompiler artifacts from WORD-macro reads of the cached time; their exact provenance is not established."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x00456010",
+    "caller:0x004D24D0",
+    "function:0x005896EE",
+    "global:0xFF00000000005455",
+    "global:0xFF00000000005456",
+    "global:0xFF00000000005458",
+    "global:0xFF00000000005459",
+    "global:0xFF0000000000545A",
+    "global:0xFF0000000000545B",
+    "global:0xFF00000000005466",
+    "global:0xFF00000000005467"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

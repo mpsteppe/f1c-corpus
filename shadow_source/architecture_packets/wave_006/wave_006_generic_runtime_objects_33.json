@@ -1,0 +1,2816 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_006_generic_runtime_objects_33",
+  "scope": "generic_runtime_objects",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x00583A80",
+      "function_ref": "function:0x00583A80",
+      "name": "scalarDeletingDestructor",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead"
+        ]
+      },
+      "summary": "MSVC-style scalar deleting destructor: invokes the real destructor sub_583AE0 on this, then, if flag a2 has bit 0 set, frees the object via FreeWrapper_7bcf. Returns the this pointer.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call destructor sub_583AE0 (0x00583AE0) with this as argument.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x00583AE0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Check whether (a2 & 1) != 0 before deciding to free.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "If the guard holds, call FreeWrapper_7bcf (0x00587BCF) with this to release the object memory.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x00587BCF"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return this.",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x00583A80"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The concrete type of this (class owning the destructor) is unknown.",
+        "Whether sub_583AE0 is a plain destructor or performs additional teardown is unproven.",
+        "Relationship between the class here and the sibling destructor chain (0x00583AE0) is unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00583D40",
+      "function_ref": "function:0x00583D40",
+      "name": "MutexProtectedDataReadWithTimedWait",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00583D40"
+        ]
+      },
+      "summary": "Reads a mutex-protected byte from a slot record at a1 + 40*a2 (byte value at +12, mutex handle at +16, wait timeout in ms at +20). Acquires the mutex via WaitForSingleObject with the per-slot timeout; when the wait returns 0 (signaled) or 128 (WAIT_TIMEOUT) the protected byte is read, then the mutex is re-loaded from +16 and released via ReleaseMutex. Returns the byte read. Called by StartAddress (0x00583D90).",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Record addressing: v2 = a1 + 40*a2 + 12 locates the protected byte member; the mutex handle sits at +16 and the wait timeout (ms) at +20 of the same record",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Data access is gated: when the mutex handle at +16 is null, or WaitForSingleObject returns neither 0 (WAIT_OBJECT_0) nor 128 (WAIT_TIMEOUT), the read pointer v5 is set to null instead of the record address",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "WaitForSingleObject(v3, *(DWORD*)(a1 + 40*a2 + 20)) acquires the per-slot mutex with the record's own timeout; import resolved via IAT slot 0x0059E1A0",
+          "evidence_refs": [
+            "global:0x0059E1A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "The mutex handle is reloaded from +16 (v2+4) immediately before release so the same handle is unlocked",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "ReleaseMutex(v6) unlocks the mutex when the reloaded handle is non-null; import resolved via IAT slot 0x0059E1A4",
+          "evidence_refs": [
+            "global:0x0059E1A4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the byte v7 read through v5, i.e. the mutex-protected byte at record offset +12",
+          "evidence_refs": [
+            "function:0x00583D40",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by StartAddress (0x00583D90) as the guarded data read inside that worker-style routine",
+          "evidence_refs": [
+            "caller:0x00583D90"
+          ]
+        }
+      ],
+      "unresolved": [
+        "When the mutex is null or the wait fails, v5 is null yet the decompiled body reads through it; the original guard that avoids that read path is not visible in the raw source",
+        "The meaning of the protected byte at +12 and the enclosing 40-byte record layout (what array a1/a2 selects) is unknown",
+        "Why WAIT_TIMEOUT (128) also authorizes the read is unexplained; the consumer's contract for a timed-out read is unknown"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00583F50",
+      "function_ref": "function:0x00583F50",
+      "name": "LinkedListTimerTickWithExpiryCheck",
+      "owner": {
+        "type": "EventTimerManager",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "caller:0x00583D90",
+          "function:0x00583F50",
+          "field:this:0x0000057C",
+          "field:this:0x00000584"
+        ]
+      },
+      "summary": "Walks two timer-node lists (list control at this+0x57C and a second list at this+0x598), decrementing each node's deadline at node+0x4C by a time budget computed as CRTFtol(a2*1000+0.5). Nodes whose deadline drops to zero or below are unlinked from the list, cleaned via ConditionalListNodeCleanup, freed via FreeWrapper_7bcf, and appended to a free list under a short (1 ms) mutex wait. Each list walk is protected by a per-list mutex acquired with a bounded timeout.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "v20 = CRTFtol(a2 * 1000.0 + 0.5): convert the float seconds budget a2 to integer milliseconds.",
+          "evidence_refs": [
+            "callee:0x00587BDC",
+            "global:0x0059E450",
+            "global:0x0059E874",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Two iterations (v19 = 0, 1) over the timer list control blocks at this+0x57C and this+0x598.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Acquire the list-walk mutex (this+0x58C for list 1) via WaitForSingleObject with timeout this+0x590; on unavailable or timeout skip the list.",
+          "evidence_refs": [
+            "global:0x0059E1A0",
+            "field:this:0x0000058C",
+            "field:this:0x00000590"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the list head *(this+0x57C) is 0 the list is empty; skip the iteration.",
+          "evidence_refs": [
+            "guard:0",
+            "field:*(this+0x57C):0x00000000"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Per node: decrement the deadline at node+0x4C by the time budget v20 and store it back.",
+          "evidence_refs": [
+            "field:*(*(this+0x57C)+0x0):0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the deadline is still greater than 0 (or the append mutex this+0x570 is busy), advance the iterator at list control offset +8 and continue the walk.",
+          "evidence_refs": [
+            "source:raw",
+            "field:*(this+0x57C):0x00000008"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Expired node is unlinked from the list: head/tail/count at control offsets +0/+4/+8 are updated.",
+          "evidence_refs": [
+            "field:*(this+0x57C):0x00000000",
+            "field:*(this+0x57C):0x00000004",
+            "field:*(this+0x57C):0x00000008"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "ConditionalListNodeCleanup(node) performs node teardown before freeing.",
+          "evidence_refs": [
+            "callee:0x005864E0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "FreeWrapper_7bcf(node) frees the expired node's memory.",
+          "evidence_refs": [
+            "callee:0x00587BCF"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "LinkedListNodeAppend_6000(node, 0) appends the expired node to a free list, guarded by WaitForSingleObject on mutex this+0x570 with a 1 ms timeout.",
+          "evidence_refs": [
+            "callee:0x00586000",
+            "field:this:0x00000570",
+            "global:0x0059E1A0"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "ReleaseMutex for the append mutex (this+0x570) and for the list-walk mutex (this+0x58C) after the iteration.",
+          "evidence_refs": [
+            "global:0x0059E1A4",
+            "field:this:0x00000570",
+            "field:this:0x0000058C"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the ReleaseMutex result for the last processed list's mutex.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Second list control block at this+0x598 and its append mutex at this+0x544 (handle at +4) are used in the body but absent from the packet field evidence set.",
+        "this+0x580, this+0x584, this+0x588 and the dereferenced fields of *(this+0x584) are reported by deterministic facts but not visible in the decompiled body.",
+        "Free-list target and second argument 0 of LinkedListNodeAppend_6000 unconfirmed."
+      ],
+      "unresolved_evidence_refs": [
+        "field:*(this+0x584):0x00000000",
+        "field:*(this+0x584):0x00000004",
+        "field:this:0x00000580",
+        "field:this:0x00000584",
+        "field:this:0x00000588"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00584110",
+      "function_ref": "function:0x00584110",
+      "name": "accumulateAt0xE0",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00584110",
+          "source:raw"
+        ]
+      },
+      "summary": "Trivial thiscall accumulator: adds float argument a2 to the 8-byte field at offset 0xE0 of this (this[28] on a double-typed pointer) in place.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Accumulate a2 into the field at offset 0xE0: this[28] = a2 + this[28].",
+          "evidence_refs": [
+            "field:this:0x000000E0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Owner class unknown; meaning of the float accumulator at offset 0xE0 not established. Single caller 0x00583D90 (StartAddress)."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x00583D90",
+        "abi:lead"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00584DD0",
+      "function_ref": "function:0x00584DD0",
+      "name": "MutexGuardedListAppend",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00584DD0"
+        ]
+      },
+      "summary": "Thread-safe list insertion. Reads the mutex handle at this+0x570 and, if non-null, waits on it with the timeout at this+0x574 (WAIT_OBJECT_0 or WAIT_ABANDONED accepted), appends node a2 to a linked list via LinkedListNodeAppend_6000, records success, then releases the mutex. Returns a boolean success flag.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Load the mutex handle from this+0x570 (this[348]) and the list object base this+344 (this[344]); initialize the success flag to 0.",
+          "evidence_refs": [
+            "field:this:0x00000570",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on the mutex handle being non-null; when it is null the function skips all synchronization and returns the 0 flag.",
+          "evidence_refs": [
+            "field:this:0x00000570",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call WaitForSingleObject with the mutex handle and the timeout read from this+0x574 (this[349]).",
+          "evidence_refs": [
+            "field:this:0x00000574",
+            "global:0x0059E1A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on the wait result being 0 (signaled) or 128 (WAIT_ABANDONED); other results skip the append and release.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Append node a2 to the linked list via LinkedListNodeAppend_6000(a2, 0); set the success flag to 1 when it returns non-zero.",
+          "evidence_refs": [
+            "callee:0x00586000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Release the mutex handle via ReleaseMutex when it is non-null.",
+          "evidence_refs": [
+            "field:this:0x00000570",
+            "global:0x0059E1A4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the success flag (1 if the append succeeded, otherwise 0).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The node a2 and the appended list structure (base at this+344, buffer at this[348]) are not further identified here.",
+        "Owner identity is unknown; the list/mutex pairing only implies a shared producer-consumer container."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x00585400"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00584F30",
+      "function_ref": "function:0x00584F30",
+      "name": "AppendToMutexGuardedListWithWait",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00584F30"
+        ]
+      },
+      "summary": "Mutex-gated linked-list append. Reads the mutex handle at this+0x5A8 and the wait timeout at this+0x5AC, waits on the mutex with WaitForSingleObject, appends the caller's node to a linked list via LinkedListNodeAppend_6000, then releases the mutex. Returns 1 when the append succeeded, 0 otherwise. Thread-safe list insertion guarded by a Windows mutex.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Proceed only when the mutex handle stored at this+0x5A8 is non-null; otherwise skip straight to the return of 0",
+          "evidence_refs": [
+            "field:this:0x000005A8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "WaitForSingleObject(handle at this+0x5A8, timeout at this+0x5AC): acquire the mutex before touching the list",
+          "evidence_refs": [
+            "global:0x0059E1A0",
+            "field:this:0x000005A8",
+            "field:this:0x000005AC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Only enter the append section when the wait returned 0 (signaled) or 128 (WAIT_ABANDONED); a timeout or error blocks the append",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "LinkedListNodeAppend_6000(list head at dword index 358 past this, a2, 0): append the caller payload; a non-zero result sets the success flag v4",
+          "evidence_refs": [
+            "callee:0x00586000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "ReleaseMutex on the handle stored at this+0x5A8 (read back through the list object) when it is non-null, always after the append attempt",
+          "evidence_refs": [
+            "global:0x0059E1A4",
+            "field:this:0x000005A8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 when the append succeeded, else 0",
+          "evidence_refs": [
+            "function:0x00584F30",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The container type of the list headed at dword index 358 past this is not evidenced; the append flag third argument to LinkedListNodeAppend_6000 is unexplained",
+        "The same handle is waited on and then released as a mutex while the append operates on the adjacent list object; the owner relationship between this+0x5A8 and the list is not evidenced here",
+        "The timeout literal semantics of this+0x5AC (a DWORD in wait milliseconds) are not verified against a caller"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00585CC0",
+      "function_ref": "function:0x00585CC0",
+      "name": "FieldGetter_5cc0",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Getter: returns the dword stored at offset 0x78 of the this object (this[30]). Pure read, no calls, no guards, no side effects.",
+      "operations": [
+        {
+          "kind": "return",
+          "description": "Return the dword read from this+0x78 (this[30]).",
+          "evidence_refs": [
+            "field:this:0x00000078",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of field 0x78 of the this object is unknown; callers include trigger iteration and state propagation paths, so it may be a state tag or trigger identifier, but that is not established."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00585F60",
+      "function_ref": "function:0x00585F60",
+      "name": "MutexWaitWithSuccessCheck",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "__thiscall mutex waiter. Reads the mutex handle at this+0x50 (this[20]) and the timeout at this+0x54 (this[21]). If the handle is non-null, calls WaitForSingleObject with that timeout; returns `this` when the wait result is 0 (WAIT_OBJECT_0) or 128 (WAIT_ABANDONED), otherwise returns 0.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Load the mutex handle from this[20] (byte offset 0x50) and the timeout from this[21] (byte offset 0x54).",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "field:this:0x00000054",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on the handle being non-null before waiting; a null handle fails the wait immediately.",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call WaitForSingleObject(handle, timeout).",
+          "evidence_refs": [
+            "global:0x0059E1A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Accept the wait result if it equals 0 (WAIT_OBJECT_0) or 128 (WAIT_ABANDONED); any other result (including WAIT_TIMEOUT) fails the check.",
+          "evidence_refs": [
+            "global:0x0059E1A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return `this` on a successful wait, otherwise return 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The owning class of `this` is unknown (object layout only exposes handle and timeout at 0x50/0x54).",
+        "The meaning of a null handle (skip vs failure) is ambiguous from this function alone; the caller sub_5837F0 may distinguish them."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00585F90",
+      "function_ref": "function:0x00585F90",
+      "name": "ReleaseMutexWrapperReturningSuccess",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead"
+        ]
+      },
+      "summary": "Thin wrapper around the imported ReleaseMutex function. Reads the mutex handle at this+0x50; if it is non-NULL, calls ReleaseMutex and propagates its BOOL result, otherwise returns FALSE.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Guard: return FALSE early when the mutex handle at this+0x50 is NULL, so ReleaseMutex is never called with a null handle.",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "function:0x00585F90",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Read the mutex handle dword from this[0x50] (offset 0x50) into a local.",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call imported ReleaseMutex (0x0059E1A4) with the handle and propagate its return value. Sole recorded caller is sub_5837F0.",
+          "evidence_refs": [
+            "global:0x0059E1A4",
+            "caller:0x005837F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return FALSE when the handle is NULL, otherwise return the BOOL result of ReleaseMutex.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The object owning the mutex handle at this+0x50 is unknown; the containing class is not established.",
+        "The meaning of the ReleaseMutex return value to the caller (sub_5837F0) is not established."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00586070",
+      "function_ref": "function:0x00586070",
+      "name": "DestroyDoubleLinkedListWithSEHCleanup",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Destroys two linked lists owned by the object: the first rooted at this+0x10 and the second rooted at this+0x0. For each node whose flag byte at node+0x8 is set and whose data pointer at node+0x0 is non-null, the function runs a per-node teardown (EmptyStub_0170) before freeing the data, then frees the node itself via FreeWrapper_7bcf. The second list additionally drives an SEH-registered callback loop (NTimeCallbackLoopWithSEH with size 1048, the SEH handler table at 0x0059D120) on the inner object before freeing the inner allocation, the data allocation, and the node. After each list is drained, all four root pointer/count fields of that list are zeroed. Returns 0.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If the first list head at this+0x10 is non-null, traverse and drain the first list.",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the first list following each node's next link; for nodes whose flag byte at node+0x8 is set and data pointer at node+0x0 is non-null, call EmptyStub_0170 then FreeWrapper_7bcf on the data, and free the node itself via FreeWrapper_7bcf.",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "field:obj:0x00000000",
+            "callee:0x004B0170",
+            "global:0x004B0170",
+            "callee:0x00587BCF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero the four root fields of the first list: this+0x10, this+0x14, this+0x18 and this+0x1C.",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "field:this:0x00000014",
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the second list head at this+0x0 is non-null, traverse and drain the second list.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the second list following each node's next link; for nodes whose flag byte at node+0x8 is set and data pointer at node+0x0 is non-null, dereference the data to reach an inner object, and if the inner object is non-null run NTimeCallbackLoopWithSEH on it with size 1048 and EmptyStub_0170 (under the SEH handler table at 0x0059D120), free the inner allocation base and the data allocation via FreeWrapper_7bcf, then free the node itself.",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "field:obj:0x00000000",
+            "field:*(obj+0x0):0x00000000",
+            "callee:0x0058A5F7",
+            "callee:0x004B0170",
+            "callee:0x00587BCF",
+            "global:0x0059D120",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero the four root fields of the second list: this+0x0, this+0x4, this+0x8 and this+0xC.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 after both lists are drained and zeroed.",
+          "evidence_refs": [
+            "function:0x00586070",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The first list node stores data that is freed after an EmptyStub_0170 call, while the second list node data wraps an inner object drained by NTimeCallbackLoopWithSEH; the two lists' element semantics are inferred from the differing teardown paths, not independently evidenced.",
+        "The exact size 1048 parameter semantics of NTimeCallbackLoopWithSEH and the SEH handler role of 0x0059D120 are not resolved from this function alone.",
+        "The next-node link is read from the node's second dword, which the packet does not list as a tracked field."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005862C0",
+      "function_ref": "function:0x005862C0",
+      "name": "MutexCreateOrReplace",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "source:raw"
+        ]
+      },
+      "summary": "Creates or replaces a mutex on an object. If the ready flag byte at this+0x58 is set and CloseHandle on the stored handle at this+0x50 succeeds, the handle slot is cleared to 0. A fresh unnamed mutex is then created with CreateMutexA using a SECURITY_ATTRIBUTES struct (nLength=12, no descriptor, inheritable) and stored at this+0x50; when creation succeeds the ready flag at this+0x58 is set to 1. Returns the ready flag byte. Invoked by sub_5837F0.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If the ready flag byte at this+0x58 is set, attempt to close the existing mutex handle at this+0x50 via CloseHandle.",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "global:0x0059E1A8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When the flag is set and CloseHandle succeeds, clear the handle slot at this+0x50 to 0.",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "global:0x0059E1A8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize the SECURITY_ATTRIBUTES for the new mutex: nLength=12, lpSecurityDescriptor=0, bInheritHandle=1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "CreateMutexA(&MutexAttributes, 0, 0) creates an unnamed mutex; the returned HANDLE is stored at this+0x50.",
+          "evidence_refs": [
+            "global:0x0059E1AC",
+            "field:this:0x00000050",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "If the new handle at this+0x50 is non-null, set the ready flag byte at this+0x58 to 1.",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "field:this:0x00000058",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the ready flag byte at this+0x58.",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "function:0x005862C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_5837F0 (0x005837F0).",
+          "evidence_refs": [
+            "caller:0x005837F0"
+          ]
+        }
+      ],
+      "unresolved": [
+        "global:0xFF00000000005450, global:0xFF00000000005451 and global:0xFF00000000005452 are listed as written globals but do not appear in the decompiled body; their role is unknown."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0xFF00000000005450",
+        "global:0xFF00000000005451",
+        "global:0xFF00000000005452"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00586500",
+      "function_ref": "function:0x00586500",
+      "name": "MutexCreateRecreate",
+      "owner": {
+        "type": "MutexObject",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00586500",
+          "global:0x0059E1A8",
+          "global:0x0059E1AC"
+        ]
+      },
+      "summary": "Mutex wrapper method that conditionally closes a previously created mutex handle, then creates a new unnamed mutex via CreateMutexA and records validity. If the byte flag at this+0xC is set and CloseHandle succeeds, the handle at this+0x4 is cleared to 0. A fresh handle is always created with SECURITY_ATTRIBUTES (nLength=12, no descriptor, inherit=1) and stored at this+0x4; on success the flag at this+0xC is set to 1. The function returns the flag value.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If byte flag at this+0xC is non-zero AND CloseHandle(handle at this+0x4) succeeds, the old mutex is considered closed.",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "field:this:0x00000004",
+            "global:0x0059E1A8"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Conditionally clear the handle field at this+0x4 to 0 after the previous handle was closed.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize stack SECURITY_ATTRIBUTES: nLength=12, lpSecurityDescriptor=0, bInheritHandle=1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call CreateMutexA with the SECURITY_ATTRIBUTES, initial owner 0 and name 0; store the returned handle in this+0x4.",
+          "evidence_refs": [
+            "global:0x0059E1AC",
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "If CreateMutexA returned a non-null handle, set the byte flag at this+0xC to 1.",
+          "evidence_refs": [
+            "global:0x0059E1AC",
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the byte flag at this+0xC.",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Global write refs byte_FF00000000005450, byte_FF00000000005451, byte_FF00000000005452 appear in the fact table as writes but are absent from the raw C; likely decompiler artifacts, purpose unknown.",
+        "The owning class identity is DERIVED from the legacy ABI name and Win32 mutex usage; not confirmed by callers."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0xFF00000000005450",
+        "global:0xFF00000000005451",
+        "global:0xFF00000000005452"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00586560",
+      "function_ref": "function:0x00586560",
+      "name": "MutexCreateReplaceWrapper",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "__thiscall on an unknown object: if the byte flag at this+0x5C is set and CloseHandle succeeds on the current handle at this+0x54, clears the handle to 0. Then builds a SECURITY_ATTRIBUTES (length 12, no descriptor, inheritable) and calls CreateMutexA to make an unnamed mutex, stores the new handle at this+0x54, sets the flag at this+0x5C to 1 when the handle is non-null, and returns the flag value. Called by sub_5837F0.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Guard: if flag byte at this+0x5C is non-zero and CloseHandle on the handle at this+0x54 returns true, enter the close-and-clear branch.",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "field:this:0x00000054",
+            "global:0x0059E1A8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear the mutex handle at this+0x54 to 0 after the previous handle was closed.",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize MutexAttributes: nLength=12, lpSecurityDescriptor=NULL, bInheritHandle=1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call CreateMutexA(&MutexAttributes, NULL, NULL) to create an unnamed mutex.",
+          "evidence_refs": [
+            "global:0x0059E1AC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the CreateMutexA result as the new handle at this+0x54.",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "global:0x0059E1AC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: if the new handle is non-null, set the flag byte at this+0x5C to 1.",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the flag byte at this+0x5C as the mutex-valid indicator.",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Enclosing object type unknown; owner is UNKNOWN and unproposed.",
+        "The three byte globals byte_FF00000000005450..byte_FF00000000005452 are decompiler aliases of the byte-wise DWORD write to this+0x54; no independent global exists.",
+        "Caller sub_5837F0 context is not in this packet, so the object's role and the reuse semantics of the mutex are not established."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0xFF00000000005450",
+        "global:0xFF00000000005451",
+        "global:0xFF00000000005452"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005865C0",
+      "function_ref": "function:0x005865C0",
+      "name": "CreateMutexViaWin32API",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "__thiscall on an unknown object: if the byte flag at this+0x24 is set and CloseHandle succeeds on the current handle at this+0x1C, clears the handle to 0. Then builds a SECURITY_ATTRIBUTES (length 12, no descriptor, inheritable) and calls CreateMutexA to make an unnamed mutex, stores the new handle at this+0x1C, sets the flag at this+0x24 to 1 when the handle is non-null, and returns the flag value. Called by sub_5837F0. Structurally identical to a sibling mutex wrapper with different field offsets.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Guard: if flag byte at this+0x24 is non-zero and CloseHandle on the handle at this+0x1C returns true, enter the close-and-clear branch.",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "field:this:0x0000001C",
+            "global:0x0059E1A8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear the mutex handle at this+0x1C to 0 after the previous handle was closed.",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize MutexAttributes: nLength=12, lpSecurityDescriptor=NULL, bInheritHandle=1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call CreateMutexA(&MutexAttributes, NULL, NULL) to create an unnamed mutex.",
+          "evidence_refs": [
+            "global:0x0059E1AC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the CreateMutexA result as the new handle at this+0x1C.",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "global:0x0059E1AC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: if the new handle is non-null, set the flag byte at this+0x24 to 1.",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the flag byte at this+0x24 as the mutex-valid indicator.",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Enclosing object type unknown; owner is UNKNOWN and unproposed.",
+        "The three byte globals byte_FF00000000005450..byte_FF00000000005452 are decompiler aliases of the byte-wise DWORD write to this+0x1C; no independent global exists.",
+        "Caller sub_5837F0 context is not in this packet, so the object's role and the reuse semantics of the mutex are not established.",
+        "A sibling mutex wrapper exists elsewhere; equal offset pattern on unrelated this pointers is not proof of identical classes."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0xFF00000000005450",
+        "global:0xFF00000000005451",
+        "global:0xFF00000000005452"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00586670",
+      "function_ref": "function:0x00586670",
+      "name": "RemoveListNodeByData",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Removes the first node whose stored data pointer matches a2 from a singly-linked container (head at this+0x0, tail at this+0x4, count at this+0xC). Unlinks the node, adjusts the current-node cursor this+0x8 when needed, optionally frees the node payload and then the node itself, and returns 1. Returns 0 when the target a2 is null or the list is empty.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Return 0 immediately when the removal target a2 is null (no data pointer to match).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Return 0 when the head pointer this[0] is null, meaning the container is empty.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the list from the head using each node's next pointer at obj+0x4, comparing each node's stored data pointer against a2 and remembering the previous node; return 0 when the next pointer becomes null before a match.",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When the matched node equals the current-node cursor this[2], advance this[2] to the matched node's next pointer (obj+0x4).",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "field:obj:0x00000004"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Unlink the matched node: set the previous node's next (obj+0x4) to the matched node's next, or set the container head this[0] to that next when there is no previous node.",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When the matched node is the container tail this[1], set the tail to the previous node.",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Decrement the node count this[3].",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "When the keep-node flag a3 is zero, clear the node flag byte at obj+0x8 (marking the node as no longer owning its payload).",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When the node flag byte at obj+0x8 is set and the node's data pointer is non-null, call EmptyStub_0170 and free the payload via FreeWrapper_7bcf.",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "callee:0x004B0170",
+            "callee:0x00587BCF"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Free the node object via FreeWrapper_7bcf and return 1 (success).",
+          "evidence_refs": [
+            "callee:0x00587BCF"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The data pointer is stored at node offset 0 (v4[0]) but the packet provides no field evidence ref for obj+0x0; the comparison and payload free reference it through source:raw only.",
+        "The purpose of the container cursor this[2] (advanced to the matched node's successor) is unknown; it may track the most recently touched node or an iteration position.",
+        "EmptyStub_0170 (0x004B0170) is called with no observable arguments before the payload free; its role is unknown.",
+        "Node field obj+0xC (init literal 0) is never accessed in this function's raw source; its role is unassigned here."
+      ],
+      "unresolved_evidence_refs": [
+        "field:obj:0x0000000C"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00586A80",
+      "function_ref": "function:0x00586A80",
+      "name": "SingleFunctionCallWrapper_6a80",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Thin thiscall wrapper that invokes FieldAccessor with a pointer to the dword at index 2 of the this object and returns FieldAccessor's result unchanged. No other computation, guard or state change occurs.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call FieldAccessor with the pointer to the dword at index 2 of the this object (this + 2).",
+          "evidence_refs": [
+            "function:0x00586A80",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of FieldAccessor directly.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The identity and semantics of the called function FieldAccessor are not described in the packet and it is not listed in the callee evidence.",
+        "The object type owning this wrapper is unknown; the dword at index 2 of the this object has no named meaning in the packet.",
+        "The callers 0x00584230 and 0x00587730 are not analyzed in this packet, so the wrapper's role in their call paths is unresolved."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00586A90",
+      "function_ref": "function:0x00586A90",
+      "name": "ForwardToSubObjectAtOffset8",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Trivial __thiscall forwarder: computes (this + 8), passes that pointer to callee sub_563E70, and returns the callee's result unchanged. Reads no fields itself and performs no other work.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute the object pointer argument as (this + 8).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call callee sub_563E70 with the derived (this + 8) pointer.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of sub_563E70 unchanged.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Purpose and semantics of callee sub_563E70 are not evidenced in this packet.",
+        "What object lives at (this + 8) and which owner class owns it is unknown.",
+        "Why callers sub_584230 and sub_587730 invoke this forwarder is unresolved.",
+        "Whether this+8 points to a member sub-object or a stored delegate is not evidenced."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x00584230",
+        "caller:0x00587730"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00586D00",
+      "function_ref": "function:0x00586D00",
+      "name": "BitmapRangeOccupancyTestViaBitOps",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00586D00",
+          "source:raw"
+        ]
+      },
+      "summary": "Tests which positions of a range are occupied in a packed bitmap. Reads a range descriptor (start WORD + count WORD) from an array at this+0x1C indexed by this+0x34, then for each of count positions builds a bitmask of occupied slots by testing bits in the bitmap at this+0x14. Returns the occupancy bitmask, or 0 when the range count is zero. Invoked by VTableDispatchWithConditionalBranch (00585400).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Read the range descriptor table base v2 = this[7] (this+0x1C) and the index v1 = this[13] (this+0x34) into the descriptor table.",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "field:this:0x00000034",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Load the range descriptor at byte offset 4*v1 into v2: start position v3 = WORD at (v2 + 4*v1) and count v5 = WORD at (v2 + 4*v1 + 2).",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the end position v6 = v3 + v5 - 1 and initialize result accumulator v8 = 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on count v5: when the count WORD is zero, return 0 immediately without testing any bits.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "do-while loop over v7 = 0..v5-1 testing every position in the range exactly v5 times.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "For position v7, compute the bitmap bit: bit index ((v6 - v7) & 7) within byte at ((v6 - v7) >> 3) + this[5] (bitmap base this+0x14).",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Test the bit with mask (1 << ((v6 - v7) & 7)) against the bitmap byte; when set, accumulate v8 |= 1 << v7.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the occupancy bitmask v8 after the loop, or the default result 0 when the count is zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by VTableDispatchWithConditionalBranch (00585400) to query range occupancy in the bitmap.",
+          "evidence_refs": [
+            "caller:0x00585400",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantics of the range descriptor (start + count) and the bitmap are caller-defined; the meaning of an occupied bit is not established here.",
+        "Identity of the owning object and the type of the descriptor table at this+0x1C are unknown.",
+        "The abi trust LEGACY name FAIL_586d00 carries no semantic content and is treated as void."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00586E50",
+      "function_ref": "function:0x00586E50",
+      "name": "CopyFieldsWithBufferAndSubCalls",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00586E50"
+        ]
+      },
+      "summary": "Partial struct copy from input a2 to receiver this: copies two leading DWORDs (offsets 0x0, 0x4) and two trailing DWORDs (offsets 0x4C, 0x50), and between them invokes BufferWriteWithParams on the buffer sub-struct at a2+2 and sub_59B3B0 on the sub-struct at a2+5. Returns this. Invoked by sub_5853B0 (005853B0).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Copies the first source DWORD: *this = *a2 (receiver offset 0x0)",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copies the second source DWORD: this[1] = a2[1] (receiver offset 0x4)",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "BufferWriteWithParams called on a2 + 2 (buffer sub-struct at byte offset 0x8), writing buffer data",
+          "evidence_refs": [
+            "callee:0x00587620",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_59B3B0 called on a2 + 5 (sub-struct at byte offset 0x14) to process its fields",
+          "evidence_refs": [
+            "callee:0x0059B3B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copies the twentieth source DWORD: this[19] = a2[19] (receiver offset 0x4C)",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copies the twenty-first source DWORD: this[20] = a2[20] (receiver offset 0x50)",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the receiver this pointer as result",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x00586E50"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_5853B0 (005853B0) as a partial struct-copy / initializer step",
+          "evidence_refs": [
+            "caller:0x005853B0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The sub-structs at a2 + 2 (buffer) and a2 + 5 are written entirely through the two callees; their element layout is not defined by this packet",
+        "The receiver and source types are unknown; the ABI entry only records the thiscall copy-assignment shape",
+        "The middle region between offset 0x4 and 0x4C is left untouched by this function"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587070",
+      "function_ref": "function:0x00587070",
+      "name": "DestructorWithConditionalFree",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00587070",
+          "source:raw"
+        ]
+      },
+      "summary": "Scalar-deleting-destructor-style routine: first re-installs the object's vtable and runs an init step via SetVtablePointerAndCallInit (0x005870D0), then frees the object through FreeWrapper_7bcf (0x00587BCF) only when the low bit of the destructor flag argument a2 is set, and returns the object pointer unchanged. No fields, globals or guards are referenced on this object within the function body.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call SetVtablePointerAndCallInit (0x005870D0) on this, re-installing the object vtable and performing an init step before any conditional teardown.",
+          "evidence_refs": [
+            "callee:0x005870D0",
+            "function:0x00587070",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on (a2 & 1) != 0: the memory release step runs only when the low bit of the destructor flags is set.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "When the flag passes, free the object via FreeWrapper_7bcf (0x00587BCF).",
+          "evidence_refs": [
+            "callee:0x00587BCF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the object pointer unchanged, completing the conditional-free destructor.",
+          "evidence_refs": [
+            "function:0x00587070",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The semantics of SetVtablePointerAndCallInit (0x005870D0) are not visible in this packet; whether it re-installs a vtable and invokes an init/cleanup method before the conditional free is unknown.",
+        "The meaning of destructor flag a2 beyond its low bit is unknown; no caller evidence is present in the packet.",
+        "The owning class is unknown; the vtable identity is not visible from this function alone."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587100",
+      "function_ref": "function:0x00587100",
+      "name": "NegatedPredicate",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00587100"
+        ]
+      },
+      "summary": "Negated-predicate wrapper: calls MemcpyLikeWithRealloc(a1, a2), truncates its return value to an unsigned byte, and returns TRUE when that byte is zero. The negation turns the helper's non-zero result into a false predicate and its zero result into true. Invoked from the network file-transfer accept path.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call MemcpyLikeWithRealloc(a1, a2); a1 and a2 are opaque argument words whose meaning is only defined by that callee.",
+          "evidence_refs": [
+            "callee:0x00587510",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Truncate the helper's result to an unsigned byte via the (unsigned __int8) cast.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the comparison result of the truncated byte against zero: byte == 0 maps to TRUE.",
+          "evidence_refs": [
+            "function:0x00587100",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by NetworkFileTransferAcceptHandler (0x0058119A) as a condition/predicate on the accept path.",
+          "evidence_refs": [
+            "caller:0x0058119A"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The meaning of a1 and a2 (likely source/destination buffers or sizes) is defined by MemcpyLikeWithRealloc and is not evidenced here.",
+        "The reason for truncating the helper result to a byte before comparison is not evident; the byte may be a status/error code.",
+        "The purpose of the negation is only inferable from the caller NetworkFileTransferAcceptHandler; no predicate role is documented in this function."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587120",
+      "function_ref": "function:0x00587120",
+      "name": "sub_587120",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00587120"
+        ]
+      },
+      "summary": "Buffer-copy helper on a __thiscall object: reads the requested size v4 from the in/out size pointer a3, requires FieldAccessor(this + 1) to exceed it, then calls BufferQueryReturnPtrSizeIfValid(&v7, &a3) to obtain a source buffer pointer v7 and an available size. Copies min(*a3, available) bytes into *a2 when the computed size is positive and *a2 is non-null, storing the copied size back into *a3 and returning 0; otherwise it nulls *a2 and *a3 and returns 1.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Read the requested size v4 from *a3.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If FieldAccessor(this + 1) is greater than the requested size v4, jump to the failure path (LABEL_8).",
+          "evidence_refs": [
+            "callee:0x0053D880",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call BufferQueryReturnPtrSizeIfValid(&v7, &a3) to obtain the source buffer pointer v7 and the available size; a falsy (0) result jumps to the failure path.",
+          "evidence_refs": [
+            "callee:0x00587580",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute v5 as the smaller of the original requested size (*v3) and the available size (a3 as returned by the buffer query).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Proceed only when the computed copy size v5 is positive and the destination *a2 is non-null.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copy v5 bytes from the source buffer v7 into the destination *a2 (qmemcpy), store v5 back into *v3, and return 0 on success.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Failure path (LABEL_8): clear *a2 to 0, clear *v3 to 0, and return 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "FieldAccessor(this + 1) reads the field at this+4 (this is a _DWORD pointer, so +1 element); its meaning as a size/capacity guard is inferred, not independently evidenced.",
+        "The backing store that BufferQueryReturnPtrSizeIfValid reads from (which internal buffer of the object) is unresolved.",
+        "The owning class of the this pointer is unknown, and no callers are recorded in the packet, so the invocation context is unresolved."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005871C0",
+      "function_ref": "function:0x005871C0",
+      "name": "DualQueryIntoTwoOutputParams",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Queries two values derived from the object at this+1 and stores them into two output pointers: the element count from sub_563E70 into *a2, and the field value from FieldAccessor into *a3; always returns 0.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Derive the dword index this+1 (v3) as the source object for both queries.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Store the element count from sub_563E70(this+1) into the first output pointer *a2.",
+          "evidence_refs": [
+            "callee:0x00563E70"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Store the field value from FieldAccessor(this+1) into the second output pointer *a3.",
+          "evidence_refs": [
+            "callee:0x0053D880"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 unconditionally.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The object type at this+1 and the semantics of the two queried values are not evidenced in this packet.",
+        "The sole recorded caller is IterateTriggersViaVtableCallHandlersPerTick (0x00585BF0); the reason for querying both values together is out of scope."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587200",
+      "function_ref": "function:0x00587200",
+      "name": "setByteAt0x18",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00587200",
+          "source:raw"
+        ]
+      },
+      "summary": "Trivial thiscall byte setter: stores char parameter a2 into the byte field at offset 0x18 of this (this[24] on a _BYTE pointer) and returns a2 unchanged. Single caller sub_580DE0 (0x00580DE0).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Write a2 into the byte field at offset 0x18 of this (this[24]).",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return a2 unchanged as the function result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Owner class and meaning of the byte field at offset 0x18 unknown. Single caller sub_580DE0 (0x00580DE0)."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x00580DE0",
+        "abi:lead"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587220",
+      "function_ref": "function:0x00587220",
+      "name": "GetField16",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Getter: returns the dword stored at offset 0x10 of the this object (this[4]). Pure read, no calls, no guards, no side effects.",
+      "operations": [
+        {
+          "kind": "return",
+          "description": "Return the dword read from this+0x10 (this[4]).",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of field 0x10 of the this object is unknown; one caller is the trigger iteration path, but the field's semantic role is not established."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587310",
+      "function_ref": "function:0x00587310",
+      "name": "BinaryPacketFieldParserWithOffsetMath",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Parses a binary packet whose leading WORD encodes the payload size minus 11. When the size is non-zero the payload is copied through MemcpyLikeWithRealloc, then two DWORDs and one BYTE are read from the tail of the payload region and stored into this + 16, this + 20 and this + 24. Returns 1 on success, 0 on an empty packet or a failed payload copy.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Advance v3 = a2 + 1 so v3 points past the leading size WORD into the packet payload.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the leading WORD *a2 is zero, return 0 immediately (empty or invalid packet).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute v4 = (unsigned __int16)*a2 - 11; the stored payload size equals the packet WORD minus 11.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If v4 > 0 and MemcpyLikeWithRealloc(a2 + 1, v4) returns zero, return 0 because the payload copy failed.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x00587510"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call MemcpyLikeWithRealloc(a2 + 1, v4) to copy the variable-length payload before field extraction.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x00587510"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "v7 = v3 + v5 + 4 positions a pointer at the tail of the payload region, immediately after the payload copy.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Read the DWORD at the payload tail (v6 = *(v3 + v5)) and store it into this + 16.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Read the DWORD at v7 and store it into this + 20.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Read the BYTE at v7 + 4 and store it into this + 24.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Set result = 1 and return success.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantic role of the three extracted tail fields (two DWORDs and a BYTE) is not established from the packet.",
+        "Meaning of the length encoding (stored WORD minus 11) relative to the payload region addressed by v3 + v5 is only partially understood.",
+        "Owner of the this pointer and the identity of the parsed packet structure are unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587490",
+      "function_ref": "function:0x00587490",
+      "name": "StructInitParse",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00587490"
+        ]
+      },
+      "summary": "Zero-initializes the leading three dwords of the struct (this[0], this[1], this[2]), then optionally copies a source buffer into the object via MemcpyLikeWithRealloc when BufferQueryReturnPtrSizeIfValid reports the buffer valid. Returns this. Invoked as a copy-construct/parse step by ObjectCopyConstructFromSource (00587090).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Zero the leading three dwords: this[0], this[1], this[2]",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If BufferQueryReturnPtrSizeIfValid(&v4, &a2) returns non-zero, the source buffer is valid and is copied",
+          "evidence_refs": [
+            "callee:0x00587580",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Copy the validated source buffer into the struct via MemcpyLikeWithRealloc(v4, a2); used as a copy-construct helper by ObjectCopyConstructFromSource (00587090)",
+          "evidence_refs": [
+            "callee:0x00587510",
+            "caller:0x00587090",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return this (fluent self-return)",
+          "evidence_refs": [
+            "function:0x00587490",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The shape of the source buffer queried by BufferQueryReturnPtrSizeIfValid (size + pointer pair via a2) is unknown",
+        "The struct layout beyond the zeroed leading three dwords is unknown",
+        "Owner identity is unknown; the prelabel names it a structural twin of TripleFieldCleanup (00491f60), but ownership stays UnknownObject"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587620",
+      "function_ref": "function:0x00587620",
+      "name": "BufferWriteWithParams",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Buffer write helper: copies the payload described by parameter object a2 into the destination buffer `this`. a2 carries a pointer to the source data at +0 and the byte count at +8. The copy is performed by MemcpyLikeWithRealloc(this, *(const void**)a2, *(_DWORD*)(a2+8)), which grows/reallocates the destination buffer as needed. The function returns `this` to allow chaining. Callers are NetworkBufferSearch (0x00581600), ShortComputation_6e50 (0x00586E50) and CopyBufferHeaderFieldsCallInit (0x00587370). ABI lead name Buffer_Write_with_Params.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call MemcpyLikeWithRealloc((int)this, *(const void**)a2, *(_DWORD*)(a2+8)): copy a2's source pointer and byte count into destination buffer this, reallocating it when the capacity is insufficient.",
+          "evidence_refs": [
+            "callee:0x00587510",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return `this`, the destination buffer pointer, enabling call chaining.",
+          "evidence_refs": [
+            "function:0x00587620",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The layout of the parameter object a2 (source pointer at +0, byte count at +8) is evident only from the single dereference; it is not declared as a packet field, so no struct-level contract is claimed.",
+        "The copy semantics of MemcpyLikeWithRealloc (exact realloc trigger, ownership of the source) are not in this packet."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead",
+        "caller:0x00581600",
+        "caller:0x00586E50",
+        "caller:0x00587370"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005876F0",
+      "function_ref": "function:0x005876F0",
+      "name": "BufferedCharIOInit",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x005876F0"
+        ]
+      },
+      "summary": "Buffer object initializer. Sets the dword field at offset 0x410 (this[260]) to the sentinel -1 and the dword field at offset 0x414 (this[261]) to 0, then calls FieldConstantsInitialization (0x005879F0) to seed the buffer's constant fields. Returns this to allow chaining. Invoked from sub_5837F0 (0x005837F0).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Sets the dword field at offset 0x410 (this[260]) to the sentinel value -1, interpreted as the buffer tail/index reset marker",
+          "evidence_refs": [
+            "field:this:0x00000410",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Sets the dword field at offset 0x414 (this[261]) to 0",
+          "evidence_refs": [
+            "field:this:0x00000414",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "FieldConstantsInitialization (0x005879F0) is called after the two field writes to seed the buffer's constant fields",
+          "evidence_refs": [
+            "callee:0x005879F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns this, allowing the initializer to be chained",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_5837F0 (0x005837F0)",
+          "evidence_refs": [
+            "caller:0x005837F0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The exact roles of the tail fields at 0x410/0x414 (write/tail position vs. flag) are not defined by this packet",
+        "FieldConstantsInitialization is invoked without arguments in the raw source but operates on a shared buffer state; its receiver is not evidenced here"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587880",
+      "function_ref": "function:0x00587880",
+      "name": "FieldGetterAt0x400",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00587880",
+          "source:raw"
+        ]
+      },
+      "summary": "Trivial __thiscall getter: reads and returns the dword at this + 0x400 (this[256]). No side effects. The owner class and the meaning of field 0x400 are unknown.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Called by sub_587730 (0x00587730) and sub_5878A0 (0x005878A0) to read the getter's field.",
+          "evidence_refs": [
+            "caller:0x00587730",
+            "caller:0x005878A0",
+            "function:0x00587880"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Field address is this + 256 * sizeof(_DWORD), i.e. this + 0x400.",
+          "evidence_refs": [
+            "field:this:0x00000400",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the dword read from field 0x400 of this; the call has no side effects.",
+          "evidence_refs": [
+            "field:this:0x00000400",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Field 0x400 of the owning object is unnamed; its meaning depends on the caller's object layout.",
+        "The owner class is unknown; only the field offset is evidenced."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005879F0",
+      "function_ref": "function:0x005879F0",
+      "name": "FieldConstantsInitialization",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x005879F0"
+        ]
+      },
+      "summary": "Straight-line initializer that resets the buffer state fields of the caller's object. Writes 0 to the dword fields at offsets 0x400, 0x404 and 0x408, then writes the constant 500 to the field at offset 0x40C. Returns 0 unconditionally. Called by BufferedCharIOInit (0x005876F0) and sub_5878A0 (0x005878A0) as the constant-seeding part of a buffer-state reset.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Resets the dword field at offset 0x400 (this[256]) to 0",
+          "evidence_refs": [
+            "field:this:0x00000400",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Resets the dword field at offset 0x404 (this[257]) to 0",
+          "evidence_refs": [
+            "field:this:0x00000404",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Resets the dword field at offset 0x408 (this[258]) to 0",
+          "evidence_refs": [
+            "field:this:0x00000408",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Sets the dword field at offset 0x40C (this[259]) to the literal constant 500, interpreted as a default capacity/limit",
+          "evidence_refs": [
+            "field:this:0x0000040C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the constant value 0 as the function result",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by BufferedCharIOInit (0x005876F0) and by sub_5878A0 (0x005878A0) as the constant-initialization step of a buffer object reset",
+          "evidence_refs": [
+            "caller:0x005876F0",
+            "caller:0x005878A0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The semantic roles of offsets 0x400-0x40C (position/counter/capacity) are inferred from the skeleton fill; the owning object type is unknown"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587B7F",
+      "function_ref": "function:0x00587B7F",
+      "name": "InitWrapperCalling3Subroutines",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00587B7F"
+        ]
+      },
+      "summary": "CRT initialization stub with three unconditional subroutine calls. Calls InitCRTFloatConversionFunctionPointers, stores the return value of sub_58BCA6 into global dword_8D3E44, calls TwoArgCallWrapper, clears pending x87 FPU exception flags with fnclex, and returns the TwoArgCallWrapper result. No guards and no frame-path evidence.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "InitCRTFloatConversionFunctionPointers() configures the CRT float conversion function pointers.",
+          "evidence_refs": [
+            "callee:0x00587B97",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_58BCA6() runs and produces the value that is stored into the CRT result global.",
+          "evidence_refs": [
+            "callee:0x0058BCA6",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "dword_8D3E44 = return value of sub_58BCA6(); the global is written with the call result.",
+          "evidence_refs": [
+            "global:0x008D3E44",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "TwoArgCallWrapper() runs and its return value is propagated as the function result.",
+          "evidence_refs": [
+            "callee:0x0058BC56",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "fnclex clears the x87 FPU exception flags before returning.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the TwoArgCallWrapper result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Purpose and consumer of the value stored in dword_8D3E44 is unknown; the global is written here but its readers are not in this packet.",
+        "Why fnclex is issued and what x87 exception state is being cleared is not documented here.",
+        "The arguments and role of TwoArgCallWrapper are caller/CRT defined and absent from this packet."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00587B96",
+      "function_ref": "function:0x00587B96",
+      "name": "NullStub",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Empty no-op stub function (nullsub): its body is empty, so it performs no work, touches no memory, and has no observable effect when called. It exists only as a referenced placeholder.",
+      "operations": [
+        {
+          "kind": "unknown",
+          "description": "Function body is empty; the stub performs no runtime behavior.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Why callers TwoIterationCleanup (0x00516853) and RenderVTableObjectInit (0x00516883) reference an empty stub is unresolved.",
+        "Whether the stub replaces a formerly meaningful routine or is a deliberate disabled callback is not evidenced.",
+        "Owner class and the intended call site contract are unknown."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x00516853",
+        "caller:0x00516883"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00588212",
+      "function_ref": "function:0x00588212",
+      "name": "FPUExponentiationWithEdgeCases",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Implements floating-point exponentiation (x87 FYL2X based) with full IEEE 754 edge-case handling. Validates an argument marker, special-cases NaN/infinity and zero operands, dispatches the finite-base finite-exponent case to sub_58DE2C under an fsave/frstor FPU-state save, runs X87FPExponentiation over __FYL2X__ for the general negative-base case, and raises a math-error report through the handler at 0x005E63B8 or the default wrapper when the flag dword_8D3E40 is clear.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Validate the argument marker: when the low word of a1 is not 639, call sub_58DCB5 (invalid-argument handling).",
+          "evidence_refs": [
+            "callee:0x0058DCB5",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Inspect the exponent bits of a1 with mask 0x7FF00000; equality with 2146435072 selects the NaN/infinity path for the first operand.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Load the NaN/infinity branch operand through FloadWithFBFloatLoadWithNaNCheck.",
+          "evidence_refs": [
+            "callee:0x0058DCE5",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "When the second operand is finite or an unqualified zero, dispatch to sub_58DE2C around an fsave/frstor FPU-state save/restore.",
+          "evidence_refs": [
+            "callee:0x0058DE2C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "The NaN/infinity with finite exponent path returns the sum of the loaded value and the second operand.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "For a non-special first operand, reload it via FloadWithFBFloatLoadWithNaNCheck and branch on the zero-flag result v10.",
+          "evidence_refs": [
+            "callee:0x0058DCE5",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When the exponent operand has nonzero mantissa or exponent bits (not a pure zero), take the exponentiation path.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Negative base with non-integer exponent: call FloatRoundednessCheck and negate the second operand before exponentiating.",
+          "evidence_refs": [
+            "callee:0x005883E5",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Core computation: X87FPExponentiation of __FYL2X__(second operand, base), negated when the sign-bit flag v12 is set.",
+          "evidence_refs": [
+            "callee:0x0058DCA0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "When the math-error handling flag dword_8D3E40 is clear, raise a domain/exception report through the handler at 0x005E63B8 (called as sub_58DD89 in the raw source).",
+          "evidence_refs": [
+            "global:0x005E63B8",
+            "global:0x008D3E40",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When the exponent operand is a pure zero (no mantissa or exponent bits), return 1.0 when the mantissa is also zero and 0.0 otherwise.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "The zero/infinity-result cases are materialized from the 80-bit constants tbyte_5E6BF0 and tbyte_5E6C50, with sign applied from the v17/v18 sign bits.",
+          "evidence_refs": [
+            "global:0x005E6BF0",
+            "global:0x005E6C50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "On exceptional return paths, when dword_8D3E40 is clear, CRTFloatPassthroughWrapper applies the default error return.",
+          "evidence_refs": [
+            "callee:0x0058DC40",
+            "global:0x008D3E40",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the computed double result in ST0 (result/result variable).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The identity and contract of sub_58DD89 (math-error reporter taking the handler at 0x005E63B8) is not in the packet callee list and is only visible in raw source.",
+        "Decompiler artifacts leave several flags (v10 zero flag, v12, v17/v18, and v13/v14) as uninitialized register reads; the exact branch semantics of those paths is uncertain.",
+        "The meaning of the argument marker 639 and the exact IEEE rounding behavior on the negative-base paths is not established.",
+        "The owner of the function is unknown; it appears to be a free-floating CRT-style math helper."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x005883E5",
+      "function_ref": "function:0x005883E5",
+      "name": "FloatRoundednessCheck",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Double precision roundedness check operating on an x87 stack value (a1 arriving in st0). The value is preserved to _ST6 and rounded in place with frndint; if the rounded result equals the original a1 (a1 is already an integer), the value is scaled by the global double dbl_5E63B0 (0x005E63B0) and rounded again. No observed persistent field is written; the result stays in x87 state. Called on the frame path by sub_588212 (0x00588212).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Save the input double a1 (passed in x87 st0) into _ST6.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "frndint: round the x87 stack value in place to the nearest integer.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Compare _ST6 (the saved original a1) with the rounded value; equality indicates a1 is already an integer.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "When a1 is integral, multiply it by the global double dbl_5E63B0 (0x005E63B0).",
+          "evidence_refs": [
+            "source:raw",
+            "global:0x005E63B0"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "frndint: round the scaled value to the nearest integer.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_588212 (0x00588212) on the frame path.",
+          "evidence_refs": [
+            "caller:0x00588212",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The value and purpose of the multiplier dbl_5E63B0 (0x005E63B0) are unknown from this packet.",
+        "No persistent field is written, so the consumer of the rounded result (left in x87 state) is not visible here.",
+        "The role of caller sub_588212 (0x00588212) for this helper is unresolved."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x00589C77",
+      "function_ref": "function:0x00589C77",
+      "name": "InitializeDataRanges",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Module-level initializer called by sub_58A19E. Calls the function pointer at off_5E63A4 if it is non-null (optional callback), then calls UtilityFunction_9d7d twice over two adjacent data ranges (unk_5BE3C0..unk_5BE3D8 and unk_5BE000..unk_5BE3BC) and returns the result of the second range call. The two ranges sit in the same global block, consistent with initializing/registering static module data.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Guard: read off_5E63A4; if non-null, call the callback function pointer before the range initializations.",
+          "evidence_refs": [
+            "global:0x005E63A4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call UtilityFunction_9d7d(&unk_5BE3C0, &unk_5BE3D8) to initialize the first (short) data range.",
+          "evidence_refs": [
+            "callee:0x00589D7D",
+            "global:0x005BE3C0",
+            "global:0x005BE3D8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call UtilityFunction_9d7d(&unk_5BE000, &unk_5BE3BC) to initialize the second (long) data range; its return value is the function result.",
+          "evidence_refs": [
+            "callee:0x00589D7D",
+            "global:0x005BE000",
+            "global:0x005BE3BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of the second UtilityFunction_9d7d call.",
+          "evidence_refs": [
+            "callee:0x00589D7D",
+            "global:0x005BE000",
+            "global:0x005BE3BC",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Callee 0x00587B7F appears in the packet callee list but is not called by the raw source; no call site is visible in this function.",
+        "Exact semantics of UtilityFunction_9d7d over these ranges (CRT/locale/static init) are not proven by this packet alone.",
+        "Role of the off_5E63A4 callback and its callee identity are unknown.",
+        "Owner type unknown; UNKNOWN and unproposed."
+      ],
+      "unresolved_evidence_refs": [
+        "callee:0x00587B7F"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x00583A80",
+    "function:0x00583D40",
+    "function:0x00583F50",
+    "function:0x00584110",
+    "function:0x00584DD0",
+    "function:0x00584F30",
+    "function:0x00585CC0",
+    "function:0x00585F60",
+    "function:0x00585F90",
+    "function:0x00586070",
+    "function:0x005862C0",
+    "function:0x00586500",
+    "function:0x00586560",
+    "function:0x005865C0",
+    "function:0x00586670",
+    "function:0x00586A80",
+    "function:0x00586A90",
+    "function:0x00586D00",
+    "function:0x00586E50",
+    "function:0x00587070",
+    "function:0x00587100",
+    "function:0x00587120",
+    "function:0x005871C0",
+    "function:0x00587200",
+    "function:0x00587220",
+    "function:0x00587310",
+    "function:0x00587490",
+    "function:0x00587620",
+    "function:0x005876F0",
+    "function:0x00587880",
+    "function:0x005879F0",
+    "function:0x00587B7F",
+    "function:0x00587B96",
+    "function:0x00588212",
+    "function:0x005883E5",
+    "function:0x00589C77"
+  ],
+  "required_material_refs": [
+    "callee:0x004B0170",
+    "callee:0x0053D880",
+    "callee:0x00563E70",
+    "callee:0x00583AE0",
+    "callee:0x00586000",
+    "callee:0x005864E0",
+    "callee:0x005870D0",
+    "callee:0x00587510",
+    "callee:0x00587580",
+    "callee:0x00587620",
+    "callee:0x005879F0",
+    "callee:0x00587B7F",
+    "callee:0x00587B97",
+    "callee:0x00587BCF",
+    "callee:0x00587BDC",
+    "callee:0x005883E5",
+    "callee:0x00589D7D",
+    "callee:0x0058A5F7",
+    "callee:0x0058BC56",
+    "callee:0x0058BCA6",
+    "callee:0x0058DC40",
+    "callee:0x0058DCA0",
+    "callee:0x0058DCB5",
+    "callee:0x0058DCE5",
+    "callee:0x0058DE2C",
+    "callee:0x0059B3B0",
+    "field:*(*(this+0x57C)+0x0):0x0000004C",
+    "field:*(obj+0x0):0x00000000",
+    "field:*(this+0x57C):0x00000000",
+    "field:*(this+0x57C):0x00000004",
+    "field:*(this+0x57C):0x00000008",
+    "field:*(this+0x584):0x00000000",
+    "field:*(this+0x584):0x00000004",
+    "field:obj:0x00000000",
+    "field:obj:0x00000004",
+    "field:obj:0x00000008",
+    "field:obj:0x0000000C",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000024",
+    "field:this:0x00000034",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000054",
+    "field:this:0x00000058",
+    "field:this:0x0000005C",
+    "field:this:0x00000078",
+    "field:this:0x000000E0",
+    "field:this:0x00000400",
+    "field:this:0x00000404",
+    "field:this:0x00000408",
+    "field:this:0x0000040C",
+    "field:this:0x00000410",
+    "field:this:0x00000414",
+    "field:this:0x00000570",
+    "field:this:0x00000574",
+    "field:this:0x0000057C",
+    "field:this:0x00000580",
+    "field:this:0x00000584",
+    "field:this:0x00000588",
+    "field:this:0x0000058C",
+    "field:this:0x00000590",
+    "field:this:0x000005A8",
+    "field:this:0x000005AC",
+    "global:0x004B0170",
+    "global:0x0059D120",
+    "global:0x0059E1A0",
+    "global:0x0059E1A4",
+    "global:0x0059E1A8",
+    "global:0x0059E1AC",
+    "global:0x0059E450",
+    "global:0x0059E874",
+    "global:0x005BE000",
+    "global:0x005BE3BC",
+    "global:0x005BE3C0",
+    "global:0x005BE3D8",
+    "global:0x005E63A4",
+    "global:0x005E63B0",
+    "global:0x005E63B8",
+    "global:0x005E6BF0",
+    "global:0x005E6C50",
+    "global:0x008D3E40",
+    "global:0x008D3E44",
+    "global:0xFF00000000005450",
+    "global:0xFF00000000005451",
+    "global:0xFF00000000005452"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x004B0170",
+    "callee:0x0053D880",
+    "callee:0x00563E70",
+    "callee:0x00583AE0",
+    "callee:0x00586000",
+    "callee:0x005864E0",
+    "callee:0x005870D0",
+    "callee:0x00587510",
+    "callee:0x00587580",
+    "callee:0x00587620",
+    "callee:0x005879F0",
+    "callee:0x00587B7F",
+    "callee:0x00587B97",
+    "callee:0x00587BCF",
+    "callee:0x00587BDC",
+    "callee:0x005883E5",
+    "callee:0x00589D7D",
+    "callee:0x0058A5F7",
+    "callee:0x0058BC56",
+    "callee:0x0058BCA6",
+    "callee:0x0058DC40",
+    "callee:0x0058DCA0",
+    "callee:0x0058DCB5",
+    "callee:0x0058DCE5",
+    "callee:0x0058DE2C",
+    "callee:0x0059B3B0",
+    "caller:0x00516853",
+    "caller:0x00516883",
+    "caller:0x00580DE0",
+    "caller:0x0058119A",
+    "caller:0x00581600",
+    "caller:0x005837F0",
+    "caller:0x00583D90",
+    "caller:0x00584230",
+    "caller:0x005853B0",
+    "caller:0x00585400",
+    "caller:0x00586E50",
+    "caller:0x00587090",
+    "caller:0x00587370",
+    "caller:0x005876F0",
+    "caller:0x00587730",
+    "caller:0x005878A0",
+    "caller:0x00588212",
+    "field:*(*(this+0x57C)+0x0):0x0000004C",
+    "field:*(obj+0x0):0x00000000",
+    "field:*(this+0x57C):0x00000000",
+    "field:*(this+0x57C):0x00000004",
+    "field:*(this+0x57C):0x00000008",
+    "field:*(this+0x584):0x00000000",
+    "field:*(this+0x584):0x00000004",
+    "field:obj:0x00000000",
+    "field:obj:0x00000004",
+    "field:obj:0x00000008",
+    "field:obj:0x0000000C",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000024",
+    "field:this:0x00000034",
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000054",
+    "field:this:0x00000058",
+    "field:this:0x0000005C",
+    "field:this:0x00000078",
+    "field:this:0x000000E0",
+    "field:this:0x00000400",
+    "field:this:0x00000404",
+    "field:this:0x00000408",
+    "field:this:0x0000040C",
+    "field:this:0x00000410",
+    "field:this:0x00000414",
+    "field:this:0x00000570",
+    "field:this:0x00000574",
+    "field:this:0x0000057C",
+    "field:this:0x00000580",
+    "field:this:0x00000584",
+    "field:this:0x00000588",
+    "field:this:0x0000058C",
+    "field:this:0x00000590",
+    "field:this:0x000005A8",
+    "field:this:0x000005AC",
+    "function:0x00583A80",
+    "function:0x00583D40",
+    "function:0x00583F50",
+    "function:0x00584110",
+    "function:0x00584DD0",
+    "function:0x00584F30",
+    "function:0x00585CC0",
+    "function:0x00585F60",
+    "function:0x00585F90",
+    "function:0x00586070",
+    "function:0x005862C0",
+    "function:0x00586500",
+    "function:0x00586560",
+    "function:0x005865C0",
+    "function:0x00586670",
+    "function:0x00586A80",
+    "function:0x00586A90",
+    "function:0x00586D00",
+    "function:0x00586E50",
+    "function:0x00587070",
+    "function:0x00587100",
+    "function:0x00587120",
+    "function:0x005871C0",
+    "function:0x00587200",
+    "function:0x00587220",
+    "function:0x00587310",
+    "function:0x00587490",
+    "function:0x00587620",
+    "function:0x005876F0",
+    "function:0x00587880",
+    "function:0x005879F0",
+    "function:0x00587B7F",
+    "function:0x00587B96",
+    "function:0x00588212",
+    "function:0x005883E5",
+    "function:0x00589C77",
+    "global:0x004B0170",
+    "global:0x0059D120",
+    "global:0x0059E1A0",
+    "global:0x0059E1A4",
+    "global:0x0059E1A8",
+    "global:0x0059E1AC",
+    "global:0x0059E450",
+    "global:0x0059E874",
+    "global:0x005BE000",
+    "global:0x005BE3BC",
+    "global:0x005BE3C0",
+    "global:0x005BE3D8",
+    "global:0x005E63A4",
+    "global:0x005E63B0",
+    "global:0x005E63B8",
+    "global:0x005E6BF0",
+    "global:0x005E6C50",
+    "global:0x008D3E40",
+    "global:0x008D3E44",
+    "global:0xFF00000000005450",
+    "global:0xFF00000000005451",
+    "global:0xFF00000000005452",
+    "guard:0",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/wave_006/wave_006_generic_runtime_objects_33.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

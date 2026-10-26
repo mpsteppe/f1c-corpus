@@ -1,0 +1,38 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004E4790
+// Canonical corpus name: sub_4E4790
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4E4790_004e4790.c
+
+void UnknownObject::WheelStateReset()
+{
+    // Per-frame reset of the vehicle's wheel-dynamics state. On the first frame (guard this+0x32BC == 0) calls WheelDynamicsInit with a global double buffer. Frees and nulls a heap object at this+0x39A4 when non-null. Then zeroes a block of per-frame physics accumulator fields, resets four per-wheel dynamics records (62 dwords each, stride 62) with selected identity constants set to 1.0, and clears several per-frame state fields, ending with this+0x39F4 = -2.
+    // GUARD: First-frame init guard: if this+0x32BC is zero, call WheelDynamicsInit((int)&dbl_7C7428) using the global double buffer at 0x007C7428. [field:this:0x000032BC, callee:0x0043E230, global:0x007C7428, source:raw]
+    // GUARD: If the heap pointer this+0x39A4 is non-null, free it via FreeWrapper_7bcf and set this+0x39A4 back to 0. [field:this:0x000039A4, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Zero the per-frame physics accumulator block: fields this+0x34EC..0x350C, this+0x3534..0x3560, this+0x3570..0x3578 and this+0x3A9C. [field:this:0x000034EC, field:this:0x000034F0, field:this:0x000034F4, field:this:0x000034F8, field:this:0x000034FC, field:this:0x00003500, field:this:0x00003504, field:this:0x00003508, field:this:0x0000350C, field:this:0x00003534, field:this:0x00003538, field:this:0x0000353C, field:this:0x00003540, field:this:0x00003544, field:this:0x00003548, field:this:0x0000354C, field:this:0x00003550, field:this:0x00003554, field:this:0x00003558, field:this:0x0000355C, field:this:0x00003560, field:this:0x00003570, field:this:0x00003574, field:this:0x00003578, field:this:0x00003A9C, source:raw]
+    // LOOP: Reset 4 per-wheel dynamics records, stride 62 dwords each, starting at this+0x35A0. For every record zero the leading entries (indices 0..9, 13, 14, 24..27, 40, 46..50), set indices 22, 23 and 39 to 1.0 (0x35F8, 0x35FC, 0x363C in the first record), and also clear the two preceding dwords (record-relative -2 and -1). [field:this:0x000035A0, field:this:0x000035A4, field:this:0x000035A8, field:this:0x000035AC, field:this:0x000035B0, field:this:0x000035B4, field:this:0x000035B8, field:this:0x000035BC, field:this:0x000035C0, field:this:0x000035C4, field:this:0x000035D4, field:this:0x000035D8, field:this:0x000035F8, field:this:0x000035FC, field:this:0x00003600, field:this:0x00003604, field:this:0x00003608, field:this:0x0000360C, field:this:0x0000363C, field:this:0x00003640, field:this:0x00003658, field:this:0x0000365C, field:this:0x00003660, field:this:0x00003664, field:this:0x00003668, source:raw]
+    // ASSIGNMENT: Clear remaining per-frame state fields this+0x3964, this+0x3994, this+0x39A0, this+0x39C8 and this+0x39F0 to 0. [field:this:0x00003964, field:this:0x00003994, field:this:0x000039A0, field:this:0x000039C8, field:this:0x000039F0, source:raw]
+    // ASSIGNMENT: Write the sentinel this+0x39F4 = -2. [field:this:0x000039F4, source:raw]
+    // RETURN: Return the record pointer, which the loop has advanced past the fourth wheel record (stride 62 dwords each). [field:this:0x000035A0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   _DWORD* WheelStateReset(vehicle) {
+    //     if (!vehicle.wheelDynamicsInitialized) WheelDynamicsInit(&dbl_7C7428);
+    //     if (vehicle.someHeapPtr) { FreeWrapper_7bcf(vehicle.someHeapPtr); vehicle.someHeapPtr = 0; }
+    //     memset-ish zero of per-frame physics accumulator block;
+    //     _DWORD* rec = (vehicle + 0x35A0);
+    //     for (w in 0..3) {
+    //       rec[-2] = rec[-1] = 0;
+    //       rec[0..9] = rec[13] = rec[14] = rec[24..27] = 0;
+    //       rec[22] = rec[23] = rec[39] = 1.0;
+    //       rec[40] = rec[46..50] = 0;
+    //       rec += 62;
+    //     }
+    //     vehicle.field_3964 = 0; vehicle.field_3994 = 0; vehicle.field_39A0 = 0;
+    //     vehicle.field_39C8 = 0; vehicle.field_39F0 = 0; vehicle.field_39F4 = -2;
+    //     return rec;
+    //   }
+    // UNRESOLVED: The two leading dwords written per wheel record (record-relative -2 and -1, i.e. the 8 bytes before each record base) are not represented in the packet field list and are attributed to source:raw only.
+    // UNRESOLVED: The exact purposes of most zeroed accumulator fields and of the identity (1.0) fields are inferred from the reset context; the sentinel -2 at this+0x39F4 is unexplained.
+    // UNRESOLVED: The global dbl_7C7428 is passed by address as WheelDynamicsInit initialization data; its contents are not described.
+}

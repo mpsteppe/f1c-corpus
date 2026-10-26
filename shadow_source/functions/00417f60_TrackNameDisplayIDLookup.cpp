@@ -1,0 +1,49 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00417F60
+// Canonical corpus name: TrackNameDisplayIDLookup
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TrackNameDisplayIDLookup_00417f60.c
+
+void UnknownObject::TrackNameDisplayIDLookup()
+{
+    // Maps a track scene name (read from a track descriptor at dword_8AC490 + 396*a2, offset +260) to a display/commentary ID. The result depends on layout flag a3 (alternate vs primary) and event flag a4 (dry vs wet). On success stores the resolved ID, a computed value from ShortComputation_41a0, and clears a status byte into the output struct at a1; returns 0 on success, 1 on early failure.
+    // ASSIGNMENT: Initialize the resolved ID to -1 as the default/sentinel value. [source:raw]
+    // CALL: ShortComputation_41a0(1u) computes a secondary value into v5 that gates the success path. [callee:0x004141A0]
+    // GUARD: When v5 is negative, return failure (1) immediately. [source:raw]
+    // GUARD: Guard on track index a2 being non-negative before indexing the track array. [source:raw]
+    // CALCULATION: Compute the track descriptor pointer: dword_8AC490 + 396*a2, then read the track name at descriptor offset +260. [global:0x008AC490]
+    // GUARD: Guard on the computed track descriptor being non-null before dereferencing it. [source:raw]
+    // GUARD: When layout flag a3 is set, compare the track name against all seventeen track scene names (Albert Park through Indianapolis) via sub_566810 and assign the alternate-layout display ID for the matching track. [callee:0x00566810, global:0x005C26E0, global:0x005C26D4, global:0x005C26CC, global:0x005C26C4, global:0x005C26B8, global:0x005C26AC, global:0x005C26A0, global:0x005C2694, global:0x005C2688, global:0x005C267C, global:0x005C2670, global:0x005C265C, global:0x005C2654, global:0x005C2648, global:0x005C2640, global:0x005C2638, global:0x005C2628]
+    // GUARD: When layout flag a3 is clear, compare the track name against the same seventeen track scene names and assign the primary-layout display ID for the matching track. [callee:0x00566810, global:0x005C26E0, global:0x005C26D4, global:0x005C26CC, global:0x005C26C4, global:0x005C26B8, global:0x005C26AC, global:0x005C26A0, global:0x005C2694, global:0x005C2688, global:0x005C267C, global:0x005C2670, global:0x005C265C, global:0x005C2654, global:0x005C2648, global:0x005C2640, global:0x005C2638, global:0x005C2628]
+    // CALL: On a resolved positive result, StringCopyWithBufferRealloc copies the track name into the byte_5EA438 buffer. [callee:0x00566650, global:0x005EA438]
+    // ASSIGNMENT: Store the output: a1 + 8 = resolved display ID, a1 + 12 = v5, and clear the status byte at a1 + 16. [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010]
+    // RETURN: Return 0 when a valid ID was stored (v5 > 0 and v4 > 0), otherwise return 1 for failure. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_417F60(int out, int trackIdx, char altLayout, char wet) {
+    //     int v4 = -1;
+    //     int v5 = ShortComputation_41a0(1u);
+    //     if (v5 < 0) return 1;
+    //     if (trackIdx >= 0) {
+    //       int desc = dword_8AC490 + 396 * trackIdx;
+    //       if (desc) {
+    //         const char* name = desc + 260;
+    //         if (altLayout) {
+    //           // match name against 17 track strings; v4 = wet ? 29..49 : 50..70
+    //         } else {
+    //           // match name against 17 track strings; v4 = wet ? 73..89 : 92..108
+    //         }
+    //       }
+    //     }
+    //     if (v5 > 0 && v4 > 0) {
+    //       StringCopyWithBufferRealloc(&byte_5EA438);
+    //       *(int*)(out + 8) = v4;
+    //       *(int*)(out + 12) = v5;
+    //       *(char*)(out + 16) = 0;
+    //       return 0;
+    //     }
+    //     return 1;
+    //   }
+    // UNRESOLVED: The exact track-name to display-ID table values are long and mechanical; the semantic purpose (commentary/TV display IDs per track, layout and wet/dry mode) follows the caller CommentaryTVPWSPathBuilder.
+    // UNRESOLVED: Global flt_5EA618 is listed as read but does not appear in the raw source body; its role is unknown here.
+}

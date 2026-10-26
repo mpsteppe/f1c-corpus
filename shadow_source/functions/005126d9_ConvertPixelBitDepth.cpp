@@ -1,0 +1,52 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005126D9
+// Canonical corpus name: sub_5126D9
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_5126D9_005126d9.c
+
+void UnknownObject::ConvertPixelBitDepth()
+{
+    // Bit-depth down-conversion of pixel data. a1 is a parameter block: *a1 element count, a1[1] buffer size (bytes/rows), byte at +8 a mode byte, byte at +9 the input bit depth. a2 is the destination pixel buffer, a3 a per-channel shift lookup table. If the mode byte is 3 the conversion is skipped. Otherwise per-channel shift amounts are computed as (bit_depth - a3[k]); shifts that are not positive are clamped to zero, and if any shift remains positive the buffer is converted according to the bit depth: 2 bpp (right-shift by 1, mask 0x55), 4 bpp (nibble mask 15/240), 8 bpp (per-channel right-shift), 16 bpp (16-bit load, right-shift, byte store). Channel count depends on mode bit 1 (interleaved vs planar) and mode bit 2 (extra fourth channel).
+    // GUARD: Read the mode byte i at a1+8; if i == 3 the entire conversion is skipped (no-op). [field:this:0x00000008, source:raw]
+    // ASSIGNMENT: Initialize positive-shift flag v21 = 0 and read the element count v5 = *a1. [field:this:0x00000000, source:raw]
+    // GUARD: Test mode bit 1 ((i & 2) == 0): planar layout uses a single shift from a3[3]; interleaved layout uses per-channel shifts from a3[0..2]. [field:this:0x00000008, source:raw]
+    // CALCULATION: Compute per-channel shift amounts v19[k] = (bit depth byte at a1+9) - a3[k]: one value for planar, three for interleaved. [field:this:0x00000009, source:raw]
+    // GUARD: Test mode bit 2 ((a1[2] & 4) != 0): when set, add a fourth shift v19[v9] = (bit depth) - a3[4] for the extra channel. [field:this:0x00000008, source:raw]
+    // LOOP: Iterate the v9 shift entries: keep the positive shifts and clamp non-positive ones to zero; set v21 if any shift remains positive. [source:raw]
+    // GUARD: If v21 (a positive shift exists): dispatch on bit depth at a1+9, first testing depth == 2. [field:this:0x00000009, guard:3, source:raw]
+    // LOOP: Depth 2 path: for a1[1] bytes of the destination buffer, convert each byte as (byte >> 1) & 0x55. [field:this:0x00000004, source:raw]
+    // GUARD: Depth != 2: test depth == 4. [field:this:0x00000009, guard:2, source:raw]
+    // LOOP: Depth 4 path: build nibble mask i = (15 >> v7) | ((240 >> v7) & 0xF0) and for a1[1] bytes store mask & (byte >> v7). [field:this:0x00000004, source:raw]
+    // GUARD: Depth not 4: test depth == 8. [field:this:0x00000009, guard:1, source:raw]
+    // LOOP: Depth 8 path: for v9 * v5 elements, right-shift each destination byte by its per-channel shift v19[j % v9]. [field:this:0x00000000, field:this:0x00000004, source:raw]
+    // GUARD: Depth not 8: test depth == 16. [field:this:0x00000009, guard:0, source:raw]
+    // LOOP: Depth 16 path: for v9 * v5 elements, load a 16-bit pixel (v11[1] + (v11[0] << 8)), right-shift by v19[k % v9], and store the result as two bytes. [field:this:0x00000000, field:this:0x00000004, source:raw]
+    // RETURN: Return i (the mode/depth-derived value in LOBYTE of EAX); semantics of the return value are not established. [source:raw]
+    // CALL: Called by sub_51389E to run pixel bit-depth conversion. [caller:0x0051389E, source:raw]
+
+    // Conservative worker pseudocode:
+    //   char ConvertPixelBitDepth(int *params, char *dst, const unsigned char *shift_tab) {
+    //     int mode = *(char *)params + 8;
+    //     if (mode == 3) return mode;
+    //     int flag = 0;
+    //     int count = params[0];
+    //     int shift[4]; int n;
+    //     if ((mode & 2) == 0) { shift[0] = depth(params) - shift_tab[3]; n = 1; }
+    //     else { shift[0] = depth(params) - shift_tab[0];
+    //            shift[1] = depth(params) - shift_tab[1];
+    //            shift[2] = depth(params) - shift_tab[2]; n = 3; }
+    //     if (params[2] & 4) { shift[n] = depth(params) - shift_tab[4]; ++n; }
+    //     for (int k = 0; k < n; ++k) { if (shift[k] <= 0) shift[k] = 0; else flag = 1; }
+    //     if (flag) {
+    //       int b = depth(params);
+    //       if (b == 2)      for (int k = 0; k < params[1]; ++k) dst[k] = (dst[k] >> 1) & 0x55;
+    //       else if (b == 4) for (int k = 0; k < params[1]; ++k) dst[k] = mask & (dst[k] >> shift[0]);
+    //       else if (b == 8) for (int j = 0; j < n*count; ++j) dst[j] >>= shift[j % n];
+    //       else if (b == 16)for (int j = 0; j < n*count; ++j) { /* 16-bit load, shift, 2-byte store * / }
+    //     }
+    //     return mode;
+    //   }
+    // UNRESOLVED: The shift value v7 used by the depth-4 path is a union-derived alias of v19[0]; its exact masking source (15 / 240 nibble masks) is deterministic but the register reuse makes the channel binding ambiguous.
+    // UNRESOLVED: Return value (EAX low byte) is a mode/depth-derived quantity; its meaning to callers is unknown.
+    // UNRESOLVED: Layout of a2 (planar planes vs interleaved pixels) depends on the caller's format; only the per-element byte arithmetic is visible here.
+}

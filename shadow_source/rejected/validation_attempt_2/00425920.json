@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "address": "0x00425920",
+  "proposed_name": "AIRacingLine",
+  "owner": {
+    "type": "F1CVehicle",
+    "trust": "CONFIRMED",
+    "evidence_refs": [
+      "caller:0x00424E70",
+      "abi:lead",
+      "source:raw",
+      "function:0x00425920"
+    ]
+  },
+  "summary": "Per-frame AI racing-line and speed-profile update: resolves the nearest waypoint and a look-ahead chain, computes aerodynamic drag from the lead car's closing distance, builds a speed profile across the waypoint chain using a tire-force energy decay model, determines overtaking threat via pass scores, and produces throttle/brake targets (with thermal brake ramp) plus an overtaking-window flag for the track-boundary test. On loss of the racing line it resets waypoint state and delegates to sub_426430.",
+  "local_names": {
+    "v2": "nearest_waypoint",
+    "v5": "lookahead_waypoint",
+    "v46": "profile_speed",
+    "v50": "target_speed",
+    "v52": "pace_snapshot"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "v52 = *(float*)(this+0x4438) - snapshot current pace/throttle output into a local for later clamping.",
+      "evidence_refs": [
+        "field:this:0x00004438"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "v2 = SpatialTreeNearestNeighborSearch(dword_5EA2C0, position, CurrentWaypointPtr(0x4354), WaypointSetSelector(0x4550), 0) - nearest waypoint node.",
+      "evidence_refs": [
+        "callee:0x00403AA0",
+        "global:0x005EA2C0",
+        "field:this:0x00004354",
+        "field:this:0x00004550"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Resolve the forward waypoint: if node id 0x454C is invalid, or the primary link target's node id mismatches, fall back to the alternate link (node+0x110/0x108).",
+      "evidence_refs": [
+        "field:this:0x0000454C"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Resolve the look-ahead waypoint v5 the same way through the second link level; this node drives overtaking and pass scoring.",
+      "evidence_refs": [
+        "field:this:0x0000454C"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If drag-from-lead-car is active (flag 0x443C set) and the lead reference at 0x4400 is valid, compute the closing-distance drag term.",
+      "evidence_refs": [
+        "field:this:0x0000443C",
+        "field:this:0x00004400"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "F_3DTransformWithMatrixMultiplication(v53, v55) - transform the current position into the lead-car frame.",
+      "evidence_refs": [
+        "callee:0x004EFB20"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "v48 = distance to lead car: sqrt((v54 - lead.z)^2 + (v53[0] - lead.x)^2) using the lead-car position at deref(0x4400).",
+      "evidence_refs": [
+        "field:*(this+0x4400):0x00000000",
+        "field:*(this+0x4400):0x00000008"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "AerodynamicForceCalc(Speed(0x4440), v48*0.4f, 0.75) - compute the aero drag from the closing distance.",
+      "evidence_refs": [
+        "callee:0x004E8B80",
+        "field:this:0x00004440"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "If v48 > 0, clear the drag-active flag 0x443C and record the gap distance in this+0x4534.",
+      "evidence_refs": [
+        "field:this:0x0000443C"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If the pass-window field 0x4424 is 0.0, re-test the pass window against the lead link's size stored at deref(0x4400)+0x18.",
+      "evidence_refs": [
+        "field:this:0x00004424",
+        "field:*(this+0x4400):0x00000018",
+        "field:*(this+0x4400):0x00000114"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Distance v45 to the linked waypoint at deref(lead)+0x148/0x156; build a clamped pass threshold from the waypoint size. If inside the window, clear 0x443C and set 0x4424 to half or full waypoint size.",
+      "evidence_refs": [
+        "field:*(*(this+0x4400)+0x114):0x00000094",
+        "field:*(*(this+0x4400)+0x114):0x0000009C",
+        "field:this:0x00004424",
+        "field:this:0x0000443C"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If the stored gap 0x4534 is non-zero, re-run the window test with a wider 1.2x threshold against the lead waypoint; may clear the overtake flag at 0x4468.",
+      "evidence_refs": [
+        "field:this:0x00004468"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Pass decision: dot-product of the vehicle offset with the next node's tangent at deref(lead)+0x114; if not overtaking and out of range, branch to the reset path.",
+      "evidence_refs": [
+        "field:*(*(this+0x4400)+0x114):0x0000000C",
+        "field:*(*(this+0x4400)+0x114):0x00000014"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Reset path: zero waypoint deltas 0x34F8/0x34FC/0x3500 and 0x43F8, clear state flags via AIClearStateFlags, set driverStatus(0x4510) to 4 or 5 by dword_7C56A4, reset timers 0x4534/0x4438/0x4434, set WaypointSetSelector(0x4550)=1 and node id 0x454C=0, clear byte 0x45F4, then call sub_426430(this) and return.",
+      "evidence_refs": [
+        "callee:0x0042AE00",
+        "callee:0x00426430",
+        "global:0x007C56A4",
+        "field:this:0x00004510",
+        "field:this:0x00004550",
+        "field:this:0x0000454C",
+        "field:this:0x000045F4",
+        "field:this:0x000034F8",
+        "field:this:0x000034FC",
+        "field:this:0x00003500",
+        "field:this:0x000043F8"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If gap v23 > 0.5: update stored gap 0x4534 and call AerodynamicForceCalc(Speed(0x4440), v23*0.3f, 0.7f); then set throttle(0x4438) and brake(0x4434) - brake via BrakeThermalModel when the gap is invalid - and return.",
+      "evidence_refs": [
+        "callee:0x004E8B80",
+        "callee:0x004E87E0",
+        "field:this:0x00004440",
+        "field:this:0x00004438",
+        "field:this:0x00004434"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Else build the speed profile: v49 = Speed * 1.05; v26 = (AIComputePassScore(v2) < v49 || AIComputePassScore(alternate link) < v49) - overtaking threat against this car's pace.",
+      "evidence_refs": [
+        "callee:0x0042A780",
+        "field:this:0x00004440"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "v50 = pass score for the look-ahead waypoint: if the node is flagged use its explicit score, else AIComputePassScore(v5) * pace factor at 0x4554.",
+      "evidence_refs": [
+        "callee:0x0042A780",
+        "field:this:0x00004554"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "If the look-ahead node differs from CurrentWaypointPtr(0x4354), walk the chain storing Speed into the speed-profile array at 0x43A4 (up to 20 entries).",
+      "evidence_refs": [
+        "field:this:0x00004354",
+        "field:this:0x000043A4"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Reset the target-waypoint fields: 0x43F8 = 0 and 0x43FC = 9999.0f (default target speed).",
+      "evidence_refs": [
+        "field:this:0x000043F8",
+        "field:this:0x000043FC"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "While current profile speed v46 < target: advance to the next waypoint through links keyed on node id 0x454C, override the target to 12.0 when entering the lap-start sector (flt_8ACFB4), score the waypoint via AIComputePassScore, and decay speed with the tire-force model: v46 -= wp.speedFactor / v46 * pace(0x44CC) * score * 0.915.",
+      "evidence_refs": [
+        "callee:0x004E9100",
+        "callee:0x0042A780",
+        "global:0x008ACFB4",
+        "field:this:0x0000454C",
+        "field:this:0x000044CC"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Fill the remaining speed-profile tail (0x43A4 onward) by decaying each entry by 1.8.",
+      "evidence_refs": [
+        "field:this:0x000043A4"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "byte_5C3160 = 0; store the chosen target waypoint v5 in 0x43F8 and the target speed v50 in 0x43FC.",
+      "evidence_refs": [
+        "global:0x005C3160",
+        "field:this:0x000043F8",
+        "field:this:0x000043FC"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Set the overtaking-window byte 0x445C = track-bounds test: waypoint right/left boundary distances (deref(0x4354)+0x50/0x54) exceed the lateral deviation window 0x4428.",
+      "evidence_refs": [
+        "field:this:0x0000445C",
+        "field:this:0x00004428",
+        "field:this:0x00004354",
+        "field:*(this+0x4354):0x00000050",
+        "field:*(this+0x4354):0x00000054"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If profile speed is exhausted (v46 <= 0): set throttle 0x4438 = 0; if overtaking is threatened (v26) brake via BrakeThermalModel, else ramp brake 0x4434 toward a target (1.0 in-window when 0x446C set, 0.4/0.5 by Speed) blended from the pace fields 0x44B8/0x44C4 in 20% steps when byte_5C3160 distinguishes the source.",
+      "evidence_refs": [
+        "callee:0x004E87E0",
+        "global:0x005C3160",
+        "field:this:0x00004438",
+        "field:this:0x00004434",
+        "field:this:0x0000446C",
+        "field:this:0x000044B8",
+        "field:this:0x000044C4",
+        "field:this:0x00004440"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Else (v46 > 0): pace/throttle 0x4438 = TireGripCoefficient(this+12) clamped to v52+0.2; clear brake 0x4434.",
+      "evidence_refs": [
+        "callee:0x004E88B0",
+        "field:this:0x00004438",
+        "field:this:0x00004434"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "void AIRacingLine(F1CVehicle* this) {",
+    "  pace_snapshot = this->throttle_0x4438;",
+    "  node = SpatialTreeNearestNeighborSearch(tree, pos, this->wp_0x4354, this->selector_0x4550, 0);",
+    "  look = resolve_lookahead(node, this->nodeid_0x454C);",
+    "  if (drag_active_0x443C && lead_ref_0x4400) {",
+    "    transform_to_lead_frame();",
+    "    gap = dist_to_lead(lead_pos);",
+    "    AerodynamicForceCalc(this->speed_0x4440, gap * 0.4f, 0.75f);",
+    "    if (gap > 0) { drag_active_0x443C = 0; this->gap_0x4534 = gap; }",
+    "    if (pass_window_0x4424 == 0) test_window(lead_link, &pass_window_0x4424);",
+    "  }",
+    "  if (this->gap_0x4534 != 0) {",
+    "    transform_to_lead_frame();",
+    "    if (dist < threshold) { clear_overtake_state(); }",
+    "    if (dot_pass(look) <= 0) { reset_line_state(); sub_426430(this); return; }",
+    "    if (dist > 0.5) {",
+    "      this->gap_0x4534 = dist;",
+    "      AerodynamicForceCalc(this->speed_0x4440, dist * 0.3f, 0.7f);",
+    "      set_throttle_brake(this);",
+    "      return;",
+    "    }",
+    "  }",
+    "  build_speed_profile(this, node, look);",
+    "  update_overtake_window_flag(this);",
+    "  set_throttle_brake_targets(this);",
+    "}"
+  ],
+  "unresolved": [
+    "The 17 float globals in the 0x59E43C..0x59E8C8 range are read but absent from the raw body; presumed tuning constants consumed by inlined callees (AerodynamicForceCalc, TireForce, AIComputePassScore).",
+    "field 0x4524 is accessed but its use is not visible in the decompiled body.",
+    "The node id at 0x454C doubles as the waypoint-graph key here while the packet names it CallToBox (command_input); the dual role is not resolved."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00004524",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E7E8",
+    "global:0x0059E7EC",
+    "global:0x0059E854",
+    "global:0x0059E8A0",
+    "global:0x0059E8A4",
+    "global:0x0059E8A8",
+    "global:0x0059E8AC",
+    "global:0x0059E8B0",
+    "global:0x0059E8B4",
+    "global:0x0059E8B8",
+    "global:0x0059E8BC",
+    "global:0x0059E8C0",
+    "global:0x0059E8C4",
+    "global:0x0059E8C8"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "HIGH",
+    "control_flow": "MEDIUM"
+  }
+}

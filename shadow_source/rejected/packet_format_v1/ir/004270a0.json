@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "address": "0x004270A0",
+  "proposed_name": "AISteering",
+  "owner": {
+    "type": "AIDriver",
+    "trust": "DERIVED",
+    "evidence_refs": ["caller:0x00424E70", "source:raw", "function:0x004270A0"]
+  },
+  "summary": "Per-frame AI steering target computation. Reads the 5-lane speed-limit table (this+0x4358), folds min/max boundaries, evaluates each of 5 nearby AI candidates via spatial nearest-neighbor queries, scores and insertion-sorts the five best targets, then selects a steering/lane result with overtaking state transitions and track-parameter speed clamps. Called each frame from AIMainUpdate.",
+  "local_names": {
+    "v2": "own_vehicle_setup_ptr",
+    "v3": "min_speed_left_bound",
+    "v150": "max_speed_right_bound",
+    "v168": "left_lane_weight",
+    "v158": "right_lane_weight",
+    "v157": "mid_lane_speed",
+    "this[4355]": "steering_output",
+    "v180..v184": "top5_scores",
+    "v185..v189": "top5_slot_indices",
+    "v86": "steering_mode"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Load own-vehicle setup pointer at this+0x4354 and read its boundary-speed parameters at +0x50 (left) and +0x84 (right).",
+      "evidence_refs": ["field:this:0x00017236", "field:*(this+0x4354):0x00000080", "field:*(this+0x4354):0x00000084"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan the 5-lane speed-limit table at this+0x4358 (each slot has left-bound at +0x50 and right-bound at +0x54), folding the running max of right-bound and min of left-bound.",
+      "evidence_refs": ["field:this:0x00017240", "field:*(this+0x4358):0x00000080", "field:*(this+0x4358):0x00000084", "field:this:0x00017236"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read own-car AI status through the vehicle pointer at this+0x4174: pit/status flag at +0x32C8 and track-speed field at +0x4354, used to gate lane scoring.",
+      "evidence_refs": ["field:this:0x00016756", "field:*(this+0x4174):0x00013000", "field:*(this+0x4174):0x00017236"]
+    },
+    {
+      "kind": "guard",
+      "description": "Gate on in-pit/in-garage marker at *(this+0x4354)+0x12C == 1 (guard 0).",
+      "evidence_refs": ["field:*(this+0x4354):0x00000300", "guard:0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Read vtable object via *(this+0x0); overtake-allowance counters at obj+0x48A4 (left) and obj+0x48A8 (right) gate lane restriction decisions.",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00018596", "field:obj:0x00018600"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Load track-local lane offsets (this+0x34E0/E4/E8), RenderZ this+0x34F8, forward-direction vector this+0x34FC and lateral-direction vector this+0x3500 for candidate evaluation.",
+      "evidence_refs": ["field:this:0x00013536", "field:this:0x00013540", "field:this:0x00013544", "field:this:0x00013560", "field:this:0x00013564", "field:this:0x00013568"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Enable collision-awareness flag this+0x4140 = 1 (init literal 1).",
+      "evidence_refs": ["field:this:0x00016704"]
+    },
+    {
+      "kind": "loop",
+      "description": "For each of 5 AI candidates (stride-17 dword slots anchored at this+0x4174, slot data at this+0x41A4..0x41B4): spatial nearest-neighbor search over tree at global 0x5EA2C0, BVH fallback when the candidate is the own car; compute gap/time via ShortComputation_3ca0/_3db0 and VehicleDynamics on target and self; record the nearest-slot index into this+0x42C8 table region.",
+      "evidence_refs": ["global:0x005EA2C0", "callee:0x00403AA0", "callee:0x004039C0", "callee:0x00423CA0", "callee:0x00423DB0", "callee:0x00423B10", "field:this:0x00016768", "field:this:0x00016804", "field:this:0x00016808", "field:this:0x00016812", "field:this:0x00016820", "field:this:0x00017656", "field:this:0x00017660", "field:this:0x00017416", "field:this:0x00017744", "field:this:0x00017464", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Insertion-sort the five best candidate scores (v180..v184 with slot indices v185..v189), scoring derived from lane gap, reference-speed fields (this+0x4414..0x4428), clamped by the 0x4488 flag and lane-block flags 0x454C/0x4550.",
+      "evidence_refs": ["field:this:0x00017428", "field:this:0x00017432", "field:this:0x00017436", "field:this:0x00017440", "field:this:0x00017444", "field:this:0x00017448", "field:this:0x00017544", "field:this:0x00017548", "field:this:0x00017552", "field:this:0x00017556", "field:this:0x00017572", "field:this:0x00017488", "field:this:0x00017736", "field:this:0x00017740", "field:this:0x00017748", "field:this:0x00017756", "field:this:0x00017772", "field:this:0x00017776", "field:this:0x00017780", "field:this:0x00017785"]
+    },
+    {
+      "kind": "call",
+      "description": "Per-candidate overtake decision: read candidate setup struct (heading at +0xB8, wrapped to +/-pi), lateral offset, lane-availability thresholds, and speed clamps via TrackParameterMinimumClamp; gated by the distance constants dbl_8AFEA0 < flt_8ACF90 + 6.5/2.5 and half-track-width flt_5EA3FC.",
+      "evidence_refs": ["callee:0x0042A740", "field:*(this+0x4354):0x00000184", "global:0x005EA3FC", "global:0x008ACF90", "global:0x008AFEA0", "field:this:0x00017512", "field:this:0x00017488", "field:this:0x00017464", "field:this:0x00017416", "field:this:0x00017420", "field:this:0x00017428", "field:this:0x00017436", "field:this:0x00017440", "field:this:0x00017444", "field:this:0x00017448", "field:this:0x00017536"]
+    },
+    {
+      "kind": "call",
+      "description": "Lane-target selection via SignedIndexTableLookup on candidate lateral offsets; steering fallbacks (550/400-distance penalties) weighted by the overtake-allowance counters from the obj vtable.",
+      "evidence_refs": ["callee:0x004FAE70", "field:this:0x00017464", "field:this:0x00017472", "field:this:0x00017488", "field:this:0x00017536", "field:this:0x00017544", "field:this:0x00017548", "field:this:0x00017552", "field:this:0x00017556", "field:this:0x00017572", "field:this:0x00017656", "field:this:0x00017660", "field:this:0x00017672", "field:obj:0x00018596", "field:obj:0x00018600"]
+    },
+    {
+      "kind": "call",
+      "description": "Overtaking state machine: call Overtaking(this, mode) for modes 2/7 and 1/8; update overtake counters (this+0x4544/0x4548), lane-clamp fields, and transition candidate slot states (3/4/7/8) written to this+0x42D4/0x42D8/0x42DC.",
+      "evidence_refs": ["callee:0x0042AF70", "field:this:0x00017732", "field:this:0x00017736", "field:this:0x00017740", "field:this:0x00017744", "field:this:0x00017432", "field:this:0x00017436", "field:this:0x00017440", "field:this:0x00017448", "field:this:0x00017464", "field:this:0x00017472", "field:this:0x00017536", "field:this:0x00017785", "field:this:0x00017756"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Commit final steering: clamp result (this+0x440C) between lane bounds (this+0x4414/0x4418), override with forced targets this+0x4420 or this+0x4424 when set, set wall-collision flag this+0x4140 when steering exceeds a track boundary, then clear the 0x4488 state flag.",
+      "evidence_refs": ["field:this:0x00017420", "field:this:0x00017428", "field:this:0x00017432", "field:this:0x00017440", "field:this:0x00017444", "field:this:0x00017448", "field:this:0x00016704", "field:this:0x00017544", "field:this:0x00017736", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Gate: lane-restriction flags this+0x454C == 1 (guard 1) and this+0x4550 == 1 (guard 2) enable candidate edge/collision behaviors.",
+      "evidence_refs": ["guard:1", "guard:2", "field:this:0x00017740", "field:this:0x00017744"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the AI tuning-constant cluster at 0x59E430..0x59E964 used by the candidate scoring and speed-clamp math.",
+      "evidence_refs": ["global:0x0059E430", "global:0x0059E43C", "global:0x0059E440", "global:0x0059E444", "global:0x0059E448", "global:0x0059E450", "global:0x0059E464", "global:0x0059E46C", "global:0x0059E478", "global:0x0059E4E8", "global:0x0059E5FC", "global:0x0059E670", "global:0x0059E6A8", "global:0x0059E7E0", "global:0x0059E7E8", "global:0x0059E7EC", "global:0x0059E7F0", "global:0x0059E7F8", "global:0x0059E7FC", "global:0x0059E800", "global:0x0059E80C", "global:0x0059E824", "global:0x0059E84C", "global:0x0059E850", "global:0x0059E864", "global:0x0059E868", "global:0x0059E888", "global:0x0059E890", "global:0x0059E8A4", "global:0x0059E8B4", "global:0x0059E8BC", "global:0x0059E8CC", "global:0x0059E8D8", "global:0x0059E8DC", "global:0x0059E8E4", "global:0x0059E8EC", "global:0x0059E8F0", "global:0x0059E8F4", "global:0x0059E8F8", "global:0x0059E8FC", "global:0x0059E900", "global:0x0059E908", "global:0x0059E910", "global:0x0059E918", "global:0x0059E91C", "global:0x0059E920", "global:0x0059E924", "global:0x0059E928", "global:0x0059E92C", "global:0x0059E930", "global:0x0059E938", "global:0x0059E93C", "global:0x0059E940", "global:0x0059E944", "global:0x0059E948", "global:0x0059E94C", "global:0x0059E950", "global:0x0059E958", "global:0x0059E95C", "global:0x0059E960", "global:0x0059E964"]
+    }
+  ],
+  "clean_pseudocode": [
+    "min_left = vehicle_setup(this+0x4354)->left;  max_right = ->right;",
+    "for (lane in 5 lanes at this+0x4358): fold min_left = max(min_left, lane->left); max_right = min(max_right, lane->right);",
+    "for (cand in 5 candidates at this+0x4174):",
+    "    target = spatial_nearest_neighbor(tree, cand, this);",
+    "    score = time_to_gap(cand, target); insert into sorted top-5;",
+    "for (i in top-5): decide steering_mode (1/2/3/4/7/8/16) via lane gap, overtake counters, speed clamps;",
+    "this->steering(0x440C) = clamp(selected); set wall flag 0x4140 if out of bounds; clear 0x4488;"
+  ],
+  "unresolved": [
+    "Exact role of the 0x59E430..0x59E964 constant cluster in the score formula is not mapped instruction-by-instruction.",
+    "The obj vtable fields at +0x48A4/+0x48A8 are read as overtake-allowance counters but their write sites are external.",
+    "Candidate-slot table at this+0x42C8/0x42D4/0x42D8/0x42DC region has fields not individually enumerated in the packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

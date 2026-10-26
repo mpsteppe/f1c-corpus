@@ -1,0 +1,12 @@
+// f1c  0x00456080  size=29
+_DWORD *__thiscall sub_456080(_DWORD *this, _DWORD *a2, _DWORD *a3)
+{
+  _DWORD *result; // eax
+
+  if ( a2 )
+    *a2 = this[16];
+  result = a3;
+  if ( a3 )
+    *a3 = this[17];
+  return result;
+}

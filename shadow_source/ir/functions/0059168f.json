@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "address": "0x0059168F",
+  "proposed_name": "MathDispatchWithFpeGuardAndExceptionDecode",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0059168F"]
+  },
+  "summary": "Floating-point math dispatch with exception-code decode and an FPE guard. When sub_5919DA(dwExceptionCode, &a4, a5) reports failure, clears bit 0 of the uninitialized local v8 and calls sub_591727 to set up the exception-handling argument array. Then decodes dwExceptionCode into operation bit flags via BitFlagDecoderViaBitTests (v5). If the FPE flag dword_5E9AD0 is set or v5 is zero, takes the error path: sets a TLS error code based on v5 through SetErrorCodeBasedOnInputRange, resets the FPU control word to mask 0xFFFF via ReturnFPUControlWord, and returns the fallback value a4. Otherwise returns a3 as the result after forwarding the double a3 (as two DWORD halves) plus a4 and a5 to FloatParsingWithErrorHandling.",
+  "local_names": {
+    "dwExceptionCode": "exception code decoded into operation bit flags",
+    "a2": "operation parameter forwarded to the parsing helpers",
+    "a3": "primary floating-point operand, returned as result on the parse path",
+    "a4": "fallback value returned on the error path and forwarded to the parser",
+    "a5": "control/parameter value forwarded to the parser and FPU reset",
+    "v5": "decoded operation mode bit flags from BitFlagDecoderViaBitTests",
+    "v8": "uninitialized stack local; bit 0 cleared on the sub_5919DA failure path",
+    "result": "return value, a3 on the parse path",
+    "Arguments": "stack array built by sub_591727 for exception-handler context"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "sub_5919DA(dwExceptionCode, &a4, a5) checks the exception code and parameters; the zero return selects the setup path",
+      "evidence_refs": ["callee:0x005919DA", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If sub_5919DA returns 0 (false), continue into exception-context setup instead of skipping it",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v8 &= ~1u clears bit 0 of the (uninitialized) stack local v8",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_591727(Arguments, &a5, dwExceptionCode, a2, &a3, &a4) fills the exception-handling argument array on the setup path",
+      "evidence_refs": ["callee:0x00591727", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "v5 = BitFlagDecoderViaBitTests(dwExceptionCode) decodes the exception code into operation mode bit flags",
+      "evidence_refs": ["callee:0x00591CC6", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Error-path guard: if dword_5E9AD0 (FPE flag) is non-zero OR v5 (decoded mode) is zero, take the error path instead of parsing",
+      "evidence_refs": ["global:0x005E9AD0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "SetErrorCodeBasedOnInputRange(v5) writes the TLS error code derived from the decoded mode value",
+      "evidence_refs": ["callee:0x00591C79", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ReturnFPUControlWord(a5, 0xFFFF) resets the FPU control word with mask 0xFFFF",
+      "evidence_refs": ["callee:0x00591E66", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Error path returns a4 as the fallback value",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "result = a3 selects a3 as the return value on the parse path",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FloatParsingWithErrorHandling(v5, a2, low DWORD of a3, high DWORD of a3, 0.0 as a 64-bit zero, high half of that zero, a4, a5) performs the actual floating-point parse",
+      "evidence_refs": ["callee:0x00591BF1", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Parse path returns result (a3)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called per-frame tick from sub_5895A2 (005895a2)",
+      "evidence_refs": ["caller:0x005895A2"]
+    }
+  ],
+  "clean_pseudocode": [
+    "double MathDispatchWithFpeGuardAndExceptionDecode(DWORD dwExceptionCode, int a2, double a3, double a4, int a5) {",
+    "  if (!sub_5919DA(dwExceptionCode, &a4, a5)) {",
+    "    v8 &= ~1u;",
+    "    sub_591727(Arguments, &a5, dwExceptionCode, a2, &a3, &a4);",
+    "  }",
+    "  int v5 = BitFlagDecoderViaBitTests(dwExceptionCode);",
+    "  if (dword_5E9AD0 || !v5) {",
+    "    SetErrorCodeBasedOnInputRange(v5);",
+    "    ReturnFPUControlWord(a5, 0xFFFF);",
+    "    return a4;",
+    "  }",
+    "  double result = a3;",
+    "  FloatParsingWithErrorHandling(v5, a2, LOW(a3), HIGH(a3), 0.0, 0, a4, a5);",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "v8 is an uninitialized stack local in the raw source; the &= ~1u is a decompiler artifact whose intended meaning is unclear",
+    "The semantics of each decoded bit flag from BitFlagDecoderViaBitTests and how it maps to SetErrorCodeBasedOnInputRange is not documented",
+    "The identity of dword_5E9AD0 as an FPE exception flag is DERIVED from the existing fill analysis, not established by the packet",
+    "Why the 64-bit zero argument is passed as two halves to FloatParsingWithErrorHandling is a decompiler artifact",
+    "Owner class identity is not established by the packet"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

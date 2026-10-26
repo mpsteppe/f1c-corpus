@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "address": "0x005567F5",
+  "proposed_name": "QueryCpuTscDeltaAndVendor",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x005567F5", "source:raw"]
+  },
+  "summary": "CPU feature/probing helper. Toggles the EFLAGS ID bit (0x200000) via __writeeflags/__readeflags to detect CPUID support; if the bit flips, CPUID is available. When RDTSC support is present (CPUID leaf 1 EDX bit 0x10), computes the elapsed TSC since the 64-bit base stored in *a1 (high dword) and *a2 (low dword), writing the delta back into those same two dwords. If a3 is non-null, fills a3 with the CPU vendor string from CPUID leaf 0 (EBX/EDX/ECX, 12 bytes, NUL-terminated at +12). Always returns 0.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "CPUID-support probe: toggle EFLAGS bit 0x200000 (ID flag) with __writeeflags and read it back; if v4 != v3 the bit flipped and CPUID is present, otherwise the function skips all CPUID work.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Issue CPUID leaf 1 (EAX=1) and test EDX bit 0x10 (0x10) to check RDTSC support.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute elapsed TSC as v11 = __rdtsc() - __PAIR64__(*a1, *a2), i.e. current counter minus the 64-bit base formed from the two stored dwords.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the elapsed TSC delta back into the caller's dword pair: *a1 = high dword (HIDWORD), *a2 = low dword (v11).",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on a3 being non-null; the vendor-string write happens only when a buffer is supplied.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Issue CPUID leaf 0 (EAX=0) and write the vendor string: *(a3) = EBX, *(a3+4) = EDX, *(a3+8) = ECX, then NUL-terminate the 12-byte string at *(a3+12).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Issue CPUID leaf 1 (EAX=1) a second time (final flush of the CPUID sequence).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 as the function result.",
+      "evidence_refs": ["function:0x005567F5", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called by sub_55F0D0 (0x0055F0D0).",
+      "evidence_refs": ["caller:0x0055F0D0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int QueryCpuTscDeltaAndVendor(unsigned int *a1, unsigned int *a2, void *a3) {",
+    "  unsigned int before = __readeflags();",
+    "  __writeeflags(before ^ 0x200000);",
+    "  unsigned int after = __readeflags();",
+    "  if (after != before) {",
+    "    cpuid(1, EDX bit 0x10 must be set for RDTSC);",
+    "    if (EDX & 0x10) {",
+    "      __int64 delta = __rdtsc() - ((__int64)*a1 << 32 | *a2);",
+    "      *a1 = (unsigned int)(delta >> 32);",
+    "      *a2 = (unsigned int)delta;",
+    "    }",
+    "    if (a3) {",
+    "      cpuid(0);",
+    "      *(unsigned int*)(a3 + 0) = EBX;",
+    "      *(unsigned int*)(a3 + 4) = EDX;",
+    "      *(unsigned int*)(a3 + 8) = ECX;",
+    "      *(char*)(a3 + 12) = 0;",
+    "    }",
+    "    cpuid(1);",
+    "  }",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "The meaning of the 64-bit TSC base in *a1/*a2 (where it is seeded and how the caller consumes the delta) is not established by this packet.",
+    "The a3 vendor-string buffer role is inferred from the CPUID leaf 0 register writes; caller semantics are unknown.",
+    "The packet's prelabel (cluster_copy to 004646c0, DERIVED, 'structural twin of FloatClamp') is not corroborated by the raw source, which is a CPUID/RDTSC probe rather than a clamping routine.",
+    "The packet field this:0x0 RW appears to abstract the *a1/*a2 dword writes; the enclosing object/pointer semantics are unknown."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

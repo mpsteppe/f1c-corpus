@@ -1,0 +1,29 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00587B7F
+// Canonical corpus name: InitWrapperCalling3Subroutines
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/InitWrapperCalling3Subroutines_00587b7f.c
+
+void UnknownObject::InitWrapperCalling3Subroutines()
+{
+    // CRT initialization stub with three unconditional subroutine calls. Calls InitCRTFloatConversionFunctionPointers, stores the return value of sub_58BCA6 into global dword_8D3E44, calls TwoArgCallWrapper, clears pending x87 FPU exception flags with fnclex, and returns the TwoArgCallWrapper result. No guards and no frame-path evidence.
+    // CALL: InitCRTFloatConversionFunctionPointers() configures the CRT float conversion function pointers. [callee:0x00587B97, source:raw]
+    // CALL: sub_58BCA6() runs and produces the value that is stored into the CRT result global. [callee:0x0058BCA6, source:raw]
+    // ASSIGNMENT: dword_8D3E44 = return value of sub_58BCA6(); the global is written with the call result. [global:0x008D3E44, source:raw]
+    // CALL: TwoArgCallWrapper() runs and its return value is propagated as the function result. [callee:0x0058BC56, source:raw]
+    // STATE_TRANSITION: fnclex clears the x87 FPU exception flags before returning. [source:raw]
+    // RETURN: Returns the TwoArgCallWrapper result. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_587B7F() {
+    //     int result;
+    //     InitCRTFloatConversionFunctionPointers();
+    //     dword_8D3E44 = sub_58BCA6();
+    //     result = TwoArgCallWrapper();
+    //     __asm fnclex;
+    //     return result;
+    //   }
+    // UNRESOLVED: Purpose and consumer of the value stored in dword_8D3E44 is unknown; the global is written here but its readers are not in this packet.
+    // UNRESOLVED: Why fnclex is issued and what x87 exception state is being cleared is not documented here.
+    // UNRESOLVED: The arguments and role of TwoArgCallWrapper are caller/CRT defined and absent from this packet.
+}

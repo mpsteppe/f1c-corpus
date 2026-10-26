@@ -1,0 +1,359 @@
+{
+  "schema_version": 1,
+  "address": "0x004EE2D0",
+  "proposed_name": "UpdateVehiclePhysicsContacts",
+  "owner": {
+    "type": "VehiclePhysics",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x004EE2D0",
+      "caller:0x0042C690",
+      "field:this:0x000032BC",
+      "source:raw"
+    ]
+  },
+  "summary": "Per-frame vehicle physics update that computes a track grip factor, then dispatches on the physics mode selector at this+0x32BC: mode 0 solves tire slip forces, mode 1 updates per-wheel suspension contact and applies throttle/brake overrides, and modes 2/3 run spatial-grid collision detection with particle and spark effects. A common tail commits the aggregate contact via a final spatial-grid query and collision-effect dispatch.",
+  "local_names": {
+    "v2": "track grip factor",
+    "v6": "physics mode selector",
+    "v88": "active contact flag",
+    "v89": "spatial grid query result",
+    "v101": "contact reference / id",
+    "v102_v104": "world-space contact accumulator",
+    "v92_v94": "world-space contact point",
+    "v95_v97": "contact normal triple",
+    "v110": "working 3x3 orientation matrix",
+    "v109": "grip factor copy"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Compare the grip globals flt_8AFEEC and flt_8AFEE8; when they are equal the grip value is taken directly, otherwise it is derived from position-change monitoring.",
+      "evidence_refs": [
+        "global:0x008AFEEC",
+        "global:0x008AFEE8"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "When the grip globals differ, query PositionChangeMonitor for the velocity vector, compute the absolute dot-product difference between the local-frame position triple at this+0x34D4..0x34DC and the monitor output, then pass the result through F_1DTableLookupWithLerp.",
+      "evidence_refs": [
+        "callee:0x004E9630",
+        "callee:0x004FD7E0",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "global:0x008AFEE8"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Switch on the physics mode selector at this+0x32BC; the jump table global jpt_4EE3A8 dispatches to slip-force (0), suspension-contact (1) or grid-collision (2/3) handlers.",
+      "evidence_refs": [
+        "field:this:0x000032BC",
+        "global:0x004EF168"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Initialize working state before the switch: read the contact/orientation rows at this+0x34AC, this+0x34EC, this+0x34F0 and this+0x34F4, and zero the world-space contact accumulator.",
+      "evidence_refs": [
+        "field:this:0x000034AC",
+        "field:this:0x000034EC",
+        "field:this:0x000034F0",
+        "field:this:0x000034F4"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "In mode 0, call TireSlipForceCalculation on the per-tire contact block at this+1764 with the dbl_7C7428 constants block; when the effect flag at this+0x1070 is set, transform the contact effect to world space via ParticleEffectWorldTransform (also performed at the end of mode 1).",
+      "evidence_refs": [
+        "callee:0x004472B0",
+        "global:0x007C7428",
+        "callee:0x004E16F0",
+        "field:this:0x00001070"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Mode 0 world-contact rotation: dot the orientation rows at this+0x34B0..0x34D0 against the velocity components at this+0x3BE8..0x3BF0 and add the local position at this+0x34D4..0x34DC into the accumulator.",
+      "evidence_refs": [
+        "field:this:0x000034B0",
+        "field:this:0x000034B4",
+        "field:this:0x000034B8",
+        "field:this:0x000034BC",
+        "field:this:0x000034C0",
+        "field:this:0x000034C4",
+        "field:this:0x000034C8",
+        "field:this:0x000034CC",
+        "field:this:0x000034D0",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "field:this:0x00003BE8",
+        "field:this:0x00003BEC",
+        "field:this:0x00003BF0"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Mode 0 contact-counter wait: spin while the counter at this+0x36C4 is at or below zero, aborting to the common tail after four failed checks.",
+      "evidence_refs": [
+        "field:this:0x000036C4"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Mode 1 per-wheel suspension travel update: loop over four wheels (wheel base at this+0x3590, stride 248 bytes) reading travel at this+0x35CC and damping at this+0x35D0, applying the ramp thresholds (7500.0/15000.0/1750.0/3500.0 plus the brake/travel ramp constant globals at 0x59E430..0x59E440 and 0x5AD210..0x5AD228) and writing per-wheel contact state at this+0x7D4..0x7EC including the lifespan literal 20 at this+0x7EC.",
+      "evidence_refs": [
+        "field:this:0x000007D4",
+        "field:this:0x000007D8",
+        "field:this:0x000007EC",
+        "field:this:0x00003590",
+        "field:this:0x00003594",
+        "field:this:0x000035CC",
+        "field:this:0x000035D0",
+        "global:0x0059E430",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x005AD210",
+        "global:0x005AD214",
+        "global:0x005AD218",
+        "global:0x005AD21C",
+        "global:0x005AD220",
+        "global:0x005AD224",
+        "global:0x005AD228"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Mode 1 per-wheel collision dispatch: for each wheel whose contact reference at this+0x3668 is non-null and passes FloatComparisonWithConstantsTable, compute a cross product with F_3DCrossProduct, rotate the contact point into world space using the orientation rows at this+0x34B0..0x34D0 plus the offset rows at this+0x34F8..0x3500, and dispatch CollisionEffectDispatch with the object id read from this+0x4.",
+      "evidence_refs": [
+        "callee:0x004CE380",
+        "callee:0x004CE3E0",
+        "callee:0x004ED750",
+        "field:this:0x00003668",
+        "field:this:0x00000004",
+        "field:this:0x000034B0",
+        "field:this:0x000034B4",
+        "field:this:0x000034B8",
+        "field:this:0x000034BC",
+        "field:this:0x000034C0",
+        "field:this:0x000034C4",
+        "field:this:0x000034C8",
+        "field:this:0x000034CC",
+        "field:this:0x000034D0",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "field:this:0x000034F8",
+        "field:this:0x000034FC",
+        "field:this:0x00003500"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Mode 1 throttle/brake override: after the wheel loop, read the contact counter at this+0x3760, recompute the aggregate world contact using the orientation rows at this+0x34B0..0x34D0 against the velocity triple at this+0x3BE8..0x3BF0 plus the position at this+0x34D4..0x34DC, then apply ThrottleBrakeOverride to this.",
+      "evidence_refs": [
+        "callee:0x004EE230",
+        "field:this:0x00003760",
+        "field:this:0x000034B0",
+        "field:this:0x000034B4",
+        "field:this:0x000034B8",
+        "field:this:0x000034BC",
+        "field:this:0x000034C0",
+        "field:this:0x000034C4",
+        "field:this:0x000034C8",
+        "field:this:0x000034CC",
+        "field:this:0x000034D0",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "field:this:0x00003BE8",
+        "field:this:0x00003BEC",
+        "field:this:0x00003BF0"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Mode 1 contact particle effect: when sub_4CE8F0 accepts the contact block at this+0x77C, build a world-space contact from the orientation rows against the alternate velocity triple at this+0x3D54..0x3D5C plus the contact normal at this+0x34EC..0x34F4, and spawn a collision particle effect via ParticleCollisionEffect on the dword_8ACEA0 grid.",
+      "evidence_refs": [
+        "callee:0x004CE8F0",
+        "callee:0x004CE930",
+        "global:0x008ACEA0",
+        "field:this:0x0000077C",
+        "field:this:0x00003D54",
+        "field:this:0x00003D58",
+        "field:this:0x00003D5C",
+        "field:this:0x000034EC",
+        "field:this:0x000034F0",
+        "field:this:0x000034F4"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Mode 2/3 packed contact data read: load the packed per-wheel contact dwords at this+0x101C..0x1028 and the word at this+0x102C to seed the collision and particle phase.",
+      "evidence_refs": [
+        "field:this:0x0000101C",
+        "field:this:0x00001020",
+        "field:this:0x00001024",
+        "field:this:0x00001028",
+        "field:this:0x0000102C"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Mode 3 delegation and frame selection: call Delegation on the dword_8AB6EC scoring grid, copy the delegated frame at this+1796 into the working 3x3 matrix, and read the frame position triple at this+0x738..0x740.",
+      "evidence_refs": [
+        "callee:0x004B9CE0",
+        "global:0x008AB6EC",
+        "field:this:0x00000738",
+        "field:this:0x0000073C",
+        "field:this:0x00000740"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Mode 2 frame selection: copy the orientation at this+0x34B0 into the working 3x3 matrix and read the local position triple at this+0x34D4..0x34DC plus the contact field at this+0x34AC.",
+      "evidence_refs": [
+        "field:this:0x000034AC",
+        "field:this:0x000034B0",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Packed contact bit unpacking: unpack the per-wheel contact nibbles into float ratios (1/7 scaling for 3-bit channels, mask 0xFFFFFFF8, 4-bit channel scale constant flt_5AC108) and store them into the per-wheel cell at this+0x7DC.",
+      "evidence_refs": [
+        "field:this:0x000007DC",
+        "global:0x005AC108"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Mode 2/3 per-wheel grid collision: loop over four wheels (wheel base at this+0x3590, stride 248 bytes) rotating each wheel contact through the working matrix plus the offset triple, deriving the contact normal via F_3DCrossProduct in mode 2 or the fallback normal at this+0x4C..0x54, querying the spatial grid via SpatialGridQuery on dbl_7C9360, applying a depth check, writing the wheel cell fields at this+0x7D4..0x7EC, and dispatching CollisionEffectDispatch with the object id at this+0x4.",
+      "evidence_refs": [
+        "callee:0x0044C4C0",
+        "callee:0x004CE3E0",
+        "callee:0x004ED750",
+        "global:0x007C9360",
+        "field:this:0x00000004",
+        "field:this:0x0000004C",
+        "field:this:0x00000050",
+        "field:this:0x00000054",
+        "field:this:0x000007D4",
+        "field:this:0x000007D8",
+        "field:this:0x000007E0",
+        "field:this:0x000007E4",
+        "field:this:0x000007E8",
+        "field:this:0x000007EC",
+        "field:this:0x000032BC",
+        "field:this:0x000034B0",
+        "field:this:0x000034B4",
+        "field:this:0x000034B8",
+        "field:this:0x000034BC",
+        "field:this:0x000034C0",
+        "field:this:0x000034C4",
+        "field:this:0x000034C8",
+        "field:this:0x000034CC",
+        "field:this:0x000034D0",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "field:this:0x000034F8",
+        "field:this:0x000034FC",
+        "field:this:0x00003500",
+        "field:this:0x00003590",
+        "field:this:0x00003594"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Mode 2/3 aggregate contact and particles: after the wheel loop, transform the aggregate contact through the working matrix against the velocity triples at this+0x3BE8..0x3BF0 and this+0x3D54..0x3D5C, spawn ParticleCollisionEffect on the dword_8ACEA0 grid using the normal at this+0x34EC..0x34F4 (or the fallback normal), write the contact-state fields at this+0x790 and this+0x7A4 and the four color/heat fields at this+0x8CC..0xC44 from the packed nibbles, and run the 17-iteration particle-spawn loop over the effect array at this+0x1078..0x1080 gated by dword_8ACEB8, calling ParticleSpawnFunction with the packed data from this+0x101C.",
+      "evidence_refs": [
+        "callee:0x004CCE90",
+        "callee:0x004CE930",
+        "global:0x008ACEA0",
+        "global:0x008ACEB8",
+        "field:this:0x00000790",
+        "field:this:0x000007A4",
+        "field:this:0x000008CC",
+        "field:this:0x000009F4",
+        "field:this:0x00000B1C",
+        "field:this:0x00000C44",
+        "field:this:0x00001078",
+        "field:this:0x0000107C",
+        "field:this:0x00001080",
+        "field:this:0x000034EC",
+        "field:this:0x000034F0",
+        "field:this:0x000034F4",
+        "field:this:0x00003BE8",
+        "field:this:0x00003BEC",
+        "field:this:0x00003BF0",
+        "field:this:0x00003D54",
+        "field:this:0x00003D58",
+        "field:this:0x00003D5C",
+        "global:0x0059E4E0",
+        "global:0x0059E778",
+        "global:0x0059E98C"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Common tail (LABEL_64): when a non-zero grip factor was computed and at least one wheel reported active contact (v88), zero the collision-effect accumulator at this+0xC74..0xC84, write the grip magnitude to this+0xC88, re-query the spatial grid with dbl_7C9360, and dispatch CollisionEffectDispatch for the aggregate contact at this+3160 passing the object id at this+0x4.",
+      "evidence_refs": [
+        "callee:0x0044C4C0",
+        "callee:0x004CE3E0",
+        "global:0x007C9360",
+        "field:this:0x00000004",
+        "field:this:0x00000C74",
+        "field:this:0x00000C78",
+        "field:this:0x00000C7C",
+        "field:this:0x00000C80",
+        "field:this:0x00000C84",
+        "field:this:0x00000C88"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "void UpdateVehiclePhysicsContacts(int this) {",
+    "    double grip = (flt_8AFEEC == flt_8AFEE8) ? flt_8AFEE8",
+    "        : F_1DTableLookupWithLerp(fabs(dot(localPos, monitorVel) - monitorOffset));",
+    "    int mode = *(int*)(this + 12988);",
+    "    float contact[3] = {0, 0, 0};",
+    "    switch (mode) {",
+    "      case 0: TireSlipForceCalculation(&dbl_7C7428, this + 1764);",
+    "              rotate contact by orientation matrix + position; break;",
+    "      case 1: for each of 4 wheels: ramp travel into cell at this + 2004;",
+    "              transform contact; dispatch collision;",
+    "              ThrottleBrakeOverride(this); break;",
+    "      case 2: case 3:",
+    "              for each of 4 wheels: rotate contact, query spatial grid,",
+    "                  dispatch collision, spawn particles; break;",
+    "      default: break;",
+    "    }",
+    "    if (grip > 0.0 && anyContact) {",
+    "        zero accumulator at this + 3188..3204;",
+    "        *(float*)(this + 3208) = grip;",
+    "        result = SpatialGridQuery(dbl_7C9360, &contact);",
+    "        if (result) CollisionEffectDispatch(...);",
+    "    }",
+    "}"
+  ],
+  "unresolved": [
+    "Field this+0x3610 is listed in the deterministic field list but does not appear in the Hex-Rays decompilation; its role is unknown.",
+    "Global unk_8AFEC0 is a read-only object referenced by this function per the fact table but not visible in the decompiled immediates; role unknown.",
+    "The precise semantic roles of the constant globals at 0x59E430..0x59E440 and 0x5AD210..0x5AD228 (brake/travel ramp thresholds) are inferred from adjacent usage, not independently confirmed."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00003610",
+    "global:0x008AFEC0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

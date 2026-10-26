@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "address": "0x0059BE0C",
+  "proposed_name": "StreamReadWChar",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Reads one WCHAR from an input stream. In wide mode (flag bit 6 set at this+0xC) it consumes 2 bytes directly from the buffer at *v1 (this+0x0), decrementing the remaining-byte counter at this+0x4 by 2 and refilling via sub_59C30E on underflow. In narrow mode it reads 1-2 bytes (via sub_58C255 on buffer underflow, or directly), using the off_5E69C8 character-type table to detect a lead byte that requires a second byte, and converts the byte sequence to a WCHAR with sub_596716. A file-index field this+0x10 equal to -1 selects a default buffer descriptor (unk_5E7898); otherwise the file-state array dword_8D4920 (stride 36) is indexed by index>>5 and index&0x1F. On read or conversion failure it returns -1, optionally calling FileIOWrapperWithLock and storing error code 42 via TLSOffsetGetter. Returns the WCHAR as a 16-bit value on success.",
+  "local_names": {
+    "a1": "stream object; buffer position at this+0x0, byte counter at this+0x4, flags at this+0xC, file index at this+0x10",
+    "v1": "buffer position pointer (advanced on each read)",
+    "v8": "1-2 byte sequence consumed in narrow mode",
+    "v4": "number of bytes in the sequence passed to sub_596716"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Wide-mode test: enters the 2-byte direct-read path when the flag byte at this+0xC has bit 6 (0x40) set.",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "guard",
+      "description": "File-index dispatch: when this+0x10 equals -1 the default buffer descriptor unk_5E7898 is used; otherwise the file-state array dword_8D4920 (stride 36) is indexed by (index >> 5) and (index & 0x1F), and the byte at +4 is tested.",
+      "evidence_refs": ["guard:0", "field:this:0x00000010", "global:0x005E7898", "global:0x008D4920"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Wide path: decrements the remaining-byte counter at this+0x4 by 2; on underflow calls sub_59C30E to refill the buffer and read one WCHAR.",
+      "evidence_refs": ["field:this:0x00000004", "callee:0x0059C30E"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Wide path: reads the 2-byte WORD at the buffer position *v1 and advances the position pointer by 2.",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000000"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Narrow path: decrements the remaining-byte counter at this+0x4 by 1; on underflow reads the byte via sub_58C255, otherwise reads and advances the buffer position directly.",
+      "evidence_refs": ["field:this:0x00000004", "callee:0x0058C255"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the first narrow-mode byte equals -1 the function returns -1 immediately (EOF).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Lead-byte detection: when the off_5E69C8 character-type table entry for the first byte is negative, a second byte is read (via sub_58C255 on underflow); if that byte is also -1, FileIOWrapperWithLock is called with the first byte and the function returns -1.",
+      "evidence_refs": ["global:0x005E69C8", "callee:0x0058C255", "callee:0x0059685F"]
+    },
+    {
+      "kind": "call",
+      "description": "Converts the 1-2 byte sequence (v8, byte count v4) into a WCHAR via sub_596716.",
+      "evidence_refs": ["callee:0x00596716"]
+    },
+    {
+      "kind": "call",
+      "description": "On conversion failure (-1) stores error code 42 in the TLS slot returned by TLSOffsetGetter and returns -1.",
+      "evidence_refs": ["callee:0x0058AFCF"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the WCHAR as a 16-bit value on success and -1 on EOF, read, or conversion failure.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "wide = (*(byte*)(a1 + 12) & 0x40) != 0;",
+    "fileOk = (*(int*)(a1 + 16) == -1) ? defaultBuffer : (fileStateArray[*(int*)(a1+16) >> 5][index & 0x1F][4] >= 0);",
+    "if (wide && fileOk) {",
+    "    if (--*(int*)(a1 + 4) < 0) return sub_59C30E(v1);",
+    "    result = *(word*)*v1; *v1 += 2;",
+    "} else {",
+    "    if (--*(int*)(a1 + 4) < 0) b0 = sub_58C255(v1); else b0 = *(*v1)++;",
+    "    if (b0 == -1) return -1;",
+    "    v8[0] = b0; count = 1;",
+    "    if (off_5E69C8[0][b0] < 0) {",
+    "        if (--v1[1] < 0) b1 = sub_58C255(v1); else b1 = *(*v1)++;",
+    "        if (b1 == -1) { FileIOWrapperWithLock(v8[0], v1); return -1; }",
+    "        v8[1] = b1; count = 2;",
+    "    }",
+    "    if (sub_596716(&a1 + 1, v8, count) == -1) { *(int*)TLSOffsetGetter() = 42; return -1; }",
+    "    return HIWORD(a1);",
+    "}"
+  ],
+  "unresolved": [
+    "The return expression HIWORD(a1) is a Hex-Rays artifact of __cdecl frame reuse; the concrete register path carrying the WCHAR result is not grounded.",
+    "The off_5E69C8 lead-byte table and the multi-byte to WCHAR conversion semantics (code page / DBCS) are inferred from the narrow-mode path and are DERIVED, not confirmed.",
+    "The file-state array dword_8D4920 layout (stride 36, byte at +4) is taken from the indexing arithmetic only."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

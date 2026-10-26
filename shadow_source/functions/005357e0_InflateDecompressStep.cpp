@@ -1,0 +1,50 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005357E0
+// Canonical corpus name: sub_5357E0
+// Owner: InflateStateMachineDecoder [DERIVED]
+// Raw source: functions/sub_5357E0_005357e0.c
+
+void InflateStateMachineDecoder::InflateDecompressStep()
+{
+    // zlib-style inflate state machine. Rejects a NULL handle and returns -2. Walks a per-state machine over the block pointed to by a1[7], dispatched by a jump table at 0x00535BCC. State 0 validates the compression header (method must be 8, window size bound); state 1 reads and checks the header checksum (modulo 0x1F); states 2-5 accumulate a 4-byte big-endian dictionary-size field, then state 6 requires a dictionary (return -2). State 7 drives the inflate core sub_537110 and on stream end resets sub-state via StateResetWithCallback (0x00537000). States 8-11 accumulate a 4-byte trailer that must equal the computed checksum to reach state 12 (return 1); state 13 returns -3. Errors arm one of five message strings at a1[6].
+    // GUARD: Reject invalid stream handle: returns -2 when a1, a1[7] (state block), or *a1 (input cursor) is NULL [source:raw]
+    // CALCULATION: Initialize the return accumulator v3 to -5; when flush mode a2 equals 4 select 0xFFFFFFFB as the intermediate return value, otherwise 0 [source:raw]
+    // LOOP: Infinite loop dispatching on the state field *(_DWORD*)a1[7]; the switch is driven through the jump table at jpt_53582B (0x00535BCC) [global:0x00535BCC, source:raw]
+    // GUARD: Intermediate-input guard: every byte-reading state returns the accumulated value when a1[1] (bytes remaining) reaches zero [source:raw]
+    // ASSIGNMENT: State 0 (header): consume one input byte, decrement a1[1], increment a1[2], and store the read byte into state+4 [source:raw]
+    // GUARD: State 0 validation: when (state+4 & 0xF) != 8 the compression method is not deflate; set state 13, arm the 'unknown compression method' string aUnknownCompres_1 at a1[6], and set state+4 to 5 [global:0x005DA7FC, source:raw]
+    // GUARD: State 0 validation: when ((state+4 >> 4) + 8) > state+16 the window size exceeds the available buffer; set state 13, arm the 'invalid window size' string aInvalidWindowS_0 at a1[6], and set state+4 to 5 [global:0x005DA7E8, source:raw]
+    // STATE_TRANSITION: State 0 success: advance to state 1, which reads the header checksum byte [source:raw]
+    // CALCULATION: State 1: consume a byte and fold it with (state+4 << 8); the combined value modulo 0x1F must be zero (header checksum check), otherwise set state 13, arm the 'incorrect header check' string aIncorrectHeade_0 at a1[6], and set state+4 to 5 [global:0x005DA7D0, source:raw]
+    // STATE_TRANSITION: State 1: when (byte & 0x20) is clear the FDICT flag is absent -> state 7 (decompression); otherwise state 2 (read the dictionary size) [source:raw]
+    // ASSIGNMENT: States 2-5: accumulate the 4-byte big-endian dictionary-size field into state+8 across four byte reads, advancing the state number after each byte [source:raw]
+    // ASSIGNMENT: State 5 completion: publish the accumulated state+8 into a1[12], advance to state 6, and return 2 (dictionary required) [source:raw]
+    // STATE_TRANSITION: State 6: set state 13, arm the 'need dictionary' string aNeedDictionary_0 at a1[6], zero state+4, and return -2 [global:0x005DA7A8, source:raw]
+    // CALL: State 7: invoke the inflate core sub_537110 (0x00537110) on the current block; when it returns -3 set state 13 and clear state+4 [callee:0x00537110, source:raw]
+    // CALL: State 7 success path: after the core reports stream end, call StateResetWithCallback (0x00537000) on a1[7]+4 to reset the sub-block state; then move to state 12 when state+12 is set, otherwise state 8 [callee:0x00537000, source:raw]
+    // ASSIGNMENT: States 8-11: accumulate the 4-byte big-endian stream trailer (checksum) into state+8, advancing the state number after each byte [source:raw]
+    // GUARD: State 11 completion: when state+4 (computed checksum) equals state+8 (read checksum) set state 12 and return 1; otherwise set state 13, arm the 'incorrect data check' string aIncorrectDataC_0 at a1[6], and set state+4 to 5 [global:0x005DA7B8, source:raw]
+    // RETURN: State 12 returns 1 (stream end); state 13 returns -3; any other state returns -2 [source:raw]
+    // RETURN: Stream decoder entry called from BufferedFileReader (0x00534F90) and sub_59B260 (0x0059B260); returns the inflate status code selected by the current state [caller:0x00534F90, caller:0x0059B260, function:0x005357E0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (!a1 || !a1[7] || !*a1) return -2;
+    //   ret = -5;
+    //   needDictRet = (flush == 4) ? 0xFFFFFFFB : 0;
+    //   for (;;) {
+    //     state = *(int*)a1[7];
+    //     switch (state) {
+    //       case 0: read header byte; validate method==8 and window size;
+    //       case 1: read checksum byte; ((byte<<8)+state4) % 0x1F must be 0; FDICT? state 2 : state 7;
+    //       case 2..5: accumulate 4-byte dictionary size into state+8; at end a1[12]=state+8; state=6; return 2;
+    //       case 6: arm "need dictionary"; state=13; state+4=0; return -2;
+    //       case 7: r = sub_537110(ret); if stream end { StateResetWithCallback(a1[7]+4); state = *(a1[7]+12) ? 12 : 8; }
+    //       case 8..11: accumulate 4-byte trailer into state+8; at end compare to state+4 -> state 12 return 1, else error;
+    //       case 12: return 1;
+    //       case 13: return -3;
+    //       default: return -2;
+    //     }
+    //   }
+    // UNRESOLVED: The exact role of the state+12 flag consumed after StateResetWithCallback versus the window-size field at state+16 is not fully determined
+    // UNRESOLVED: The a2 flush-mode contract is under-specified: only the value 4 selects the 0xFFFFFFFB (-5) return variant, and the other accepted values and their semantics are not evident from this packet
+}

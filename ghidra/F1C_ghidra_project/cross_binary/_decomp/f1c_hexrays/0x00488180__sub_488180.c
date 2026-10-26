@@ -1,0 +1,9 @@
+// f1c  0x00488180  size=36
+int __thiscall sub_488180(int this)
+{
+  sub_485E30((_DWORD *)this);
+  sub_499B10(this + 224);
+  *(_DWORD *)this = &off_5ABB78;
+  *(_BYTE *)(this + 276) = 1;
+  return this;
+}

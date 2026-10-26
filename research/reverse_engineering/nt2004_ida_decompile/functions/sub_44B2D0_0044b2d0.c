@@ -1,0 +1,9 @@
+int __thiscall sub_44B2D0(int this)
+{
+  memset((void *)this, 0, 0x18u);
+  *(_DWORD *)(this + 28) = 0;
+  *(_BYTE *)(this + 25) = 0;
+  *(_WORD *)(this + 26) = -1;
+  *(_BYTE *)(this + 24) = 1;
+  return this;
+}

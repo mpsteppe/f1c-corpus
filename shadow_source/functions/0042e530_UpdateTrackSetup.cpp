@@ -1,0 +1,68 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0042E530
+// Canonical corpus name: TrackConfig
+// Owner: VehicleSetupConfig [DERIVED]
+// Raw source: functions/TrackConfig_0042e530.c
+
+void VehicleSetupConfig::UpdateTrackSetup()
+{
+    // Per-frame vehicle setup update driven by component/subcomponent indices a2/a3. When a2 == -1 or a3 == -1 (all components) or a2 == 4 with a3 in 44..50, clamps the gear-selection indices in the 64-byte-stride table at this+0xBC4 (entries 44..50). Then, gated on the event-mode flag this+0x1988, either fires EventTriggerOnStateChange on six config-value block pairs or runs WeightedSumComparatorWithBinaryAdjustment on the same pairs with (a2,a3)-derived binary triggers. Returns early when the master enable this+0x1990 != 1. Otherwise re-matches the rear-spoiler angle (this+0x12C4) from token aRearspoilerang over the this+0x12B0/0x12B8 array, decrements a session value this+0xCC4 when dword_7C56A4 is set, reads the track type token aTrackType and compares it to aRoadCourse via sub_588410, advances the front/rear ride-height indices (this+0x6C4 / this+0x984) against the threshold 0.1523746, resets the gear index this+0xBC4 to 0 off-road-course, and finally re-matches the setup index this+0x404 over the this+0x3F0/0x3F8 array.
+    // GUARD: Branch selection: when a2 == -1 or a3 == -1 process all gear entries; when a2 == 4 with a3 in 44..50 process only entry a3; otherwise skip gear clamping entirely. [source:raw]
+    // LOOP: Gear-index clamp loop over entries 44..50 in the 64-byte-stride table at this+0xBC4: for entries < 50 with the entry flag at +72 set, clamp the index down to the upper neighbor's index minus 1 when it has reached it; for entries > 44, raise the index to the lower neighbor's limit when it has fallen to it, capping at that neighbor's max minus 1. [field:this:0x00000BC4, source:raw]
+    // GUARD: Event vs comparator mode: when the flag this+0x1988 is set use EventTriggerOnStateChange on the config blocks; otherwise use WeightedSumComparatorWithBinaryAdjustment. [field:this:0x00001988, source:raw]
+    // CALL: Event mode: fire EventTriggerOnStateChange on six config-value block pairs: (this+4080, this+4144), (this+4208, this+4272), (this+4464, this+4528), (this+4592, this+4656), plus the four wheel-scaled pairs (this+496+i*704, this+560+i*704) and (this+624+i*704, this+688+i*704) for i in 0..3. [callee:0x0042E470, source:raw]
+    // CALL: Comparator mode: run WeightedSumComparatorWithBinaryAdjustment over the same six block pairs with binary trigger flags derived from (a2,a3): a2==-1 && a3==17, a2==-1 && a3==19, a2==-1 && a3==23, a2==-1 && a3==25, and per-wheel (a2==i && a3==5) / (a2==i && a3==7) for i in 0..3. [callee:0x0042E4A0, source:raw]
+    // GUARD: Master enable guard: when this+0x1990 != 1 (guard:0) the function returns immediately without applying any setup changes. [guard:0, field:this:0x00001990, source:raw]
+    // CALCULATION: Rear-spoiler matching: copy the config token aRearspoilerang into a 32-byte buffer via StringCopyWithValidation; on success parse it to double (sub_58850F) and search the spoiler array (base this+0x12B0, step this+0x12B8) over this+0x12C0 entries for the closest value, keeping the best index in this+0x12C4 (initialized against the DBL_MAX sentinel 1.797693134862316e308). [callee:0x004C58A0, callee:0x0058850F, global:0x005C371C, field:this:0x000012B0, field:this:0x000012B8, field:this:0x000012C0, field:this:0x000012C4, global:0x0059E9F8, source:raw]
+    // GUARD: Session-value decrement gate: when the component pair is (a2==4, a3==4) or the full path holds, and the session flag dword_7C56A4 is set, decrement this+0xCC4 whenever this+0xCC0 is at least 1. [global:0x007C56A4, field:this:0x00000CC0, field:this:0x00000CC4, source:raw]
+    // CALCULATION: Track-type read: copy the token aTrackType into a 64-byte buffer via StringCopyWithValidation; set v30 = (sub_588410(buffer, aRoadCourse) == 0), i.e. true when the configured track type is the road course. [callee:0x004C58A0, callee:0x00588410, global:0x005C3710, global:0x005C3704, source:raw]
+    // CALCULATION: Road-course ride-height step: when v30 holds, evaluate the front ride height (this+0x6B0 base, this+0x6B8 step, index this+0x6C4) and rear ride height (this+0x970 base, this+0x978 step, index this+0x984); when either is below the threshold 0.1523746, pick the lower group and advance its index until the computed value reaches the threshold or the count limit (this+0x980). [field:this:0x000006B0, field:this:0x000006B8, field:this:0x000006C4, field:this:0x00000970, field:this:0x00000978, field:this:0x00000980, field:this:0x00000984, source:raw]
+    // CALCULATION: Non-road-course path: advance the rear ride-height index this+0x984 through the rear array (this+0x970 base, this+0x978 step) until the computed value reaches the threshold 0.1523746 or the count limit this+0x980. [field:this:0x00000984, field:this:0x00000970, field:this:0x00000978, field:this:0x00000980, source:raw]
+    // GUARD: Early-return guards before the final re-match: return when the full path does not hold and a2 == 4 with a3 != 0; then, when the full mode flag is clear, return when a2 == 4 or a3 != 2. [source:raw]
+    // CALCULATION: Final setup re-match: search the setup array (base this+0x3F0, step this+0x3F8) over this+0x400 entries for the closest value to the target composed of front gear (index this+0x144 * step this+0x138 + base this+0x130) minus front ride height (index this+0x6C4 * step this+0x6B8 + base this+0x6B0) plus rear ride height (index this+0x984 * step this+0x978 + base this+0x970); store the best index to this+0x404 (initialized against the DBL_MAX sentinel 1.797693134862316e308). [field:this:0x000003F0, field:this:0x000003F8, field:this:0x00000400, field:this:0x00000404, field:this:0x00000130, field:this:0x00000138, field:this:0x00000144, field:this:0x000006B0, field:this:0x000006B8, field:this:0x000006C4, field:this:0x00000970, field:this:0x00000978, field:this:0x00000984, global:0x0059E9F8, source:raw]
+    // GUARD: Road-course reset: when the track is not the road course (v30 false), reset the gear-selection index this+0xBC4 to 0. [field:this:0x00000BC4, source:raw]
+
+    // Conservative worker pseudocode:
+    //   full = (a2 == -1 || a3 == -1);
+    //   if (full || (a2 == 4 && a3 >= 44 && a3 <= 50)) {
+    //       lo = full ? 44 : a3; hi = full ? 50 : a3;
+    //       for (e = lo; e <= hi; e++) {
+    //           p = this + 0xBC4 + e*64;
+    //           if (e < 50 && p[0x48] && p[0x00] >= p[0x40]) p[0x00] = clamp(p[0x40]-1, 0);
+    //           if (e > 44 && p[0x00] <= p[-64]) p[0x00] = min(p[-64]+1, p[-4]-1);
+    //       }
+    //   }
+    //   if (this[0x1988]) {
+    //       EventTriggerOnStateChange(pairs: 4080/4144, 4208/4272, 4464/4528, 4592/4656, 4x wheel-scaled);
+    //   } else {
+    //       WeightedSumComparatorWithBinaryAdjustment(same pairs, triggers from (a2,a3) combos);
+    //   }
+    //   if (this[0x1990] != 1) return;
+    //   if (full || (a2 == 4 && a3 == 28)) {
+    //       if (!StringCopyWithValidation(buf32, aRearspoilerang)) {
+    //           v = parse_double(buf32);
+    //           this[0x12C4] = best_match(this+0x12B0, this+0x12B8, this[0x12C0], v);
+    //       }
+    //   }
+    //   if (full || (a2 == 4 && a3 == 4)) {
+    //       if (dword_7C56A4 && this[0xCC0] >= 1) this[0xCC4] = this[0xCC0] - 1;
+    //   }
+    //   v30 = !StringCopyWithValidation(buf64, aTrackType) && sub_588410(buf64, aRoadCourse) == 0;
+    //   if (full || a2 != 4 || a3 == 2) {
+    //       if (v30) advance_low_ride_height(front, rear, threshold 0.1523746);
+    //       else advance_rear_ride_height(rear, threshold 0.1523746);
+    //   }
+    //   if (!(full || (a2 == 4 && a3 == 0))) return;
+    //   if (full || (a2 != 4 && a3 == 2)) {
+    //       if (!v30) this[0xBC4] = 0;
+    //       this[0x404] = best_match(this+0x3F0, this+0x3F8, this[0x400],
+    //           front_gear(this+0x130/0x138, idx this[0x144])
+    //           - front_ride(this+0x6B0/0x6B8, idx this[0x6C4])
+    //           + rear_ride(this+0x970/0x978, idx this[0x984]));
+    //   }
+    // UNRESOLVED: unk_8AC368 appears as a read-only global in the packet but does not occur in the decompiled body; it is carried here only because the packet lists it as referenced.
+    // UNRESOLVED: The identities of the six config-value block pairs (this+4080/4144/4208/4272/4464/4528/4592/4656 and the wheel-scaled this+496 blocks) are not named by the packet; the packet exposes only the subset of fields listed in the fields array.
+    // UNRESOLVED: The magic threshold 0.1523746 and the DBL_MAX sentinel 1.797693134862316e308 (from dbl_59E9F8) have DERIVED semantics only.
+    // UNRESOLVED: The component/subcomponent index encoding of a2/a3 (which pairs select gear, spoiler, ride-height and session updates) is only partially established.
+    // UNRESOLVED: Owner identity is DERIVED from the LEGACY ABI lead Track_Config_Garage_Auto_Setup and the setup-array evidence; no confirmed class symbol is present in the packet.
+}

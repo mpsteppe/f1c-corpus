@@ -1,0 +1,38 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004CDB90
+// Canonical corpus name: ConstructorInitFields
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ConstructorInitFields_004cdb90.c
+
+void UnknownObject::ConstructorInitFields()
+{
+    // Constructor/field initializer: writes zero, -1 and one float constant across the object and returns this. Sets the head pointer this+0x0 to 0, index fields this+0x4/this+0x30/this+0x34/this+0x38 to -1, zeroes this+0x8..0x14, this+0x1C..0x28, this+0x2C (byte), this+0x3C, this+0x60 (byte), this+0x64 and this+0x68, writes float 62.8319 (literal 1115378641) to this+0x18, and memsets dwords this+16..this+23 to 0. No reads, no callees, no globals. Called by SpecialFX_Init (004CF070).
+    // ASSIGNMENT: Sets the head pointer this+0x0 to 0 [field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Sets this+0x4 to -1 [field:this:0x00000004, source:raw]
+    // ASSIGNMENT: Zeroes this+0x8, this+0xC, this+0x10 and this+0x14 [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, source:raw]
+    // ASSIGNMENT: Writes literal 1115378641 (float 62.8319) to this+0x18 [field:this:0x00000018, source:raw]
+    // ASSIGNMENT: Zeroes this+0x1C, this+0x20, this+0x24 and this+0x28 [field:this:0x0000001C, field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, source:raw]
+    // ASSIGNMENT: Clears the byte flag at this+0x2C to 0 [field:this:0x0000002C, source:raw]
+    // ASSIGNMENT: Sets this+0x30, this+0x34 and this+0x38 to -1 [field:this:0x00000030, field:this:0x00000034, field:this:0x00000038, source:raw]
+    // ASSIGNMENT: Zeroes this+0x3C [field:this:0x0000003C, source:raw]
+    // CALCULATION: memset(this + 16, 0, 0x20) zeroes the eight dwords starting at this+0x40 [source:raw]
+    // ASSIGNMENT: Clears the byte at this+0x60 to 0 [field:this:0x00000060, source:raw]
+    // ASSIGNMENT: Zeroes this+0x64 and this+0x68 [field:this:0x00000064, field:this:0x00000068, source:raw]
+    // RETURN: Returns this [source:raw]
+    // CALL: Invoked by SpecialFX_Init (004CF070) to initialize the special-effects object [caller:0x004CF070, source:raw]
+
+    // Conservative worker pseudocode:
+    //   this[0] = 0;
+    //   this[1] = -1;
+    //   this[2] = 0; this[3] = 0; this[4] = 0; this[5] = 0;
+    //   this[6] = 1115378641; /* 62.8319f * /
+    //   this[7] = 0; this[8] = 0; this[9] = 0; this[10] = 0;
+    //   byte_at(this + 44) = 0;
+    //   this[15] = 0;
+    //   this[12] = -1; this[13] = -1; this[14] = -1;
+    //   memset(this + 16, 0, 0x20);
+    //   byte_at(this + 96) = 0;
+    //   this[25] = 0; this[26] = 0;
+    //   return this;
+    // UNRESOLVED: The owning class of the object is unknown; only the caller SpecialFX_Init (004CF070) is available as context
+}

@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "address": "0x00513482",
+  "proposed_name": "EngineSoundWaveTableGenerator",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Generates PCM wave tables for engine-sound synthesis. Two paths selected by the quality selector at +0x117: values above 8 build a multi-channel 16-bit table array (interpolated or direct fill depending on the mode word at +0x60), values at or below 8 build a 256-byte mono ramp table. Table memory is allocated through sub_517E92; samples are converted with CRTFtol and normalized through read-only double constants. The raw source references an additional per-shift lookup table not present in the packet globals.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Require the float enable flag at +0x130 to be non-zero; when zero the entire table generation body is skipped.",
+      "evidence_refs": ["field:this:0x00000130"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the quality selector byte at +0x117: values above 8 take the multi-channel 16-bit path, values at or below 8 take the 256-byte mono ramp path.",
+      "evidence_refs": ["field:this:0x00000117", "guard:0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Multi-channel path: when bit 0x2 of the byte at +0x116 is set, use the maximum of the three per-channel amplitude bytes at +0x150, +0x151 and +0x152; otherwise use the mean amplitude byte at +0x153.",
+      "evidence_refs": ["field:this:0x00000116", "field:this:0x00000150", "field:this:0x00000151", "field:this:0x00000152", "field:this:0x00000153"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Derive the quantization shift: start at 16 minus the chosen amplitude, enforce a floor of 5 when bit 0x4 of the byte at +0x61 is set, clamp to the range 0..8, store it at +0x12C, and compute the table entry count as 1 << (8 - shift).",
+      "evidence_refs": ["field:this:0x00000061", "field:this:0x0000012C"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the per-entry pointer array via sub_517E92(a1, 4 * entry_count) and store the result at +0x144.",
+      "evidence_refs": ["callee:0x00517E92", "field:this:0x00000144"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the mode word at +0x60: when bit 0x480 is clear the table array is filled by the interpolated path; when set, by the direct path.",
+      "evidence_refs": ["field:this:0x00000060"]
+    },
+    {
+      "kind": "loop",
+      "description": "Interpolated path: for each entry, allocate a 512-slot sub-table via sub_517E92(a1, 512); each of its 512 16-bit samples is produced from a phase value advanced by 256 per step and scaled by 1/65536, converted with CRTFtol(sample * 65535.0 + 0.5) after calling sub_5881F0; the phase step comes from a per-shift lookup scaled by 256.",
+      "evidence_refs": ["callee:0x00517E92", "callee:0x00587BDC", "callee:0x005881F0", "global:0x005ADB58", "global:0x005ADB60", "global:0x005ADB68"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the double-precision constants at 0x0059E420, 0x0059E430 and 0x0059E880 used as normalization coefficients in the sample-generation arithmetic.",
+      "evidence_refs": ["global:0x0059E420", "global:0x0059E430", "global:0x0059E880"]
+    },
+    {
+      "kind": "loop",
+      "description": "Direct path: allocate one 512-slot sub-table per entry via sub_517E92(a1, 512), storing each pointer into the +0x144 array; then fill all entries from a normalized ramp, converting positions with CRTFtol after calling sub_5881F0, and pad the remainder of each sub-table with -1 (0xFFFF).",
+      "evidence_refs": ["callee:0x00517E92", "callee:0x00587BDC", "callee:0x005881F0", "field:this:0x00000144", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the double-precision constants at 0x005AF430, 0x005AF438, 0x005AF440 and 0x005AF448 used in the multi-channel fill arithmetic.",
+      "evidence_refs": ["global:0x005AF430", "global:0x005AF438", "global:0x005AF440", "global:0x005AF448"]
+    },
+    {
+      "kind": "call",
+      "description": "Mono path: allocate a 256-byte mono table via sub_517E92(a1, 256) and store the pointer at +0x138.",
+      "evidence_refs": ["callee:0x00517E92", "field:this:0x00000138"]
+    },
+    {
+      "kind": "loop",
+      "description": "Mono path: fill 256 byte entries, each computed as CRTFtol(index * 0.00392156862745098 * 255.0 + 0.5) after calling sub_5881F0 with the normalized index.",
+      "evidence_refs": ["callee:0x00587BDC", "callee:0x005881F0", "field:this:0x00000138"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void EngineSoundWaveTableGenerator(int a1) {",
+    "  if (*(float*)(a1 + 0x130) == 0.0f) return;",
+    "  if (*(byte*)(a1 + 0x117) <= 8) {",
+    "    byte* mono = (byte*)sub_517E92(a1, 256);",
+    "    *(int*)(a1 + 0x138) = (int)mono;",
+    "    for (int i = 0; i < 256; ++i) {",
+    "      double v = i * 0.00392156862745098;",
+    "      sub_5881F0(v);",
+    "      mono[i] = (byte)CRTFtol(v * 255.0 + 0.5);",
+    "    }",
+    "  } else {",
+    "    int amp = (*(byte*)(a1 + 0x116) & 2) ? max(a1 + 0x150, 0x151, 0x152) : *(byte*)(a1 + 0x153);",
+    "    int shift = amp <= 0 ? 0 : 16 - amp;",
+    "    if ((*(byte*)(a1 + 0x61) & 4) != 0 && shift < 5) shift = 5;",
+    "    if (shift > 8) shift = 8; if (shift < 0) shift = 0;",
+    "    *(int*)(a1 + 0x12C) = shift;",
+    "    int count = 1 << (8 - shift);",
+    "    int* tables = (int*)sub_517E92(a1, 4 * count);",
+    "    *(int*)(a1 + 0x144) = (int)tables;",
+    "    if ((*(short*)(a1 + 0x60) & 0x480) == 0) {",
+    "      for (int e = 0; e < count; ++e) {",
+    "        short* t = (short*)sub_517E92(a1, 512);",
+    "        tables[e] = (int)t;",
+    "        int step = (e * stepTable[shift]) >> 4;",
+    "        for (int s = 0; s < 512; ++s) { double v = step * 0.00001525902189669642; sub_5881F0(v); t[s] = (short)CRTFtol(v * 65535.0 + 0.5); step += 256; }",
+    "      }",
+    "    } else {",
+    "      for (int e = 0; e < count; ++e) tables[e] = (int)sub_517E92(a1, 512);",
+    "      /* normalized-ramp fill writing 16-bit values, tail padded with -1 */",
+    "    }",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "Role of sub_5881F0 (called with the normalized sample value immediately before conversion) is not grounded; possibly a shared setup or seed helper.",
+    "The per-shift phase-step lookup table (referenced as dword_5D799C in the raw source) is absent from the packet globals, so its identity and location cannot be confirmed here.",
+    "Exact values and per-path roles of the ten read-only double constants are not resolvable from this packet.",
+    "A caller named TextureImageColorTransform (0x0051378B) is recorded in the packet, but the ownership relationship is unconfirmed."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

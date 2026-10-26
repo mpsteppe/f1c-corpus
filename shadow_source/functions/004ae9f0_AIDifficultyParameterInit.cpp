@@ -1,0 +1,70 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004AE9F0
+// Canonical corpus name: sub_4AE9F0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4AE9F0_004ae9f0.c
+
+void UnknownObject::AIDifficultyParameterInit()
+{
+    // Initializes clamped AI/track-environment parameters on a large object (this) from a difficulty selector at this+0x1B10. Modes 1 and 2 write the same 20 parameter slots (each with min bound at +0x8 and max bound at +0xC, clamped via ClampByRange, with two float slots clamped via FloatClamp) using per-difficulty target literals; mode 1 also conditionally sets a bounded slot to 12 and mode 2 to 15 when the byte at this+0x1818 is set. Modes 3 and 4 dispatch to ArithmeticComparison_20d0 / ClampedFloatSetter_1de0 helper sequences. A non-zero selector additionally runs a second helper sequence and a nested switch on dword_5EC4AC via jump table jpt_4AF1C0.
+    // STATE_TRANSITION: Dispatch on the difficulty selector at this+0x1B10 through jump table jpt_4AEA03 (0x004AF1F4): cases 1-4 select per-difficulty parameter sets; default is a no-op. [field:this:0x00001B10, global:0x004AF1F4, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x11E8 (1 in mode 1, 2 in mode 2) then clamp it via ClampByRange against min bound 0x11F0 and max bound 0x11F4. [field:this:0x000011E8, field:this:0x000011F0, field:this:0x000011F4, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x1254 (0 in mode 1, 1 in mode 2) then clamp against min 0x125C and max 0x1260. [field:this:0x00001254, field:this:0x0000125C, field:this:0x00001260, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x135C (0 in mode 1, 0 in mode 2) then clamp against min 0x1364 and max 0x1368. [field:this:0x0000135C, field:this:0x00001364, field:this:0x00001368, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x1380 (0 in mode 1, 0 in mode 2) then clamp against min 0x1388 and max 0x138C. [field:this:0x00001380, field:this:0x00001388, field:this:0x0000138C, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write float parameter slot 0x13A4 (float literal 1050253722 in mode 1, 1053609165 in mode 2) then clamp via FloatClamp against float min 0x13AC and float max 0x13B0. [field:this:0x000013A4, field:this:0x000013AC, field:this:0x000013B0, callee:0x004646C0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x13C8 (1 in mode 1, 2 in mode 2) then clamp against min 0x13D0 and max 0x13D4. [field:this:0x000013C8, field:this:0x000013D0, field:this:0x000013D4, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x13EC (0 in mode 1, 0 in mode 2) then clamp against min 0x13F4 and max 0x13F8. [field:this:0x000013EC, field:this:0x000013F4, field:this:0x000013F8, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x1410 (3 in mode 1, 3 in mode 2) then clamp against min 0x1418 and max 0x141C. [field:this:0x00001410, field:this:0x00001418, field:this:0x0000141C, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x16F8 (2 in mode 1, 1 in mode 2) then clamp against min 0x1700 and max 0x1704. [field:this:0x000016F8, field:this:0x00001700, field:this:0x00001704, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x1740 (0 in mode 1, 0 in mode 2) then clamp against min 0x1748 and max 0x174C. [field:this:0x00001740, field:this:0x00001748, field:this:0x0000174C, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x17AC (0 in mode 1, 1 in mode 2) then clamp against min 0x17B4 and max 0x17B8. [field:this:0x000017AC, field:this:0x000017B4, field:this:0x000017B8, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x17D0 (0 in mode 1, 1 in mode 2) then clamp against min 0x17D8 and max 0x17DC. [field:this:0x000017D0, field:this:0x000017D8, field:this:0x000017DC, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x17F4 (12 in mode 1, 15 in mode 2) then clamp against min 0x17FC and max 0x1800; performed only when the byte at this+0x1818 is non-zero. [field:this:0x000017F4, field:this:0x000017FC, field:this:0x00001800, field:this:0x00001818, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x1878 (1 in mode 1, 1 in mode 2) then clamp against min 0x1880 and max 0x1884. [field:this:0x00001878, field:this:0x00001880, field:this:0x00001884, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x189C (1 in mode 1, 1 in mode 2) then clamp against min 0x18A4 and max 0x18A8. [field:this:0x0000189C, field:this:0x000018A4, field:this:0x000018A8, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x18C0 (1 in mode 1, 1 in mode 2) then clamp against min 0x18C8 and max 0x18CC. [field:this:0x000018C0, field:this:0x000018C8, field:this:0x000018CC, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x18E4 (1 in mode 1, 1 in mode 2) then clamp against min 0x18EC and max 0x18F0. [field:this:0x000018E4, field:this:0x000018EC, field:this:0x000018F0, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x1908 (1 in mode 1, 1 in mode 2) then clamp against min 0x1910 and max 0x1914. [field:this:0x00001908, field:this:0x00001910, field:this:0x00001914, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x1950 (0 in mode 1, 2 in mode 2) then clamp against min 0x1958 and max 0x195C. [field:this:0x00001950, field:this:0x00001958, field:this:0x0000195C, callee:0x0047F1F0, source:raw]
+    // CALCULATION: Modes 1/2: write parameter slot 0x2DB8 (0 in mode 1, 1 in mode 2) then clamp against min 0x2DC0 and max 0x2DC4. [field:this:0x00002DB8, field:this:0x00002DC0, field:this:0x00002DC4, callee:0x0047F1F0, source:raw]
+    // STATE_TRANSITION: Mode 3: write a subset of the same slots with difficulty-3 targets (0x1410 = 3, 0x1878 = 1, 0x11E8 = 1, 0x1254 = 1, 0x16F8 = 2), each clamped via ClampByRange against its min/max bounds. [field:this:0x00001410, field:this:0x00001418, field:this:0x0000141C, field:this:0x00001878, field:this:0x00001880, field:this:0x00001884, field:this:0x000011E8, field:this:0x000011F0, field:this:0x000011F4, field:this:0x00001254, field:this:0x0000125C, field:this:0x00001260, field:this:0x000016F8, field:this:0x00001700, field:this:0x00001704, callee:0x0047F1F0, source:raw]
+    // CALL: Mode 3: run the helper value sequence ArithmeticComparison_20d0(2, 2), ClampedFloatSetter_1de0(1056964608), ArithmeticComparison_20d0(2, 2, 2, 2, 1, 0, 3, 2, 1, 1, 2); when the byte at this+0x1818 is non-zero also ArithmeticComparison_20d0(18). [callee:0x004B20D0, callee:0x004B1DE0, field:this:0x00001818, source:raw]
+    // CALL: Mode 4: run the helper value sequence ArithmeticComparison_20d0(4, 1, 1, 1, 3, 3, 3), ClampedFloatSetter_1de0(1058642330), ArithmeticComparison_20d0(3, 3, 3, 3, 1, 1, 3, 2, 1, 2, 2); when the byte at this+0x1818 is non-zero also ArithmeticComparison_20d0(104). [callee:0x004B20D0, callee:0x004B1DE0, field:this:0x00001818, source:raw]
+    // GUARD: After the switch, guard on the difficulty selector at this+0x1B10 being non-zero; a non-zero value runs the common helper sequence ArithmeticComparison_20d0(0, 1), ClampedFloatSetter_1de0(1065772646), ArithmeticComparison_20d0(0, 3, 1). [field:this:0x00001B10, callee:0x004B20D0, callee:0x004B1DE0, source:raw]
+    // STATE_TRANSITION: Nested switch on global dword_5EC4AC (0x005EC4AC) through jump table jpt_4AF1C0 (0x004AF204): case 0 calls ArithmeticComparison_20d0(1), cases 1-2 call ArithmeticComparison_20d0(2), case 3 calls ArithmeticComparison_20d0(3), default returns without further calls. [global:0x005EC4AC, global:0x004AF204, callee:0x004B20D0, source:raw]
+    // RETURN: Return the difficulty selector value at this+0x1B10 as the function result. [field:this:0x00001B10, source:raw]
+    // CALL: Called by sub_472630 (0x00472630) and TrackEnvironmentSelect (0x004ADE20) to configure AI difficulty parameters. [caller:0x00472630, caller:0x004ADE20, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int AIDifficultyParameterInit(int this) {
+    //     switch (*(DWORD*)(this + 0x1B10)) {
+    //     case 1: ClampedWrite(0x11E8, 1); ClampedWrite(0x1254, 0); ClampedWrite(0x135C, 0);
+    //             ClampedWrite(0x1380, 0); ClampedFloatWrite(0x13A4, 1050253722); ClampedWrite(0x13C8, 1);
+    //             ClampedWrite(0x13EC, 0); ClampedWrite(0x1410, 3); ClampedWrite(0x16F8, 2);
+    //             ClampedWrite(0x1740, 0); ClampedWrite(0x17AC, 0); ClampedWrite(0x17D0, 0);
+    //             ClampedWrite(0x1878, 1); ClampedWrite(0x189C, 1); ClampedWrite(0x18C0, 1);
+    //             ClampedWrite(0x18E4, 1); ClampedWrite(0x1908, 1); ClampedWrite(0x1950, 0);
+    //             ClampedWrite(0x2DB8, 0); if (*(BYTE*)(this + 0x1818)) ClampedWrite(0x17F4, 12); break;
+    //     case 2: ClampedWrite(0x11E8, 2); ClampedWrite(0x1254, 1); ClampedWrite(0x135C, 0);
+    //             ClampedWrite(0x1380, 0); ClampedFloatWrite(0x13A4, 1053609165); ClampedWrite(0x13C8, 2);
+    //             ClampedWrite(0x13EC, 0); ClampedWrite(0x1410, 3); ClampedWrite(0x16F8, 1);
+    //             ClampedWrite(0x1740, 0); ClampedWrite(0x17AC, 1); ClampedWrite(0x17D0, 1);
+    //             ClampedWrite(0x1878, 1); ClampedWrite(0x189C, 1); ClampedWrite(0x18C0, 1);
+    //             ClampedWrite(0x18E4, 1); ClampedWrite(0x1908, 1); ClampedWrite(0x1950, 2);
+    //             ClampedWrite(0x2DB8, 1); if (*(BYTE*)(this + 0x1818)) ClampedWrite(0x17F4, 15); break;
+    //     case 3: ClampedWrite(0x1410, 3); ClampedWrite(0x1878, 1); ClampedWrite(0x11E8, 1);
+    //             ClampedWrite(0x1254, 1); ClampedWrite(0x16F8, 2); HelperSequence(MODE3); break;
+    //     case 4: HelperSequence(MODE4); break;
+    //     }
+    //     int r = *(DWORD*)(this + 0x1B10);
+    //     if (r) { HelperSequence(COMMON); switch (dword_5EC4AC) {
+    //       case 0: ArithmeticComparison_20d0(1); break;
+    //       case 1: case 2: ArithmeticComparison_20d0(2); break;
+    //       case 3: ArithmeticComparison_20d0(3); break;
+    //       default: return r; } }
+    //     return r;
+    //   }
+    // UNRESOLVED: The exact set of parameter slots written by modes 3/4 is hidden inside the ArithmeticComparison_20d0 / ClampedFloatSetter_1de0 helper sequence (they take an index/literal, not a this-field), so per-slot targets for modes 3/4 cannot be enumerated here.
+    // UNRESOLVED: Semantics of the literals passed to ArithmeticComparison_20d0 (1056964608, 1058642330, 1065772646) and the meaning of the final per-difficulty dispatch keyed by dword_5EC4AC are not derivable from this function alone.
+}

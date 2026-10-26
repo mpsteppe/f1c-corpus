@@ -1,0 +1,27 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00447160
+// Canonical corpus name: VehicleActive
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VehicleActive_00447160.c
+
+void UnknownObject::VehicleActive()
+{
+    // Boolean vehicle-active state check. Returns 0 (inactive) when the double threshold at this+0x1DB4 is <= 0.0, the double threshold at this+0x19C is <= 0.0, or the active-flag byte at this+0x1C59 is zero. Otherwise returns 1 when the override-flag byte at this+0x1D0C is non-zero. Otherwise returns (secondary-state byte at *(this+0x1F00)+0x344C non-zero) combined with the condition-code flags from the preceding comparisons. Invoked on the per-frame path by sub_42C440 and Gearbox.
+    // GUARD: If the double threshold at this+0x1DB4 is <= 0.0, the vehicle is inactive (fall to return 0); the comparison constant comes from dbl_59E420 [field:this:0x00001DB4, global:0x0059E420, source:raw]
+    // GUARD: If the double threshold at this+0x19C is <= 0.0, the vehicle is inactive (fall to return 0); the comparison constant comes from dbl_59E430 [field:this:0x0000019C, global:0x0059E430, source:raw]
+    // GUARD: If the active-flag byte at this+0x1C59 is zero, the vehicle is inactive (fall to return 0) [field:this:0x00001C59, source:raw]
+    // RETURN: Early-exit return 0 when any of the two threshold checks or the active-flag check fails [function:0x00447160, source:raw]
+    // GUARD: If the override-flag byte at this+0x1D0C is non-zero, return 1 immediately [field:this:0x00001D0C, source:raw]
+    // RETURN: Return 1 when the override flag is set [function:0x00447160, source:raw]
+    // CALCULATION: Read the secondary-state pointer at this+0x1F00 and dereference offset +0x344C to obtain the secondary state byte; the final result also combines the condition-code flags v3/v4 captured from the preceding comparisons [field:this:0x00001F00, field:*(this+0x1F00):0x0000344C, source:raw]
+    // RETURN: Final return: (secondary-state byte != 0) AND (v3 | v4), the vehicle-active result [field:*(this+0x1F00):0x0000344C, function:0x00447160, source:raw]
+    // CALL: Invoked by sub_42C440 (0042C440) and Gearbox (00443B70) [caller:0x0042C440, caller:0x00443B70]
+
+    // Conservative worker pseudocode:
+    //   if (*(double*)(this+0x1DB4) <= 0.0 || *(double*)(this+0x19C) <= 0.0 || !*(BYTE*)(this+0x1C59)) return 0;
+    //   if (*(BYTE*)(this+0x1D0C)) return 1;
+    //   return *(BYTE*)(*(DWORD*)(this+0x1F00) + 0x344C) && (v3 | v4);
+    // UNRESOLVED: The exact constant values of dbl_59E420 (fill labels it 1.0) and dbl_59E430 (fill labels it ~0.0) and how each maps to the two <= 0.0 threshold comparisons is not proven by the raw source
+    // UNRESOLVED: v3/v4 are condition-code flags (c0/c2) emitted by the decompiler; their exact values at the final return are not determined
+    // UNRESOLVED: The semantics of the secondary state byte at *(this+0x1F00)+0x344C are unlabeled
+}

@@ -1,0 +1,48 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0057FC80
+// Canonical corpus name: NetworkConnectionThread
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/NetworkConnectionThread_0057fc80.c
+
+void UnknownObject::NetworkConnectionThread()
+{
+    // Network connection thread entry. Dispatches a virtual thread-init callback, initializes Winsock, drains and destroys a linked list of pending objects under mutex, signals a readiness flag under a second mutex, creates TCP and UDP sockets, configures both via TCPSocketInit, then marks the thread ready. Returns 0 on success, otherwise 6.
+    // CALL: Virtual dispatch through the vtable at lpParameter+0 (entry at +76) invoking the thread init callback on lpParameter [field:this:0x00000000, field:obj:0x0000004C, source:raw]
+    // ASSIGNMENT: Initialize socket handles at offsets 0x938 and 0x93C to -1 and the ready byte at offset 0xA75 to 0 [field:this:0x00000938, field:this:0x0000093C, field:this:0x00000A75, source:raw]
+    // GUARD: If WinsockInit(lpParameter) fails, return 6 immediately [callee:0x0057FB90, source:raw]
+    // GUARD: Wait for the first-list mutex at offset 0xAD8 with timeout 0xADC; when the handle is null or the wait result is neither 0 nor 128, use null as the list pointer [field:this:0x00000AD8, field:this:0x00000ADC, global:0x0059E1A0, source:raw]
+    // LOOP: Traverse the first linked list from head at offset 0xAC8; for each node, when the byte flag at node+8 and the node data pointer are both set, call the data object's vtable method with arguments (data, 1); then free the node via FreeWrapper_7bcf [field:*(this+0xAC8):0x00000000, field:*(this+0xAC8):0x00000008, field:*(*(this+0xAC8)+0x0):0x00000000, field:*(*(*(this+0xAC8)+0x0)+0x0):0x00000000, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Zero the first-list head, tail, cursor and count at offsets 0xAC8, 0xACC, 0xAD0 and 0xAD4 [field:this:0x00000AC8, field:this:0x00000ACC, field:this:0x00000AD0, field:this:0x00000AD4, source:raw]
+    // GUARD: If the first-list mutex handle at offset 0xAD8 is set, release it via ReleaseMutex [field:this:0x00000AD8, global:0x0059E1A4, source:raw]
+    // GUARD: Wait for the second mutex at offset 0xB3C with timeout 0xB40; on success set the readiness flag at offset 0xB38 to 1 [field:this:0x00000B3C, field:this:0x00000B40, field:this:0x00000B38, global:0x0059E1A0, source:raw]
+    // GUARD: If the second mutex handle at offset 0xB3C is set, release it via ReleaseMutex [field:this:0x00000B3C, global:0x0059E1A4, source:raw]
+    // ASSIGNMENT: Create the UDP socket via socket(2, 2, 0) stored at offset 0x93C and the TCP socket via socket(2, 1, 0) stored at offset 0x938 [field:this:0x0000093C, field:this:0x00000938, global:0x0059E2DC, source:raw]
+    // GUARD: When both socket handles at offsets 0x938 and 0x93C are valid (not -1) and TCPSocketInit succeeds for the UDP socket, configure the TCP socket via a second TCPSocketInit [field:this:0x00000938, field:this:0x0000093C, callee:0x0057C860, source:raw]
+    // ASSIGNMENT: On full success set the ready byte at offset 0xA75 to 1 and select return code 0 [field:this:0x00000A75, source:raw]
+    // CALL: Invoke sub_585470(lpParameter) as final post-init processing before returning [callee:0x00585470, source:raw]
+    // RETURN: Return v14: 0 on success, otherwise the default 6 [function:0x0057FC80, source:raw]
+
+    // Conservative worker pseudocode:
+    //   vtable[+76](lpParameter);
+    //   sock_tcp (this+0x938) = -1; sock_udp (this+0x93C) = -1; ready (this+0xA75) = 0;
+    //   if (!WinsockInit(lpParameter)) return 6;
+    //   list = (WaitForSingleObject(mutex 0xAD8, timeout 0xADC) ok) ? &head : 0;
+    //   for (node = *list; node; node = node[1]) {
+    //     if (node->flag(+8) && node->data) vtable[0](node->data, 1);
+    //     FreeWrapper_7bcf(node);
+    //   }
+    //   head/tail/cursor/count (0xAC8..0xAD4) = 0;
+    //   if (mutex 0xAD8) ReleaseMutex(mutex 0xAD8);
+    //   flag (this+0xB38) = (WaitForSingleObject(mutex 0xB3C, timeout 0xB40) ok) ? 1 : null-checked;
+    //   if (mutex 0xB3C) ReleaseMutex(mutex 0xB3C);
+    //   sock_udp (this+0x93C) = socket(2, 2, 0);
+    //   sock_tcp (this+0x938) = socket(2, 1, 0);
+    //   if (tcp != -1 && udp != -1 && TCPSocketInit(udp, 0) && TCPSocketInit(tcp, 1)) {
+    //     ready (this+0xA75) = 1; result = 0;
+    //   }
+    //   sub_585470(lpParameter);
+    //   return result;
+    // UNRESOLVED: Class ownership unknown; lpParameter is an opaque thread-context object
+    // UNRESOLVED: The drained first list at offset 0xAC8 holds objects whose vtable invocation semantics (method index, argument 1) are not resolved
+    // UNRESOLVED: sub_585470's role as final thread processing is not documented
+}

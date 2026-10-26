@@ -1,0 +1,60 @@
+int __thiscall sub_4AC840(int this)
+{
+  int result; // eax
+
+  *(_DWORD *)(this + 1168) = 0;
+  *(_DWORD *)(this + 20) = 0;
+  *(_DWORD *)(this + 24) = 0;
+  *(_DWORD *)(this + 28) = 0;
+  *(_DWORD *)(this + 32) = 0;
+  *(_BYTE *)(this + 36) = 0;
+  *(_BYTE *)(this + 37) = 0;
+  *(_DWORD *)(this + 44) = 0;
+  *(_DWORD *)(this + 52) = 0;
+  *(_DWORD *)(this + 48) = 0;
+  *(_DWORD *)(this + 264) = 0;
+  *(_DWORD *)(this + 268) = 0;
+  *(_DWORD *)(this + 272) = 0;
+  *(_DWORD *)(this + 276) = 0;
+  *(_DWORD *)(this + 280) = 0;
+  *(_DWORD *)(this + 64) = -1082130432;
+  *(_DWORD *)(this + 284) = 1061158912;
+  *(_DWORD *)(this + 288) = 1048576000;
+  *(_DWORD *)(this + 40) = 1;
+  *(_BYTE *)(this + 1134) = 1;
+  *(_DWORD *)(this + 292) = 1075838976;
+  *(_BYTE *)(this + 296) = 0;
+  *(_DWORD *)(this + 300) = 0;
+  *(_DWORD *)(this + 304) = 0;
+  *(_DWORD *)(this + 308) = 0;
+  *(_DWORD *)(this + 336) = 0;
+  *(_DWORD *)(this + 344) = 0;
+  *(_DWORD *)(this + 364) = 0;
+  *(_DWORD *)(this + 368) = 0;
+  *(_BYTE *)(this + 1133) = 0;
+  *(_DWORD *)(this + 148) = 0;
+  *(_DWORD *)(this + 152) = 0;
+  *(_DWORD *)(this + 156) = 0;
+  *(_DWORD *)(this + 160) = 0;
+  *(_DWORD *)(this + 164) = 0;
+  *(_BYTE *)(this + 400) = 1;
+  *(_DWORD *)(this + 332) = 0;
+  *(_DWORD *)(this + 340) = 0;
+  *(_DWORD *)(this + 380) = 0;
+  *(_DWORD *)(this + 384) = 0;
+  *(_DWORD *)(this + 388) = 0;
+  *(_DWORD *)(this + 392) = 0;
+  *(_DWORD *)(this + 396) = 0;
+  *(_BYTE *)(this + 1132) = 0;
+  result = 0;
+  memset((void *)(this + 556), 0, 0x20u);
+  *(_DWORD *)(this + 588) = 0;
+  *(_DWORD *)(this + 72) = 0;
+  *(_DWORD *)(this + 68) = 0;
+  *(_DWORD *)(this + 80) = 0;
+  *(_DWORD *)(this + 76) = 0;
+  *(_DWORD *)(this + 172) = 0;
+  *(_DWORD *)(this + 176) = 0;
+  *(_BYTE *)(this + 1172) = 0;
+  return result;
+}

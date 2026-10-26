@@ -1,0 +1,68 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051CE2A
+// Canonical corpus name: TexturePaletteColorLookup
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TexturePaletteColorLookup_0051ce2a.c
+
+void UnknownObject::TexturePaletteColorLookup()
+{
+    // Palette-indexed texture color conversion writing one RGB row. Reads three source byte streams from the a2 pointer array at byte offset 4*a3, indexes four lookup tables by pairs of bytes from those streams, and writes 3 output bytes per pixel (no alpha). The main loop converts two pixels per iteration and runs a1[23] >> 1 times; when the row width is odd one trailing pixel is written. Every output channel is byte(source + tableValue + base) with the middle channel combining two tables via a >> 16 blend.
+    // ASSIGNMENT: Load the palette LUT sub-object v4 from this->+0x19C (a1[103]); its entries v4[4..7] hold the four lookup tables. [field:this:0x0000019C, source:raw]
+    // ASSIGNMENT: Read the additive base from this->+0x11C (a1[71]) and the row width from this->+0x5C (a1[23]). [field:this:0x0000011C, field:this:0x0000005C, source:raw]
+    // ASSIGNMENT: Read the four lookup-table pointers from v4[4] (+0x1AC), v4[5] (+0x1B0), v4[6] (+0x1B4) and v4[7] (+0x1B8). [field:this:0x000001AC, field:this:0x000001B0, field:this:0x000001B4, field:this:0x000001B8, source:raw]
+    // ASSIGNMENT: Resolve three source streams a2[0..2] at byte offset 4*a3 and take the destination row pointer from *a4. [source:raw]
+    // GUARD: When a1[23] >> 1 is zero the two-pixel loop is skipped entirely. [field:this:0x0000005C, source:raw]
+    // LOOP: Two-pixel-per-iteration loop running a1[23] >> 1 times, consuming two bytes of each source stream per iteration. [field:this:0x0000005C, source:raw]
+    // CALCULATION: Index the four tables by bytes from the second and third source streams; the middle channel sums two table values and shifts the sum >> 16. [field:this:0x000001AC, field:this:0x000001B0, field:this:0x000001B4, field:this:0x000001B8, source:raw]
+    // ASSIGNMENT: Write 6 output bytes per iteration (two RGB pixels), each channel computed as byte(source byte + table value + base). [field:this:0x0000011C, source:raw]
+    // GUARD: When the row width is odd (a1[23] & 1), process one trailing pixel after the loop. [field:this:0x0000005C, source:raw]
+    // ASSIGNMENT: Write the final 3 output bytes for the odd trailing pixel using the same table lookups and base addition. [field:this:0x0000011C, field:this:0x000001AC, field:this:0x000001B0, field:this:0x000001B4, field:this:0x000001B8, source:raw]
+    // RETURN: Return the destination pointer at the end of the written row. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   _BYTE* TexturePaletteColorLookup(_DWORD* obj, _DWORD* srcArr, int planeBase, _BYTE** dstOut) {
+    //     _DWORD* lut = (_DWORD*)obj[103];
+    //     int base = obj[71];
+    //     int rowWidth = obj[23];
+    //     int t0 = lut[4], t1 = lut[5], t2 = lut[6], t3 = lut[7];
+    //     unsigned char* s0 = *(unsigned char**)(4 * planeBase + srcArr[0]);
+    //     unsigned char* s1 = *(unsigned char**)(4 * planeBase + srcArr[1]);
+    //     unsigned char* s2 = *(unsigned char**)(4 * planeBase + srcArr[2]);
+    //     _BYTE* dst = *dstOut;
+    //     if (rowWidth >> 1) {
+    //       int n = rowWidth >> 1;
+    //       do {
+    //         int b1 = *s1++;
+    //         int i0 = 4 * *s2;
+    //         s2++;
+    //         int c0 = *(int*)(i0 + t0);
+    //         int c1 = (*(int*)(i0 + t2) + *(int*)(4 * b1 + t3)) >> 16;
+    //         int c2 = *(int*)(4 * b1 + t1);
+    //         int a = *s0++;
+    //         *dst = (int)a + c0 + base;
+    //         dst[1] = (int)a + c1 + base;
+    //         dst[2] = c2 + (int)a + base;
+    //         int b2 = *s0++;
+    //         dst[3] = (int)b2 + c0 + base;
+    //         dst[4] = (int)b2 + c1 + base;
+    //         dst[5] = c2 + (int)b2 + base;
+    //         dst += 6;
+    //       } while (--n);
+    //     }
+    //     if (rowWidth & 1) {
+    //       int b1 = *s1, i0 = 4 * *s2, i2 = 4 * b1;
+    //       int c0 = *(int*)(i0 + t0);
+    //       int c1 = (*(int*)(i0 + t2) + *(int*)(i2 + t3)) >> 16;
+    //       int c2 = *(int*)(i2 + t1);
+    //       int a = *s0;
+    //       *dst = (int)a + c0 + base;
+    //       dst[1] = (int)a + c1 + base;
+    //       dst[2] = c2 + (int)a + base;
+    //     }
+    //     return dst;
+    //   }
+    // UNRESOLVED: Exact palette or color-space semantics of the four lookup tables and the >> 16 combination of two tables for the middle channel.
+    // UNRESOLVED: Identity of object a1 and the render-path caller; no static callers or frame-path evidence exist.
+    // UNRESOLVED: Source-stream layout of a2 and the semantic role of a3 as a byte-plane base.
+    // UNRESOLVED: Why output is RGB-only (3 bytes per pixel) with no alpha byte written.
+}

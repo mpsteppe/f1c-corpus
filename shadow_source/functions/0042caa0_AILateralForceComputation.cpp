@@ -1,0 +1,55 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0042CAA0
+// Canonical corpus name: AILateralForceComputation
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AILateralForceComputation_0042caa0.c
+
+void UnknownObject::AILateralForceComputation()
+{
+    // Computes lateral interaction forces across all vehicle pairs. Phase 1 loops over the vehicles in dword_7C54F0 (count dword_5C329C) and builds a per-vehicle 9-float record: velocity components, squared speed, speed magnitude, magnitude*1.1 tolerance, unit direction components and curvature radius (v46 / fabs(cross)) with a 1000000.0 fallback for a zero cross term, plus a heading angle from atan2. Phase 2 accumulates pairwise proximity-weighted forces: for each pair the angular separation is wrapped into the [0.0, 6.2831855] domain, and when the scaled angular measure stays below the stored threshold the pair contributes a falloff weight v38 (involving the squared-distance residual against v43 * 0.0625 + 1.8, quartic on the ratio 1.0 - v43 / threshold, scaled by the stored strength and 0.125) accumulated as v18 += cos(v41) * v38 and v19 -= sin(v41) * v38. The resultant (x, 0, z) vector is written to each vehicle at offset 14948. Called per frame by MainGameTickUpdate (0042C690).
+    // GUARD: Both vehicle loops are gated on the vehicle count dword_5C329C being greater than 0 [global:0x005C329C, source:raw]
+    // LOOP: Phase 1 loop walks each active vehicle pointer dword_7C54F0[v1] for v1 in [0, dword_5C329C), building a local 9-float record per vehicle [global:0x007C54F0, global:0x005C329C, source:raw]
+    // CALCULATION: Per-vehicle kinematics: reads velocity components at vehicle+13548/+13524/+13528 and the heading dword at +13532 plus the speed component at +13568; computes squared speed v46, magnitude v40 = sqrt(v46) and the tolerance fabs(v40 * 1.1) [source:raw]
+    // CALCULATION: Direction and curvature: when v40 != 0.0, computes unit components v42 = (1.0 / v40) * velocity at +13548 and v11 = (1.0 / v40) * velocity at +13556, cross term v12 = (v11 * value at +13620 - v42 * value at +13628) * 0.25, and curvature radius stored as v46 / fabs(v12) with 1000000.0 as the fallback when v12 == 0.0 [source:raw]
+    // CALCULATION: Heading angle: atan2 over the stored direction terms is written into the per-vehicle record slot *(v2 - 3) [source:raw]
+    // LOOP: Phase 2 inner pairwise loop: for each vehicle v17, walks all subsequent vehicles i (pairs with i != v17), re-reading the vehicle count each outer iteration [global:0x007C54F0, global:0x005C329C, source:raw]
+    // CALCULATION: Angular measure: v41 = atan2(v44 - v23[1], v45 - v23[2]) between the two vehicle positions, wrapped into the [0.0, 6.2831855] domain as v30, then scaled v32 = v30 * v23[3] [source:raw]
+    // GUARD: A pair contributes only when the flag compare passes and the scaled angular measure v32 is below the stored proximity threshold *(v23 - 1) [source:raw]
+    // CALCULATION: Falloff weighting: distance residual v35 = fabs(v23[3] - sqrt((v23[2] - v45)^2 + (v23[1] - v44)^2)) against threshold v36 = v43 * 0.0625 + 1.8; weight v38 = (1.0 - v35 / v36) * (ratio^2)^2 * stored strength *(v23 - 2) * 0.125, accumulated as v18 += cos(v41) * v38 and v19 -= sin(v41) * v38 [source:raw]
+    // ASSIGNMENT: Writes the resultant lateral force to the vehicle at offset 14948 as three words: x = v18, middle dword = 0, z = v19 [source:raw]
+    // CALL: Invoked per frame by MainGameTickUpdate (0042C690) [caller:0x0042C690, source:raw]
+
+    // Conservative worker pseudocode:
+    //   count = dword_5C329C;
+    //   for (a = 0; a < count; ++a) {
+    //     veh = dword_7C54F0[a];
+    //     v46 = veh+13548^2 + veh+13568^2;
+    //     mag = sqrt(v46);
+    //     rec = &record[9*a];
+    //     if (mag != 0.0) {
+    //       inv = 1.0 / mag;
+    //       ux = inv * veh+13548; uz = inv * veh+13556;
+    //       cross = (uz * veh+13620 - ux * veh+13628) * 0.25;
+    //       radius = cross == 0.0 ? 1000000.0 : v46 / fabs(cross);
+    //       rec[0] = atan2(...); rec[1] = ...; rec[2] = ...; rec[3] = radius;
+    //     }
+    //   }
+    //   for (b = 0; b < count; ++b) {
+    //     v18 = 0.0; v19 = 0.0;
+    //     for (pair = b; ; ) {
+    //       for (k = 0; k < pair - b; ++k) {
+    //         rec = &record[9*(b + k)];
+    //         if (flags pass && v30 * rec[3] < rec[-1]) {
+    //           weight = falloff(angle diff, distance residual, rec[-2]);
+    //           v18 += cos(angle) * weight; v19 -= sin(angle) * weight;
+    //         }
+    //       }
+    //       if (pair == b) { ++pair; continue; } break;
+    //     }
+    //     write v18, 0, v19 to dword_7C54F0[b] + 14948;
+    //   }
+    // UNRESOLVED: Eight read-only float globals (flt_59E43C, flt_59E440, flt_59E4E0, flt_59E7F8, flt_59E888, flt_59E8A8, flt_59E9E0, flt_59E9E4) are flagged by packet facts but appear nowhere in the raw decompiled source; the skeleton fill labels them as the inlined physics constants, but which literal each supplies cannot be tied from this packet
+    // UNRESOLVED: The vehicle struct is reached through raw integer offsets (+13524/+13528/+13532/+13536/+13544/+13548/+13556/+13568/+13620/+13628/+14948) with no packet-declared fields, so their semantic meaning rests on the skeleton fill prose
+    // UNRESOLVED: The flag compare terms (v15/v16, v25/v26, v28/v29) are decompiler status-flag artifacts; the exact comparison conditions that gate the direction branch and the pair contribution are not fully recoverable from this packet
+    // UNRESOLVED: The inner phase-2 control flow with the i/v20 reassignment and the i != v17 break is a decompiler reconstruction of the pairwise traversal; the exact index semantics should be checked against the assembly
+}

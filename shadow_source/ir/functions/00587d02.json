@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "address": "0x00587D02",
+  "proposed_name": "closeFileWithLock",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Conditional file close guarded by a flag bit and a critical-section lock. If the flag bit 0x40 at this+0xC is set, the dword there is cleared to 0 and the close is skipped, returning -1. Otherwise the stream lock is acquired (StreamBufferLockViaCriticalSection), the file is closed through the CRT (MSVCCRTFileClose), the lock is released (AddressRangeCriticalSectionLeave), and the close result is returned. Callers are file loading, parsing and resource-release routines.",
+  "local_names": {
+    "v1": "return value: CRT close result, or -1 when the close is skipped"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize the return value v1 to -1 as the default.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the flag bit 0x40 of the dword at this+0xC: when set, skip the close; otherwise take the locked-close path.",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When the 0x40 flag is set, clear the dword at this+0xC to 0 and leave v1 at -1 (close skipped).",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "call",
+      "description": "StreamBufferLockViaCriticalSection(a1) acquires the stream's critical section before closing.",
+      "evidence_refs": ["callee:0x0058C1B1"]
+    },
+    {
+      "kind": "call",
+      "description": "MSVCCRTFileClose(a1) performs the actual CRT file close and stores the result in v1.",
+      "evidence_refs": ["callee:0x00587D33"]
+    },
+    {
+      "kind": "call",
+      "description": "AddressRangeCriticalSectionLeave(a1) releases the stream critical section after the close.",
+      "evidence_refs": ["callee:0x0058C203"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v1: the CRT close result, or -1 when the close was skipped by the flag guard.",
+      "evidence_refs": ["source:raw", "function:0x00587D02"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int closeFileWithLock(int stream) {",
+    "  int result = -1;",
+    "  if ((*(byte*)(stream + 12) & 0x40) != 0) {",
+    "    *(dword*)(stream + 12) = 0;",
+    "  } else {",
+    "    StreamBufferLockViaCriticalSection(stream);",
+    "    result = MSVCCRTFileClose(stream);",
+    "    AddressRangeCriticalSectionLeave(stream);",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Meaning of the 0x40 flag bit at this+0xC (close-skip guard) is not established beyond this function's own behavior.",
+    "Object owning the file stream at a1 is unknown; field this+0xC is only ever written on the skip path.",
+    "The CRT close result v1 is produced only when the flag is clear."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x00421B10",
+    "caller:0x004C40D0",
+    "caller:0x00599495"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

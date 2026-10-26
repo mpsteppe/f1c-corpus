@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "address": "0x00595A1F",
+  "proposed_name": "CRTFileHandleRead",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00595A1F"]
+  },
+  "summary": "Returns the raw Windows handle for a CRT file descriptor entry. Guards the descriptor index against the open file count (uNumber), locates the entry as dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) (a block table with 32 entries per 36-byte stride), and returns the handle dword at the entry base when the open flag (bit 0 of the byte at entry + 4) is set. On an out-of-range index or a closed entry it writes TLS error 9 via TLSOffsetGetter and clears the extended error slot via TLSOffsetGetter_afd8, then returns -1.",
+  "local_names": {
+    "a1": "CRT file descriptor index",
+    "v1": "resolved file-table entry pointer",
+    "dword_8D4920": "pointer table base for CRT file entries (36-byte entry stride)",
+    "uNumber": "open file count used as the index upper bound"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Descriptor index a1 is validated against the open file count uNumber; the table lookup only runs while a1 < uNumber",
+      "evidence_refs": ["global:0x008D4A20", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Entry address = dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F): a1 selects one of the pointer slots (a1 >> 5), then an entry within a 32-entry block at 36-byte stride (a1 & 0x1F)",
+      "evidence_refs": ["global:0x008D4920", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Open-flag test: the byte at entry + 4 must have bit 0 set; when set the function returns the handle dword stored at the entry base",
+      "evidence_refs": ["global:0x008D4920", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Failure path writes TLS error code 9 through the TLSOffsetGetter pointer and clears the extended error slot through TLSOffsetGetter_afd8 (literal 0)",
+      "evidence_refs": ["callee:0x0058AFCF", "callee:0x0058AFD8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the entry handle dword on success, or -1 on an out-of-range index or closed entry; called by HandleCloseWithErrorReporting (0058C38E), FileSeekViaSetFilePointer (0058C789), sub_592891 (00592891), FilePointerSeekWithErrorHandling (00595F82), sub_59797B (0059797B) and sub_59B650 (0059B650)",
+      "evidence_refs": ["caller:0x0058C38E", "caller:0x0058C789", "caller:0x00592891", "caller:0x00595F82", "caller:0x0059797B", "caller:0x0059B650", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (a1 < uNumber) {",
+    "  entry = dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F);",
+    "  if (entry->flags & 1) return entry->handle;",
+    "}",
+    "*(int*)TLSOffsetGetter() = 9;",
+    "*(int*)TLSOffsetGetter_afd8() = 0;",
+    "return -1;"
+  ],
+  "unresolved": [
+    "The 36-byte entry layout (handle dword at offset 0, flags byte at offset 4) is inferred from the raw accesses only; the full CRT file-entry structure is not defined in this packet",
+    "The meaning of the extended error slot written via TLSOffsetGetter_afd8 is not documented beyond the literal 0"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

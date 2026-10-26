@@ -1,0 +1,42 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005151AF
+// Canonical corpus name: sub_5151AF
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_5151AF_005151af.c
+
+void UnknownObject::Bc4Bc5AlphaBlockDecompressor()
+{
+    // Decompresses a block-based alpha channel: calls the color decompressor on a2+4 first, and only proceeds when it succeeds; builds an 8-entry float alpha lookup table from two reference bytes (a2[0], a2[1]) scaled by 0.0039215689 (5-step interpolation plus fixed 0.0/1.0 endpoints when alpha0<=alpha1, 7-step interpolation otherwise), then unpacks two 24-bit selectors as eight 3-bit indices each and writes the selected palette entries into the A slot of 8 float4 texels at a1+3 and of another 8 at a1+35.
+    // CALL: Call KeyframeQuadInterpolationWithBitPackedSelector(a1, a2+4) to decompress the color half of the block; its return value gates all further work. [callee:0x00514FEE, source:raw]
+    // GUARD: Only proceed when the color-decompressor result is >= 0; otherwise return that result immediately. [source:raw]
+    // ASSIGNMENT: Read the two reference alpha bytes from a2[0] and a2[1] and scale each by 0.0039215689 into alpha0 and alpha1. [source:raw]
+    // GUARD: Branch on alpha0 <= alpha1: build a 5-step interpolation palette and pin palette[6]=0.0 and palette[7]=1.0; otherwise build a 7-step interpolation palette. [source:raw]
+    // LOOP: 5-step mode: for i = 1..4 compute palette[i] = ((5-i)*alpha0 + i*alpha1) * 0.2. [source:raw]
+    // LOOP: 7-step mode: for j = 1..6 compute palette[j] = ((7-j)*alpha0 + j*alpha1) * 0.14285715. [source:raw]
+    // CALCULATION: Assemble the first 24-bit selector from a2 bytes 2..4 and the second from bytes 5..7. [source:raw]
+    // LOOP: Unpack the first selector as eight 3-bit indices; write the palette entry for each index into the A slot of 8 float4 texels starting at a1+3, stepping 4 floats (this+0xC). [field:this:0x0000000C, source:raw]
+    // LOOP: Unpack the second selector as eight 3-bit indices; write the palette entry for each index into the A slot of the next 8 float4 texels starting at a1+35, stepping 4 floats (this+0x8C). [field:this:0x0000008C, source:raw]
+    // RETURN: Return 0 on success; on a failed color decompress, return the caller-supplied negative result. [caller:0x0051588C, function:0x005151AF, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_5151AF(float *a1, unsigned short *a2) {
+    //     int r = KeyframeQuadInterpolationWithBitPackedSelector(a1, a2 + 4);
+    //     if (r < 0) return r;
+    //     float palette[8];
+    //     palette[0] = a2[0] * 0.0039215689f;
+    //     palette[1] = a2[1] * 0.0039215689f;
+    //     if (palette[0] <= palette[1]) {
+    //       for (int i = 1; i < 5; ++i) palette[i] = ((5 - i) * palette[0] + i * palette[1]) * 0.2f;
+    //       palette[6] = 0.0f; palette[7] = 1.0f;
+    //     } else {
+    //       for (int j = 1; j < 7; ++j) palette[j] = ((7 - j) * palette[0] + j * palette[1]) * 0.14285715f;
+    //     }
+    //     unsigned sel1 = a2[2] | ((unsigned short)a2[3] << 8);
+    //     for (int n = 0; n < 8; ++n) { a1[3 + 4 * n] = palette[sel1 & 7]; sel1 >>= 3; }
+    //     unsigned sel2 = a2[5] | (a2[3] << 8);
+    //     for (int n = 0; n < 8; ++n) { a1[35 + 4 * n] = palette[sel2 & 7]; sel2 >>= 3; }
+    //     return 0;
+    //   }
+    // UNRESOLVED: The four packet globals (flt_59E460, flt_59E7E8, flt_5AD210, flt_5ADB14) are flagged by packet facts but none appear in the raw decompiled source, which uses inline literals (0.0039215689, 0.2, 0.14285715) instead; the globals cannot be tied to those constants from this packet alone.
+    // UNRESOLVED: The field-base attribution (this+0xC, this+0x8C) reflects the destination texel array a1 rather than a class instance; the exact block format (BC4 vs BC5 variant) is inferred from the 3-bit selector layout and not independently confirmed.
+}

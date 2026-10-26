@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "address": "0x005881C0",
+  "proposed_name": "AllocaStackProbe",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x005881C0"]
+  },
+  "summary": "MSVC CRT stack probe (_alloca_probe). Walks the stack pointer downward in 4096-byte strides while the requested allocation size a1 is at least 0x1000, touching each intervening page so the OS guard pages fire for large stack-frame growth. Returns via the bare retn that the original alloca call pushed, so it restores control directly to the caller of the prologue sequence. Called by twenty stack-heavy functions across camera, config parsing, physics init, season data, and telemetry paths.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Seed the probe pointer i from the address of the local a2 slot, i.e. the current stack high-water mark just below the caller's frame.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Loop guard: only while a1 (remaining allocation size) is >= 0x1000 does the probe keep touching pages; any residual below one page needs no further guard-page touch.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-iteration probe: decrement the pointer i by 4096 and reduce a1 by 4096, so each 4096-byte segment of the growing frame is visited exactly once.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Bare retn: returns to the address pushed by the alloca call site rather than a C-level return; no value is returned in the usual sense.",
+      "evidence_refs": ["function:0x005881C0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void _alloca_probe(unsigned int size) {",
+    "  char *p = (char*)&size;",
+    "  while (size >= 0x1000) { p -= 4096; size -= 4096; }",
+    "  __asm retn;",
+    "}"
+  ],
+  "unresolved": [
+    "The 4096-byte step is taken from the 0x1000 literal in the raw source; the actual OS page size and guard-page interaction are not visible in this packet.",
+    "The probe's effect on the exception-handler chain (_except_handler3 in this binary) is not recoverable from the raw body alone."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

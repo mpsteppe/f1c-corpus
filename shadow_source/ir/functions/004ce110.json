@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "address": "0x004CE110",
+  "proposed_name": "WheelSurfaceContactFriction",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes wheel contact friction and spawns surface particles. Gates on the scoring flag dword_8AB6E4 via ArithmeticComparison_9fb0, measures the motion delta a3 against the stored contact frame at a2+72/76/80, and proceeds only when its squared magnitude exceeds 0.010000001. Builds normalized perpendicular friction vectors into the 7-float payload v33, then — when the magnitude is below 400.0 — iterates the contact slots (slot count at this+0x3C, slot array at this+0x40); each slot's +4 surface type selects a color/size packing (6, 7, or 8) and triggers WheelContactParticle. Finally commits the payload to a2+72 and the three packed colors to a2+100/104/108.",
+  "local_names": {
+    "motion_delta": "a3",
+    "contact_frame": "a2",
+    "particle_payload": "v33"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Outer gate: ArithmeticComparison_9fb0 on the scoring flag global dword_8AB6E4 (0x008AB6E4) must pass before any contact processing runs.",
+      "evidence_refs": ["callee:0x004B9FB0", "global:0x008AB6E4", "function:0x004CE110", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the per-axis difference between the motion vector a3 and the stored contact frame at a2+72/76/80, then its squared magnitude v11; the friction path only runs when v11 > 0.010000001.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Normalize the delta by 1.0/sqrt(v11) scaled by the factor at a2+24 and build the perpendicular friction vectors stored into payload v33[3], v33[4], v33[5].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "The detailed per-slot particle path only runs when the squared magnitude is below 400.0 (v11 < 400.0); otherwise the frame is committed without spawning.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "guard:3 — iterate the contact slots only when the slot count this[15] (this+0x3C) is greater than 0.",
+      "evidence_refs": ["field:this:0x0000003C", "guard:3", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the contact slot array at this+0x40; each slot is a pointer whose +4 dword holds the surface type, and iteration is bounded by the slot count at this+0x3C.",
+      "evidence_refs": ["field:this:0x00000040", "field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "guard:0 — if the slot's surface type (slot+4, flattened as *(this+0x40)+4) equals 6, fall through to the grass/dirt particle path and break the loop.",
+      "evidence_refs": ["field:*(this+0x40):0x00000004", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "guard:1 — if the surface type equals 7, pack color ((a2+32)*254.0 << 24) + 0xFFFFFF into v38; skip the particle when both the previous and new colors are 0xFFFFFF.",
+      "evidence_refs": ["field:*(this+0x40):0x00000004", "guard:1", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "guard:2 — if the surface type equals 8, pack color ((a2+36)*63.5 << 24) + 0xFFFFFF into v23; skip the particle when both the previous and new colors are 0xFFFFFF.",
+      "evidence_refs": ["field:*(this+0x40):0x00000004", "guard:2", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Spawn WheelContactParticle (callee 0x004CD6C0) for the selected slot with the slot contact v17, the scaled color/size value, the contact frame pointer v8, and the 7-float payload v33.",
+      "evidence_refs": ["callee:0x004CD6C0", "field:*(this+0x40):0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "After the slot loop, commit: copy the 28-byte payload v33 into the contact frame at a2+72 and write the three packed colors v34/v38/v23 to a2+100/+104/+108.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (!ArithmeticComparison_9fb0(&dword_8AB6E4)) return;",
+    "dx = a3[0] - *(float*)(a2+72); dy = a3[1] - *(float*)(a2+76); dz = a3[2] - *(float*)(a2+80);",
+    "mag2 = dz*dz + dy*dy + dx*dx;",
+    "if (mag2 > 0.010000001) {",
+    "  inv = 1.0/sqrt(mag2) * *(float*)(a2+24);",
+    "  payload[3] = (dz*a4[1] - dy*a4[2]) * inv;",
+    "  payload[4] = (dx*a4[2] - dz*a4[0]) * inv;",
+    "  payload[5] = (dy*a4[0] - dx*a4[1]) * inv;",
+    "  if (mag2 < 400.0 && this[15] > 0) {",
+    "    for (i = 0; i < this[15]; i++) {",
+    "      slot = slotArray[i];",
+    "      if (*(slot+4) == 6) { color = ((*(float*)(a2+28)*254.0)<<24) + 0xFFFFFF; break; }",
+    "      if (*(slot+4) == 7) color = ((*(float*)(a2+32)*254.0)<<24) + 0xFFFFFF;",
+    "      else if (*(slot+4) == 8) color = ((*(float*)(a2+36)*63.5)<<24) + 0xFFFFFF;",
+    "      else continue;",
+    "      if (previousColor != 0xFFFFFF || color != 0xFFFFFF)",
+    "        WheelContactParticle(slot, value, (int)v8, (int)payload);",
+    "    }",
+    "  }",
+    "  qmemcpy(v8, payload, 0x1Cu);",
+    "  *(DWORD*)(a2+100) = colorType6; *(DWORD*)(a2+104) = colorType7; *(DWORD*)(a2+108) = colorType8;",
+    "}"
+  ],
+  "unresolved": [
+    "The surface-type enum values (6=grass/dirt, 8=wet) are labeled by existing analysis; not proven by this packet.",
+    "The 0xFFFFFF sentinel and the (value << 24) + 0xFFFFFF color packing are used verbatim; color-channel semantics are unverified.",
+    "Globals flt_59E43C, flt_59E920, flt_5ACEBC, flt_5ACEC4, flt_5ACEC8 are attributed to this function by static facts but do not appear in the raw source, so they cannot be grounded here.",
+    "The role of a3 as a motion/velocity vector and a4 as a direction basis is inferred from usage.",
+    "abi lead name FAIL_4ce110 carries no semantic signal."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x004EF180",
+    "global:0x0059E43C",
+    "global:0x0059E920",
+    "global:0x005ACEBC",
+    "global:0x005ACEC4",
+    "global:0x005ACEC8"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

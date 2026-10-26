@@ -1,0 +1,1987 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_generic_runtime_objects_31",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Low-level runtime infrastructure shared by networking, input, and session paths: singly-linked-list containers and 12-byte nodes, mutex-guarded shared-state accessors (field read/write, pointer read, timer read, guarded list append/pop), a QPC high-resolution timer, connection/socket teardown with three-mutex protection, dispatch/decode queue processing via vtable slots, APC queuing, pointer-array cleanup, bounded copy helpers, and module-level global chain initialization.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x0057DE30",
+      "function:0x005817A0",
+      "function:0x00583210",
+      "function:0x00584C70",
+      "function:0x00584CD0",
+      "function:0x00584E30",
+      "function:0x00584F90",
+      "function:0x00585220",
+      "function:0x00585270",
+      "function:0x00585320",
+      "function:0x00585380",
+      "function:0x005857C0",
+      "function:0x00585870",
+      "function:0x00585D20",
+      "function:0x00585DE0",
+      "function:0x00585E10"
+    ]
+  },
+  "summary": "The packet covers 25 generic runtime helpers with a common shape: small free functions and accessors operating on unknown owner objects through fixed field offsets. Four families dominate. (1) Linked-list infrastructure: a 12-byte node (value at +0, next at +4, cleanup flag byte at +8) managed by a container holding head/tail/iterator/count at +0/+4/+8/+0xC, with alloc-prepend (0x00583210), removal-by-value (0x005817A0) and head-removal-with-cleanup (0x00582EB0); a mutex-guarded container variant embeds the same list at this+0x544 (and a sibling instance at this+0x560) with append (0x00584C70) and pop-first (0x00584CD0, 0x00584E30) helpers. (2) Mutex-guarded shared-state accessors that wait (accepting wait result 0 and 128), touch a protected field, then release: pointer read (0x00585D20), field write (0x005857C0), timer read (0x00584F90), plus network connection teardown (0x0057DE30) under three mutexes. (3) A vtable-dispatch cluster (0x00585220, 0x00585270, 0x00585380, 0x00585870) that routes objects through vtable slots at offsets +0x38/+0x5C/+0x94/+0xA4/+0xA8 and a decode chain (+0x1C/+0x20/+0xAC/+0xB4/+0xC8/+0xCC), feeding a trigger/decode queue processor. (4) Small utility shims: callback-block allocator (0x005830C0), timer init (0x005835F0), input state updater with payload copy (0x00583700), list builder (0x00583530), list walker with dispatch (0x00585320), APC queue (0x00585DE0), global chain init (0x00585E10), pointer-array cleanup (0x005867B0), and copy wrappers (0x00586A00, 0x00586A10). All owner identities are UNKNOWN in the packet; the classes below are worker GUESS groupings of structurally coherent functions, not recovered class names.",
+  "function_roles": [
+    {
+      "address": "0x0057DE30",
+      "role": "Network connection teardown: unlink the connection node from the active list under mutex1, run the node destructor and free it, optionally zero a struct field under mutex2, gracefully close the socket, reset the ring buffer and connection fields under mutex3, reprepend the node to the free list, then invoke the vtable callback at +0x94 when the struct path ran.",
+      "owner": "ConnectionManager",
+      "evidence_refs": [
+        "function:0x0057DE30",
+        "callee:0x00491E40",
+        "callee:0x00587BCF",
+        "callee:0x0057B2E0",
+        "callee:0x0057B530",
+        "callee:0x0057B6B0",
+        "callee:0x0057C8E0",
+        "callee:0x00583210",
+        "field:this:0x00000AAC",
+        "field:this:0x00000AB0",
+        "field:this:0x00000AB4",
+        "field:this:0x00000AB8",
+        "field:this:0x00000ABC",
+        "field:this:0x00000AC0",
+        "field:this:0x00000AD8",
+        "field:this:0x00000ADC",
+        "field:this:0x00000BEC",
+        "field:this:0x00000BF0",
+        "field:*(this+0xAAC):0x00000004",
+        "field:obj:0x00000094",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005817A0",
+      "role": "Singly-linked-list removal by node value: walk from head matching node whose +0 value equals a2, splice it out updating head/tail/iterator/count, clear or honor the +8 flag, free the value when the flag is set, free the node, return 1 (0 on absent/empty paths).",
+      "owner": "LinkedListContainer",
+      "evidence_refs": [
+        "function:0x005817A0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "field:*(obj+0x4):0x00000000",
+        "field:*(obj+0x4):0x00000004",
+        "field:*(obj+0x4):0x00000008",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00582EB0",
+      "role": "Linked-list head-node removal with cleanup callback: snapshot head data, clear the head cleanup flag, scan for a matching node, unlink it updating head/tail/iterator/count, free data (flag-and-non-null gated) and the node, return the removed data value (0 on empty/absent paths).",
+      "owner": "LinkedListContainer",
+      "evidence_refs": [
+        "function:0x00582EB0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "callee:0x00587BCF",
+        "guard:0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005830C0",
+      "role": "Socket-address callback-block allocator: allocate an 8316-byte block holding two 4156-byte entries, write entry count 2 into the header, initialize entries through NTimeCallbackLoopWithSEH using SocketAddressInit/EmptyStub callbacks, store block+4 into this[0] (0 on allocation failure), return this.",
+      "owner": "CallbackBlockAllocator",
+      "evidence_refs": [
+        "function:0x005830C0",
+        "field:this:0x00000000",
+        "callee:0x00587C03",
+        "callee:0x0058A6EB",
+        "global:0x00582110",
+        "global:0x0047AA60",
+        "global:0x0059CE2B",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583210",
+      "role": "Linked-list node alloc-and-prepend: allocate a 12-byte node, set value=+0, next=+4=0, flag=+8=a3, prepend to the container head/tail/count at +0/+4/+8/+0xC, return 1 (0 when payload is null).",
+      "owner": "LinkedListContainer",
+      "evidence_refs": [
+        "function:0x00583210",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "callee:0x00587C03",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583530",
+      "role": "Linked-list node builder: append node (a2, 1) through the append callee, then prepend two nodes carrying *a2 and *a2+4156 into a list anchored at this+4 (loop step 4156, bound 8312).",
+      "owner": "ListBuilder",
+      "evidence_refs": [
+        "function:0x00583530",
+        "callee:0x00586000",
+        "callee:0x00583210",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005835F0",
+      "role": "High-precision timer initialization: zero the timer data region, configure the QueryPerformanceCounter timer with flag 1, apply the timing float parameter, return this.",
+      "owner": "HighResolutionTimer",
+      "evidence_refs": [
+        "function:0x005835F0",
+        "abi:lead",
+        "callee:0x00568BA0",
+        "callee:0x00568BE0",
+        "callee:0x00583660",
+        "global:0x0059CE4B",
+        "caller:0x005837F0",
+        "caller:0x00583D90",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583700",
+      "role": "Input/event state updater with optional payload copy: guard on type id at +0 and time delta at +4 below 2.0, store the packed double at +0x10/+0x14, set the update flag byte at +0xC, write the blended double v6*0.5+a4 at +0x18, then store/copy a bounded payload into +0x20/+0x120 or clear the size.",
+      "owner": "InputStateSlot",
+      "evidence_refs": [
+        "function:0x00583700",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x00000120",
+        "global:0x0059E800",
+        "global:0x0059E880",
+        "caller:0x00584230",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00584C70",
+      "role": "Mutex-guarded list append: acquire the mutex at this+0x554 with timeout this+0x558, append the node through the append callee, release the mutex, return the append success flag.",
+      "owner": "MutexGuardedListContainer",
+      "evidence_refs": [
+        "function:0x00584C70",
+        "callee:0x00586000",
+        "field:this:0x00000554",
+        "field:this:0x00000558",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00584CD0",
+      "role": "Thread-safe pop of the first list node: wait on the mutex at this+0x554 (timeout this+0x558), unlink the head updating head/tail/iterator/count at 0x544/0x548/0x54C/0x550, process-and-free the node data under SEH when the +8 flag is set, free the node, write the popped value to *a2.",
+      "owner": "MutexGuardedListContainer",
+      "evidence_refs": [
+        "function:0x00584CD0",
+        "field:this:0x00000544",
+        "field:this:0x00000548",
+        "field:this:0x0000054C",
+        "field:this:0x00000550",
+        "field:this:0x00000554",
+        "field:this:0x00000558",
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "caller:0x00585040",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00584E30",
+      "role": "Variant of the mutex-guarded list pop with higher field offsets: wait on the mutex at this+0x570 (timeout this+0x574), unlink the head updating 0x560/0x564/0x568/0x56C, process-and-free the node data under SEH when the +8 flag is set, free the node, write the popped value to *a2.",
+      "owner": "MutexGuardedListContainer",
+      "evidence_refs": [
+        "function:0x00584E30",
+        "field:this:0x00000560",
+        "field:this:0x00000564",
+        "field:this:0x00000568",
+        "field:this:0x0000056C",
+        "field:this:0x00000570",
+        "field:this:0x00000574",
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "caller:0x00585130",
+        "caller:0x005853B0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00584F90",
+      "role": "Thread-safe timer read: acquire the mutex at this+0xD4 (timeout this+0xD8), read the accumulated timer double through the timer-read callee (NULL timer when the wait is blocked), release the mutex, return the value.",
+      "owner": "MutexGuardedTimerReader",
+      "evidence_refs": [
+        "function:0x00584F90",
+        "abi:lead",
+        "callee:0x00583680",
+        "field:this:0x000000D4",
+        "field:this:0x000000D8",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "caller:0x0057A5A0",
+        "caller:0x0057A610",
+        "caller:0x0057CB50",
+        "caller:0x0057DBB0",
+        "caller:0x0057DC10",
+        "caller:0x0057E0A0",
+        "caller:0x00584230",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585020",
+      "role": "Trivial pointer accessor: return the receiver advanced by 100 bytes (this + 0x64), exposing that member region as a sub-object pointer; used by callers as an accessor.",
+      "owner": "DispatchManager",
+      "evidence_refs": [
+        "function:0x00585020",
+        "abi:lead",
+        "caller:0x0057BF00",
+        "caller:0x00584230",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585220",
+      "role": "Status query with dual condition: optionally write the status byte at this+0x5D through a2, compute (vtable-slot-+0xA4 result on this) < (threshold at this+0x60), optionally write it through a3, return the conjunction.",
+      "owner": "DispatchManager",
+      "evidence_refs": [
+        "function:0x00585220",
+        "abi:lead",
+        "field:this:0x0000005D",
+        "field:this:0x00000060",
+        "field:this:0x00000000",
+        "field:obj:0x000000A4",
+        "caller:0x0057BF00",
+        "caller:0x00584230",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585270",
+      "role": "Iterate items from a container and route each through the collect callee, then perform a final vtable dispatch: skip to an alternate conditional-append dispatch when the predicate callee returns non-zero; otherwise iterate via one of two vtable protocols (a1 slots +0xA4/+0xA8, or v5 slots +0x14/+0x18) calling the collect callee per item, then dispatch vtable slot +0x5C.",
+      "owner": "DispatchManager",
+      "evidence_refs": [
+        "function:0x00585270",
+        "callee:0x00586CA0",
+        "callee:0x00585380",
+        "callee:0x005871F0",
+        "callee:0x00584130",
+        "field:obj:0x000000A4",
+        "field:obj:0x000000A8",
+        "field:obj:0x0000005C",
+        "caller:0x0057A6A0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585320",
+      "role": "Walk a singly linked list (head at this+0x11C, iterator at this+0x124); for each node whose getter value is not -1, call the dispatch callback and clear the node field via the field setter (-1); return the final iterator pointer.",
+      "owner": "ListDispatchWalker",
+      "evidence_refs": [
+        "function:0x00585320",
+        "abi:lead",
+        "field:this:0x0000011C",
+        "field:this:0x00000124",
+        "callee:0x00587720",
+        "callee:0x005878A0",
+        "callee:0x00587710",
+        "caller:0x0057A730",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585380",
+      "role": "Conditional list-append followed by unconditional vtable dispatch: initialize result to 2, append a2 via the mutex-guarded append callee (result 0) when a2 is non-null, always dispatch vtable slot +0x38, return 0 (appended) or 2 (skipped).",
+      "owner": "DispatchManager",
+      "evidence_refs": [
+        "function:0x00585380",
+        "callee:0x00584C70",
+        "field:this:0x00000000",
+        "field:obj:0x00000038",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005857C0",
+      "role": "Thread-safe field write: acquire the mutex at this+0xF0 (timeout this+0xF4), write a2 to the integer field at this+0xEC, release the mutex, return a pointer to the written field.",
+      "owner": "SharedPointerState",
+      "evidence_refs": [
+        "function:0x005857C0",
+        "abi:lead",
+        "field:this:0x000000EC",
+        "field:this:0x000000F0",
+        "field:this:0x000000F4",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "caller:0x005804A0",
+        "caller:0x00584230",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585870",
+      "role": "Trigger/event decode-queue processor: release the guarded pointer, read the current object index, initialize scratch state, acquire the decode mutex at this+0x640 (timeout this+0x644), iterate objects through vtable slots (+0xA4 count, +0x1C next, +0xAC predicate, +0x20 release, +0xC8 begin, +0xCC end), collect qualifying objects into 12-byte nodes, walk the chain feeding a decompression decode pipeline (slots +0x5C, +0xB4), tear nodes down, run the tail mutex release when the header-copy path ran, and re-establish the vtable on the header buffer.",
+      "owner": "DispatchManager",
+      "evidence_refs": [
+        "function:0x00585870",
+        "field:this:0x0000063D",
+        "field:this:0x00000640",
+        "field:this:0x00000644",
+        "field:obj:0x0000001C",
+        "field:obj:0x00000020",
+        "field:obj:0x000000AC",
+        "field:obj:0x000000B4",
+        "field:obj:0x000000C8",
+        "field:obj:0x000000CC",
+        "field:obj:0x000000A4",
+        "field:obj:0x0000005C",
+        "field:obj:0x00000058",
+        "callee:0x00585D20",
+        "callee:0x00585770",
+        "callee:0x00587030",
+        "callee:0x00587370",
+        "callee:0x00587C03",
+        "callee:0x00587250",
+        "callee:0x00587260",
+        "callee:0x00586800",
+        "callee:0x00586A00",
+        "callee:0x00585380",
+        "callee:0x00586620",
+        "callee:0x00587BCF",
+        "callee:0x00587230",
+        "callee:0x005870D0",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "caller:0x0057E280",
+        "caller:0x00584230",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585D20",
+      "role": "Thread-safe pointer read: acquire the mutex at this+0x5B8 (timeout this+0x5BC), read the pointer at this+0x5B4 under protection, release the mutex, return the read pointer value.",
+      "owner": "SharedPointerState",
+      "evidence_refs": [
+        "function:0x00585D20",
+        "abi:lead",
+        "field:this:0x000005B4",
+        "field:this:0x000005B8",
+        "field:this:0x000005BC",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "caller:0x0057BF00",
+        "caller:0x0057E280",
+        "caller:0x00580DE0",
+        "caller:0x005813E0",
+        "caller:0x00584230",
+        "caller:0x00585870",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585DE0",
+      "role": "Queue an asynchronous procedure call: QueueUserAPC(global APC routine 0x0041A160, thread handle at this+0x4, this as ULONG_PTR parameter); return the QueueUserAPC result.",
+      "owner": "APCQueueScheduler",
+      "evidence_refs": [
+        "function:0x00585DE0",
+        "field:this:0x00000004",
+        "global:0x0041A160",
+        "global:0x0059E1F4",
+        "caller:0x0057A730",
+        "caller:0x005853B0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585E10",
+      "role": "Module init thunk with reference-counted once-guard: on first entry construct a chain of seven linked global objects (vtable/SEH-chain and locale-style objects) into static buffers, wiring them at vtable-derived offsets; later entries only increment the guard.",
+      "owner": "GlobalChainInitializer",
+      "evidence_refs": [
+        "function:0x00585E10",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005867B0",
+      "role": "Cleanup helper on a pointer array: free the dual-pointer block at this+5 via the dual-pointer free, then free the single pointer at this+2 via the free-if-nonnull helper and return its result.",
+      "owner": "PointerArrayCleanupHelper",
+      "evidence_refs": [
+        "function:0x005867B0",
+        "callee:0x0059B390",
+        "callee:0x00499AE0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00586A00",
+      "role": "Trivial forwarding wrapper: forward both arguments unchanged to the realloc-like copy callee and return its result verbatim.",
+      "owner": "CopyBufferShim",
+      "evidence_refs": [
+        "function:0x00586A00",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00586A10",
+      "role": "Bounded memory copy with size validation: validate the incoming size against the stored limit field, resolve the source pointer and effective size, copy into the caller destination, optionally report the copied size back; return 4/1/0 for the failure and success paths.",
+      "owner": "CopyBufferShim",
+      "evidence_refs": [
+        "function:0x00586A10",
+        "callee:0x0053D880",
+        "callee:0x00587580",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "ConnectionManager",
+      "responsibility": "Owns the network connection lifecycle: an active connection-node list (head/iterator/tail/count) and a node free list, guarded by three mutexes, with socket teardown and ring-buffer reset, and a vtable callback at +0x94 invoked at the end of teardown.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0057DE30"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000094"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000AAC",
+          "name": "active_list_head",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000AAC",
+            "field:*(this+0xAAC):0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000AB0",
+          "name": "active_list_iterator",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000AB0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000AB4",
+          "name": "active_list_tail",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000AB4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000AB8",
+          "name": "active_list_count",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000AB8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000ABC",
+          "name": "mutex_active_list",
+          "type_guess": "handle",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000ABC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000AC0",
+          "name": "mutex_active_list_timeout",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000AC0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000AD8",
+          "name": "mutex_struct_field",
+          "type_guess": "handle",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000AD8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000ADC",
+          "name": "mutex_struct_field_timeout",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000ADC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000BEC",
+          "name": "mutex_state",
+          "type_guess": "handle",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000BEC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000BF0",
+          "name": "mutex_state_timeout",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000BF0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0057DE30",
+        "field:obj:0x00000094",
+        "field:*(this+0xAAC):0x00000004",
+        "callee:0x00491E40",
+        "callee:0x00587BCF",
+        "callee:0x0057B530",
+        "callee:0x00583210",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4"
+      ]
+    },
+    {
+      "name": "LinkedListContainer",
+      "responsibility": "Singly-linked-list container holding head/tail/iterator/count and offering node alloc-prepend, removal-by-value, and head-removal-with-cleanup on 12-byte nodes.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00583210",
+        "0x005817A0",
+        "0x00582EB0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "head",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "tail",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "iterator",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "count",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00583210",
+        "function:0x005817A0",
+        "function:0x00582EB0",
+        "callee:0x00587C03",
+        "callee:0x00587BCF",
+        "guard:0"
+      ]
+    },
+    {
+      "name": "LinkedListNode",
+      "responsibility": "12-byte node type shared by the list helpers: value/data at +0, next pointer at +4, cleanup flag byte at +8 gating whether the value pointer must be freed with the node.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "value",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000000",
+            "field:*(obj+0x4):0x00000000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000004",
+          "name": "next",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "field:*(obj+0x4):0x00000004"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000008",
+          "name": "cleanup_flag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "field:*(obj+0x4):0x00000008"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "field:*(obj+0x4):0x00000000",
+        "field:*(obj+0x4):0x00000004",
+        "field:*(obj+0x4):0x00000008"
+      ]
+    },
+    {
+      "name": "MutexGuardedListContainer",
+      "responsibility": "Mutex-guarded linked-list container; the same list layout (head/tail/iterator/count) and mutex/timeout pair appear twice at different offsets on the owner (this+0x544 and this+0x560 variants), with append and pop-first operations.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00584C70",
+        "0x00584CD0",
+        "0x00584E30"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000544",
+          "name": "list_head",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000544"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000548",
+          "name": "list_tail",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000548"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000054C",
+          "name": "list_iterator",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000054C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000550",
+          "name": "list_count",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000550"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000554",
+          "name": "mutex_handle",
+          "type_guess": "handle",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000554"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000558",
+          "name": "mutex_timeout",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000558"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000560",
+          "name": "list_head_variant_b",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000560"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000564",
+          "name": "list_tail_variant_b",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000564"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000568",
+          "name": "list_iterator_variant_b",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000568"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000056C",
+          "name": "list_count_variant_b",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000056C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000570",
+          "name": "mutex_handle_variant_b",
+          "type_guess": "handle",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000570"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000574",
+          "name": "mutex_timeout_variant_b",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000574"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00584C70",
+        "function:0x00584CD0",
+        "function:0x00584E30",
+        "callee:0x00586000",
+        "callee:0x005867B0",
+        "callee:0x00587BCF",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4"
+      ]
+    },
+    {
+      "name": "InputStateSlot",
+      "responsibility": "Typed input/event state slot with a stored timestamp, value and optional bounded payload buffer; updates are guarded on a type id and a 2.0-second freshness window.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00583700"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "type_id",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "prev_time",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "updated_flag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "value_low",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "value_high",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "blended_result",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000120",
+          "name": "payload_size",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000120"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00583700",
+        "global:0x0059E800",
+        "global:0x0059E880",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "HighResolutionTimer",
+      "responsibility": "QueryPerformanceCounter-based high-precision timer object; zero-initialized then configured with the QPC timer flag, with an applied timing float parameter.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005835F0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x005835F0",
+        "callee:0x00568BA0",
+        "callee:0x00568BE0",
+        "callee:0x00583660",
+        "global:0x0059CE4B",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MutexGuardedTimerReader",
+      "responsibility": "Thread-safe reader of an accumulated timer double: mutex handle and timeout at this+0xD4/this+0xD8, value read through the timer-read callee.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00584F90"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "mutex_handle",
+          "type_guess": "handle",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000D4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D8",
+          "name": "mutex_timeout",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000D8"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00584F90",
+        "callee:0x00583680",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "abi:lead"
+      ]
+    },
+    {
+      "name": "CallbackBlockAllocator",
+      "responsibility": "Allocates and initializes a socket-address callback block (8316 bytes, two 4156-byte entries, count header at +0) and stores the entry pointer at receiver +0.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005830C0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "entry_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005830C0",
+        "callee:0x00587C03",
+        "callee:0x0058A6EB",
+        "global:0x00582110",
+        "global:0x0047AA60",
+        "global:0x0059CE2B",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DispatchManager",
+      "responsibility": "Dispatch object family that routes work through vtable slots (+0x38, +0x5C, +0x94, +0xA4, +0xA8, and the decode-chain slots +0x1C/+0x20/+0xAC/+0xB4/+0xC8/+0xCC), holding status and decode-state fields; includes the status query, item iteration, conditional-append dispatch, the trigger/decode queue processor, and a sub-object accessor. Owner identities are UNKNOWN; this grouping is a worker GUESS.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00585020",
+        "0x00585220",
+        "0x00585270",
+        "0x00585380",
+        "0x00585870"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005D",
+          "name": "status_byte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005D"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000060",
+          "name": "threshold",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000060"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000063D",
+          "name": "header_copy_flag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000063D"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000640",
+          "name": "decode_mutex",
+          "type_guess": "handle",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000640"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000644",
+          "name": "decode_mutex_timeout",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000644"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00585020",
+        "function:0x00585220",
+        "function:0x00585270",
+        "function:0x00585380",
+        "function:0x00585870",
+        "field:obj:0x00000038",
+        "field:obj:0x0000005C",
+        "field:obj:0x000000A4",
+        "field:obj:0x000000A8",
+        "field:obj:0x0000001C",
+        "field:obj:0x00000020",
+        "field:obj:0x000000AC",
+        "field:obj:0x000000B4",
+        "field:obj:0x000000C8",
+        "field:obj:0x000000CC",
+        "callee:0x00586CA0",
+        "callee:0x005871F0",
+        "callee:0x00584130",
+        "callee:0x00584C70",
+        "callee:0x00585D20",
+        "callee:0x00585770",
+        "callee:0x00587030",
+        "callee:0x00587370",
+        "callee:0x00587C03",
+        "callee:0x00587250",
+        "callee:0x00587260",
+        "callee:0x00586800",
+        "callee:0x00586A00",
+        "callee:0x00585380",
+        "callee:0x00586620",
+        "callee:0x00587BCF",
+        "callee:0x00587230",
+        "callee:0x005870D0",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "abi:lead"
+      ]
+    },
+    {
+      "name": "ListDispatchWalker",
+      "responsibility": "Walks a singly linked list stored on the owner (head at this+0x11C, iterator at this+0x124) and dispatches each non-sentinel node through the dispatch callback, clearing its field via the field setter.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00585320"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000011C",
+          "name": "list_head",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000011C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000124",
+          "name": "list_iterator",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000124"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00585320",
+        "callee:0x00587720",
+        "callee:0x005878A0",
+        "callee:0x00587710",
+        "abi:lead",
+        "caller:0x0057A730"
+      ]
+    },
+    {
+      "name": "ListBuilder",
+      "responsibility": "Builds linked-list nodes in a two-phase pattern (append then paired prepends at a this+4 anchor) around the shared list helpers; its observed body contradicts its ABI name.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00583530"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "prepend_list_anchor",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00583530",
+        "callee:0x00586000",
+        "callee:0x00583210",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SharedPointerState",
+      "responsibility": "Mutex-protected shared state accessors: a protected pointer field at this+0x5B4 and a protected integer field at this+0xEC, each with an adjacent mutex handle and timeout, exposed through thread-safe read/write helpers.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005857C0",
+        "0x00585D20"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000000EC",
+          "name": "int_field",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000EC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F0",
+          "name": "write_mutex",
+          "type_guess": "handle",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000F0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F4",
+          "name": "write_mutex_timeout",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005B4",
+          "name": "shared_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000005B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005B8",
+          "name": "read_mutex",
+          "type_guess": "handle",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000005B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005BC",
+          "name": "read_mutex_timeout",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000005BC"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005857C0",
+        "function:0x00585D20",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "abi:lead"
+      ]
+    },
+    {
+      "name": "APCQueueScheduler",
+      "responsibility": "Queues the global APC routine on a thread handle stored at receiver +4, passing the receiver as the APC parameter.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00585DE0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "thread_handle",
+          "type_guess": "handle",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00585DE0",
+        "global:0x0041A160",
+        "global:0x0059E1F4",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "GlobalChainInitializer",
+      "responsibility": "Module-level once-guard initializer that constructs a chain of seven linked global objects (vtable/SEH-chain and locale-style objects) into static buffers on first entry, wiring them at vtable-derived offsets.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00585E10"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x00585E10",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PointerArrayCleanupHelper",
+      "responsibility": "Cleanup helper on a pointer array: frees the dual-pointer block at element 5 and the single pointer at element 2 through the respective free helpers.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005867B0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x005867B0",
+        "callee:0x0059B390",
+        "callee:0x00499AE0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CopyBufferShim",
+      "responsibility": "Generic buffer copy/validation shims: a forwarding wrapper and a size-validated bounded copy used from dispatch and session paths.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00586A00",
+        "0x00586A10"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x00586A00",
+        "function:0x00586A10",
+        "callee:0x0053D880",
+        "callee:0x00587580",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [],
+  "interfaces": [
+    {
+      "name": "DispatchVTableContract",
+      "purpose": "Dispatch objects expose iteration, release, header-fill and decode behavior through vtable slots; callers (0x00585270, 0x00585380, 0x00585870) and 0x0057DE30 depend on slots at +0x38, +0x5C, +0x94, +0xA4, +0xA8 and the decode-chain slots +0x1C (next), +0x20 (release), +0xAC (predicate), +0xB4 (header fill), +0xC8 (begin), +0xCC (end).",
+      "functions": [
+        "0x00585270",
+        "0x00585380",
+        "0x00585870"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:obj:0x00000038",
+        "field:obj:0x0000005C",
+        "field:obj:0x00000094",
+        "field:obj:0x000000A4",
+        "field:obj:0x000000A8",
+        "field:obj:0x0000001C",
+        "field:obj:0x00000020",
+        "field:obj:0x000000AC",
+        "field:obj:0x000000B4",
+        "field:obj:0x000000C8",
+        "field:obj:0x000000CC",
+        "field:obj:0x00000058"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x0057DE30",
+      "to": "0x00491E40",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00491E40",
+        "function:0x0057DE30"
+      ]
+    },
+    {
+      "from": "0x0057DE30",
+      "to": "0x0057B2E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0057B2E0",
+        "function:0x0057DE30"
+      ]
+    },
+    {
+      "from": "0x0057DE30",
+      "to": "0x0057B530",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0057B530",
+        "function:0x0057DE30"
+      ]
+    },
+    {
+      "from": "0x0057DE30",
+      "to": "0x0057B6B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0057B6B0",
+        "function:0x0057DE30"
+      ]
+    },
+    {
+      "from": "0x0057DE30",
+      "to": "0x0057C8E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0057C8E0",
+        "function:0x0057DE30"
+      ]
+    },
+    {
+      "from": "0x0057DE30",
+      "to": "0x00583210",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00583210",
+        "function:0x0057DE30"
+      ]
+    },
+    {
+      "from": "0x005817A0",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF",
+        "function:0x005817A0"
+      ]
+    },
+    {
+      "from": "0x00582EB0",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF",
+        "function:0x00582EB0"
+      ]
+    },
+    {
+      "from": "0x005830C0",
+      "to": "0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03",
+        "function:0x005830C0"
+      ]
+    },
+    {
+      "from": "0x005830C0",
+      "to": "0x0058A6EB",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0058A6EB",
+        "function:0x005830C0"
+      ]
+    },
+    {
+      "from": "0x00583210",
+      "to": "0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03",
+        "function:0x00583210"
+      ]
+    },
+    {
+      "from": "0x00583530",
+      "to": "0x00586000",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00586000",
+        "function:0x00583530"
+      ]
+    },
+    {
+      "from": "0x00583530",
+      "to": "0x00583210",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00583210",
+        "function:0x00583530"
+      ]
+    },
+    {
+      "from": "0x005835F0",
+      "to": "0x00568BA0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00568BA0",
+        "function:0x005835F0"
+      ]
+    },
+    {
+      "from": "0x005835F0",
+      "to": "0x00568BE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00568BE0",
+        "function:0x005835F0"
+      ]
+    },
+    {
+      "from": "0x005835F0",
+      "to": "0x00583660",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00583660",
+        "function:0x005835F0"
+      ]
+    },
+    {
+      "from": "0x00584C70",
+      "to": "0x00586000",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00586000",
+        "function:0x00584C70"
+      ]
+    },
+    {
+      "from": "0x00584CD0",
+      "to": "0x005867B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005867B0",
+        "function:0x00584CD0"
+      ]
+    },
+    {
+      "from": "0x00584CD0",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF",
+        "function:0x00584CD0"
+      ]
+    },
+    {
+      "from": "0x00584E30",
+      "to": "0x005867B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005867B0",
+        "function:0x00584E30"
+      ]
+    },
+    {
+      "from": "0x00584E30",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF",
+        "function:0x00584E30"
+      ]
+    },
+    {
+      "from": "0x00584F90",
+      "to": "0x00583680",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00583680",
+        "function:0x00584F90"
+      ]
+    },
+    {
+      "from": "0x00585270",
+      "to": "0x00586CA0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00586CA0",
+        "function:0x00585270"
+      ]
+    },
+    {
+      "from": "0x00585270",
+      "to": "0x00585380",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00585380",
+        "function:0x00585270"
+      ]
+    },
+    {
+      "from": "0x00585270",
+      "to": "0x005871F0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005871F0",
+        "function:0x00585270"
+      ]
+    },
+    {
+      "from": "0x00585270",
+      "to": "0x00584130",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00584130",
+        "function:0x00585270"
+      ]
+    },
+    {
+      "from": "0x00585320",
+      "to": "0x00587720",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587720",
+        "function:0x00585320"
+      ]
+    },
+    {
+      "from": "0x00585320",
+      "to": "0x005878A0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005878A0",
+        "function:0x00585320"
+      ]
+    },
+    {
+      "from": "0x00585320",
+      "to": "0x00587710",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587710",
+        "function:0x00585320"
+      ]
+    },
+    {
+      "from": "0x00585380",
+      "to": "0x00584C70",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00584C70",
+        "function:0x00585380"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00585D20",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00585D20",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00585770",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00585770",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00587030",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587030",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00587370",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587370",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00587250",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587250",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00587260",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587260",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00586800",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00586800",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00586A00",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00586A00",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00585380",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00585380",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00586620",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00586620",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x00587230",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587230",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x00585870",
+      "to": "0x005870D0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005870D0",
+        "function:0x00585870"
+      ]
+    },
+    {
+      "from": "0x005867B0",
+      "to": "0x0059B390",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0059B390",
+        "function:0x005867B0"
+      ]
+    },
+    {
+      "from": "0x005867B0",
+      "to": "0x00499AE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00499AE0",
+        "function:0x005867B0"
+      ]
+    },
+    {
+      "from": "0x00586A10",
+      "to": "0x0053D880",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0053D880",
+        "function:0x00586A10"
+      ]
+    },
+    {
+      "from": "0x00586A10",
+      "to": "0x00587580",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587580",
+        "function:0x00586A10"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "MutexGuardedStateAccess",
+      "category": "threading",
+      "description": "Accessor objects expose (mutex handle, timeout) pairs at fixed offsets (this+0x554/0x558, +0x570/0x574, +0xD4/0xD8, +0xF0/0xF4, +0x5B8/0x5BC, +0x640/0x644, +0xABC/0xAC0, +0xAD8/0xADC, +0xBEC/0xBF0). Helpers wait, accept wait results 0 and 128, touch the protected field, then ReleaseMutex. A replacement must replicate this acquire/release discipline and the offset layout.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000554",
+        "field:this:0x00000570",
+        "field:this:0x000000D4",
+        "field:this:0x000000F0",
+        "field:this:0x000005B8",
+        "field:this:0x00000640",
+        "field:this:0x00000ABC",
+        "field:this:0x00000AD8",
+        "field:this:0x00000BEC",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4"
+      ]
+    },
+    {
+      "name": "LinkedListNodeLifecycle",
+      "category": "memory",
+      "description": "12-byte nodes (value at +0, next at +4, cleanup flag at +8). When the flag byte is non-zero the value pointer is owned and must be freed (via FreeWrapper_7bcf) before the node itself. Containers track head/tail/iterator/count and update them on every insert/remove, including advancing the iterator when it points at a removed node.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:obj:0x00000000",
+        "field:obj:0x00000004",
+        "field:obj:0x00000008",
+        "field:*(obj+0x4):0x00000000",
+        "field:this:0x00000000",
+        "field:this:0x0000000C",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "name": "DispatchVTableSlotStability",
+      "category": "polymorphism",
+      "description": "Dispatch objects are reached through vtable slots; observed slots include +0x38, +0x5C, +0x94, +0xA4, +0xA8 and the decode-chain slots +0x1C/+0x20/+0xAC/+0xB4/+0xC8/+0xCC. A replacement that preserves these slots must keep the slot layout or recompile the dispatch sites.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:obj:0x00000038",
+        "field:obj:0x0000005C",
+        "field:obj:0x00000094",
+        "field:obj:0x000000A4",
+        "field:obj:0x000000A8",
+        "field:obj:0x0000001C",
+        "field:obj:0x00000020",
+        "field:obj:0x000000AC",
+        "field:obj:0x000000B4",
+        "field:obj:0x000000C8",
+        "field:obj:0x000000CC"
+      ]
+    }
+  ],
+  "unresolved": [
+    "All packet owner identities are UNKNOWN; every class name in this proposal is a worker GUESS assignment grouping structurally coherent functions, not a recovered class name.",
+    "The vtable dispatch targets (slots +0x38, +0x5C, +0x94, +0xA4, +0xA8 and the decode-chain slots +0x1C/+0x20/+0xAC/+0xB4/+0xC8/+0xCC) are not statically resolvable; slot semantics (count/next/predicate/release/begin/end/decode/header-fill) are inferred from call sites only.",
+    "The node +8 cleanup-flag semantics (owned-value indicator) are inferred; in the head-removal path (0x00582EB0) the flag is cleared before the data-free decision, so its original meaning is unconfirmed.",
+    "Wait results 0 and 128 (WAIT_ABANDONED / WAIT_TIMEOUT variant) are treated as granted access across all mutex helpers; the original intent is unconfirmed.",
+    "0x00583530 is named Zero_Fill_Memory_Region_with_Step in the ABI but its body builds linked-list nodes; the name is retained as an artifact and does not describe the observed body.",
+    "The ConnectionManager active-list node field at +8 (field:*(this+0xAAC):0x00000008) is read but its role is unconfirmed.",
+    "The 4156-byte socket-address callback entry type and the 8316-byte block layout (0x005830C0) are not established.",
+    "The blended-update literals 0.5 and 2.0 in 0x00583700 may originate from the read-only globals 0x0059E800/0x0059E880 (DERIVED AmplitudeLimit/HalfStep); unverifiable from this packet.",
+    "0x00583700 copies a bounded payload into a buffer at this+0x20 sized at this+0x120, but field:this:0x00000020 is absent from the packet's allowed evidence refs, so no field entry is emitted for it; only the size field at +0x120 is represented.",
+    "The global-chain initializer (0x00585E10) constructs seven static objects whose concrete types are unknown; the +vtable[1]+44/+12/+0 offset arithmetic assumes vtable[1] stores a displacement.",
+    "The SEH handler globals (0x0059CE2B, 0x0059CE4B, 0x0059D101, 0x0059D19B) are compiler-generated registrations; their unwind semantics are not reconstructed.",
+    "The a2 connection-struct layout in 0x0057DE30 (sentinel -1 at +32, ring buffer near +54) is partially inferred and not cross-checked against an allocation site.",
+    "0x00585270's declared_name is the literal 'if' (a prelabel artifact); ignored in favor of the worker fill's IterateAndAllocWithVTableDispatch proposal.",
+    "0x00586A00 forwards to a realloc-like copy callee visible only in the raw source text; no static call edge is evidenced."
+  ],
+  "unresolved_evidence_refs": [
+    "field:*(this+0xAAC):0x00000008",
+    "field:this:0x00000128",
+    "field:this:0x0000012C",
+    "global:0x0059D101",
+    "global:0x0059D19B"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

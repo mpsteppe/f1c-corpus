@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "address": "0x005215DB",
+  "proposed_name": "VectorSlerpInterpolate",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x005215DB"]
+  },
+  "summary": "3DNow! vector interpolation between two input vectors a2 and a3 with parameter a4, writing the result to a1. Computes the dot product, extracts its sign and magnitude, and branches on |dot|: when |dot| is small enough (<= ~0.9999) it takes the full path computing 1/sin(theta) via pfrsqrt(1-dot^2) with Newton-Raphson refinement (F_3DVectorNormalize_8f00, sub_529700) to build sin-based blend weights; otherwise it uses the simple (1-t, t) weights. The final per-lane products (weight-a2 and weight-a3, lanes combined with sign restoration) are written to a1->m64_u64 and a1[1].m64_u64.",
+  "local_names": {
+    "a1": "output vector (two 64-bit lanes at this+0 and this+8)",
+    "a2": "first input vector",
+    "a3": "second input vector",
+    "a4": "blend/interpolation parameter",
+    "v7": "horizontal dot product after pfacc",
+    "v8": "sign mask lane extracted via pfcmpge and the 0x8000000080000000 mask",
+    "v9": "|dot| (dot with the sign mask XORed off)",
+    "v10": "1 - dot^2 (pfsubr of v9*v9 from the packed 1.0 constant)",
+    "v6/v5": "sin-based blend weights derived from the parameter and the refined reciprocal-sin factor"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "_m_femms() at entry to switch the CPU into MMX/3DNow state.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Dot product v4 = a2[0]*a3[0] + a2[1]*a3[1] built from per-lane pfadd(pfmul) of the two 64-bit halves of a2 and a3.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Broadcast the parameter: v5 = cvtsi32_si64(a4), and compute v6 = 1.0 - t by subtracting v5 from the packed 0x3F800000 (single-precision 1.0) constant.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Horizontal fold v7 = pfacc(v4, v4) collapses the two dot lanes; v8 = pand(pfcmpge(0, v7), 0x8000000080000000) extracts the sign lane; v9 = pxor(v7, v8) yields the magnitude |dot|.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v10 = 1 - |dot|^2 computed as pfsubr(v9*v9, packed 0x3F800000 1.0).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on pfcmpge(0x3F7FFF58 (packed ~0.9999), v9): the full slerp path runs only while |dot| stays below the near-parallel threshold.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "v11 = pfrsqrt(v10), the reciprocal square root approximating 1/sin(theta).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "F_3DVectorNormalize_8f00() performs a Newton-Raphson refinement step on the intermediate.",
+      "evidence_refs": ["callee:0x00528F00", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "First sub_529700() helper call advancing the interpolation computation.",
+      "evidence_refs": ["callee:0x00529700", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Fold the parameter into the weights: v20 and v12 combine a4 and (1.0 - t) with the reciprocal-sin intermediate.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Second sub_529700() helper call completing the refinement stage.",
+      "evidence_refs": ["callee:0x00529700", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v13 = refined reciprocal-sin factor (Newton-Raphson via pfrsqit1/pfrcpit2); v6 and v5 are then scaled by v13 into the final sin-based blend weights, and the sign lane v8 is re-derived.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "result = a1; v15 = pxor(v5, v8) restores the signed weight; v16/v17 duplicate the two blend weights across both lanes via punpckldq.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per-lane lerp: lane products (weight-a2[0], weight-a2[1], weight-a3[0], weight-a3[1]) are multiplied and summed so the first lane is v18 + weight-a3[0] and the second is the pfadd of the two lane terms.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the interpolated lanes: a1->m64_u64 (this+0) gets the first combined lane and a1[1].m64_u64 (this+8) gets the second.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "_m_femms() at exit to leave the MMX/3DNow state.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return a1 (the output vector pointer); called from MMX3DNowVectorTransform and F_3DVectorBlend.",
+      "evidence_refs": ["caller:0x00521712", "caller:0x0052179F", "function:0x005215DB", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "__m64* VectorSlerpInterpolate(__m64* out, __m64* a, __m64* b, unsigned int t) {",
+    "  femms();",
+    "  dot = pfadd(pfmul(a[0], b[0]), pfmul(a[1], b[1]));",
+    "  dot = pfacc(dot, dot);",
+    "  sign = pand(pfcmpge(0, dot), 0x8000000080000000);",
+    "  absdot = pxor(dot, sign);",
+    "  oneMinusTSq = pfsubr(pfmul(absdot, absdot), 0x3F8000003F800000);",
+    "  if (pfcmpge(0x3F7FFF583F7FFF58, absdot)) {",
+    "    rsqrt = pfrsqrt(oneMinusTSq);",
+    "    F_3DVectorNormalize_8f00();",
+    "    sub_529700();",
+    "    sub_529700();",
+    "    refined = pfrcpit2(pfrsqit1(oneMinusTSq, pfmul(rsqrt, rsqrt)), rsqrt);",
+    "    w0 = pfmul(broadcast(1.0 - t), refined);",
+    "    w1 = pfmul(broadcast(t), refined);",
+    "  } else {",
+    "    w0 = broadcast(1.0 - t); w1 = broadcast(t);",
+    "  }",
+    "  w1 = pxor(w1, sign);",
+    "  w0 = punpckldq(w0, w0); w1 = punpckldq(w1, w1);",
+    "  out[0] = pfadd(pfmul(w0, a[0]), pfmul(w1, b[0]));",
+    "  out[1] = pfadd(pfmul(w0, a[1]), pfmul(w1, b[1]));",
+    "  femms();",
+    "  return out;",
+    "}"
+  ],
+  "unresolved": [
+    "Three read-only globals flagged by packet facts (qword_5AF988, qword_5AF9D0, qword_5AF9E8) appear nowhere in the raw decompiled text; the existing analysis labels them PackedMathOne, SIMD_Mask3DNow and Unknown_QWord_Compare, all unverifiable from this packet.",
+    "The exact contribution of sub_529700 (called twice) and F_3DVectorNormalize_8f00 to the interpolation formula is not visible here.",
+    "The relation between the a4 parameter and the final blend weights in the simple (non-slerp) branch is not proven to be a plain (1-t, t) lerp.",
+    "The domain of a4 (expected range and whether it is clamped) is not evidenced."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005AF988",
+    "global:0x005AF9D0",
+    "global:0x005AF9E8"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

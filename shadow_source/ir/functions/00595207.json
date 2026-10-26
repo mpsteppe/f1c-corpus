@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "address": "0x00595207",
+  "proposed_name": "BitArrayIncrementCarryPropagate",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Increment-style operation over an array of 32-bit words treated as a big bit string of arbitrary length. It adds a single-bit mask at bit position (31 - a2 % 32) into the word at index a2 / 32 via OverflowCheckedUnsignedAddition, then, while the previous add reports overflow, propagates a carry by adding 1 to each preceding word in turn. Returns the last overflow indicator from the propagation chain.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Compute the target word index a2 / 32 and the bit mask 1 << (31 - a2 % 32) for the addressed bit position.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "OverflowCheckedUnsignedAddition adds the bit mask to the word at a1 + 4 * (a2 / 32), storing the result back at that word; its return value reports overflow.",
+      "evidence_refs": ["callee:0x00597547", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on v3 = a2 / 32 - 1 >= 0; carry propagation only runs while there are lower words to carry into.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "do-while loop over preceding words (a2 / 32 - 1 down to 0) that stops early once an add stops overflowing.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "For each preceding word, OverflowCheckedUnsignedAddition adds 1 to that word and stores it back; result keeps the overflow indicator.",
+      "evidence_refs": ["callee:0x00597547", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the final overflow indicator result from the last addition performed.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called by BitArrayClearBitAndZeroFillSubsequentWords (0x0059525D) as the bit-array word-update helper.",
+      "evidence_refs": ["caller:0x0059525D", "abi:lead", "function:0x00595207", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_595207(int a1, int a2) {",
+    "  int result = OverflowCheckedUnsignedAddition(*(_DWORD *)(a1 + 4 * (a2 / 32)),",
+    "                                              1 << (31 - a2 % 32), a1 + 4 * (a2 / 32));",
+    "  int v3 = a2 / 32 - 1;",
+    "  if (v3 >= 0) {",
+    "    _DWORD *v4 = (_DWORD *)(a1 + 4 * v3);",
+    "    do {",
+    "      if (!result) break;",
+    "      result = OverflowCheckedUnsignedAddition(*v4, 1, v4);",
+    "      --v3; --v4;",
+    "    } while (v3 >= 0);",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Direction of the carry semantics depends on whether OverflowCheckedUnsignedAddition returns nonzero on overflow or on success; the loop break condition implies nonzero means continue propagating.",
+    "Whether the caller treats the array as a big bit string or as packed numeric words is not established by this function alone."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,3595 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_vehicle_physics_02",
+  "scope": "vehicle_physics",
+  "subsystem": {
+    "name": "VehiclePhysics",
+    "responsibility": "Vehicle-adjacent physics and view subsystems: collision tree traversal, AABB contact-buffer allocation, collision threshold/dispatch/noise and damage-decay processing, collision proxy-list rebuild and global node-list allocation, camera/transform object initialization and copy, camera view geometry setup from vehicle bounds, vehicle-state query/delegation/name access, clamped physics-scale computation, steering-assist strength selection, animation phase distribution, vehicle control-enable gating, and vehicle-data snapshot capture.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x00448DA0",
+      "function:0x004492D0",
+      "function:0x004571E0",
+      "function:0x00457B60",
+      "function:0x004583B0",
+      "function:0x0045AF50",
+      "function:0x0045B840",
+      "function:0x00461FC0",
+      "function:0x00461FF0",
+      "function:0x00462E00",
+      "function:0x00462FF0",
+      "function:0x004636A0",
+      "function:0x00463D10",
+      "function:0x00463D50",
+      "function:0x00491AD0",
+      "function:0x00494DE0",
+      "function:0x004962C0",
+      "function:0x0049B7A0",
+      "function:0x0049B8F0",
+      "function:0x0049E520",
+      "function:0x004A3820",
+      "function:0x004A6DB0",
+      "function:0x004B0E30",
+      "source:raw"
+    ]
+  },
+  "summary": "DERIVED proposal for the vehicle_physics scope. Twenty-three functions grouped into nine evidence-linked classes. (1) CollisionSystem - recursive CollisionTreeTraversal walks a node chain (children at +0x4C, sibling at +0x5C) invoking ShadowVolumeExtrusion per node; CollisionContactBufferAllocator sizes a 32-byte-per-body AABB buffer (count +0x4, pointer +0x8) after PhysicsBufferFree; CollisionThresholdCheck compares a dereferenced +0x388 float against a state-selected threshold; dispatchCollisionParameters forwards the dbl_8AFEA0 parameter and a per-slot float to CollisionStateUpdate; WheelCollisionAndIntegrationDispatcher runs a per-wheel threshold test then dispatches PhysicsIntegrationStep_e620 and PhysicsFloatUpdateWithCompare; CollisionNoiseGenerator does LUT interpolation on an inline 16-entry table; RandomCollisionEvent branches an audio effect on dbl_8AFEA0; CollisionDamageDecayProcessor scans up to 8 damage slots and renders/decays them; CollisionNodeAllocator appends 12-byte nodes to the global list at dword_7CDDF0. (2) CollisionProxyListBuilder (the packet's single DERIVED owner) rebuilds a working list at header 0x1C from a ring-buffer slot and an embedded list, then partitions it. (3) CameraTransformNode - F_3DTransformObjectInit and F_3DTransformObjectInit_83b0 (which calls the former as its base init) fill vtable/flags/projection/scale fields with distinct vtables 0x0059EFEC/0x0059F00C. (4) CameraViewport - CameraViewSetupFromVehiclePosition derives half-extents and sets a 9-view array. (5) TwoDimensionalTransformStruct - a field-by-field 2D transform copy driven by getter helpers. (6) VehicleStateProxy - guarded state query at obj+0x1B79C, conditional delegation, name accessor at obj+0xBC, and an engine-rev read from dword_7C54E0+14844. (7) VehiclePhysicsScaleControl - clamped speed/flag-based scale, control-enable predicate over eight health indicators + control mode + force-feedback, and a 15-field snapshot copy into +0x496C. (8) VehicleAssistSteeringSelector - velocity/threshold/parity jump-table bitmask selection. (9) AnimationPhaseDistributor - distributes time phases to nested element arrays. All addresses, offsets, callers, callees and globals are reported verbatim from the packet; none are invented. Only CollisionProxyListBuilder and the CollisionSystem grouping are DERIVED owners; the remaining classes are GUESS groupings of packet functions with shared field evidence.",
+  "function_roles": [
+    {
+      "address": "0x00448DA0",
+      "role": "Recursive collision-tree traversal: for each node calls ShadowVolumeExtrusion (0x00448730), scans four consecutive child pointers at +0x4C and recurses into each non-null child, then follows the sibling link at +0x5C until null; returns the final sibling value. Invoked by CollisionContactResponse (0x00449700).",
+      "owner": "CollisionSystem",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00448DA0",
+        "caller:0x00449700",
+        "callee:0x00448730",
+        "callee:0x00448DA0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004492D0",
+      "role": "AABB contact-buffer allocation: frees the previous buffer via PhysicsBufferFree (0x00449340), and when a2 > 0 stores the count at this+0x4, allocates 32*a2+4 bytes via OperatorNewNhMallocWrapper (0x00587C03), initializes each 32-byte body slot via AABBCollisionBodyInitializer (0x00448E90), and stores the buffer pointer at this+0x8.",
+      "owner": "CollisionSystem",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004492D0",
+        "callee:0x00449340",
+        "callee:0x00587C03",
+        "callee:0x00448E90",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004571E0",
+      "role": "3D transform/camera object base initializer: stores the vtable pointer off_59EFEC at this[0], copies a base directory string into byte_5EA438 via StringCopyWithBufferRealloc (0x00566650), then fills projection/scale/range fields (FOV 60.0/45.0, zoom 0.5, far clip 500.0, scale 1.0, parameter 25.0) and zeroes state fields; returns this. Called as the base init by F_3DTransformObjectInit_83b0.",
+      "owner": "CameraTransformNode",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004571E0",
+        "callee:0x00566650",
+        "callee:0x004571E0",
+        "global:0x0059EFEC",
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00457B60",
+      "role": "Field-by-field copy of a 2D transform/viewport struct: copies an embedded string (null-safe deref 0x00415C30 + buffer-realloc copy 0x00566650), two 3-float vectors (0x00456110/0x00456130), and destination fields from paired-field getter helpers (0x00456040/0x00456060/0x00456080/0x004560A0/0x004560C0/0x004560E0) plus direct copies; writes the square of the source value at byte offset 136 into destination offset 0x8C.",
+      "owner": "TwoDimensionalTransformStruct",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00457B60",
+        "callee:0x00415C30",
+        "callee:0x00566650",
+        "callee:0x00456110",
+        "callee:0x00456130",
+        "callee:0x00456040",
+        "callee:0x00456060",
+        "callee:0x00456080",
+        "callee:0x004560A0",
+        "callee:0x004560C0",
+        "callee:0x004560E0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004583B0",
+      "role": "3D camera/transform node initializer: calls base init F_3DTransformObjectInit (0x004571E0), zero-initializes a sub-struct at this+176 via StructFieldZeroInit (0x00457CD0), installs vtable off_59F00C, copies a resource path string into byte_5EA438, zeroes state fields, fills default float parameters, and sets the integer mode field at +0x70 to 2; returns this. Called by MainView (0x0040B850) and sub_4348B0 (0x004348B0).",
+      "owner": "CameraTransformNode",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004583B0",
+        "caller:0x0040B850",
+        "caller:0x004348B0",
+        "callee:0x004571E0",
+        "callee:0x00457CD0",
+        "callee:0x00566650",
+        "global:0x0059F00C",
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0045AF50",
+      "role": "Camera/view geometry setup: computes a distance ratio from the double at +0x180 over the double at +0x28, computes a 6-float bounding box via BoundingBoxComputation (0x004DD550), stores half-width at +0x318 and half-height at +0x320, sets the view count at +0x50 to 9, stores the diagonal at +0xCC, zeroes nine 12-byte views at +0x5C, copies nine entries from the source array at +0x58 into a staging buffer, and allocates the vertex/particle buffer via VertexParticleBufferAllocator (0x0054F830).",
+      "owner": "CameraViewport",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0045AF50",
+        "callee:0x004DD550",
+        "callee:0x0054F830",
+        "global:0x0059E880",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0045B840",
+      "role": "Collision damage decay processor: reads a rotating scan start index from +0x31C, clears the active-damage flag at +0x320, runs the init search (0x0045BB00) and cursor-rectangle render (0x0045B660), computes a text-line advance from the scaled screen width global dword_5D6D64, scans up to 8 slots (92-byte stride) for damage at slot+144, renders the damage text via TextRenderDispatcher (0x004DD030), subtracts the cooling rate dbl_8AFE90, and either sets the +0x320 flag or resets the channel via PerIndexStructFieldResetter (0x0045B430); repeats up to 4 passes.",
+      "owner": "CollisionSystem",
+      "evidence_refs": [
+        "function:0x0045B840",
+        "callee:0x0045BB00",
+        "callee:0x0045B660",
+        "callee:0x004DCF30",
+        "callee:0x00587BDC",
+        "callee:0x004DD030",
+        "callee:0x0045B430",
+        "global:0x005D6D64",
+        "global:0x008AFE90",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00461FC0",
+      "role": "State query: when the dword at (obj_base + 0x1B79C) is non-zero, where obj_base = *(int*)this, calls sub_563E70 (0x00563E70) and maps (result-1)==0 to 1 and result in {2,3} to 2; otherwise returns 0. Called by ConditionalVehicleStateDelegation (0x00461FF0) and sub_475150 (0x00475150).",
+      "owner": "VehicleStateProxy",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00461FC0",
+        "caller:0x00475150",
+        "callee:0x00563E70",
+        "callee:0x00461FC0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00461FF0",
+      "role": "Guarded state delegation: calls VehicleStateQueryAtLargeOffset (0x00461FC0) and returns 0 immediately when it is nonzero; otherwise loads the delegate pointer from *(this) + 0x1B79C and returns the result of the indirect SingleDelegationCall on it. Structural twin of ConditionalNetworkSystemDispatch (0x00461F90). Called by sub_475150 (0x00475150).",
+      "owner": "VehicleStateProxy",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00461FF0",
+        "caller:0x00475150",
+        "callee:0x00461FC0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00462E00",
+      "role": "String accessor: reads the char* at (obj_base + 0xBC), where obj_base = *(int*)this, and returns it when non-null; otherwise returns the fallback string at global byte_5EA438. Called by VehicleNameToMessageBuffer (0x0047F010) as the vehicle name/description source.",
+      "owner": "VehicleStateProxy",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00462E00",
+        "caller:0x0047F010",
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00462FF0",
+      "role": "Clamped physics-scale computation for a vehicle slot: picks the input a3 or a default base scale from pointee+4 through the primary pointer at this+0x0, applies a speed-based multiplier when the mph velocity magnitude of the vehicle array element (unk_5EC6D8 + 18624*a2) is below 25.0, multiplies by 4.0 when flag bit 2 at element+0x48BC is clear, and clamps the result to [0.0, 0.5].",
+      "owner": "VehiclePhysicsScaleControl",
+      "evidence_refs": [
+        "function:0x00462FF0",
+        "global:0x005EC6D8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004636A0",
+      "role": "Collision threshold check: reads the float at (*(int*)this)+0x388 and compares it against a state-selected threshold - 20.0 when StateCheckWrapper (0x00461DC0) returns true, else 1.25 - returning true when the value is strictly greater.",
+      "owner": "CollisionSystem",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004636A0",
+        "callee:0x00461DC0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00463D10",
+      "role": "Collision parameter dispatch: loads dbl_8AFEA0, then calls CollisionStateUpdate (0x00500010) with that value, the opaque argument a2, and the float at the (unk_5F0708 + 4656*a1) vehicle-slot offset; always returns 1.",
+      "owner": "CollisionSystem",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00463D10",
+        "callee:0x00500010",
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00463D50",
+      "role": "Wheel collision and integration dispatch: reads a per-wheel threshold from the global float array (unk_5F0708 + 4656*a2), runs CollisionTestWithThreshold (0x00500560), and when the test succeeds dispatches PhysicsIntegrationStep_e620 (0x0045E620) on *this plus PhysicsFloatUpdateWithCompare (0x005000E0) on the wheel state; returns the collision-test result.",
+      "owner": "CollisionSystem",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00463D50",
+        "callee:0x00500560",
+        "callee:0x0045E620",
+        "callee:0x005000E0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00491AD0",
+      "role": "Collision proxy-list rebuild: destroys the previous working list at header offset 0x1C (ListIteratorFullDestruction 0x004910D0), then in two passes copies each source node's four shorts through the pool allocator (0x00490940) into a 12-byte list node (OperatorNewNhMallocWrapper 0x00587C03) appended to the working list, from the ring-buffer slot selected by header 0x4 and the embedded list at header 0x2C; finally partitions the working list against the list at header 0xC via sub_490D00 and returns its result.",
+      "owner": "CollisionProxyListBuilder",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00491AD0",
+        "callee:0x004910D0",
+        "callee:0x00490940",
+        "callee:0x00587C03",
+        "callee:0x00490D00",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00494DE0",
+      "role": "Collision node allocator: runs sub_53CFE0 (0x0053CFE0) as a duplicate/lookup guard and returns its result; only when it returns zero and the data pointer is non-null allocates a 12-byte node (data at +0, next at +4, flag byte at +8) via OperatorNewNhMallocWrapper (0x00587C03), appends it, and updates the global head/iterator/tail/counter (dword_7CDDF0/0x7CDDF4/0x7CDDF8/0x7CDDFC).",
+      "owner": "CollisionSystem",
+      "evidence_refs": [
+        "function:0x00494DE0",
+        "callee:0x0053CFE0",
+        "callee:0x00587C03",
+        "global:0x007CDDF0",
+        "global:0x007CDDF4",
+        "global:0x007CDDF8",
+        "global:0x007CDDFC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004962C0",
+      "role": "Piecewise-linear LUT noise generator: maps the input to a table index via CRTFtol (0x00587BDC), issues an interrupt dispatch (0x0058957A), returns 1.0 out of the 16-entry table, otherwise linearly interpolates two adjacent samples from the inline table at float offset 0x162C, applying the per-sample transform sub_5881F0 (0x005881F0) when the blend parameter is >= 0. Invoked by sub_495DC0 (0x00495DC0) for the collision damage system.",
+      "owner": "CollisionSystem",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004962C0",
+        "caller:0x00495DC0",
+        "callee:0x00587BDC",
+        "callee:0x0058957A",
+        "callee:0x005881F0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0049B7A0",
+      "role": "Steering-assist strength bitmask selector (0, 1, 2, 4, 8, 15): above a velocity threshold (VelocityThresholdCheck 0x004F1AA0) picks the full mask 0xF on odd session-time parity else 0; when the current and teammate vehicles share the same team field and the teammate-race flag dword_7C9158 is set, selects a time-derived mask (1, 2, 4, 8) through the jump table at global 0x0049B8B0; else a performance ratio of two vehicle dynamics fields selects a mask through a threshold ladder.",
+      "owner": "VehicleAssistSteeringSelector",
+      "evidence_refs": [
+        "function:0x0049B7A0",
+        "caller:0x0049D280",
+        "caller:0x004DB550",
+        "caller:0x004DB6F0",
+        "callee:0x004F1AA0",
+        "callee:0x00587BDC",
+        "global:0x0049B8B0",
+        "global:0x008AFEA0",
+        "global:0x007C54E0",
+        "global:0x007C54DC",
+        "global:0x007C54E4",
+        "global:0x007C54F0",
+        "global:0x007C9158",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0049B8F0",
+      "role": "Engine-rev value accessor: loads the object pointer held in global dword_7C54E0, adds fixed offset 14844, and returns the 32-bit value stored there. No guards, no callees, no side effects beyond the read.",
+      "owner": "VehicleStateProxy",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0049B8F0",
+        "global:0x007C54E0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0049E520",
+      "role": "Random collision audio event: dispatches an interrupt with dbl_8AFEA0 via InterruptDispatch (0x0058957A), then triggers AudioEffectTrigger (0x0049E4E0) with flag 0 on the low path (value <= 0.5) and flag 1 on the high path (value > 0.5). Invoked by sub_49D4C0 (0x0049D4C0).",
+      "owner": "CollisionSystem",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0049E520",
+        "caller:0x0049D4C0",
+        "callee:0x0058957A",
+        "callee:0x0049E4E0",
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004A3820",
+      "role": "Animation phase distributor: computes time-phase subdivisions (0.0, *a2-3.5999999, *a2*0.5, *a2*0.25, *a2*0.75) into a local array, walks this[3] elements (120-byte stride, base this+0x10), and for each 28-byte-stride sub-element reads a phase index at sub+24, computes target = sub[4]-sub[3]+phase[index], and calls RangeProportionInitializer (0x004A1FD0); returns the element count iterated.",
+      "owner": "AnimationPhaseDistributor",
+      "evidence_refs": [
+        "function:0x004A3820",
+        "callee:0x004A1FD0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004A6DB0",
+      "role": "Vehicle control-enable predicate: control is granted only when the session type global (0x007C56A4) is 0 or 7, all eight health/damage indicator fields on the vehicle object (obj+0x834/0x874/0x95C/0x99C/0xA84/0xAC4/0xBAC/0xBEC) are non-zero (or the bypass global dword_7CE814 is set), the control-mode field at obj+0x4064 is neither 1 nor 3, and the force-feedback state check sub_4D21D0 (0x004D21D0) on global 0x008ACEE0 succeeds.",
+      "owner": "VehiclePhysicsScaleControl",
+      "evidence_refs": [
+        "function:0x004A6DB0",
+        "callee:0x004D21D0",
+        "global:0x007C56A4",
+        "global:0x007CE814",
+        "global:0x008ACEE0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B0E30",
+      "role": "Vehicle data snapshot copy: copies 15 vehicle-state fields from scattered source offsets into a contiguous 60-byte destination block beginning at this+0x496C (14 dwords, one byte from 0xD44 into 0x4984, one float from 0x2390 into 0x4994); no branches, globals or callees; returns 1 unconditionally. Invoked by F_5StepInit (0x004B0720) and SettingsFileInit (0x004B0930).",
+      "owner": "VehiclePhysicsScaleControl",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004B0E30",
+        "caller:0x004B0720",
+        "caller:0x004B0930",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "CollisionSystem",
+      "responsibility": "Collision subsystem methods over a shared collision-tree/contact-buffer object plus a global collision-node list: recursive tree traversal with per-node volume extrusion, 32-byte-slot AABB contact-buffer allocation, state-selected collision threshold checking, parameter/wheel-collision dispatch into the collision-state engine and wheel physics step, inline-table noise generation, audio-effect selection, per-frame damage-slot decay with UI text rendering, and appending nodes to the global list at dword_7CDDF0. Class identity of the shared 'this' is GUESS; the field evidence per method is DERIVED from the raw bodies.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00448DA0",
+        "0x004492D0",
+        "0x004636A0",
+        "0x00463D10",
+        "0x00463D50",
+        "0x00494DE0",
+        "0x004962C0",
+        "0x0049E520",
+        "0x0045B840"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "objectChainPtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004636A0",
+            "function:0x00463D50",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "childSlotArray",
+          "type_guess": "void*[4]",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "function:0x00448DA0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "siblingLink",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "function:0x00448DA0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "contactBodyCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x004492D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "contactBodyArray",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x004492D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000388",
+          "name": "thresholdValue",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000388",
+            "function:0x004636A0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000031C",
+          "name": "damageScanStartIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000031C",
+            "function:0x0045B840",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000320",
+          "name": "activeDamageFlag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000320",
+            "function:0x0045B840",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00448DA0",
+        "function:0x004492D0",
+        "function:0x004636A0",
+        "function:0x00463D10",
+        "function:0x00463D50",
+        "function:0x00494DE0",
+        "function:0x004962C0",
+        "function:0x0049E520",
+        "function:0x0045B840",
+        "callee:0x00448730",
+        "callee:0x00448E90",
+        "callee:0x00449340",
+        "callee:0x00500560",
+        "callee:0x0045E620",
+        "callee:0x005000E0",
+        "callee:0x0053CFE0",
+        "callee:0x005881F0",
+        "callee:0x0058957A",
+        "callee:0x0045B430",
+        "callee:0x004DD030",
+        "global:0x007CDDF0",
+        "global:0x008AFE90",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionProxyListBuilder",
+      "responsibility": "Rebuilds and partitions a collision proxy working list: destroys the previous working list, copies node payloads (four shorts per source node) from a ring-buffer slot and an embedded list through a pool allocator into 12-byte list nodes, and partitions the rebuilt list against a target list. Owner trust DERIVED (from the packet); class layout is inferred from the header fields.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00491AD0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "selfPointer",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000004",
+          "name": "ringBufferIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000008",
+          "name": "ringBufferBase",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000001C",
+          "name": "workingList",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000001C",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000020",
+          "name": "workingListHead",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:obj:0x00000020",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000024",
+          "name": "workingListTail",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:obj:0x00000024",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000028",
+          "name": "workingListCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:obj:0x00000028",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000002C",
+          "name": "embeddedListSentinel",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x0000002C",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000034",
+          "name": "sentinelCurrent",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000034",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(obj+0x2C)",
+          "offset": "0x00000000",
+          "name": "embeddedListHead",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(obj+0x2C):0x00000000",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(obj+0x34)",
+          "offset": "0x00000004",
+          "name": "currentNodeNext",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(obj+0x34):0x00000004",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(obj+0x34)+0x4)",
+          "offset": "0x00000000",
+          "name": "nextNode",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(obj+0x34)+0x4):0x00000000",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(obj+0x2C)+0x0)",
+          "offset": "0x00000000",
+          "name": "sourceNodeShort0",
+          "type_guess": "int16",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(obj+0x2C)+0x0):0x00000000",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(obj+0x2C)+0x0)",
+          "offset": "0x00000002",
+          "name": "sourceNodeShort1",
+          "type_guess": "int16",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(obj+0x2C)+0x0):0x00000002",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(obj+0x2C)+0x0)",
+          "offset": "0x00000004",
+          "name": "sourceNodeShort2",
+          "type_guess": "int16",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(obj+0x2C)+0x0):0x00000004",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(obj+0x2C)+0x0)",
+          "offset": "0x00000006",
+          "name": "sourceNodeShort3",
+          "type_guess": "int16",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(obj+0x2C)+0x0):0x00000006",
+            "function:0x00491AD0",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00491AD0",
+        "callee:0x004910D0",
+        "callee:0x00490940",
+        "callee:0x00587C03",
+        "callee:0x00490D00",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraTransformNode",
+      "responsibility": "3D camera/transform node: base initializer F_3DTransformObjectInit fills vtable, state, projection (FOV 60.0/45.0), zoom, far-clip and scale fields; the derived initializer F_3DTransformObjectInit_83b0 runs the base init, zero-initializes a sub-struct at +176, installs a second vtable (0x0059F00C) and sets the mode field at +0x70 to 2. Common ownership between the two is proven by the base-init call from 0x004583B0 to 0x004571E0.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004571E0",
+        "0x004583B0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtablePtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "stateDword0",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x004571E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "invalidHandleSentinel",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x004571E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "stateDword1",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "stateDword2",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "stateDword3",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "stateDword4",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "stateDword5",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "stateDword6",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "stateDword7",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "stateDword8",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "stateDword9",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "fovMain",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "fovAux",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "fovMain2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "fovAux2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "zoomScale",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "farClipRange",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "axisScale0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "axisScale1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "axisScale2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "dampingScale0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "dampingScale1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "zeroedDwordA",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000060",
+          "name": "zeroedByte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000060",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "zeroedDwordB",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000064",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000068",
+          "name": "zeroedDwordC",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000068",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000006C",
+          "name": "zeroedDwordD",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000006C",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000070",
+          "name": "activeModeFlag",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000074",
+          "name": "zeroedDwordE",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000074",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000078",
+          "name": "zeroedDwordF",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000078",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000007C",
+          "name": "zeroedDword10",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "zeroedDword11",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000080",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000084",
+          "name": "zeroedDword12",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000084",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "paramFloat",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000088",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000090",
+          "name": "zeroedDword13",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000090",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000094",
+          "name": "zeroedDword14",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000094",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000098",
+          "name": "zeroedDword15",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000098",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000009C",
+          "name": "zeroedByte1",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000009C",
+            "function:0x004571E0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A0",
+          "name": "zeroedByte2",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A0",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A4",
+          "name": "zeroedDword16",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A4",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A8",
+          "name": "zeroedDword17",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A8",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000AC",
+          "name": "axisScale3",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000AC",
+            "function:0x004583B0",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004571E0",
+        "function:0x004583B0",
+        "caller:0x0040B850",
+        "caller:0x004348B0",
+        "callee:0x00566650",
+        "callee:0x00457CD0",
+        "global:0x0059EFEC",
+        "global:0x0059F00C",
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraViewport",
+      "responsibility": "Camera view geometry: derives a distance ratio from two doubles (+0x180/+0x28), computes a bounding box, stores half-width/half-height (+0x318/+0x320) and a diagonal (+0xCC), and configures a 9-view array (+0x50 count, +0x58 source array, +0x5C view array) feeding a vertex/particle buffer allocation. Struct identity is GUESS; the field evidence is DERIVED from the raw body.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0045AF50"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "ratioDivisor",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x0045AF50",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "viewCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "function:0x0045AF50",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "viewSourceArray",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "function:0x0045AF50",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "viewArray",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "function:0x0045AF50",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000CC",
+          "name": "viewDiagonal",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000CC",
+            "function:0x0045AF50",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000180",
+          "name": "ratioNumerator",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000180",
+            "function:0x0045AF50",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000318",
+          "name": "halfWidth",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000318",
+            "function:0x0045AF50",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000320",
+          "name": "halfHeight",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000320",
+            "function:0x0045AF50",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0045AF50",
+        "callee:0x004DD550",
+        "callee:0x0054F830",
+        "global:0x0059E880",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TwoDimensionalTransformStruct",
+      "responsibility": "2D transform/viewport struct copy: field-by-field copy of an embedded string and two 3-float vectors, with the remaining float/pair/int fields filled from source getter helpers and direct copies, and one squared-value write at +0x8C. Struct identity and the semantic role of each copied field are GUESS; the offsets are DERIVED from the raw body.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00457B60"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "fieldPairA0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "fieldPairA1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "fieldPairB0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "fieldPairB1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "fieldPairC0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "fieldPairC1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "singleFloat0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "fieldPairD0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "fieldPairD1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "viewportDimension0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "viewportDimension1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "singleFloat1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000060",
+          "name": "singleByte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000060",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "tripleField0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000064",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000068",
+          "name": "tripleField1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000068",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000006C",
+          "name": "tripleField2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000006C",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000070",
+          "name": "dwordBlock0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000074",
+          "name": "dwordBlock1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000074",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000078",
+          "name": "dwordBlock2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000078",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000007C",
+          "name": "dwordBlock3",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "dwordBlock4",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000080",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000084",
+          "name": "dwordBlock5",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000084",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "copiedFloat",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000088",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000008C",
+          "name": "squaredFloat",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000008C",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000090",
+          "name": "dwordTail0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000090",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000094",
+          "name": "dwordTail1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000094",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000098",
+          "name": "dwordTail2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000098",
+            "function:0x00457B60",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00457B60",
+        "callee:0x00415C30",
+        "callee:0x00566650",
+        "callee:0x00456110",
+        "callee:0x00456130",
+        "callee:0x00456040",
+        "callee:0x00456060",
+        "callee:0x00456080",
+        "callee:0x004560A0",
+        "callee:0x004560C0",
+        "callee:0x004560E0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleStateProxy",
+      "responsibility": "Vehicle-state access layer: guarded state query against the object chain (obj+0x1B79C), conditional delegation through a delegate pointer at that offset, a vehicle-name string accessor (obj+0xBC) with a global fallback, and a raw engine-rev read from dword_7C54E0+14844. Class identity is GUESS; field evidence is DERIVED from the raw bodies.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00461FC0",
+        "0x00461FF0",
+        "0x00462E00",
+        "0x0049B8F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "objectBasePtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00461FC0",
+            "function:0x00461FF0",
+            "function:0x00462E00",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0001B79C",
+          "name": "stateQueryDelegate",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x0001B79C",
+            "function:0x00461FC0",
+            "function:0x00461FF0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000000BC",
+          "name": "vehicleNameString",
+          "type_guess": "char*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x000000BC",
+            "function:0x00462E00",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00461FC0",
+        "function:0x00461FF0",
+        "function:0x00462E00",
+        "function:0x0049B8F0",
+        "caller:0x00475150",
+        "caller:0x0047F010",
+        "callee:0x00563E70",
+        "callee:0x00461FC0",
+        "global:0x005EA438",
+        "global:0x007C54E0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehiclePhysicsScaleControl",
+      "responsibility": "Vehicle-side physics scale and control gating: computes a clamped physics scale factor from a base scale, mph speed and a vehicle flag; predicates whether vehicle controls may be enabled from session type, eight health/damage indicators, a control-mode field and force-feedback state; and captures a 15-field vehicle-state snapshot into a contiguous +0x496C block. Class identity is GUESS; all offsets are DERIVED from the raw bodies.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00462FF0",
+        "0x004A6DB0",
+        "0x004B0E30"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "objectBasePtr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00462FF0",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000004",
+          "name": "defaultBaseScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "function:0x00462FF0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000834",
+          "name": "healthIndicator0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000834",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000874",
+          "name": "healthIndicator1",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000874",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000095C",
+          "name": "healthIndicator2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x0000095C",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000099C",
+          "name": "healthIndicator3",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x0000099C",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000A84",
+          "name": "healthIndicator4",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000A84",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000AC4",
+          "name": "healthIndicator5",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000AC4",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000BAC",
+          "name": "healthIndicator6",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000BAC",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000BEC",
+          "name": "healthIndicator7",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000BEC",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00004064",
+          "name": "controlMode",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00004064",
+            "function:0x004A6DB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000654",
+          "name": "snapshotSource0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000654",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000888",
+          "name": "snapshotSource1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000888",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000984",
+          "name": "snapshotSource2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000984",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000A80",
+          "name": "snapshotSource3",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000A80",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000B7C",
+          "name": "snapshotSource4",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000B7C",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000C78",
+          "name": "snapshotSource5",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000C78",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D44",
+          "name": "snapshotSource6",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000D44",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000209C",
+          "name": "snapshotSource7",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000209C",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002198",
+          "name": "snapshotSource8",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00002198",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002294",
+          "name": "snapshotSource9",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00002294",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002390",
+          "name": "snapshotSource10",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00002390",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000248C",
+          "name": "snapshotSource11",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000248C",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002588",
+          "name": "snapshotSource12",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00002588",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000275C",
+          "name": "snapshotSource13",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000275C",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002858",
+          "name": "snapshotSource14",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00002858",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000496C",
+          "name": "snapshotDest0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000496C",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004970",
+          "name": "snapshotDest1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004970",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004974",
+          "name": "snapshotDest2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004974",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004978",
+          "name": "snapshotDest3",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004978",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000497C",
+          "name": "snapshotDest4",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000497C",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004980",
+          "name": "snapshotDest5",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004980",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004984",
+          "name": "snapshotDest6",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004984",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004988",
+          "name": "snapshotDest7",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004988",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000498C",
+          "name": "snapshotDest8",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000498C",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004990",
+          "name": "snapshotDest9",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004990",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004994",
+          "name": "snapshotDest10",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004994",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004998",
+          "name": "snapshotDest11",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004998",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000499C",
+          "name": "snapshotDest12",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000499C",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000049A0",
+          "name": "snapshotDest13",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000049A0",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000049A4",
+          "name": "snapshotDest14",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000049A4",
+            "function:0x004B0E30",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00462FF0",
+        "function:0x004A6DB0",
+        "function:0x004B0E30",
+        "caller:0x004B0720",
+        "caller:0x004B0930",
+        "callee:0x004D21D0",
+        "global:0x005EC6D8",
+        "global:0x007C56A4",
+        "global:0x007CE814",
+        "global:0x008ACEE0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleAssistSteeringSelector",
+      "responsibility": "Selects a steering-assist strength bitmask for a vehicle: velocity-threshold path, session-time parity path, teammate-race time-derived jump-table path, and a performance-ratio threshold ladder. No this-fields are evidenced; all inputs are globals (dword_7C54DC/E0/E4/F0, dword_7C9158, dbl_8AFEA0, jump table at 0x0049B8B0). Class identity is GUESS.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0049B7A0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0049B7A0",
+        "caller:0x0049D280",
+        "caller:0x004DB550",
+        "caller:0x004DB6F0",
+        "callee:0x004F1AA0",
+        "callee:0x00587BDC",
+        "global:0x0049B8B0",
+        "global:0x008AFEA0",
+        "global:0x007C54DC",
+        "global:0x007C54E0",
+        "global:0x007C54E4",
+        "global:0x007C54F0",
+        "global:0x007C9158",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AnimationPhaseDistributor",
+      "responsibility": "Distributes time-phase subdivisions onto nested per-element structures: walks this[3] elements (base this+0x10, 120-byte stride), and for each 28-byte-stride sub-element computes a target range from a phase-indexed lookup and calls RangeProportionInitializer. Prior analysis ties this to PitStopOperationTimer-driven multi-channel animation timing. Class identity is GUESS.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004A3820"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "elementCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x004A3820",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "elementArray",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x004A3820",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004A3820",
+        "callee:0x004A1FD0",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "CollisionDamageChannelState",
+      "owner": "0x0045B840",
+      "states": [
+        "noActiveDamage",
+        "channelActive"
+      ],
+      "transitions": [
+        "channelActive <- damage slot value greater than 0.0 sets activeDamageFlag at this+0x320 to 1",
+        "channelActive -> noActiveDamage <- remaining damage not greater than 0.0 resets the channel via PerIndexStructFieldResetter (0x0045B430)"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0045B840",
+        "field:this:0x00000320",
+        "callee:0x0045B430",
+        "global:0x008AFE90",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleStateQueryEncoding",
+      "owner": "0x00461FC0",
+      "states": [
+        "guardFailsReturnZero",
+        "stateOneReturnOne",
+        "stateTwoThreeReturnTwo"
+      ],
+      "transitions": [
+        "stateOneReturnOne <- sub_563E70 result minus 1 equals 0",
+        "stateTwoThreeReturnTwo <- sub_563E70 result minus 1 is 2 or 3 (unsigned (v1-1) <= 1)"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00461FC0",
+        "field:obj:0x0001B79C",
+        "callee:0x00563E70",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionAudioEffectState",
+      "owner": "0x0049E520",
+      "states": [
+        "lowThresholdPath",
+        "highThresholdPath"
+      ],
+      "transitions": [
+        "lowThresholdPath <- dbl_8AFEA0 <= 0.5, AudioEffectTrigger(0, a1)",
+        "highThresholdPath <- dbl_8AFEA0 > 0.5, AudioEffectTrigger(1, a1)"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049E520",
+        "callee:0x0049E4E0",
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "CollisionTreeNodeExtrusionInterface",
+      "purpose": "Per-node callback invoked during collision-tree traversal: ShadowVolumeExtrusion (0x00448730) is called with the current node for every node reached, before the four child slots and sibling link are walked. The concrete extrusion implementation lives outside the packet.",
+      "functions": [
+        "0x00448DA0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00448DA0",
+        "callee:0x00448730",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "StateDelegationInterface",
+      "purpose": "Indirect delegation through the object chain: ConditionalVehicleStateDelegation loads a delegate pointer from *(this)+0x1B79C and invokes SingleDelegationCall on it, returning its result when the guard query is zero. The delegate target address is not present in the packet.",
+      "functions": [
+        "0x00461FF0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00461FF0",
+        "field:obj:0x0001B79C",
+        "callee:0x00461FC0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SteeringAssistStrengthDispatchInterface",
+      "purpose": "Jump-table dispatch over session time for the teammate path of the steering-assist selector: the table at global 0x0049B8B0 maps CRTFtol(dbl_8AFEA0*3.0)%6 to the strength masks 1 (case 0), 2 (cases 1 and 5), 4 (cases 2 and 4), 8 (case 3), and 0 by default.",
+      "functions": [
+        "0x0049B7A0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0049B7A0",
+        "global:0x0049B8B0",
+        "global:0x008AFEA0",
+        "callee:0x00587BDC",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "function:0x00448DA0",
+      "to": "callee:0x00448730",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00448730",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00448DA0",
+      "to": "callee:0x00448DA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00448DA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004492D0",
+      "to": "callee:0x00449340",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00449340",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004492D0",
+      "to": "callee:0x00587C03",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004492D0",
+      "to": "callee:0x00448E90",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00448E90",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004571E0",
+      "to": "callee:0x00566650",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566650",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004571E0",
+      "to": "global:0x0059EFEC",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x0059EFEC",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004571E0",
+      "to": "global:0x005EA438",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x00415C30",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00415C30",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x00566650",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566650",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x00456110",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00456110",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x00456130",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00456130",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x00456040",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00456040",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x00456060",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00456060",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x00456080",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00456080",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x004560A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004560A0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x004560C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004560C0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00457B60",
+      "to": "callee:0x004560E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004560E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004583B0",
+      "to": "callee:0x004571E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004571E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004583B0",
+      "to": "callee:0x00457CD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00457CD0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004583B0",
+      "to": "callee:0x00566650",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566650",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004583B0",
+      "to": "global:0x0059F00C",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x0059F00C",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004583B0",
+      "to": "global:0x005EA438",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045AF50",
+      "to": "callee:0x004DD550",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004DD550",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045AF50",
+      "to": "callee:0x0054F830",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054F830",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045AF50",
+      "to": "global:0x0059E880",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x0059E880",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045B840",
+      "to": "callee:0x0045BB00",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0045BB00",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045B840",
+      "to": "callee:0x0045B660",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0045B660",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045B840",
+      "to": "callee:0x004DCF30",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004DCF30",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045B840",
+      "to": "callee:0x00587BDC",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BDC",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045B840",
+      "to": "callee:0x004DD030",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004DD030",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045B840",
+      "to": "callee:0x0045B430",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0045B430",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045B840",
+      "to": "global:0x005D6D64",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x005D6D64",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0045B840",
+      "to": "global:0x008AFE90",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFE90",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00461FC0",
+      "to": "callee:0x00563E70",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00563E70",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00461FF0",
+      "to": "callee:0x00461FC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00461FC0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00462E00",
+      "to": "global:0x005EA438",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00462FF0",
+      "to": "global:0x005EC6D8",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x005EC6D8",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004636A0",
+      "to": "callee:0x00461DC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00461DC0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00463D10",
+      "to": "callee:0x00500010",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00500010",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00463D10",
+      "to": "global:0x008AFEA0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00463D50",
+      "to": "callee:0x00500560",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00500560",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00463D50",
+      "to": "callee:0x0045E620",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0045E620",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00463D50",
+      "to": "callee:0x005000E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005000E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00491AD0",
+      "to": "callee:0x004910D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004910D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00491AD0",
+      "to": "callee:0x00490940",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00490940",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00491AD0",
+      "to": "callee:0x00587C03",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00491AD0",
+      "to": "callee:0x00490D00",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00490D00",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00494DE0",
+      "to": "callee:0x0053CFE0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0053CFE0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00494DE0",
+      "to": "callee:0x00587C03",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00494DE0",
+      "to": "global:0x007CDDF0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007CDDF0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00494DE0",
+      "to": "global:0x007CDDF4",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007CDDF4",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00494DE0",
+      "to": "global:0x007CDDF8",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007CDDF8",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00494DE0",
+      "to": "global:0x007CDDFC",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007CDDFC",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004962C0",
+      "to": "callee:0x00587BDC",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BDC",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004962C0",
+      "to": "callee:0x0058957A",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0058957A",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004962C0",
+      "to": "callee:0x005881F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005881F0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B7A0",
+      "to": "callee:0x004F1AA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004F1AA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B7A0",
+      "to": "callee:0x00587BDC",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BDC",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B7A0",
+      "to": "global:0x008AFEA0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B7A0",
+      "to": "global:0x0049B8B0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x0049B8B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B7A0",
+      "to": "global:0x007C54DC",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C54DC",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B7A0",
+      "to": "global:0x007C54E0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C54E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B7A0",
+      "to": "global:0x007C54E4",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C54E4",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B7A0",
+      "to": "global:0x007C54F0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C54F0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B7A0",
+      "to": "global:0x007C9158",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C9158",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049B8F0",
+      "to": "global:0x007C54E0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C54E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049E520",
+      "to": "callee:0x0058957A",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0058957A",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049E520",
+      "to": "callee:0x0049E4E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0049E4E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0049E520",
+      "to": "global:0x008AFEA0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004A3820",
+      "to": "callee:0x004A1FD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004A1FD0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004A6DB0",
+      "to": "callee:0x004D21D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004D21D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004A6DB0",
+      "to": "global:0x007C56A4",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C56A4",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004A6DB0",
+      "to": "global:0x007CE814",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007CE814",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004A6DB0",
+      "to": "global:0x008ACEE0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008ACEE0",
+        "source:raw"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "CollisionTreeLayoutContract",
+      "category": "memory_layout",
+      "description": "A replacement collision tree must expose per node: four consecutive child pointers starting at offset 0x4C (0x4C..0x58) and a sibling/next link at offset 0x5C that terminates the walk when null. Traversal must invoke the per-node extrusion callback (0x00448730) and recurse into each non-null child slot, and must return the final sibling value.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00448DA0",
+        "field:this:0x0000004C",
+        "field:this:0x0000005C",
+        "callee:0x00448730",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AABBCollisionBodyBufferLayout",
+      "category": "memory_layout",
+      "description": "A replacement collision contact buffer must preserve: body count at this+0x4, body-array pointer at this+0x8, per-body slot size 32 bytes, and a single allocation of 32*count+4 bytes whose header stores the count; each slot is initialized by AABBCollisionBodyInitializer (0x00448E90) and the previous buffer is freed via PhysicsBufferFree (0x00449340) before allocation.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004492D0",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "callee:0x00448E90",
+        "callee:0x00449340",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionThresholdDispatchContract",
+      "category": "command_protocol",
+      "description": "A replacement collision dispatch must preserve the parameter flow: dispatchCollisionParameters forwards the dbl_8AFEA0 parameter, an opaque argument, and a per-vehicle-slot float (4656-byte stride over the unk_5F0708 array) to CollisionStateUpdate (0x00500010); WheelCollisionAndIntegrationDispatcher tests a per-wheel threshold via CollisionTestWithThreshold (0x00500560) and, on success, runs PhysicsIntegrationStep_e620 (0x0045E620) and PhysicsFloatUpdateWithCompare (0x005000E0); CollisionThresholdCheck compares the float at (*(int*)this)+0x388 against a threshold of 20.0 when StateCheckWrapper (0x00461DC0) is true else 1.25.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00463D10",
+        "function:0x00463D50",
+        "function:0x004636A0",
+        "callee:0x00500010",
+        "callee:0x00500560",
+        "callee:0x0045E620",
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionNodeListLayout",
+      "category": "memory_layout",
+      "description": "A replacement collision node list must expose the global head/iterator/tail/counter at dword_7CDDF0/0x7CDDF4/0x7CDDF8/0x7CDDFC and append 12-byte nodes with a data pointer at +0, next pointer at +4 and flag byte at +8; allocation must be guarded by the sub_53CFE0 duplicate lookup (which returns non-zero when a duplicate exists) and by the data pointer being non-null.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00494DE0",
+        "callee:0x0053CFE0",
+        "global:0x007CDDF0",
+        "global:0x007CDDF4",
+        "global:0x007CDDF8",
+        "global:0x007CDDFC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraTransformInitProtocol",
+      "category": "flag_protocol",
+      "description": "A replacement 3D camera/transform object must reproduce the initializer field shape: vtable at +0x0 (off_59EFEC, then off_59F00C on the derived node), invalid-handle sentinel -1 at +0x8, FOV 60.0/45.0 at +0x30/+0x34/+0x38/+0x3C, zoom 0.5 at +0x40, far clip 500.0 at +0x44, axis scale 1.0 at +0x48/+0x4C/+0x50, damping 0.5 at +0x54/+0x58, active/mode flag at +0x70 (1 on base, 2 on derived), parameter 25.0 at +0x88, and the base-directory/resource-path string copy through StringCopyWithBufferRealloc into byte_5EA438.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004571E0",
+        "function:0x004583B0",
+        "field:this:0x00000070",
+        "field:this:0x00000088",
+        "global:0x0059EFEC",
+        "global:0x0059F00C",
+        "callee:0x00566650",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleStateAccessProtocol",
+      "category": "command_protocol",
+      "description": "A replacement state-access layer must preserve: the guarded state query at obj+0x1B79C mapping sub_563E70 results to the codes 1 (state 1) and 2 (states 2/3) with 0 otherwise; the delegation through the object chain at *(this)+0x1B79C gated by that query; the vehicle-name read at obj+0xBC with fallback to byte_5EA438; and the engine-rev read at dword_7C54E0+14844.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00461FC0",
+        "function:0x00461FF0",
+        "function:0x00462E00",
+        "function:0x0049B8F0",
+        "field:obj:0x0001B79C",
+        "field:obj:0x000000BC",
+        "callee:0x00563E70",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleControlEnableProtocol",
+      "category": "command_protocol",
+      "description": "A replacement control-enable predicate must require: session type global 0x007C56A4 equal to 0 or 7; all eight health/damage indicator fields (obj+0x834/0x874/0x95C/0x99C/0xA84/0xAC4/0xBAC/0xBEC) non-zero unless the bypass global dword_7CE814 is set; the control-mode field at obj+0x4064 not equal to 1 or 3 (value 2 does not disable); and a non-zero result from the force-feedback state check sub_4D21D0 on global 0x008ACEE0.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6DB0",
+        "field:obj:0x00004064",
+        "field:obj:0x00000834",
+        "field:obj:0x00000BEC",
+        "callee:0x004D21D0",
+        "global:0x007C56A4",
+        "global:0x008ACEE0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleDataSnapshotBlockLayout",
+      "category": "memory_layout",
+      "description": "A replacement vehicle snapshot must copy exactly these 15 fields into the contiguous block at +0x496C..+0x49A4 (14 dwords, one byte from 0xD44 into 0x4984, one float from 0x2390 into 0x4994): sources 0x654, 0x888, 0x984, 0xA80, 0xB7C, 0xC78, 0xD44(byte), 0x209C, 0x2198, 0x2294, 0x2390(float), 0x248C, 0x2588, 0x275C, 0x2858 into destinations 0x496C, 0x4970, 0x4974, 0x4978, 0x497C, 0x4980, 0x4984(byte), 0x4988, 0x498C, 0x4990, 0x4994(float), 0x49A4, 0x4998, 0x499C, 0x49A0 respectively, returning 1 unconditionally.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B0E30",
+        "field:this:0x00000654",
+        "field:this:0x0000496C",
+        "field:this:0x00002390",
+        "field:this:0x00004994",
+        "field:this:0x000049A4",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionDamageDecayProtocol",
+      "category": "command_protocol",
+      "description": "A replacement damage-decay processor must scan up to 8 damage slots (92-byte stride over the owner object) starting from the rotating index at this+0x31C, stop at the first slot whose damage at slot+144 is greater than 0.0, render the damage text at slot+60 with the value at slot+140 via TextRenderDispatcher (0x004DD030), subtract the global cooling rate dbl_8AFE90 from the slot damage, set the active-damage flag at this+0x320 when damage remains, and otherwise reset the channel via PerIndexStructFieldResetter (0x0045B430); the pass repeats up to 4 times per frame.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0045B840",
+        "field:this:0x0000031C",
+        "field:this:0x00000320",
+        "callee:0x0045B430",
+        "global:0x008AFE90",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "The concrete owning classes of most functions are unknown; owners were left as UnknownObject at the packet level and every class here except CollisionSystem and CollisionProxyListBuilder is a GUESS grouping of packet functions with shared field evidence.",
+    "CollisionTreeTraversal passes no explicit argument to its recursive self-call in the decompiled text; the node argument is presumably implicit. The four-slot child array at 0x4C..0x58 is DERIVED from the loop shape; only 0x4C and 0x5C are packet field refs.",
+    "The owner object of CollisionContactBufferAllocator's this+0x4/this+0x8 is unidentified, and the meaning of its returned pointer for the caller (caller:0x0044B370, unresolved) is unknown.",
+    "The exact semantic role of every copied field in F_2DTransformStructCopy (position vs scale vs viewport/clip vs transform parameters), the string at source+4, and the value at source+136 squared into destination+0x8C are unknown.",
+    "F_3DTransformObjectInit_83b0 zero-initializes a sub-struct at this+176 via StructFieldZeroInit, but that offset is not a packet field ref and was not asserted as a field.",
+    "The concrete object type behind CameraViewSetupFromVehiclePosition is unknown; the 9 view structures at +0x5C and the source array at +0x58 (frustum planes vs camera state) are not established by this packet, and no callers are recorded.",
+    "For CameraViewSetupFromVehiclePosition the bounding-box vector layout (interleaved min/max pairs box[0]/box[3], box[1]/box[4], box[2]/box[5]) is inferred; global dbl_59E880 is recorded as read but does not appear literally in the raw body (presumed 0.5 half-extent constant, GUESS).",
+    "The physical meaning of the damage-decay slot data (stride 92, damage at slot+144, text position at slot+60) is inferred, not runtime-proven; the exact text content and formatting arguments to TextRenderDispatcher are UI-determined.",
+    "VehicleStateQueryAtLargeOffset: the meaning of the checked dword at obj+0x1B79C, the full return domain of sub_563E70, and the semantic meaning of return codes 1 and 2 are not confirmed.",
+    "ConditionalVehicleStateDelegation's SingleDelegationCall appears in the raw source text but has no callee address in the packet; its target address is unknown.",
+    "The string at obj+0xBC (vehicle name versus description) and the fallback content of byte_5EA438 are not confirmed.",
+    "ClampedPhysicsScaleWithThreshold: the identity of the object whose primary pointer at +0x0 reaches a default base scale at pointee+4, the mapping of literals (2.2369363 mph factor, 25.0, 4.0, 0.5) to the flagged globals, and the role of flag bit 2 at vehicle element+0x48BC are unknown.",
+    "CollisionThresholdCheck: the meaning of the compared value at +0x388 and which object state StateCheckWrapper tests are unknown.",
+    "dispatchCollisionParameters: the array base unk_5F0708 is not an allowed packet ref, so the 4656-byte-stride vehicle-slot interpretation is a GUESS; dbl_8AFEA0 is typed double but consumed through LODWORD as a float.",
+    "WheelCollisionAndIntegrationDispatcher: v6 (edx) is passed to PhysicsIntegrationStep_e620 without explicit initialization (register-derived), and the recorded caller label 'TeamColorLoader' (0x004F03E0) is not in the allowed caller refs and does not obviously match collision-dispatch behaviour.",
+    "RebuildCollisionProxyList: the meaning of the four shorts read per source node (AABB box vs other payload) and the relationship between the ring-buffer source list and the embedded list at header 0x2C are inferred, not confirmed; the partition target at header 0xC and the meaning of sub_490D00's return are unknown.",
+    "CollisionNodeAllocator: the roles of the global head/iterator/tail pointers are DERIVED names; the constant 67585 passed to sub_53CFE0 is an opaque lookup key; the owner of the dword_7CDDF0 global list is unknown.",
+    "CollisionNoiseGenerator: the transform sub_5881F0 is called for its side effect; the inline 16-entry table at float offset 0x162C is set up elsewhere; four flagged globals (flt_59E43C, flt_59E440, flt_59EED0, dbl_5AC9D0) do not appear in the raw body.",
+    "VehicleAssistSteeringBitmaskSelector: the float globals flt_59E478, flt_59E824, flt_5ACAE8, flt_5ACAEC, flt_5ACAF0 are flagged but appear nowhere in the raw source; the field at vehicle+18580 is interpreted as a team identifier and dword_7C9158 as a teammate-race flag from call-site context only; the ratio fields at dword_7C54E0+14752/+14756 and the ladder thresholds (0.9, 0.93, 0.96, 0.977) are inferred.",
+    "EngineRevValueAccessor: the type of the object at dword_7C54E0 and the meaning of offset 14844 are not established; the engine-rev reading is a canonical-name lead, not packet evidence.",
+    "RandomCollisionEvent: the 0.5 threshold and dbl_8AFEA0 are interpreted as session time by prior analysis (DERIVED); dbl_59E420 and dbl_59E880 are flagged but not verifiable here; the meaning of a1 (audio-source handle) is caller-supplied.",
+    "AnimationPhaseDistributor: the 28-byte sub-element layout (float pair at 3/4, phase index at +24) is read via raw offsets and not defined; the 3.5999999 offset and the 0.25/0.5/0.75 proportions depend on the caller's animation model (prior analysis: PitStopOperationTimer); four flagged globals (flt_59E450, flt_59E7F8, flt_59E7FC, flt_5ACAF4) are unverifiable from this packet.",
+    "VehicleControlEnabled: the exact physical meaning of the eight health/damage fields (which pair maps to which wheel or damage region), the role of dword_7CE814 as a qualifying/DSQ bypass, and the semantics of control-mode values at obj+0x4064 are not confirmed independently.",
+    "VehicleDataFieldCopy: the field semantics of the 15 source offsets and the snapshot block are not documented; the snapshot's consumer is not established here.",
+    "Several flagged-but-ungrounded globals (flt_59E43C, flt_59E440, flt_59E450, flt_59E46C, flt_59E478, flt_59E7F8, flt_59E7FC, flt_59E824, flt_59E860, flt_59E8A0, flt_59E8EC, flt_59EED0, flt_59F078, flt_59F124, flt_59F128, dbl_5AC9D0, flt_5ACAE8, flt_5ACAEC, flt_5ACAF0, flt_5ACAF4, dbl_59E420, dbl_59E880, dword_8AFE64) appear nowhere in the raw decompiled bodies; their roles are unknown or inherited from existing-analysis prose, so they are carried in unresolved_evidence_refs rather than asserted.",
+    "The global fallback string byte_5EA438 (0x005EA438) is shared by F_3DTransformObjectInit, F_3DTransformObjectInit_83b0 and VehicleNameAccessor; whether the transform inits read it as a resource-path source and the name accessor reads it as a placeholder is inferred from call shapes, not proven.",
+    "The 4656-byte stride over unk_5F0708 used by dispatchCollisionParameters and WheelCollisionAndIntegrationDispatcher is read from raw source only; the array base is not an allowed packet ref."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x0044B370",
+    "caller:0x0049F070",
+    "global:0x0059E420",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E46C",
+    "global:0x0059E478",
+    "global:0x0059E7F8",
+    "global:0x0059E7FC",
+    "global:0x0059E824",
+    "global:0x0059E860",
+    "global:0x0059E880",
+    "global:0x0059E8A0",
+    "global:0x0059E8EC",
+    "global:0x0059EED0",
+    "global:0x0059F078",
+    "global:0x0059F124",
+    "global:0x0059F128",
+    "global:0x005AC9D0",
+    "global:0x005ACAE8",
+    "global:0x005ACAEC",
+    "global:0x005ACAF0",
+    "global:0x005ACAF4",
+    "global:0x008AFE64"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

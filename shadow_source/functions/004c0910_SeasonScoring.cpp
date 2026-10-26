@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C0910
+// Canonical corpus name: SeasonScoring
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SeasonScoring_004c0910.c
+
+void UnknownObject::SeasonScoring()
+{
+    // Computes season championship points for one vehicle entry. Under GameState dword_7D00EC == 5 (idle) it reads the vehicle's race position from the season database entry (base dword_7D2E48 + 18624 * this+0x1A4 + 16480), decrements it into this+0x1A8, and increments the leader-lap counter this+0x1A0 when the position equals 1. Under GameState == 7 (post-race) it copies the position to slot this[a2+6], and when the entry is not a retired result (+16484 != 3), the 90% distance threshold (+16444 >= CRTFtol(dword_8ACF8C * 0.9)) is met, and the season-scoring audio channel check AudioChannelStop succeeds, it walks the scoring entry via NullCheckWrapper/DataEntryAccessor and accumulates sub_587ECE's return into this+0x198. The per-race score is also stored to this[a2+54], and this+0x1A8 is refreshed from this+0x1A4.
+    // GUARD: Idle-scoring path only runs when GameState global dword_7D00EC equals 5; otherwise the post-race branch is taken. [global:0x007D00EC, source:raw]
+    // CALCULATION: v8 = 18624 * this+0x1A4 (vehicle index into the season database) and result = *(v8 + dword_7D2E48 + 16480) - 1, i.e. the stored race position minus one becomes the finished position. [field:this:0x000001A4, global:0x007D2E48, source:raw]
+    // ASSIGNMENT: Write the computed result into this+0x1A8 (the finished-position field of the season state). [field:this:0x000001A8, source:raw]
+    // STATE_TRANSITION: When the stored position equalled 1, increment this+0x1A0 (leader lap counter). [field:this:0x000001A0, source:raw]
+    // GUARD: Post-race path only runs when GameState dword_7D00EC equals 7. [global:0x007D00EC, source:raw]
+    // ASSIGNMENT: Copy the race position from the season entry (18624 * this+0x1A4 + dword_7D2E48 + 16480) into indexed slot this[a2+6]. [global:0x007D2E48, source:raw]
+    // GUARD: Scoring condition: entry status at +16484 != 3, distance at +16444 >= (int)CRTFtol(dword_8ACF8C * 0.89999998) where the 0.9 factor is read from float global flt_59E824, and AudioChannelStop(dword_8AD3B4, aSeasonscoringi) succeeds (season-scoring audio channel is active). [global:0x007D2E48, global:0x008ACF8C, global:0x0059E824, callee:0x00587BDC, callee:0x00568210, global:0x008AD3B4, global:0x005D2804, source:raw]
+    // CALL: v6 = NullCheckWrapper(this[a2+6] - 1); v7 = DataEntryAccessor(v6); v5 = sub_587ECE(v7) resolves the scoring entry and produces the awarded points. [callee:0x005679A0, callee:0x00567970, callee:0x00587ECE, source:raw]
+    // ASSIGNMENT: Write v5 into indexed slot this[a2+54] and accumulate it into this+0x198 (season points total). [field:this:0x00000198, source:raw]
+    // ASSIGNMENT: result = this+0x1A4; write it into this+0x1A8, refreshing the stored position field from the vehicle index. [field:this:0x000001A4, field:this:0x000001A8, source:raw]
+    // RETURN: Return result (the carried index/position). Called from RaceStandingsRankingsComputation as part of standings computation. [caller:0x004C0F60, function:0x004C0910, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int SeasonScoring(SeasonState* this, int a2) {
+    //     int result;
+    //     if (dword_7D00EC == 5) {
+    //       int* e = (int*)(18624 * this->vehicleIndex + dword_7D2E48);
+    //       result = e[16480/sizeof(int)] - 1;
+    //       bool wasFirst = (e[16480/sizeof(int)] == 1);
+    //       this->position = result;
+    //       if (wasFirst) ++this->leaderLaps;
+    //     } else if (dword_7D00EC == 7) {
+    //       int* e = (int*)(18624 * this->vehicleIndex + dword_7D2E48);
+    //       this->slot[a2 + 6] = e[16480/sizeof(int)];
+    //       int score = 0;
+    //       if (e[16484/sizeof(int)] != 3
+    //           && e[16444/sizeof(int)] >= (int)CRTFtol((double)dword_8ACF8C * 0.89999998)
+    //           && AudioChannelStop(dword_8AD3B4, aSeasonscoringi)) {
+    //         void* entry = NullCheckWrapper(this->slot[a2 + 6] - 1);
+    //         if (entry) score = sub_587ECE(DataEntryAccessor(entry));
+    //       }
+    //       this->slot[a2 + 54] = score;
+    //       this->totalPoints += score;
+    //       result = this->vehicleIndex;
+    //       this->position = result;
+    //     }
+    //     return result;
+    //   }
+    // UNRESOLVED: Meanings of the season-database entry offsets +16480 (position), +16484 (status), +16444 (distance) are inferred from usage, not proven.
+    // UNRESOLVED: Identity of indexed slots this[a2+6] and this[a2+54] (base a2 is a caller-supplied slot selector) is unresolved.
+    // UNRESOLVED: flt_59E824 is presumed to hold the 0.89999998 factor; its exact value is not read from this packet.
+    // UNRESOLVED: What sub_587ECE returns (points awarded) is inferred from its position in the accumulate expression.
+    // UNRESOLVED: Semantics of aSeasonscoringi ("SeasonScoringInfo" section name) as an AudioChannelStop argument are DERIVED from the existing analysis, not proven here.
+}

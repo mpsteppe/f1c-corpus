@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "address": "0x00582190",
+  "proposed_name": "DestroyOwnedLists",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Destroys two embedded singly-linked lists owned by the object. Optionally closes a handle at this->0x20 (guarded by a flag at this->0x28), frees list1 (head at this->0x10) node data and wrappers, zeros its four bookkeeping fields, then frees list2 (head at this->0x0) records by invoking NTimeCallbackLoopWithSEH with the EmptyStub_aa60 callback and the SEH_582190 handler on each size-prefixed record before releasing data and wrappers, and zeros its four bookkeeping fields. Returns the handle-close result.",
+  "local_names": {
+    "v4": "list1_node",
+    "v6": "list2_node",
+    "v7": "list2_record_pointer",
+    "v8": "list2_record_start",
+    "v9": "record_prefix_adjusted"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "When the byte flag at this->0x28 is set, close the handle stored at this->0x20 via CloseHandle and clear this->0x20 on success.",
+      "evidence_refs": ["field:this:0x00000028", "field:this:0x00000020", "global:0x0059E1A8", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk list1 from its head at this->0x10, following each node's next link at node+0x4 (also via the tail at this->0x14); free each node's data pointer at node+0x0 with FreeWrapper_7bcf when the node flag at +0x8 is set and the data pointer is non-null, then free the wrapper node itself.",
+      "evidence_refs": ["field:this:0x00000010", "field:this:0x00000014", "field:*(this+0x14):0x00000004", "field:*(obj+0x4):0x00000004", "field:obj:0x00000000", "field:obj:0x00000008", "callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the four list1 bookkeeping fields after destruction: this->0x10, this->0x14, this->0x18 and this->0x1C.",
+      "evidence_refs": ["field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk list2 from its head at this->0x0, following each node's next link at node+0x4; when the node flag at +0x8 is set and the data pointer at node+0x0 is non-null, read the size-prefixed record, call NTimeCallbackLoopWithSEH with size, prefix length, the EmptyStub_aa60 callback and the SEH_582190 handler on the record start, free the prefix-adjusted record and the record pointer, then free the wrapper node.",
+      "evidence_refs": ["field:this:0x00000000", "field:*(obj+0x4):0x00000004", "field:obj:0x00000008", "field:obj:0x00000000", "field:*(obj+0x0):0x00000000", "callee:0x0058A5F7", "callee:0x00587BCF", "global:0x0047AA60", "global:0x0059CC48", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the four list2 bookkeeping fields after destruction: this->0x0, this->0x4, this->0x8 and this->0xC.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the handle-close result (or the flag byte) from the optional handle path.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char DestroyOwnedLists(int this) {",
+    "  int result = *(BYTE*)(this + 40);",
+    "  if (result) {",
+    "    result = CloseHandle(*(HANDLE*)(this + 32));",
+    "    if (result) *(int*)(this + 32) = 0;",
+    "  }",
+    "  for (BYTE* n = *(BYTE**)(this + 16); n; n = *(BYTE**)(n + 4)) {",
+    "    if (n[8] && *(int*)n) FreeWrapper_7bcf(*(void**)n);",
+    "    FreeWrapper_7bcf(n);",
+    "  }",
+    "  *(int*)(this + 16) = 0; /* ... zero this+0x14/0x18/0x1C ... */",
+    "  for (BYTE* n = *(BYTE**)this; n; n = *(BYTE**)(n + 4)) {",
+    "    if (n[8] && *(int*)n) {",
+    "      int* rec = *(int**)n;",
+    "      int start = *rec;",
+    "      if (start) {",
+    "        NTimeCallbackLoopWithSEH(start, 4156, *(int*)(start - 4), EmptyStub_aa60);",
+    "        FreeWrapper_7bcf((void*)(start - 4));",
+    "      }",
+    "      FreeWrapper_7bcf(rec);",
+    "    }",
+    "    FreeWrapper_7bcf(n);",
+    "  }",
+    "  *(int*)this = 0; /* ... zero this+0x4/0x8/0xC ... */",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The object owning these two lists and the meaning of the size-prefixed list2 records (a 4156-byte header per NTimeCallbackLoopWithSEH) are not grounded by the packet.",
+    "The purpose of the two NTimeCallbackLoopWithSEH arguments derived from the record prefix (start and start-4) is inferred from the loop pattern only.",
+    "Whether this routine is a destructor or an explicit cleanup method depends on the caller, which is not present in this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

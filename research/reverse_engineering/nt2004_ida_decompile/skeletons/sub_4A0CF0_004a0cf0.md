@@ -1,0 +1,38 @@
+## sub_4A0CF0_004a0cf0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(*(this+0x114)+0x0) | 0x0 | R | — | [LLM] |
+| *(*(this+0x114)+0x4) | 0x4 | R | — | [LLM] |
+| *(this+0x114) | 0x0 | R | — | [LLM] |
+| *(this+0x114) | 0x8 | R | — | [LLM] |
+| this | 0x114 | RW | 0 | [LLM] |
+| this | 0x118 | RW | 0 | [LLM] |
+| this | 0x11C | RW | 0 | [LLM] |
+| this | 0x120 | RW | 0 | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x114: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x118: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x11C: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x120: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 0049ec50 | sub_49EC50 | [LLM] |
+| 005be8ae | sub_5BE8AE | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "address": "0x004E3D00",
+  "proposed_name": "WheelSpringDamperForceAndSteering",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x004E3D00", "source:raw"]
+  },
+  "summary": "Per-frame wheel spring/damper and steering torque computation. Builds a local reference frame from suspension geometry (branching on the 0x3C compression ratio against 0.985 and on the sign of the 0x38 axis against 0.7071), projects the wheel body velocity onto it, integrates a damper accumulator, computes spring/damper force magnitudes, clamps slip through a friction circle, and writes the three output force components to 0xD8/0xDC/0xE0.",
+  "local_names": {
+    "v30": "local-frame X velocity component",
+    "v29": "local-frame Y velocity component",
+    "v41/v43/v45": "normalized local-frame axes (large-angle branch)",
+    "v35/v37/v39": "normalized local-frame axes (small-angle branch)",
+    "v33": "damper-compressed displacement",
+    "v34": "damper accumulator (this[22] after writeback)",
+    "v15": "tangential friction velocity after clamping",
+    "v58": "lateral friction velocity component",
+    "v24": "damped contact velocity"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Branch on suspension compression ratio this+0x3C (this[15]) <= 0.985 against the near-vertical threshold.",
+      "evidence_refs": ["field:this:0x00000060"]
+    },
+    {
+      "kind": "guard",
+      "description": "Within the <= 0.985 branch, branch on fabs(this+0x38 (this[14])) >= 0.7071 to pick the steering-geometry cross-product formulation.",
+      "evidence_refs": ["field:this:0x00000056"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the local reference frame as a normalized cross product of this+0xBC (this[47]), this+0xC0 (this[48]), this+0x38 (this[14]), this+0x3C (this[15]) and this+0x40 (this[16]) terms (with 0.0 dot products), divided by sqrt of the summed squares.",
+      "evidence_refs": ["field:this:0x00000188", "field:this:0x00000192", "field:this:0x00000056", "field:this:0x00000060", "field:this:0x00000064"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Project body velocity this+0x18/0x1C/0x20 (this[6..8]) onto the local frame axes to obtain contact velocity components v30 and v29.",
+      "evidence_refs": ["field:this:0x00000024", "field:this:0x00000028", "field:this:0x00000032"]
+    },
+    {
+      "kind": "guard",
+      "description": "In the > 0.985 branch: if this+0xBC (this[47]) == 1.0f (packet guard) use this+0x18/0x20 (this[6]/this[8]) directly; otherwise rotate them by this[47]/this[48].",
+      "evidence_refs": ["guard:0", "field:this:0x00000188", "field:this:0x00000192", "field:this:0x00000024", "field:this:0x00000032"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v33 = v29 - this+0x90 (this[36]) * this+0x30 (this[12]); damper accumulator v34 = this+0xB8 (this[46]) * this+0x44 (this[17]) + this+0x58 (this[22]); write back this+0x58 = v34; clamp this[17] to this+0xAC (this[43]).",
+      "evidence_refs": ["field:this:0x00000144", "field:this:0x00000048", "field:this:0x00000184", "field:this:0x00000068", "field:this:0x00000088", "field:this:0x00000172"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Spring/damper force: v10 = this[17] * this+0xA8 (this[42]); this+0x48 (this[18]) = 5.0; this+0x4C (this[19]) = (v10 + 1.0) * this+0x9C (this[39]) * this+0x44 (this[17]).",
+      "evidence_refs": ["field:this:0x00000168", "field:this:0x00000072", "field:this:0x00000076", "field:this:0x00000156", "field:this:0x00000068"]
+    },
+    {
+      "kind": "guard",
+      "description": "If this+0x4C (this[19]) <= 0.0: zero this[19], this+0x50 (this[20]), this+0xD8 (this[54]), this+0xDC (this[55]), this+0xE0 (this[56]) and return early.",
+      "evidence_refs": ["field:this:0x00000076", "field:this:0x00000080", "field:this:0x00000216", "field:this:0x00000220", "field:this:0x00000224"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Mark the force as applied: this+0x50 (this[20]) = 1.0.",
+      "evidence_refs": ["field:this:0x00000080"]
+    },
+    {
+      "kind": "calculation",
+      "description": "If this+0x30 (this[12]) == 0: contact-patch displacement check against stored this+0xC4 (this[49]) and this+0xC8 (this[50]) relative to this+0x0 and this+0x8; if the squared distance < 0.005625, compute the contact velocity from the a2 axis block (a2[0..8] with 0.0 slip terms) and project it through the local frame.",
+      "evidence_refs": ["field:this:0x00000048", "field:this:0x00000196", "field:this:0x00000000", "field:this:0x00000200", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Contact-point tangential forces: v58 = v13 * 16000.0 - v30 * 1050.0; v15 = v32 * 16000.0 - v29 * 1050.0 (friction-bound check on this[19]^2).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Friction clamp path: if this[19]^2 <= v15^2 + v58^2 skip to LABEL_23; else record this+0xC4 (this[49]) = this+0x0 and this+0xC8 (this[50]) = this+0x8; compute v16 = sqrt(v29^2 + v30^2) floored at 1.0; v17 = -(this[19] / v16 * this+0x94 (this[37])); scale v58/v15; if magnitude exceeds this[19]^2 scale by v19 and update this+0x50 (this[20]) and this+0x58 (this[22]) = (v19 * 0.25 + 0.75) * v34; friction deadzone correction v24 = this+0x54 (this[21]) - v15 * this+0x90 (this[36]) +/- this[22] selected by the C0/C3 flags.",
+      "evidence_refs": ["field:this:0x00000196", "field:this:0x00000000", "field:this:0x00000200", "field:this:0x00000008", "field:this:0x00000148", "field:this:0x00000076", "field:this:0x00000080", "field:this:0x00000088", "field:this:0x00000054", "field:this:0x00000144", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Vertical damping torque: v25 = this+0x70 (this[28]) * this+0x6C (this[27]) * this+0x90 (this[36]) * v24; v26 = 2 * v25; v27 = v33 - v26; if v33 * v27 < 0.0, adjust v15 toward zero by the slip magnitude v31 = fabs(v27 / (v26 * this[36]) * v24).",
+      "evidence_refs": ["field:this:0x00000112", "field:this:0x00000108", "field:this:0x00000144", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Integrate the slip accumulator: this+0x54 (this[21]) = this+0x54 (this[21]) - v15 * this+0x90 (this[36]).",
+      "evidence_refs": ["field:this:0x00000054", "field:this:0x00000144"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Output forces: if this+0x3C (this[15]) <= 0.985 write this+0xD8 (this[54]) = v35*v15 + v41*v58, this+0xDC (this[55]) = v37*v15 + v43*v58, this+0xE0 (this[56]) = v39*v15 + v45*v58; else this+0xDC = 0.0 and, if this[47] == 1.0f (guard), this+0xE0 = v15 and this+0xD8 = v58, otherwise this+0xD8 = v15*this+0xC0 (this[48]) + v58*this+0xBC (this[47]) and this+0xE0 = v15*this[47] + v58*this[48].",
+      "evidence_refs": ["field:this:0x00000060", "field:this:0x00000216", "field:this:0x00000220", "field:this:0x00000224", "guard:0", "field:this:0x00000188", "field:this:0x00000192"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if this[0x3C] <= 0.985:",
+    "  if fabs(this[0x38]) >= 0.7071: build axis frame A from this[0xBC]/this[0xC0]/this[0x38]/this[0x3C]/this[0x40]",
+    "  else: build axis frame B from the negated cross products of the same fields",
+    "  project this[0x18..0x20] onto the frame -> v30, v29",
+    "else:",
+    "  if this[0xBC] == 1.0: v30 = this[0x18]; v29 = this[0x20]",
+    "  else: rotate this[0x18]/this[0x20] by this[0xBC]/this[0xC0]",
+    "v33 = v29 - this[0x90] * this[0x30];",
+    "this[0x58] = this[0xB8] * this[0x44] + this[0x58];",
+    "v10 = min(this[0x44], this[0xAC]) * this[0xA8]; this[0x48] = 5.0; this[0x4C] = (v10 + 1.0) * this[0x9C] * this[0x44];",
+    "if this[0x4C] <= 0.0: zero this[0x4C]/this[0x50]/this[0xD8]/this[0xDC]/this[0xE0]; return;",
+    "this[0x50] = 1.0;",
+    "if this[0x30] == 0.0 and contact displaced < 0.005625: compute slip velocities through a2 axes",
+    "friction clamp on 16000/1050-scaled forces; integrate this[0x54];",
+    "write force outputs to this[0xD8]/this[0xDC]/this[0xE0]"
+  ],
+  "unresolved": [
+    "Nine global float constants (flt_59E43C, flt_59E440, flt_59E7F8, flt_59E7FC, flt_5AD148, flt_5AD168, flt_5AD16C, flt_5AD170, dbl_5AD178) are read during the computation but their use sites are not visible in the raw source (likely FP constants folded into the compiled instructions).",
+    "Caller WheelForceCalculationSpringDamperTorque (0x004E5470) is inbound context only and not modeled as an operation.",
+    "The a2 argument (contact/velocity axis block read at a2[0..8]) is consumed, but the structure it belongs to is not enumerated in the packet field list."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059E43C", "global:0x0059E440", "global:0x0059E7F8", "global:0x0059E7FC", "global:0x005AD148", "global:0x005AD168", "global:0x005AD16C", "global:0x005AD170", "global:0x005AD178", "caller:0x004E5470"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

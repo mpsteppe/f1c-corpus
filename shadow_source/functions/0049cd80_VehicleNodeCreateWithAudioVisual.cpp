@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0049CD80
+// Canonical corpus name: sub_49CD80
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_49CD80_0049cd80.c
+
+void UnknownObject::VehicleNodeCreateWithAudioVisual()
+{
+    // Builds a candidate file path string (from a filter path, a source string at ConditionalDispatch result +32 bytes, an extension made of dword_5CCEBC plus byte_5CCEC0, and a season directory), registers it with StringRegistry, then searches a linked list (starting from off_5CCB54[0]) for a matching node. On a hit it writes the found node into *a2, reads dimensions from a chained object, creates a vehicle display node (VehicleNodeCreation), renders a 2D rectangle sized from those dimensions, creates an audio sound handle, computes scaled rectangle values via CRTFtol and FloatComputation_eb40, and finally stores parameters a6/a7 into the this object at offsets 0x14 and 0x18. Temporary string lists are cleaned up with PhysicsObjectLinkedListRemoval. Entire body is guarded by dword_8AFE88 being non-zero and ValueGetter(dword_8AFE88) returning non-zero. Invoked by CockpitDashboardLEDGaugeSetup. Name is a DERIVED behavioral label from existing analysis prose; no class is known.
+    // GUARD: Body executes only if dword_8AFE88 is non-zero and ValueGetter(dword_8AFE88) returns non-zero; otherwise the function does nothing. Called from CockpitDashboardLEDGaugeSetup. [global:0x008AFE88, callee:0x00545F40, caller:0x0049CA00]
+    // ASSIGNMENT: Initialize stack buffer v25[125]: copy byte_5EA438[0] into v25[0], memset(&v25[1], 0, 0x7C), zero v26, v27, v23 and v24. [global:0x005EA438, source:raw]
+    // ASSIGNMENT: v7 = (char*)dword_7CE64C; if dword_7CE64C is null fall back to byte_5EA438 (default path). [global:0x007CE64C, global:0x005EA438, source:raw]
+    // CALL: v8 = ConditionalDispatch_40b0(v7); subsequent path-building block runs only if v8 is non-zero. [callee:0x004C40B0]
+    // ASSIGNMENT: v9 = *(char**)(v8 + 32); if null fall back to byte_5EA438. [global:0x005EA438, source:raw]
+    // CALL: sub_587DD0(v25, v9, 127): copy source string v9 into v25 with a 127-character cap; v27 reset to 0. [callee:0x00587DD0, source:raw]
+    // CALCULATION: Extension strip: walk back from the end of v25 (v10 = &v25[strlen(v25)]) until byte 46 ('.') or the buffer start, then truncate by writing 0 at the '.' position. [source:raw]
+    // ASSIGNMENT: Append suffix: v12 = &v25[strlen(v25)]; write dword_5CCEBC as a 4-byte dword at v12 and byte_5CCEC0 at v12[4], forming a file extension on the built path. [global:0x005CCEBC, global:0x005CCEC0, source:raw]
+    // CALL: v13 = (char*)dword_5EC3D8, falling back to byte_5EA438 when null; StringRegistry(v13) registers the season/directory path. [global:0x005EC3D8, global:0x005EA438, callee:0x0053C800]
+    // CALL: If sub_588410(v25, byte_5EA438) is non-zero, sub_53CBC0(&v24, v25) pushes the built string into linked list v24 (file-existence style check then list append). [callee:0x00588410, global:0x005EA438, callee:0x0053CBC0]
+    // CALL: sub_53CBC0(&v23, off_5CCB54[0]): push off_5CCB54[0] (a vtable pointer) into linked list v23. [callee:0x0053CBC0, global:0x005CCB54]
+    // CALL: v14 = (char*)dword_5EC3D8, falling back to byte_5EA438 when null; StringMatchWithFlagSet(v14) performs string matching over the registered strings. [global:0x005EC3D8, global:0x005EA438, callee:0x0053C900]
+    // GUARD: If list v23 is non-empty and output pointer a2 is non-null: v15 = StringSearchInLinkedList(a3); write *a2 = v15. [callee:0x00547920, source:raw]
+    // GUARD: If v15 is non-null: v16 = *(_DWORD*)(v15 + 84); continue only if v16 is non-null. [source:raw]
+    // ASSIGNMENT: v17 = *(float*)(v16 + 28); v18 = *(float*)(v16 + 32): source dimensions of the object to render. [source:raw]
+    // CALL: VehicleNodeCreation(a3): create the vehicle/geometry display node for argument a3. [callee:0x0049E930]
+    // CALL: F_2DRectangleRender(0.0, 0, v17, v18, 2): render a 2D rectangle of width v17, height v18. [callee:0x0049EA10]
+    // CALL: v19 = AudioSoundCreateWithHandle(off_5CCB84[0]); sound handle creation proceeds only if v19 is non-null. [callee:0x0049E9A0, global:0x005CCB84]
+    // CALCULATION: v20 = *(_DWORD*)(v19 + 84); v22 = CRTFtol((double)*(int*)(v20 + 32) * a5); v21 = CRTFtol((double)*(int*)(v20 + 28) * a4): scale source sound dimensions by float arguments a4/a5. [callee:0x00587BDC, source:raw]
+    // CALL: FloatComputation_eb40(COERCE_FLOAT(v17 / 2), v18 / 2, v21, v22, 2.0): centered/scaled rectangle computation from the half-dimensions and scaled values. [callee:0x0049EB40]
+    // ASSIGNMENT: *(_DWORD*)(a1 + 20) = a6 and *(_DWORD*)(a1 + 24) = a7: store raw parameters a6/a7 into this offsets 0x14 and 0x18 (this+0x14 / this+0x18). [field:this:0x00000014, field:this:0x00000018, source:raw]
+    // CALL: Cleanup: PhysicsObjectLinkedListRemoval(v23), and if v24 is non-zero PhysicsObjectLinkedListRemoval(v24). [callee:0x0053CE40]
+    // RETURN: void return; no explicit value produced. [function:0x0049CD80]
+
+    // Conservative worker pseudocode:
+    //   if dword_8AFE88 and ValueGetter(dword_8AFE88):
+    //       build path string v25 from filter path/season dir, strip '.' extension, append dword_5CCEBC + byte_5CCEC0
+    //       StringRegistry(season_dir)
+    //       if file_exists_check(v25, default_path): push_list(v24, v25)
+    //       push_list(v23, off_5CCB54[0])
+    //       StringMatchWithFlagSet(season_dir)
+    //       if v23 and a2:
+    //           v15 = StringSearchInLinkedList(a3); *a2 = v15
+    //           if v15 and *(v15+84):
+    //               create vehicle node; render 2D rect at (v17, v18)
+    //               if sound handle: scale via CRTFtol(a4, a5) into FloatComputation_eb40
+    //               *(a1+20) = a6; *(a1+24) = a7
+    //       remove_list(v23); if v24: remove_list(v24)
+    // UNRESOLVED: unk_8AC388 and dword_8AFE64 are listed as referenced globals in the packet but do not appear in the raw source of this function; their role here is unknown.
+    // UNRESOLVED: Exact semantics of sub_53CBC0 (list push) and StringSearchInLinkedList / StringMatchWithFlagSet linkage are not statically confirmed.
+    // UNRESOLVED: Owner class of the this pointer (a1) and of the node returned into a2 is unknown; a6/a7 (stored at this+0x14 and this+0x18) are unidentified handles/indexes.
+    // UNRESOLVED: Semantic meaning of the v21/v22 scaled values passed to FloatComputation_eb40 is DERIVED interpretation, not confirmed.
+    // UNRESOLVED: Whether sub_588410 is a file-existence check is GUESS from its use guarding the v24 list push.
+}

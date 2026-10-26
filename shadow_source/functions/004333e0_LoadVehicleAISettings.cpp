@@ -1,0 +1,66 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004333E0
+// Canonical corpus name: AISettingsFileLoader
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AISettingsFileLoader_004333e0.c
+
+void UnknownObject::LoadVehicleAISettings()
+{
+    // Iterates every vehicle slot and resolves the AI settings (.svm) file path for each active vehicle. When per-vehicle AI settings mode is enabled (byte_7D03E0), builds a candidate path from the vehicle's directory, the resolved settings folder, a qual/race segment chosen by session type, and the .svm extension, tries up to three file variants, and stores the first that opens into the vehicle at +18324. In default mode it copies the globally resolved default path instead. Returns the loop counter.
+    // CALL: Resolve the default AI settings directory into the 128-byte local buffer via AISettingsFileResolver. [callee:0x00433890, source:raw]
+    // ASSIGNMENT: Initialize the loop counter to 0 and read the vehicle count bound from global dword_5C329C. [global:0x005C329C, source:raw]
+    // LOOP: Iterate over every vehicle slot, fetching each vehicle pointer from the global vehicle-pointer array dword_7C54F0 until the counter reaches the vehicle count. [global:0x007C54F0, source:raw]
+    // GUARD: Skip a vehicle whose dword at +13000 is zero (inactive slot). [source:raw]
+    // GUARD: When global byte_7D03E0 (per-vehicle AI settings mode) is zero, fall through to the default-mode path that copies the resolved default path. [global:0x007D03E0, source:raw]
+    // ASSIGNMENT: Zero the out-string slot v14[0], copy the vehicle's directory string at +18196 via StringCopyWithBufferRealloc, and fall back to byte_5EA438 when the copy yields an empty string. [callee:0x00566650, global:0x005EA438, source:raw]
+    // LOOP: Trim trailing backslash characters (ASCII 92) from the copied directory string by scanning backward from the last character. [source:raw]
+    // CALCULATION: Compute the resulting string length through NullSafePointerDereference and, when the string does not already end in a backslash, append the backslash separator word_5C2AAC via sub_5665B0. [callee:0x00415C30, global:0x005C2AAC, source:raw]
+    // CALL: Resolve the settings folder from the global settings-file path dword_7CE5EC (falling back to byte_5EA438 when empty) via SettingsFolderResolver. [callee:0x004326A0, global:0x007CE5EC, global:0x005EA438, source:raw]
+    // ASSIGNMENT: Re-copy the vehicle directory string, then append the resolved settings folder, the session segment and the .svm extension (aSvm) by concatenation helper sub_5665B0. [callee:0x00566650, callee:0x005665B0, global:0x005C403C, global:0x005EA438, source:raw]
+    // GUARD: Select the qualifying segment aQual when IterationCountMap(dword_7C56A4) equals 5, otherwise select the race segment aRace_1. [callee:0x00432E50, global:0x007C56A4, global:0x005C4080, global:0x005C4078, source:raw]
+    // CALL: Attempt to open the assembled path in read mode (aR) via sub_587DB0; when it opens, close it with FileCloseWithLock and run SafeStringCopy(255), then jump to the cleanup path. [callee:0x00587DB0, global:0x005C36F0, callee:0x00587D02, callee:0x004336D0, source:raw]
+    // GUARD: When the first candidate fails to open, retry with the alternate candidate built from the directory plus .svm, and then the directory plus the fallback segment aAiSvm plus .svm. [global:0x005C4070, source:raw]
+    // CALL: On a successfully opened candidate, close the file and copy the final path into the vehicle at +18324 via sub_587DD0, then clear the flag byte at +18579. [callee:0x00587DD0, source:raw]
+    // CALL: Free the temporary directory string with FreeWrapper_7bcf on every exit path when it was allocated. [callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: In default mode (byte_7D03E0 == 0), copy the resolved default AI settings path from the local v18 buffer into the vehicle at +18324 and clear the flag byte at +18579. [global:0x007D03E0, source:raw]
+    // RETURN: Return the loop counter (the final incremented index) after processing all vehicles. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   // Per-vehicle AI settings (.svm) file resolution.
+    //   char resolved[128];
+    //   AISettingsFileResolver(resolved, 128);
+    //   int count = dword_5C329C;
+    //   for (int i = 0; i < count; i++) {
+    //     void* veh = dword_7C54F0[i];
+    //     if (!*(DWORD*)(veh + 13000)) continue;
+    //     if (byte_7D03E0) {
+    //       char* dir = StrDup(veh + 18196, &byte_5EA438);
+    //       TrimTrailingBackslash(dir);
+    //       if (!EndsWithBackslash(dir)) Append(dir, &word_5C2AAC);
+    //       char* folder = SettingsFolderResolver(dword_7CE5EC ? dword_7CE5EC : &byte_5EA438);
+    //       char* path = StrDup(dir, NULL);
+    //       Append(path, folder);
+    //       Append(path, IterationCountMap(dword_7C56A4) == 5 ? aQual : aRace_1);
+    //       Append(path, aSvm);
+    //       FILE* f = fopen_5665B0(path, aR);
+    //       if (f) { FileCloseWithLock(f); SafeStringCopy(255); }
+    //       else {
+    //         char* alt = StrDup(dir, NULL); Append(alt, folder); Append(alt, aSvm);
+    //         FILE* f2 = fopen_5665B0(alt, aR);
+    //         if (f2) { FileCloseWithLock(f2); CopyToVehicle(veh + 18324, alt, 255); *(BYTE*)(veh + 18579) = 0; }
+    //         else {
+    //           char* alt2 = StrDup(dir, NULL); Append(alt2, aAiSvm);
+    //           FILE* f3 = fopen_5665B0(alt2, aR);
+    //           if (f3) { FileCloseWithLock(f3); CopyToVehicle(veh + 18324, alt2, 255); *(BYTE*)(veh + 18579) = 0; }
+    //         }
+    //       }
+    //     } else {
+    //       CopyToVehicle(veh + 18324, resolved, 255);
+    //       *(BYTE*)(veh + 18579) = 0;
+    //     }
+    //   }
+    // UNRESOLVED: Exact meaning of the vehicle dword at +13000 used as the active-slot guard.
+    // UNRESOLVED: Meaning of the flag byte cleared at +18579 after a path is stored.
+    // UNRESOLVED: Why IterationCountMap(dword_7C56A4) == 5 selects the qualifying segment.
+    // UNRESOLVED: Semantics of SafeStringCopy(255) on the successful-open path.
+}

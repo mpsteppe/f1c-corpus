@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "address": "0x00548620",
+  "proposed_name": "LoadMaterialLibrary",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Material library file lookup and texture resource creation. Tries three strategies in order: direct open of the given filename a2, then iterating registered entry path prefixes (byte_8B5A3C, stride 132, count dword_8B8E30), then walking a linked list from head dword_8B8F14. For each located file it calls D3DTextureResourceCreation and closes the handle. If a list-entry count mismatch (v9 != dword_8B6AC0) occurs it returns 0; if no file is located it formats and reports an \"Unable to locate material lib\" message via sub_53C590 and returns -1.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Attempt direct open of filename a2 with binary read mode from global aRb via sub_587DB0(a2, aRb).",
+      "evidence_refs": ["callee:0x00587DB0", "global:0x005BE828", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the direct open returned a non-zero handle v3, proceed to texture creation path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call D3DTextureResourceCreation(this, 0) to create the texture resource from the opened file.",
+      "evidence_refs": ["callee:0x00548190"]
+    },
+    {
+      "kind": "call",
+      "description": "FileCloseWithLock(v3) closes the direct-open handle; on texture creation failure return -1.",
+      "evidence_refs": ["callee:0x00587D02"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 after closing the handle when texture creation succeeded.",
+      "evidence_refs": ["callee:0x00587D02", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate the registered entry path array byte_8B5A3C, count dword_8B8E30, advancing each entry by stride 132.",
+      "evidence_refs": ["global:0x008B5A3C", "global:0x008B8E30", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "StringFormatWithBufferOverflowCheck(v11, \"%s\\\\%s\", entryPath, a2) builds the candidate full path.",
+      "evidence_refs": ["callee:0x0058815F", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_587DB0(v11, aRb) attempts to open each formatted candidate path.",
+      "evidence_refs": ["callee:0x00587DB0", "global:0x005BE828"]
+    },
+    {
+      "kind": "guard",
+      "description": "First successful open in the loop breaks iteration.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "For a loop-found file, D3DTextureResourceCreation(this, 0) then FileCloseWithLock(v7); return -1 on creation failure.",
+      "evidence_refs": ["callee:0x00548190", "callee:0x00587D02"]
+    },
+    {
+      "kind": "guard",
+      "description": "When no registered path matched, compare entry count v5 to dword_8B8E30 and fall through to linked-list walk.",
+      "evidence_refs": ["global:0x008B8E30", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the linked list from head dword_8B8F14, advancing each node by 304 bytes, testing nodes with sub_560230(a2).",
+      "evidence_refs": ["global:0x008B8F14", "callee:0x00560230", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "D3DTextureResourceCreation(this, 0) for a matching list entry; return -1 on creation failure.",
+      "evidence_refs": ["callee:0x00548190"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the visited count v9 does not equal dword_8B6AC0, return 0 immediately.",
+      "evidence_refs": ["global:0x008B6AC0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Early return 0 when the list-entry count does not match dword_8B6AC0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "StringFormatWithBufferOverflowCheck(v11, \"Unable to locate material lib %s\", a2) then sub_53C590(-1, v11) reports the failure.",
+      "evidence_refs": ["callee:0x0058815F", "global:0x005DBE70", "callee:0x0053C590", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return -1 after reporting that the material library could not be located.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int LoadMaterialLibrary(this, const char* name) {",
+    "  if (FILE* h = sub_587DB0(name, aRb)) {",
+    "    int r = D3DTextureResourceCreation(this, 0) ? -1 : 0;",
+    "    FileCloseWithLock(h);",
+    "    return r;",
+    "  }",
+    "  for (int i = 0; i < dword_8B8E30; ++i) {",
+    "    StringFormatWithBufferOverflowCheck(buf, \"%s\\\\%s\", byte_8B5A3C + i*132, name);",
+    "    if (FILE* h = sub_587DB0(buf, aRb)) {",
+    "      int r = D3DTextureResourceCreation(this, 0) ? -1 : 0;",
+    "      FileCloseWithLock(h);",
+    "      return r;",
+    "    }",
+    "  }",
+    "  int n = 0;",
+    "  int* node = dword_8B8F14;",
+    "  while (node && sub_560230(name)) { node = (int*)*((char*)node + 304); ++n; }",
+    "  if (node && D3DTextureResourceCreation(this, 0)) return -1;",
+    "  if (n != dword_8B6AC0) return 0;",
+    "  StringFormatWithBufferOverflowCheck(buf, \"Unable to locate material lib %s\", name);",
+    "  sub_53C590(-1, buf);",
+    "  return -1;",
+    "}"
+  ],
+  "unresolved": [
+    "The exact role and stride layout of the entry path array byte_8B5A3C are derived from the array walk, not independently confirmed.",
+    "The node meaning of the linked list headed at dword_8B8F14 and the semantics of the 304-byte link field are unknown.",
+    "The semantics of the count comparison against dword_8B6AC0 (why a mismatch returns success 0) are not explained by the raw source."
+  ],
+  "unresolved_evidence_refs": ["global:0x005C2D64"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

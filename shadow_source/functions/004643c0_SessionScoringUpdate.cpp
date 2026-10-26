@@ -1,0 +1,51 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004643C0
+// Canonical corpus name: SessionScoringUpdate
+// Owner: SessionManager [DERIVED]
+// Raw source: functions/SessionScoringUpdate_004643c0.c
+
+void SessionManager::SessionScoringUpdate()
+{
+    // Per-frame session lifecycle/scoring update. Reads the session phase ID; when nonzero, adds the frame time delta to the session elapsed accumulator, then runs a network-comm-gated block (player slot sync, collision timestep/iteration, grid/track-opening timers, server OK request and track-open signal), or on the comm-not-ready path decrements a countdown timer that triggers a global state transition when exhausted. Always advances a secondary elapsed accumulator and drains a pending session-state dispatch linked list, then conditionally dispatches a string payload and hands the object to the mouse input handler.
+    // ASSIGNMENT: obj = *this; v3 = obj[0x3FC4] (session phase/state id), dereferencing the session object base pointer. [field:this:0x00000000, field:*(obj+0x1B770):0x00000000, field:obj:0x00003FC4]
+    // GUARD: If session phase/state id == 0, return immediately (no session active). [field:obj:0x00003FC4]
+    // ASSIGNMENT: v17 = dbl_8AFE98 (frame time delta). [global:0x008AFE98]
+    // CALCULATION: If state id is neither 1 nor 2, set v16 = 0 and add v17 to obj+0x388 elapsed accumulator. [field:obj:0x00003FC4, field:obj:0x00000388, global:0x008AFE98]
+    // CALL: If state id is 1 or 2, set v16 = 1; call StructFieldReadAt0x3e14(this) and if it returns > 1, add v17 to obj+0x388 accumulator instead. [callee:0x00462370, field:obj:0x00000388, global:0x008AFE98]
+    // GUARD: Test network-comm readiness by calling SingleDelegationCall_a900 with obj[0x3FB8] as the argument. [callee:0x0057A900, field:obj:0x00003FB8]
+    // CALL: Comm-ready path: ClearPlayerSlots(this, 0), NetCommPlayerSlotSync(this), ClientGridDisplayTimer, CollisionContactBufferTimestepUpdate(this+26864, v17), CollisionContactIteration, TrackOpeningProgressTimer. [callee:0x00460CB0, callee:0x0045FC50, callee:0x00460380, callee:0x0045C7E0, callee:0x00460DD0, callee:0x004612E0, global:0x008AFE98]
+    // GUARD: If obj+0x28 (ServerOK-requested flag) is nonzero: send SendServerOKRequest, clear obj+0x28, and if v16 is set and obj+0x29 is clear, send ServerOpenTrackSignal. [field:obj:0x00000028, field:obj:0x00000029, callee:0x00460470, callee:0x00460E90]
+    // CALCULATION: Comm-not-ready path: subtract v17 from obj+0x37C countdown timer; when it drops below 0.0 call GlobalStateSetter(1), sub_4A0DB0(&unk_7CE24D) and sub_4A0490(&unk_7CE24C). [field:obj:0x0000037C, global:0x008AFE98, callee:0x004A0D30, callee:0x004A0DB0, global:0x007CE24D, callee:0x004A0490, global:0x007CE24C]
+    // ASSIGNMENT: Always add v17 to obj+0x384 secondary elapsed-time accumulator. [field:obj:0x00000384, global:0x008AFE98]
+    // GUARD: v5 = obj[0x1B770]; if nonzero, load the linked-list head node at *(v5), clear byte v5+8, and call LinkedListNodeRemoval on it; if it returns false, treat the head as empty. [guard:0, field:obj:0x0001B770, callee:0x00464740]
+    // LOOP: Drain the session-state dispatch linked list: for each node, v6 = node data or fall back to byte_5EA438 when the data pointer is null, call SessionStateDispatch(v6), then free node data and node via FreeWrapper_7bcf; re-walk obj[0x1B770] to find and unlink the next pending node; repeat until no pending node remains. [callee:0x004A0DF0, global:0x005EA438, callee:0x00587BCF, field:obj:0x0001B770]
+    // CALL: If v16 is set (state was 1 or 2 and struct field <= 1), call StringLengthCheckDispatch on a string buffer at obj+112528. [callee:0x0045D4E0, field:obj:0x00003FC4]
+    // CALL: Pass the session object to MouseInputHandler at the end of the frame update. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   obj = *this;
+    //   state = obj[0x3FC4];
+    //   if (state == 0) return;
+    //   dt = dbl_8AFE98;
+    //   active = (state == 1 || state == 2) && (StructFieldReadAt0x3e14(this) <= 1);
+    //   if (!active) obj[0x388] += dt;
+    //   if (SingleDelegationCall_a900(obj[0x3FB8])) {
+    //       ClearPlayerSlots(this, 0); NetCommPlayerSlotSync(this);
+    //       ClientGridDisplayTimer(obj);
+    //       CollisionContactBufferTimestepUpdate(obj + 26864, dt); CollisionContactIteration(obj);
+    //       TrackOpeningProgressTimer(obj);
+    //       if (obj[0x28]) { SendServerOKRequest(this); obj[0x28] = 0;
+    //           if (active && !obj[0x29]) ServerOpenTrackSignal(obj); }
+    //   } else {
+    //       obj[0x37C] -= dt;
+    //       if (obj[0x37C] < 0.0) { GlobalStateSetter(1); sub_4A0DB0(&unk_7CE24D); sub_4A0490(&unk_7CE24C); }
+    //   }
+    //   obj[0x384] += dt;
+    //   drain pending session-state dispatch list from obj[0x1B770];
+    //   if (active) StringLengthCheckDispatch(obj + 112528);
+    //   MouseInputHandler(obj);
+    // UNRESOLVED: Fields obj+0x1B774, obj+0x1B778, obj+0x1B77C are marked read in the packet but no read/write of them appears in the decompiled body; they are likely consumed inside one of the non-inlined callees (e.g. NetCommPlayerSlotSync or the dispatch loop helpers).
+    // UNRESOLVED: Global flt_59E440 is marked read but does not appear in the decompiled body; likely read inside one of the called helpers.
+    // UNRESOLVED: MouseInputHandler is invoked at the end of the function in the raw source but has no packet callee evidence ref; could not bind an allowed evidence reference beyond source:raw.
+    // UNRESOLVED: The StringLengthCheckDispatch operand at obj+112528 (byte offset 0x1B790) has no packet field evidence ref; the packet field at 0x1B77C is 20 bytes earlier and is not the same offset.
+}

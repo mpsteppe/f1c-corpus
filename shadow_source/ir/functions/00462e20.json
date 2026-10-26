@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "address": "0x00462E20",
+  "proposed_name": "AssignSelfQualifyingPosition",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Multiplayer qualifying/standings position assignment for the local player. Calls SingleFunctionDispatch(this) to obtain the local identity, then for each position entry (count at obj+0x3FD9) searches the nodemap (base offset 15896, stride 4, upper bound 16312) for the matching NODEID. On a match it records the planned position into dword_5F0730 (indexed by 4656 * nodemap index) and, when the local identity equals the nodemap entry, sets the found flag. Dev logging (guarded by dword_7C569C != 5) is performed through StringSplitLoop/DebugLogWrite. If self is never found, it falls back to last position: sets the player vehicle field at dword_7C54E8 + 16436 to dword_5C329C via ConditionalFieldSetter, copies it back via FieldCopy, and logs the failure. Returns the found flag (or the FieldCopy result on the fallback path). Called by MultiplayerVehiclePlacement (0x0042CF10).",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Call SingleFunctionDispatch(this) to obtain the local player/identity value v10.",
+      "evidence_refs": ["callee:0x00462300"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Initialize the found flag v7 to 0 and the position index v8 to 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Skip the matching loop entirely when the entry count at obj+0x3FD9 is <= 0.",
+      "evidence_refs": ["guard:0", "field:obj:0x00003FD9"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer loop over each position entry while v8 < obj+0x3FD9, advancing the positions pointer v9 by 4 bytes per iteration.",
+      "evidence_refs": ["field:obj:0x00003FD9", "field:this:0x00000000"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner search over the nodemap (base offset 15896, stride 4, upper bound 16312): compare nodemap[v2] against the current position entry at offset 16346 until they are equal or the map is exhausted.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When dword_7C569C != 5, split the 'comparing NODEIDs' debug line via StringSplitLoop and log it with DebugLogWrite.",
+      "evidence_refs": ["global:0x007C569C", "global:0x008AD25C", "global:0x005C5CE4", "global:0x005C6318", "callee:0x004D7A50", "callee:0x004D7AA0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "If the local identity v10 equals the nodemap entry for slot v2, set the found flag v7 = 1.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Record the planned grid position: dword_5F0730[4656 * v2] = v8 + 1 (position index plus one).",
+      "evidence_refs": ["global:0x005F0730"]
+    },
+    {
+      "kind": "guard",
+      "description": "When dword_7C569C != 5, split and log 'Set slot %d to place %d %s', choosing aLocal when the slot is the local player and byte_5EA438 otherwise.",
+      "evidence_refs": ["global:0x007C569C", "global:0x005C62F0", "global:0x005C6310", "global:0x005EA438", "global:0x008AD25C", "callee:0x004D7A50", "callee:0x004D7AA0"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "When self was not found (v7 == 0), fall back: read the vehicle count dword_5C329C, assign it to the player vehicle field at dword_7C54E8 + 16436 via ConditionalFieldSetter, read it back via FieldCopy, and log 'Could not find self in server's qualification view, setting self in last position'.",
+      "evidence_refs": ["global:0x005C329C", "global:0x007C54E8", "global:0x005C6290", "global:0x007C569C", "global:0x008AD25C", "callee:0x004BC2F0", "callee:0x004BC320", "callee:0x004D7A50", "callee:0x004D7AA0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the found flag v7 (or the FieldCopy result on the fallback path).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char sub_462E20(void* this) {",
+    "  char found = 0;",
+    "  int self = SingleFunctionDispatch(this);",
+    "  int pos = 0;",
+    "  if (*(char*)(*(DWORD*)this + 16345) > 0) {",
+    "    for (int p = 0; pos < *(char*)(*(DWORD*)this + 16345); p += 4, pos++) {",
+    "      int v2 = 0;",
+    "      int off = 15896;",
+    "      while (1) {",
+    "        if (dword_7C569C != 5 && StringSplitLoop(dword_8AD25C, 1, aDDevF119992002_1, 6774))",
+    "          DebugLogWrite(dword_8AD25C, \"       comparing NODEIDs (nodemap[%d]=%d,pos[%d]=%d)\", v2, *(DWORD*)(off + *(DWORD*)this), pos, *(DWORD*)(p + *(DWORD*)this + 16346));",
+    "        if (*(DWORD*)(off + *(DWORD*)this) == *(DWORD*)(p + *(DWORD*)this + 16346)) break;",
+    "        off += 4; v2++;",
+    "        if (off >= 16312) goto not_in_map;",
+    "      }",
+    "      if (self == *(DWORD*)(*(DWORD*)this + 4 * v2 + 15896)) found = 1;",
+    "      dword_5F0730[4656 * v2] = pos + 1;",
+    "      if (dword_7C569C != 5 && StringSplitLoop(dword_8AD25C, 1, aDDevF119992002_1, 6783))",
+    "        DebugLogWrite(dword_8AD25C, \"--Set slot %d to place %d %s\", v2, pos + 1, (self == *(DWORD*)(*(DWORD*)this + 4 * v2 + 15896)) ? aLocal : byte_5EA438);",
+    "not_in_map: ;",
+    "    }",
+    "  }",
+    "  if (!found) {",
+    "    ConditionalFieldSetter(dword_7C54E8 + 16436, dword_5C329C);",
+    "    char r = FieldCopy(dword_7C54E8 + 16436);",
+    "    if (dword_7C569C != 5 && StringSplitLoop(dword_8AD25C, 1, aDDevF119992002_1, 6794))",
+    "      return DebugLogWrite(dword_8AD25C, \"!!!!!  Could not find self in server's qualification view, setting self in last position (%d)\", dword_5C329C);",
+    "    return r;",
+    "  }",
+    "  return found;",
+    "}"
+  ],
+  "unresolved": [
+    "The nodemap upper bound (16312) implies a fixed number of map entries; the grid/nodemap layout beyond offsets 15896, 16312 and 16346 is unverified.",
+    "dword_5F0730 is indexed by 4656 * v2; the assumed per-slot stride into a standings structure is not confirmed.",
+    "The player vehicle field at dword_7C54E8 + 16436 (0x4034) has no dedicated field evidence ref in this packet.",
+    "Semantics of the byte flag byte_5EA438 used in the slot log message are unknown."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

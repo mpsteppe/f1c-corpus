@@ -1,0 +1,225 @@
+{
+  "schema_version": 1,
+  "address": "0x004ED960",
+  "proposed_name": "FuelConsumptionAndWear",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Per-frame vehicle update that consumes fuel, recomputes total mass, applies tire wear and tire friction, re-seeds weather-driven grip noise about every 5.5 seconds, and drives a per-wheel random failure engine (engine/gearbox/puncture/random wear) gated on the race being in progress. Called every frame from MainGameTickUpdate.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If fuel level (this[3678]) is positive, decrement fuel by engine RPM (this[3685]) * engine power factor (this[3681]) * throttle (this[3420]) * dt (a2).",
+      "evidence_refs": ["field:this:0x00003978", "field:this:0x00003994", "field:this:0x00003984", "field:this:0x00003570", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When fuel drops to or below 0, clamp fuel to 0 and, through the object pointer at this[0], write error code 9 to the error register (obj+0x4068) if it is not already set (out of fuel).",
+      "evidence_refs": ["field:this:0x00003978", "field:this:0x00000000", "field:obj:0x00004068", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Recompute total mass (this[3397]) = fuel * 0.75 + base mass (this[3396]) and inverse total mass (this[3398]) = 1.0 / total mass.",
+      "evidence_refs": ["field:this:0x00003978", "field:this:0x00003510", "field:this:0x00003514", "field:this:0x00003518", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Sum the per-tire wear accumulators over 4 wheels (this[3444], stride 62) into a single wear total.",
+      "evidence_refs": ["field:this:0x000035D0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Grip decay factor = 1.0 - wearTotal * 0.2325.",
+      "evidence_refs": ["field:this:0x000035D0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For each of 4 wheels: if the per-wheel wear source is positive, decrement tire wear level (this[3468]) by gripFactor * wearSource * wear-rate factor (this[3469]) * tireWearMultiplier (dword_7D0C60) * dt, then clamp the wear level at a minimum of 0.75.",
+      "evidence_refs": ["field:this:0x00003630", "field:this:0x00003634", "global:0x007D0C60", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per wheel: tire friction (this[3464]) = previous + (next - previous) * track grip (flt_8AFEE8), then scaled by tire wear level (this[3468]) * friction multiplier (this[3837]) * grip interpolation (flt_8ACED0 + (flt_8ACED4 - flt_8ACED0) * flt_8AFEE8).",
+      "evidence_refs": ["field:this:0x00003624", "field:this:0x00003630", "field:this:0x00003BF4", "global:0x008AFEE8", "global:0x008ACED0", "global:0x008ACED4", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If |session time (dbl_8AFEA0) - last weather-noise update (this[3838])| > 5.5, reseed last weather-noise update from the weather noise table (flt_8AB274[dword_8AAE70++]) and recompute tire brush forces via TireBrushModelForceSolver.",
+      "evidence_refs": ["global:0x008AFEA0", "field:this:0x00003BF8", "global:0x008AB274", "global:0x008AAE70", "callee:0x004E8010", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Failure event processing runs only when sub_4D21D0() returns true (race in progress).",
+      "evidence_refs": ["callee:0x004D21D0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For wheels i = 0..3: if the failure countdown (this[3929+i]) is >= 0, decrement it by dt; when it drops below 0, dispatch the failure type by wheel index through the switch jump table (jpt_4EDBA3).",
+      "evidence_refs": ["global:0x004EE134", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Engine failure (case 0): write error code 1 to the error register (obj+0x4068) if not already set.",
+      "evidence_refs": ["field:obj:0x00004068", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If engine RPM (this[3685]) is below 50% of the RPM limit (this[3686]), suppress the failure by resetting the countdown to 0.",
+      "evidence_refs": ["field:this:0x00003994", "field:this:0x00003998", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Engine failure branch: if any engine power factor (this[3922]/this[3923]/this[3924]) is nonzero, or the noise draw (flt_8AAE74[dword_8AAE70++]) is >= 0.5, regenerate the power factors from the noise table; otherwise decay the engine power table entries and select one factor to regenerate.",
+      "evidence_refs": ["field:this:0x00003D48", "field:this:0x00003D4C", "field:this:0x00003D50", "global:0x008AAE74", "global:0x008AAE70", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Reset engine power table: for j < this[3692] entries, set the paired value (offset +4 of each 8-byte entry) of the table pointed to by this[3689] to 0.",
+      "evidence_refs": ["field:this:0x000039A4", "field:this:0x000039B0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Decay alternative: multiply each engine power table entry by 0.9, mark one engine power factor with the -789.0 sentinel, compute a new failure countdown from the noise draw (bands x1000 / x450 / x50), and if wear mode (dword_7CEA5C) == 3 cap the countdown at 60.",
+      "evidence_refs": ["field:this:0x000039A4", "field:this:0x000039B0", "field:this:0x00003D48", "field:this:0x00003D4C", "field:this:0x00003D50", "global:0x007CEA5C", "global:0x008AAE74", "global:0x008AAE70", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Complete engine failure: set failure mode state (this[3928]) = 2 and post the event via sub_41AC50(object, 0).",
+      "evidence_refs": ["field:this:0x00003D60", "callee:0x0041AC50", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Gearbox failure (case 1): write error code 5 to the error register (obj+0x4068) if not already set.",
+      "evidence_refs": ["field:obj:0x00004068", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If gearbox health threshold (this[3422]) is 0, skip the gearbox failure (countdown reset to 0).",
+      "evidence_refs": ["field:this:0x00003578", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On gearbox failure, scale one of the two gearbox wear factors (this[3724] or this[3729], chosen by noise draw from flt_8AB274[dword_8AAE70++]) by 0.03125.",
+      "evidence_refs": ["field:this:0x00003A30", "field:this:0x00003A44", "global:0x008AB274", "global:0x008AAE70", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Complete gearbox failure: set failure mode state (this[3928]) = 2 and post the event via sub_41AC50(object, 1).",
+      "evidence_refs": ["field:this:0x00003D60", "callee:0x0041AC50", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Puncture failure (case 2): write error code 2 to the error register (obj+0x4068) if not already set.",
+      "evidence_refs": ["field:obj:0x00004068", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Puncture: set the puncture flag byte (this+0x39EE) to 1 and, when failure mode state (this[3928]) == 0, set it to 1.",
+      "evidence_refs": ["field:this:0x000039EE", "field:this:0x00003D60", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Post the puncture event via sub_41AC50(object, 2).",
+      "evidence_refs": ["callee:0x0041AC50", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Random wear failure (case 3): write error code 4 to the error register (obj+0x4068) if not already set.",
+      "evidence_refs": ["field:obj:0x00004068", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Random wear: choose a wheel via RandLCGRandomNumberGenerator(...) % 4 and add 0.05 to that wheel's wear accumulator (this[3448 + 62*wheel]).",
+      "evidence_refs": ["callee:0x005884ED", "field:this:0x000035D0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Random wear skip: if the comparison flags from the preceding checks indicate a skip condition, reset the countdown to 0 instead of triggering random wear.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Complete random-wear failure: set failure mode state (this[3928]) = 2 and post the event via sub_41AC50(object, 3).",
+      "evidence_refs": ["field:this:0x00003D60", "callee:0x0041AC50", "field:this:0x00000000", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void FuelConsumptionAndWear(Vehicle* this, float dt) {",
+    "  if (this->fuel > 0.0f) {",
+    "    this->fuel -= this->engineRPM * this->enginePowerFactor * this->throttle * dt;",
+    "    if (this->fuel <= 0.0f) {",
+    "      this->fuel = 0.0f;",
+    "      if (this->object->errorCode == 0) this->object->errorCode = 9;",
+    "    }",
+    "  }",
+    "  this->totalMass = this->fuel * 0.75f + this->baseMass;",
+    "  this->inverseTotalMass = 1.0f / this->totalMass;",
+    "  float wearSum = 0.0f;",
+    "  for (int w = 0; w < 4; ++w) wearSum += this->tireWearAccum[w];",
+    "  float gripFactor = 1.0f - wearSum * 0.2325f;",
+    "  for (int w = 0; w < 4; ++w) {",
+    "    if (this->tireWearSource[w] > 0.0f) {",
+    "      this->tireWearLevel[w] -= gripFactor * this->tireWearSource[w] * this->tireWearRate[w] * TireWearMultiplier * dt;",
+    "      if (this->tireWearLevel[w] < 0.75f) this->tireWearLevel[w] = 0.75f;",
+    "    }",
+    "  }",
+    "  for (int w = 0; w < 4; ++w) {",
+    "    this->tireFriction[w] = lerp(this->tireFriction[w], this->tireFriction[w + 1], TrackGrip) * this->tireWearLevel[w] * this->frictionMultiplier * gripInterp;",
+    "  }",
+    "  if (fabs(SessionTime - this->lastWeatherNoiseUpdate) > 5.5f) {",
+    "    this->lastWeatherNoiseUpdate = WeatherNoiseTable[noiseIndex++] + WeatherNoiseTable[noiseIndex++] + SessionTime;",
+    "    TireBrushModelForceSolver(this, 0);",
+    "  }",
+    "  if (!sub_4D21D0()) return;",
+    "  for (int i = 0; i < 4; ++i) {",
+    "    if (this->failureCountdown[i] >= 0.0f) {",
+    "      this->failureCountdown[i] -= dt;",
+    "      if (this->failureCountdown[i] < 0.0f) dispatchWheelFailure(i);",
+    "    }",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The per-wheel failure countdown timers (this[3929+i]) and the per-wheel wear source (this[3441], wear accumulator this[3448+62*w]) are read and written but have no packet field evidence reference.",
+    "The object reached through this[0] exposing the error register (obj+0x4068) is only evidenced as a pointer; its concrete type is unknown.",
+    "sub_41AC50's second argument appears to encode the failure type (0 engine, 1 gearbox, 2 puncture, 3 random wear) from the dispatch order, but the notification semantics are inferred, not evidenced.",
+    "The 25 globals listed in the packet but absent from the raw function text have no evident role in this function.",
+    "The exact meaning of the comparison flags (v7/v8, v41/v42, v47/v48) used to gate the wear and failure blocks is not recoverable from this function alone."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x0042C690",
+    "function:0x004ED960",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E448",
+    "global:0x0059E450",
+    "global:0x0059E4E8",
+    "global:0x0059E6F8",
+    "global:0x0059E7E8",
+    "global:0x0059E7FC",
+    "global:0x0059E824",
+    "global:0x0059E828",
+    "global:0x0059E84C",
+    "global:0x0059E874",
+    "global:0x0059E8B4",
+    "global:0x0059E8C8",
+    "global:0x0059E8CC",
+    "global:0x0059E8F8",
+    "global:0x0059E918",
+    "global:0x0059E93C",
+    "global:0x0059EA60",
+    "global:0x0059ED18",
+    "global:0x0059F118",
+    "global:0x005AD1F8",
+    "global:0x005AD200",
+    "global:0x005EB978",
+    "global:0x008ACEE0"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

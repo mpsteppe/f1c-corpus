@@ -1,0 +1,57 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004B3DC0
+// Canonical corpus name: VehicleVisibilityCulling
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VehicleVisibilityCulling_004b3dc0.c
+
+void UnknownObject::VehicleVisibilityCulling()
+{
+    // Culls non-visible vehicles per frame. Gets the session interface via VirtualDispatchHelper on dword_5EA510 and either skips the culling pass (when a session flag at interface+112 is set, or vehicle count dword_5C329C is within the visible-index bound dword_7CFC8C) or, when culling is required, transforms each active vehicle position (read from the vehicle pointer array dword_7C54F0) into camera space using a camera orientation and EulerToRotationMatrix, sorts vehicles by planar distance with sub_5890AA/FloatComparator, and marks the nearest dword_7CFC8C vehicles visible in a byte work buffer. A transition loop then starts engine sound for newly visible vehicles and clears flags/UI for newly hidden ones. Called by RenderScreenSave (004B40A0).
+    // CALL: VirtualDispatchHelper called on &dword_5EA510 to obtain the session interface pointer [callee:0x0040C870, global:0x005EA510, source:raw]
+    // GUARD: Culling pass is skipped when the session flag at interface+112 is non-zero OR vehicle count dword_5C329C is not greater than the visible-index bound dword_7CFC8C; only the visibility work buffer is (re)initialised in that case [global:0x005C329C, global:0x007CFC8C, global:0x005EA510, source:raw]
+    // CALL: Skip path: when dword_5C329C is positive the byte buffer v30 is filled with 0x01 for that many bytes (memset pattern with the constant 0x01010101 visible in the decompiler artifact) [global:0x005C329C, source:raw]
+    // GUARD: Culling path requires the camera object pointer dword_7C54E0 to be non-null; the function returns early when it is null [global:0x007C54E0, source:raw]
+    // CALCULATION: Camera position read at dword_7C54E0+13536/+13540/+13544 and camera Euler angles read at session interface+24; yaw negated with 3.1415927 - yaw to build the view orientation [global:0x007C54E0, global:0x005EA510, source:raw]
+    // CALL: EulerToRotationMatrix builds the camera-space rotation matrix v29 from the Euler angle triple [callee:0x00566E40, source:raw]
+    // LOOP: For each vehicle pointer in dword_7C54F0[0..count): reads vehicle position at +3384/+3388/+3392, transforms the relative vector into camera space via the rotation matrix, stores planar squared distance at v30[4*i+104] and depth with a negative-depth clamp (v13 * 0.40000001) into the depth slot [global:0x007C54F0, global:0x005C329C, global:0x007C54E0, source:raw]
+    // CALL: sub_5890AA sorts the distance array v31 with the FloatComparator callback (element size 4, count = dword_5C329C), yielding an ascending distance ranking [callee:0x005890AA, global:0x004B3D70, source:raw]
+    // ASSIGNMENT: Visibility threshold taken from sorted distance array index dword_7CFC8C; each vehicle is marked visible (byte 1) in v30 when its planar squared distance is below that threshold [global:0x007CFC8C, global:0x005C329C, source:raw]
+    // LOOP: Transition loop diffs the new visibility bytes against the previous ones; on a transition to visible AudioSoundEffectController is called with the vehicle's +4180 field, on transition to hidden FlagFieldBitManipulation is called twice and UIWidgetRecursiveStateUpdate once [callee:0x004E0ED0, callee:0x0054C030, callee:0x0054C1B0, global:0x007C54F0, global:0x005C329C, source:raw]
+    // CALL: Invoked by RenderScreenSave (004B40A0) during frame render [caller:0x004B40A0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   session = VirtualDispatchHelper(&dword_5EA510);
+    //   count = dword_5C329C;
+    //   if (*(session + 112) || count <= dword_7CFC8C) {
+    //       if (count > 0) memset(v30, 1, count);
+    //   } else {
+    //       if (!dword_7C54E0) return;
+    //       camPos = { dword_7C54E0+13536, +13540, +13544 };
+    //       euler = { *(session+24), *(session+28), *(session+32) };
+    //       euler.yaw = 3.1415927 - euler.yaw;
+    //       EulerToRotationMatrix(euler, v29);
+    //       for (i = 0; i < count; ++i) {
+    //           pos = dword_7C54F0[i] + 3384;
+    //           rel = pos - camPos;
+    //           (v21, v22) = planar distance in camera space;
+    //           depth = v29[5]*rel.y + v29[2]*rel.x + v29[8]*rel.z;
+    //           if (depth < 0) depth *= 0.40000001;
+    //           v30[4*i+104] = v22*v22 + v21*v21;
+    //           v30[4*i+100] = depth*depth + planarDist;
+    //       }
+    //       sub_5890AA(v31, count, 4, FloatComparator);
+    //       threshold = v31[dword_7CFC8C];
+    //       for (j = 0; j < count; ++j) v30[j] = (v30[4*j+104] < threshold);
+    //   }
+    //   for (k = 0; k < count; ++k) {
+    //       if (v30[k] != prev[k]) {
+    //           prev[k] = v30[k];
+    //           if (v30[k]) AudioSoundEffectController(*(dword_7C54F0[k] + 4180));
+    //           else { FlagFieldBitManipulation(0,0,1,0); FlagFieldBitManipulation(1,0,0,0); UIWidgetRecursiveStateUpdate(0,1,0); }
+    //       }
+    //   }
+    // UNRESOLVED: flt_59E440, flt_59E660 and flt_59E8C8 are flagged by packet facts (DERIVED names ZeroThreshold, VehicleBodyDamping, Physics_ConvergenceThreshold) but never appear in the raw decompiled source for this function
+    // UNRESOLVED: The decompiler artifact result = 16843009 (0x01010101) before the memset is not a meaningful assignment; the underlying inline memset is the real operation
+    // UNRESOLVED: The v30 byte-buffer layout (new flags, distance slots at 4*i+100/+104, previous flags at 4*i+516) is inferred from the index arithmetic and not externally defined
+    // UNRESOLVED: Camera offsets +13536/+13540/+13544 and vehicle offsets +3384/+3388/+3392 are reached via raw numeric offsets; no field names exist for them in this packet
+}

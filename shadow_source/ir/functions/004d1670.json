@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "address": "0x004D1670",
+  "proposed_name": "VehicleOccupiedFlagBuilder",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x004D1670"]
+  },
+  "summary": "Builds a 52-entry occupancy bitmask from the live vehicle grid, then reconciles a 52-entry paired flag array against it. Reads the vehicle count from dword_5C329C and, for each vehicle pointer in dword_7C54F0, reads the type dword at offset 18596; when that type is below 0x34 the matching bit of a 52-byte local array is set. Then iterates the 52 entries of the flag-field array anchored at this+0x280, and for each entry's paired earlier flag field and its this+0x280 member calls FlagFieldBitManipulation, choosing set/clear argument order by whether the corresponding occupancy bit is set. Returns the last FlagFieldBitManipulation result.",
+  "local_names": {
+    "this": "object holding the 52-entry paired flag-field array anchored at this+0x280",
+    "v1": "vehicle count read from dword_5C329C",
+    "v3": "vehicle loop index",
+    "v4": "vehicle type dword at dword_7C54F0[slot] + 18596",
+    "v10": "52-byte local occupancy bitmask",
+    "v5": "entry index over the 52 paired flag fields",
+    "v6": "walking pointer into the this+0x280 array (incremented by one dword per entry)",
+    "v8": "earlier paired flag value for the current entry",
+    "v9": "flag value at the current this+0x280 entry"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Read the vehicle count into v1 from dword_5C329C and clear the 52-byte local occupancy array v10 to zero with memset.",
+      "evidence_refs": ["global:0x005C329C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Loop over the vehicles while the index is below the count; for each, read the vehicle type dword at dword_7C54F0[slot] + 18596 and, when the type is below 0x34, set the occupancy bit v10[type] = 1.",
+      "evidence_refs": ["global:0x007C54F0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate the 52 entries of the paired flag-field array anchored at this+0x280 (this+160 in dword units), reading each entry's paired earlier flag value v8 and its this+0x280 member v9.",
+      "evidence_refs": ["field:this:0x00000280", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the occupancy bit is set, call FlagFieldBitManipulation(0, 0, 1, 0) if the earlier paired flag v8 is non-zero and FlagFieldBitManipulation(1, 1, 1, 0) if the this+0x280 member v9 is non-zero.",
+      "evidence_refs": ["callee:0x0054C030", "field:this:0x00000280", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the occupancy bit is clear, call FlagFieldBitManipulation(1, 1, 1, 0) if the earlier paired flag v8 is non-zero and FlagFieldBitManipulation(0, 0, 1, 0) if the this+0x280 member v9 is non-zero.",
+      "evidence_refs": ["callee:0x0054C030", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the last FlagFieldBitManipulation result after all 52 entries have been reconciled.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called from SceneRenderUpdate and LoopOverTwoParallelArrays as the per-frame vehicle-occupancy flag builder.",
+      "evidence_refs": ["caller:0x004C6D90", "caller:0x004D1030", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char VehicleOccupiedFlagBuilder(int *this) {",
+    "  int count = dword_5C329C;",
+    "  char occ[52]; memset(occ, 0, sizeof(occ));",
+    "  for (int i = 0; i < count; ++i) {",
+    "    unsigned t = *(unsigned*)(dword_7C54F0[i] + 18596);",
+    "    if (t < 0x34) occ[t] = 1;",
+    "  }",
+    "  int *p = this + 160;",
+    "  char result;",
+    "  for (int j = 0; j < 52; ++j, ++p) {",
+    "    int earlier = *(p - 52);",
+    "    int member = *p;",
+    "    if (occ[j]) {",
+    "      if (earlier) result = FlagFieldBitManipulation(0, 0, 1, 0);",
+    "      if (member) result = FlagFieldBitManipulation(1, 1, 1, 0);",
+    "    } else {",
+    "      if (earlier) result = FlagFieldBitManipulation(1, 1, 1, 0);",
+    "      if (member) result = FlagFieldBitManipulation(0, 0, 1, 0);",
+    "    }",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The field semantics of the 52 paired flag fields (anchor at this+0x280 and its paired earlier field) are established by the flag consumer, not visible in this packet; only the anchor this+0x280 is evidenced.",
+    "The concrete mapping between occupancy bit index and the 52 vehicle/entry slots (whether index == vehicle slot) is caller-visible and not asserted here.",
+    "The four FlagFieldBitManipulation arguments (0, 0, 1, 0 vs 1, 1, 1, 0) are passed through verbatim; their bit-level meaning lives in that callee."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

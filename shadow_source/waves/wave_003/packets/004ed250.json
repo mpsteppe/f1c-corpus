@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "address": "0x004ED250",
+  "address_key": "004ed250",
+  "canonical_name": "RepairServiceStateDispatcher",
+  "declared_name": "sub_4ED250",
+  "source": {
+    "path": "functions/RepairServiceStateDispatcher_004ed250.c",
+    "text": "void __thiscall sub_4ED250(int *this, int a2)\n{\n  int v3; // eax\n  int *v4; // edx\n\n  switch ( a2 )\n  {\n    case 0:\n    case 1:\n    case 2:\n    case 3:\n      if ( !*(_DWORD *)(*this + 16488) )\n        *(_DWORD *)(*this + 16488) = 6;\n      SubslotCleanup((char *)this + 1764, a2);\n      v3 = this[3247];\n      this[3928] = 2;\n      if ( v3 )\n        goto LABEL_12;\n      WheelCollisionContactFlagSetter(&dbl_7C7428, a2);\n      sub_41AFD0(*this, a2);\n      return;\n    case 4:\n      v4 = this + 818;\n      goto LABEL_8;\n    case 5:\n      v4 = this + 835;\nLABEL_8:\n      ConditionalResourceRelease(v4);\n      StateTransition(this + 3248, 1);\n      if ( !this[3928] )\n        this[3928] = 1;\n      this[3740] = this[3744];\n      TireBrushModelForceSolver((int)this, 0);\n      sub_41AFD0(*this, a2);\n      return;\n    case 6:\n    case 7:\n    case 8:\n    case 9:\n    case 10:\n    case 11:\n    case 12:\n    case 13:\n      ConditionalResourceRelease(&this[17 * a2 + 750]);\n      goto LABEL_12;\n    default:\nLABEL_12:\n      sub_41AFD0(*this, a2);\n      return;\n  }\n}\n"
+  },
+  "existing_analysis": {
+    "path": "skeletons_filled/RepairServiceStateDispatcher_004ed250.md",
+    "text": "> **UPDATE 2026-07-24 (prose only, fact table untouched) — `a2` IS THE DETACHED\n> PART INDEX.** Hook-proven live (`tools/part_detach_watch.js`):\n> **0-3 = wheels, 4 = FRONT wing, 5 = REAR wing, 6-13 = bodywork.**\n> Bodywork indices are NOT stable per-panel — the same rear-end contact gave\n> 6/9/10 in one trial and 7/8 in another.\n> - Cases 0-3 set `ReasonCode` (`*this+16488` = `veh+0x4068`) to 6, guarded\n>   first-write-wins. This is the ONLY path that writes it — a wing-loss\n>   retirement leaves ReasonCode at 0.\n> - Case 4 arms the FRONT wing record via `ConditionalResourceRelease(this+818)`,\n>   case 5 the REAR via `this+835`. Only the rear one is tested by\n>   `PitStopBlockingCondition_0042aee0`, so front = repair, rear = retire.\n> - **`this` is NOT the vehicle — `*this` is.** Only fields reached through\n>   `*this` are vehicle offsets. (An earlier session claim that `this[3928]` was\n>   `veh+0x3D60` was wrong.)\n> - Unresolved: `this+818`/`this+835` are `0xCC8`/`0xD0C` while the retire test\n>   reads `*this+0xCD4`/`0xD18` — a consistent `0xC` base gap, not explained.\n> Evidence: `investigations/part_detach_commentary/README.md`.\n\n## RepairServiceStateDispatcher_004ed250 — repair/pit service state switch dispatcher\n\n**Summary:** Dispatches repair service state transitions (0-13) with subslot cleanup, wheel collision flagging, resource release, and brush-model force solver calls. Part of repair/pit service system.\n\n**Frame-path:** ON_FRAME_PATH  \n**Call frequency:** per-frame tick\n\n**Called by:** WheelControllerInputDecoder (00410bc0), CollisionSparkParticleEffects (004ec1a0)\n\n**Struct fields accessed:**\n\n| Base | Offset | R/W | Init (literal → value) | Purpose |\n|------|--------|-----|------------------------|---------|\n| obj | 0x4068 | RW | 6 | service state counter (initialized to 6 when zero) |\n| this | 0x0 | R | — | postProcessInput [CONFIRMED] — pointer to game object |\n| this | 0x32BC | R | — | mode flag (0 → call WheelCollisionContactFlagSetter) |\n| this | 0x3A70 | RW | — | brush model force output value |\n| this | 0x3A80 | R | — | brush model force reference value |\n| this | 0x3D60 | RW | 1 | service state flag (2 for active repair, 1 for completed) |\n\n**Written-by note (persistence):**\n- obj 0x4068: recalc every frame — external poke does NOT persist\n- this 0x3A70: recalc every frame — external poke does NOT persist\n- this 0x3D60: recalc every frame — external poke does NOT persist\n\n**Globals referenced:**\n\n| Address | Name | R/W | Role |\n|---------|------|-----|------|\n| 004ed360 | jpt_4ED268 | R | jump table for service state cases |\n| 004ed370 | byte_4ED370 | R | lookup byte for service state |\n| 005eb978 | dword_5EB978 | R | GameStatePtrArray3 [DERIVED] |\n| 007c7428 | dbl_7C7428 | R | RaceTimeElapsed [DERIVED] |\n\n**Functions called:**\n\n| Address | Name | Purpose |\n|---------|------|---------|\n| 0041afd0 | sub_41AFD0 | called on all state transitions with current service state |\n| 0043e770 | WheelCollisionContactFlagSetter | sets wheel collision contact flags during repair |\n| 004a56b0 | StateTransition | transitions state machine to new state |\n| 004e0d70 | ConditionalResourceRelease | releases resources for given subslot |\n| 004e0e70 | SubslotCleanup | cleans up subslot for states 0-3 |\n| 004e8010 | TireBrushModelForceSolver | solves tire brush model forces during repair |\n\n**Guard conditions:** Switch on a2 (0-13). States 0-3: obj+0x4068 initialized to 6 if zero. this[0x32BC] non-zero → BLOCKED (skip WheelCollisionContactFlagSetter). States 4-5: always execute full path with resource release and force solver. States 6-13: resource release only, then goto LABEL12.\n"
+  },
+  "prelabel": {
+    "action": "llm"
+  },
+  "on_frame_path": true,
+  "subsystems": [
+    "ai"
+  ],
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence": []
+  },
+  "abi": {
+    "name": "FAIL_4ed250",
+    "address": 5165648,
+    "trust": "LEGACY",
+    "prototype": null
+  },
+  "fields": [
+    {
+      "base": "obj",
+      "off_hex": "0x4068",
+      "rw": "RW",
+      "init_literal": 6,
+      "evidence_ref": "field:obj:0x00004068"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x0",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000000"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x32BC",
+      "rw": "R",
+      "evidence_ref": "field:this:0x000032BC"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x3A70",
+      "rw": "RW",
+      "evidence_ref": "field:this:0x00003A70"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x3A80",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00003A80"
+    },
+    {
+      "base": "this",
+      "off_hex": "0x3D60",
+      "rw": "RW",
+      "init_literal": 1,
+      "evidence_ref": "field:this:0x00003D60"
+    }
+  ],
+  "globals": [
+    {
+      "addr": "004ed360",
+      "name": "jpt_4ED268",
+      "rw": "R",
+      "address": "0x004ED360",
+      "evidence_ref": "global:0x004ED360"
+    },
+    {
+      "addr": "004ed370",
+      "name": "byte_4ED370",
+      "rw": "R",
+      "address": "0x004ED370",
+      "evidence_ref": "global:0x004ED370"
+    },
+    {
+      "addr": "005eb978",
+      "name": "dword_5EB978",
+      "rw": "R",
+      "address": "0x005EB978",
+      "evidence_ref": "global:0x005EB978"
+    },
+    {
+      "addr": "007c7428",
+      "name": "dbl_7C7428",
+      "rw": "R",
+      "address": "0x007C7428",
+      "evidence_ref": "global:0x007C7428"
+    }
+  ],
+  "guards": [],
+  "callees": [
+    {
+      "addr": "0041afd0",
+      "name": "sub_41AFD0",
+      "address": "0x0041AFD0",
+      "evidence_ref": "callee:0x0041AFD0"
+    },
+    {
+      "addr": "0043e770",
+      "name": "WheelCollisionContactFlagSetter",
+      "address": "0x0043E770",
+      "evidence_ref": "callee:0x0043E770"
+    },
+    {
+      "addr": "004a56b0",
+      "name": "StateTransition",
+      "address": "0x004A56B0",
+      "evidence_ref": "callee:0x004A56B0"
+    },
+    {
+      "addr": "004e0d70",
+      "name": "ConditionalResourceRelease",
+      "address": "0x004E0D70",
+      "evidence_ref": "callee:0x004E0D70"
+    },
+    {
+      "addr": "004e0e70",
+      "name": "SubslotCleanup",
+      "address": "0x004E0E70",
+      "evidence_ref": "callee:0x004E0E70"
+    },
+    {
+      "addr": "004e8010",
+      "name": "TireBrushModelForceSolver",
+      "address": "0x004E8010",
+      "evidence_ref": "callee:0x004E8010"
+    }
+  ],
+  "callers": [
+    {
+      "addr": "00410bc0",
+      "name": "WheelControllerInputDecoder",
+      "address": "0x00410BC0",
+      "evidence_ref": "caller:0x00410BC0"
+    },
+    {
+      "addr": "004ec1a0",
+      "name": "CollisionSparkParticleEffects",
+      "address": "0x004EC1A0",
+      "evidence_ref": "caller:0x004EC1A0"
+    }
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x0041AFD0",
+    "callee:0x0043E770",
+    "callee:0x004A56B0",
+    "callee:0x004E0D70",
+    "callee:0x004E0E70",
+    "callee:0x004E8010",
+    "caller:0x00410BC0",
+    "caller:0x004EC1A0",
+    "field:obj:0x00004068",
+    "field:this:0x00000000",
+    "field:this:0x000032BC",
+    "field:this:0x00003A70",
+    "field:this:0x00003A80",
+    "field:this:0x00003D60",
+    "function:0x004ED250",
+    "global:0x004ED360",
+    "global:0x004ED370",
+    "global:0x005EB978",
+    "global:0x007C7428",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_source_schema.json",
+    "output": "shadow_source/ir/functions/004ed250.json"
+  },
+  "policy": "Raw source and deterministic facts outrank all semantic proposals."
+}

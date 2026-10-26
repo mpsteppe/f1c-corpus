@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "address": "0x00552BA0",
+  "proposed_name": "FontTextureSheetAnalyzer",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00552BA0"]
+  },
+  "summary": "Analyzes a font texture sheet surface to derive glyph cell layout and rewrite the pixel transparency mask. Reads the surface object at this+0x64 (width +0x20, height +0x1C, pitch +0x28, pixel format +0x30, flags +0x18), accesses its 16-bit pixel data via ThunkWithArgReorder, scans for sentinel colors to find the horizontal and vertical cell divisions, stores the three key colors at this+0x28/0x2C/0x30 and the cell counts/pitches at this+0x34..0x40, computes total cell count into this+0x44, builds an 8-byte per-cell lookup table at this+0x6D, then walks every pixel and rewrites the alpha-mask bits (clearing them for key-color pixels and setting the +0x18 surface flag 0x800, OR-ing them otherwise). Finalizes the surface through ArgumentReorderWrapper_3230.",
+  "local_names": {
+    "this": "font texture sheet analyzer object",
+    "v2/v4": "surface object pointer (this+0x64)",
+    "v3": "16-bit pixel data pointer",
+    "v36": "alpha-mask value (0x8000 when pixel format == 5, else 0)",
+    "v37": "surface width",
+    "v5": "pitch / 2 (cell row stride)",
+    "v10": "first sentinel key color (this+0x28)",
+    "v38": "total cell count"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard on the pixel-format field at *(this+0x64)+0x30: if it is not 5 the alpha-mask value v36 is 0, otherwise it is 0x8000.",
+      "evidence_refs": ["field:*(this+0x64):0x00000030", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Load the surface object pointer at this+0x64, read its flags field +0x18, and call ThunkWithArgReorder(surface, flags, 0) to obtain the 16-bit pixel data pointer.",
+      "evidence_refs": ["field:this:0x00000064", "field:*(this+0x64):0x00000018", "callee:0x00543210", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read surface width (+0x20), height (+0x1C) and pitch (+0x28); compute the probe index height + (pitch/2)*(width-2) and store three sentinel 16-bit words from the pixel data into this+0x28, this+0x2C and this+0x30.",
+      "evidence_refs": ["field:*(this+0x64):0x00000020", "field:*(this+0x64):0x0000001C", "field:*(this+0x64):0x00000028", "field:this:0x00000028", "field:this:0x0000002C", "field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan the pixel row at cell stride for the first sentinel value equal to this+0x28; record the horizontal cell count at this+0x34 and the horizontal cell pitch at this+0x3C.",
+      "evidence_refs": ["field:this:0x00000034", "field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan down the column at cell stride for the first sentinel value equal to this+0x28; record the vertical cell count at this+0x38 and the vertical cell pitch at this+0x40.",
+      "evidence_refs": ["field:this:0x00000038", "field:this:0x00000040", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute total cell count v17 = vertical pitch * horizontal pitch and store it plus 32 overhead at this+0x44.",
+      "evidence_refs": ["field:this:0x00000044", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "If v17 > 0, build the per-cell lookup table at this+0x6D: for each cell, scan the 16-bit pixels at the computed cell offset until the key color (this+0x30) is found and store an 8-byte record (grid column, row, cell offset x, cell offset y).",
+      "evidence_refs": ["field:this:0x0000006D", "field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "If surface width * height > 0, walk every 16-bit pixel of the sheet: if the pixel equals any of the three key colors (this+0x30, this+0x28 or this+0x2C), clear the alpha-mask bits with v36 and set the surface flags at +0x18 with the 0x800 pixel-modified flag; otherwise OR the alpha-mask value v36 into the pixel.",
+      "evidence_refs": ["field:this:0x00000028", "field:this:0x0000002C", "field:this:0x00000030", "field:*(this+0x64):0x00000018", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the alpha-mask bits (v36) from the stored second key color this+0x2C.",
+      "evidence_refs": ["field:this:0x0000002C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Call ArgumentReorderWrapper_3230(surface object, surface flags at +0x18, 0) to finalize the surface and return its result.",
+      "evidence_refs": ["field:this:0x00000064", "field:*(this+0x64):0x00000018", "callee:0x00543230", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "surface = *(this+0x64);",
+    "mask = surface[0x30] != 5 ? 0 : 0x8000;",
+    "pixels = ThunkWithArgReorder(surface, surface[0x18], 0);",
+    "w = surface[0x20]; h = surface[0x1C]; pitch = surface[0x28] >> 1;",
+    "probe = h + pitch*(w-2);",
+    "this+0x28 = pixels[probe-1]; this+0x2C = pixels[probe-2]; this+0x30 = pixels[probe-3];",
+    "scan row for first == this+0x28 -> this+0x34 (count), this+0x3C (pitch);",
+    "scan column for first == this+0x28 -> this+0x38 (count), this+0x40 (pitch);",
+    "total = this+0x40 * this+0x3C; this+0x44 = total + 32;",
+    "if total > 0: build 8-byte per-cell table at this+0x6D (keyed on this+0x30);",
+    "if surface[0x1C]*surface[0x20] > 0:",
+    "    for each pixel:",
+    "        if pixel == this+0x30 or pixel == this+0x28 or pixel == this+0x2C: pixel &= ~mask; surface[0x18] |= 0x800",
+    "        else: pixel |= mask",
+    "this+0x2C &= ~mask;",
+    "return ArgumentReorderWrapper_3230(surface, surface[0x18], 0)"
+  ],
+  "unresolved": [
+    "Meanings of the three key colors (this+0x28/0x2C/0x30), the cell layout fields (this+0x34..0x40) and the 8-byte cell-record structure at this+0x6D are DERIVED from the pixel-scan behavior; the packet carries no field names for this type.",
+    "The semantic roles of ThunkWithArgReorder / ArgumentReorderWrapper_3230 (surface pixel-data access and finalize) are inferred from usage and are DERIVED.",
+    "The second key color this+0x2C retains the sentinel value read from the pixel probe rather than a user-set color; whether the final mask-clear on it is intentional or residual is unresolved."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

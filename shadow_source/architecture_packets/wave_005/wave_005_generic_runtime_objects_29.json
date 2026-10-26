@@ -1,0 +1,2458 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_005_generic_runtime_objects_29",
+  "scope": "generic_runtime_objects",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x00594624",
+      "function_ref": "function:0x00594624",
+      "name": "SlabBuddyFree",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Releases a memory block back into a slab/buddy allocator object (a1). Aligns the requested size a3 to 16 bytes, derives the subbin selector from the block address relative to the region base a1[3], reads the block header at a2-4 (slot count and total span), then either splits an oversized free block into an allocated part plus a free remainder or, when the block is already free, coalesces it with its buddy. The remainder is re-inserted into the free list of its size class while updating the aggregate bitmap words a1[0] (size classes below 0x20) and a1[1] (classes 0x20-0x3F) and the per-subbin bitmap arrays at v3 + 4*v5 + 68 / + 196. Returns 1 on success and 0 when the block is marked in use or the requested size exceeds the total span. Invoked from sub_58B5D4.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Read the block header at a2-4: v6 = (header size dword) - 1 giving the aligned-slot count, v7 = total span dword at v6 + a2 - 4, with v8 = v6 + a2 - 4 as the free-list node base.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the aligned requested size v4 = (a3 + 23) & 0xFFFFFFF0, the subbin selector v5 = (a2 - a1[3]) >> 15, and the per-subbin head area v36 = 516 * v5 + v3 + 324 where v3 = a1[4].",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When v4 <= v6 the request fits within the first header span: take the shrink path and either use the whole block or split off a free remainder of span v44 = v6 - v4.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When v4 > v6, reject with return 0 if the block is marked in use (v7 low bit set) or the request exceeds the total span (v4 > v6 + v7).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Coalesce path: unlink the free block from its current size-class list by relinking the cross-links stored at v8 + 4 and v8 + 8, then merge its span into the buddy region.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear the old size class from the per-subbin bitmap (v3 + 4*v5 + 68 for classes below 0x20, v3 + 4*v5 + 196 for classes 0x20-0x3F), decrement the class-count byte at v3 + class + 4, and clear the aggregate bit 0x80000000 >> class in a1[0] (lower) or a1[1] (upper) when the count drops to zero.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Record the remainder's size class: increment the class-count byte, set the class bit in the per-subbin bitmap (v3 + 4*v5 + 68 / + 196), and set the aggregate bit in a1[0] or a1[1] when the class was previously empty.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Finish the free-list insert for the remainder node v25 = a2 + v4 - 4: store next/back links via the head at v33 = v36 + 8*class, and write the remainder size v44 into the node header v25[0] and its trailer.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On the shrink path write the final allocated-block header and trailer: *(_DWORD *)(v21 - 4) = v4 + 1 and *(_DWORD *)(v21 + v4 - 8) = v4 + 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 after a successful release/split; the in-use or over-sized guard returns 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "This free path is invoked from sub_58B5D4 (0x0058B5D4).",
+          "evidence_refs": [
+            "caller:0x0058B5D4"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The size-class mapping (class = (size >> 4) - 1, capped at 63) is implied by the bitmap arithmetic but the allocator object layout beyond offsets 0x0/0x4/0xC/0x10 is not present in this packet.",
+        "a1[3] (offset 0xC) and a1[4] (offset 0x10) are consumed as region base and per-subbin data base; their exact subbin stride (516 bytes) is only evident in this function body.",
+        "Whether this is purely the free path (versus also serving split-allocate requests) depends on the caller sub_58B5D4, whose body is outside this packet."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0059491A",
+      "function_ref": "function:0x0059491A",
+      "name": "initializeSlabBuddyAllocator",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Initializes a slab/buddy-style allocator. If dword_5E7978 == -1 the allocator context v0 is the static pool &off_5E7968; otherwise v0 = HeapAlloc(hHeap, 0, 0x2020). On allocation failure returns 0. Reserves a 0x400000-byte region with VirtualAlloc(0, 0x400000, 0x2000, 4); on failure frees the heap context and returns 0. Commits 0x10000 bytes with VirtualAlloc(v1, 0x10000, 0x1000, 4); on failure calls VirtualFree(v2, 0, 0x8000), frees the context, and returns 0. Links the context into a free list: static-pool case self-links off_5E7968/off_5E796C, heap case inserts v0 between off_5E7968 and off_5E796C. Initializes context header fields (v0[2..5]), fills a 1024-entry x 2-word free-list table, zeroes the committed region via sub_58BB10, and walks 1024-byte slabs setting header words. Returns the context pointer v0.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If dword_5E7978 == -1, use the static pool; otherwise heap-allocate the allocator context",
+          "evidence_refs": [
+            "global:0x005E7978",
+            "abi:lead",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "v0 = &off_5E7968 (static pool context)",
+          "evidence_refs": [
+            "global:0x005E7968"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "v0 = HeapAlloc(hHeap, 0, 0x2020) — allocate 0x2020-byte allocator context from the private heap",
+          "evidence_refs": [
+            "global:0x0059E1C0",
+            "global:0x008D4904"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If v0 == 0 (HeapAlloc failed), return 0",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "v1 = VirtualAlloc(0, 0x400000, 0x2000, 4) — reserve 0x400000-byte virtual address region",
+          "evidence_refs": [
+            "global:0x0059E0A0"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If v1 == 0, free heap context (if not static pool) and return 0",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "VirtualAlloc(v1, 0x10000, 0x1000, 4) — commit initial 0x10000 bytes of the reservation",
+          "evidence_refs": [
+            "global:0x0059E0A0"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "On commit failure: VirtualFree(v2, 0, 0x8000) — release the reservation",
+          "evidence_refs": [
+            "global:0x0059E0A4"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "On failure cleanup: HeapFree(hHeap, 0, v0) — free heap-allocated context when not the static pool",
+          "evidence_refs": [
+            "global:0x0059E1BC",
+            "global:0x008D4904"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Static-pool case: if off_5E7968 is 0 set it to &off_5E7968; if off_5E796C is 0 set it to &off_5E7968 (self-linked list head)",
+          "evidence_refs": [
+            "global:0x005E7968",
+            "global:0x005E796C"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Heap case: insert v0 into the list — v0[0] = &off_5E7968, v0[1] = off_5E796C, off_5E796C = v0, *(v0[1]) = v0",
+          "evidence_refs": [
+            "global:0x005E7968",
+            "global:0x005E796C"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "v0[5] = v2 + 0x100000 (end/limit pointer of the arena)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "v0[3] = v0 + 38 (pointer into the context's own embedded table)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "v0[4] = v2 (base pointer of the committed arena)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "v0[2] = v0 + 6 (start of the free-list table)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Fill the 1024-entry x 2-word free-list table (v3 starting at v0+6): entry value is 240 while index < 16 else -1; second word always 241; advance 2 words per iteration",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_58BB10(v2, 0, 0x10000) — zero-initialize the committed 0x10000-byte region",
+          "evidence_refs": [
+            "callee:0x0058BB10"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk 1024-byte slabs from v2 while v2 < v0[4] + 0x10000: set slab header byte at +248 to -1, word at +0 to next-slab pointer (v2 + 2), word at +4 to 240; advance by 1024 bytes",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return v0 (allocator context pointer)",
+          "evidence_refs": [
+            "function:0x0059491A",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Exact semantics of dword_5E7978 marker and the static pool off_5E7968/off_5E796C list role are DERIVED-level; not independently verified.",
+        "sub_58BB10 is treated as a zero-fill routine here per the raw source call signature; its implementation is not analyzed in this packet.",
+        "Allocator owner class unknown; the free-list table layout (which entry maps to which block size) is not established."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x0059325D",
+        "caller:0x00594C12"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00594AB4",
+      "function_ref": "function:0x00594AB4",
+      "name": "TrimAllocatorFreePages",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00594AB4"
+        ]
+      },
+      "summary": "Walks the allocator-context linked list and decommits free pages (page-table entries holding 240) via VirtualFree(MEM_DECOMMIT), up to a remaining page budget a1. Each successful decommit marks the page-table entry -1, decrements the live page counter dword_8D41B8, and optionally lowers the context's lowest-free pointer v1[3]. If one context's entire page table becomes -1 (all 1024 pages free), the context itself is destroyed via sub_594A5E. Called per frame by CounterThreshold (00594bcd).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "v1 = off_5E796C: start the walk at the allocator-context list head.",
+          "evidence_refs": [
+            "global:0x005E796C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Outer do-while walks the context linked list through the next pointer v1[1] until it wraps back to the head off_5E796C or the page budget a1 is exhausted.",
+          "evidence_refs": [
+            "global:0x005E796C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Per-context guard: skip any context whose arena base v1[4] equals -1 (no valid arena).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Reset the per-context freed-page counter v8 = 0 and point v2 at the first page-table entry: v2 = v1 + 2052.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Per-context page loop: i runs 4190208 down to 0 in 4096-byte steps, visiting each 4KB page of the arena; each page-table entry is two DWORDs wide (v2 -= 2 per iteration).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Free-page guard: only pages whose entry *v2 equals 240 (free state) are eligible for decommit.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "VirtualFree((LPVOID)(v1[4] + i), 0x1000, 0x4000): decommit the 4KB page with MEM_DECOMMIT (0x4000); the page is only freed when the call succeeds.",
+          "evidence_refs": [
+            "global:0x0059E0A4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On successful decommit: mark the page-table entry *v2 = -1 and decrement the live page counter dword_8D41B8.",
+          "evidence_refs": [
+            "global:0x008D41B8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Lowest-free pointer update: if v1[3] is unset or still above the newly freed entry, set v1[3] = v2.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Increment the freed-page counter v8 and decrement the remaining page budget a1; break out of the page loop when the budget reaches zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "After each context: if at least one page was freed (v8) and the context's page-count entry v5[6] is -1, run the all-free confirmation scan.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Scan v6 = v5 + 8 across entries 1..1023, stepping v6 += 2, to confirm every remaining page-table entry is -1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_594A5E(v5): destroy the entire allocator context when all 1024 page entries are free.",
+          "evidence_refs": [
+            "callee:0x00594A5E",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Void function; nothing is returned.",
+          "evidence_refs": [
+            "function:0x00594AB4",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of the page-table state marker 240 as 'free' is inferred; raw source only compares the entry against 240.",
+        "Allocator-context layout (arena base v1[4], list-next v1[1], lowest-free v1[3], page-count v1[6], 2-DWORD page entries) is DERIVED from existing analysis and not independently evidenced by this packet.",
+        "sub_594A5E's destruction semantics beyond 'destroy entire context' are not visible in this packet."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00594C12",
+      "function_ref": "function:0x00594C12",
+      "name": "SlabBuddyAllocateMemory",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00594C12"
+        ]
+      },
+      "summary": "Slab/buddy allocator public memory allocation. Round-robins through the linked list of allocator contexts starting at off_5E9988, scanning each context's 8-byte free descriptors and carving a block with sub_594E1A; the descriptor start is shrunk and the cursor global updated on success. When no existing context fits, falls back to the static pool list headed by off_5E7968, and if a pool has spare descriptors commits pages with VirtualAlloc, zeroes them via sub_58BB10, and splits them into chained 4KB blocks recorded in the pool's descriptor table; if every pool is exhausted it creates a new allocator via SlabBuddyAllocatorInitialization and returns its first 256-byte block. Returns the allocated pointer (page base + 256) or 0 on failure.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "v1 = off_5E9988 seeds the round-robin cursor from the allocator-context list",
+          "evidence_refs": [
+            "global:0x005E9988",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Walk the singly linked list of allocator contexts (v1 = *(char**)v1) until the cursor returns to off_5E9988",
+          "evidence_refs": [
+            "global:0x005E9988",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "A context whose page-base word v2 == -1 marks an exhausted context; the request size v5 is carried unchanged into the pool fallback",
+          "evidence_refs": [
+            "global:0x005E9988",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "v3 = *(v1 + 2) loads the context's descriptor cursor; v4 = v2 + 4096 * ((v3 - v1 - 24) >> 3) derives the 4KB page address from the descriptor's offset within the context's descriptor table",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Scan 8-byte free descriptors (start/size pairs) from v3 while v3 < v1 + 8216; a usable block needs *(v3) >= a1 and *(v3 + 1) > a1 so its span covers the request",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_594E1A(v4, *(v3), a1) carves a block of size a1 from the page; on success the cursor global off_5E9988 is updated to v1, the descriptor start *(v3) is shrunk by v5, the new cursor *(v1 + 2) = v3 is stored, and the carved pointer is returned",
+          "evidence_refs": [
+            "callee:0x00594E1A",
+            "global:0x005E9988",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When sub_594E1A fails, the descriptor's high bound *(v3 + 1) is lowered to a1 and the scan advances (v3 += 8, page v4 += 4096)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "A second scan from the descriptor-table base (v1 + 24) up to the recorded cursor v17 re-tries the tail of the table with the same carve-or-shrink logic",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "When no existing context fits, walk the static pool list headed by off_5E7968 looking for a pool whose page base is valid and whose descriptor table is non-empty (*(v7 + 3) non-zero)",
+          "evidence_refs": [
+            "global:0x005E7968",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "When the pool list is exhausted, SlabBuddyAllocatorInitialization() creates a new allocator context; on success its first 256-byte block is set up (header size 240, next-free pointer, pool free-space decrement) and v16 + 256 is returned",
+          "evidence_refs": [
+            "callee:0x0059491A",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 when neither an existing context nor a fresh allocator can satisfy the request",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "v8 = *(v7 + 3) reads the pool's free-descriptor cursor; locate the first descriptor whose word is -1 (v20 counts the page index)",
+          "evidence_refs": [
+            "global:0x005E7968",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "VirtualAlloc(i, v20 << 12, 0x1000, 4) commits the selected pages; a return different from i fails the allocation (return 0)",
+          "evidence_refs": [
+            "global:0x0059E0A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_58BB10(i, 0, 0) zero-initializes the freshly committed pages",
+          "evidence_refs": [
+            "callee:0x0058BB10",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Split the committed region into 4KB blocks chained through size headers/footers (payload 240, footer -1 sentinel, next-block pointers) and record each block pair in the pool's descriptor table",
+          "evidence_refs": [
+            "global:0x005E7968",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "off_5E9988 is updated to the current pool, the pool's free-descriptor cursor *(v7 + 3) is advanced, the request size a1 is stored in the page header byte, and *(v7 + 2) records the descriptor start",
+          "evidence_refs": [
+            "global:0x005E9988",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "*v8 -= a1 and i[1] -= a1 shrink the pool's free-space bookkeeping; the returned pointer result = i + 64 lies 256 bytes into the first page",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the allocated pointer (i + 64) or 0 when page commit or allocator creation failed",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by the frame-path allocator users sub_58A973, sub_58AB58 and sub_58B5D4",
+          "evidence_refs": [
+            "caller:0x0058A973",
+            "caller:0x0058AB58",
+            "caller:0x0058B5D4",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The -1 sentinel on the page-base word and the exact pool/context list-node layout (offsets 2, 3 and 4 of each node) are read from the decompiler and not independently confirmed",
+        "Whether i + 64 is a fixed 256-byte header offset or an alignment artifact is inferred from the return expression",
+        "off_5E7968 as a fallback-only static pool list (the primary path is the off_5E9988 context list) is inferred from control flow"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x00594F3E",
+      "function_ref": "function:0x00594F3E",
+      "name": "PoolBufferResize",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Resizes a byte buffer a3 (whose current size is stored at *a3) to a4 while maintaining a per-region free-size counter in an entry table owned by a1. v5 selects the 8-byte-stride entry at a1+24 whose index is ((a2 - *(a1+16)) >> 12). On shrink (v4 > a4) it clamps the size, adds the freed delta to *v5, marks v5[1] = 241 and returns 1. On grow (v4 < a4) it verifies the region from the old end to the new end v6 is all zeroes, then commits the new size and updates the descriptor a2 (data pointer at +0, length at +4, struct extends 248 bytes): if the data pointer *a2 lies inside [a3, v6) the descriptor pointer is advanced to v6 (or reset to a2+2 when v6 reaches the struct end) and the entry counter is adjusted by v4 - a4. Returns 0 on the fallthrough paths.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Read the current size v4 = *a3 from the leading byte of the buffer.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize v11 = 0 as the default return value for the fallthrough paths.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Select the region entry v5 = a1 + 24 + 8 * ((a2 - *(a1+16)) >> 12): an 8-byte-stride table in a1 whose base pointer is read at a1+16 and whose entries start at a1+24.",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Shrink path: taken when v4 > a4, i.e. the current size exceeds the requested size.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clamp the buffer size *a3 = a4, return the freed amount to the entry counter *v5 += v4 - a4, and mark the entry v5[1] = 241.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 as the success result of the shrink path.",
+          "evidence_refs": [
+            "function:0x00594F3E",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Grow path: taken when v4 < a4, i.e. the current size is below the requested size.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the end of the newly requested region v6 = &a3[a4].",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Proceed only when the descriptor a2 (whose extent ends at a2 + 62 dwords, i.e. a2 + 248 bytes) still covers the new region end v6 (a2 + 62 >= v6).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Scan i from the old region end &a3[v4] upward to v6 looking for the first non-zero byte; v8 records whether the cursor reached v6 (i == v6) without finding one.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "The grow commits only when v8 is true (the growth region contains only zero bytes).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Commit the new size *a3 = a4.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Descriptor update applies only when the active data pointer *a2 lies inside the resized region: a3 <= *a2 && v6 > *a2.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When the new region end reaches past the descriptor struct (v6 >= a2 + 248 bytes), reset the descriptor to empty: a2[1] = 0 and *a2 = a2 + 2.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Otherwise advance the descriptor pointer to the region end: *a2 = v6, and set a2[1] to the index of the first non-zero byte following v6 (v9 counts zero bytes starting at *v6 when it is zero).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "In both descriptor branches, adjust the entry counter by the delta *v5 += v4 - a4 (negative when growing), then return 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 as the success result of the grow path.",
+          "evidence_refs": [
+            "function:0x00594F3E",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Fallthrough returns v11 (0) when neither the shrink path nor a successful grow path ran.",
+          "evidence_refs": [
+            "function:0x00594F3E",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_58B5D4 (0x0058B5D4).",
+          "evidence_refs": [
+            "caller:0x0058B5D4",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The owner object a1 and the meaning of the 8-byte entry table (base at +16, entries at +24, marker value 241 at entry+4) are not evidenced; the free-size-counter interpretation is inferred from the += v4 - a4 arithmetic.",
+        "The descriptor layout of a2 (data pointer at +0, length at +4, 248-byte extent) is inferred from pointer arithmetic and is not a named type.",
+        "The prelabel auto-template claims a field getter at 0x10, but the raw source reads a1+16 as an array base; the raw source outranks that template, and the two readings were not reconciled.",
+        "Whether the a3 buffer is a string, a pool block, or a generic byte region is unevidenced."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00595524",
+      "function_ref": "function:0x00595524",
+      "name": "StringParseViaDelegate",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00595524"
+        ]
+      },
+      "summary": "Trivial __cdecl forwarder that delegates to sub_5953B8, forwarding the two caller arguments (an unsigned 16-bit input pointer and an unsigned 32-bit pointer) plus the global context pointer dword_5E99A0 as a third argument, and returns the callee's result unchanged. The packet's deterministic naming suggests a string-parse path routed through a global callback/context delegate.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Delegate: call sub_5953B8(a1, a2, dword_5E99A0), forwarding both caller arguments plus the global context pointer dword_5E99A0 as a third argument.",
+          "evidence_refs": [
+            "callee:0x005953B8",
+            "global:0x005E99A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the callee's return value unchanged.",
+          "evidence_refs": [
+            "function:0x00595524",
+            "callee:0x005953B8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by EncodingLocaleDetectionFromParseResult (0x0058E12E) and BufferFormatHelper (0x00595550).",
+          "evidence_refs": [
+            "caller:0x0058E12E",
+            "caller:0x00595550"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The role of the third argument dword_5E99A0 (a parser context, format selector, or callback) is not evident from the raw source; only its address is deterministic.",
+        "Whether the two pointer arguments are input/output or input/input is inferred from their parameter types only."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005955AA",
+      "function_ref": "function:0x005955AA",
+      "name": "FloatToStringDigitFormatter",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Digit-string formatter used by CRT-style number-to-string conversion. Writes a leading '0' (48) at a1[0], copies a2 digit characters from the stream at a3+12 into the buffer (substituting '0' for a zero byte), NUL-terminates the result, applies round-up with carry propagation when the next unconsumed digit is 5 or greater, then skips a leading '0' via sub_58B130 when the leading digit did not round up; on carry overflow into the leading digit it increments the counter at a3+4.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize the first buffer byte a1[0] to '0' (48) and start the result pointer at a1+1.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Load the digit source pointer from a3+12 and initialize the second output byte position (a1+1).",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000001"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on a2 > 0 to decide whether the digit-copy loop runs at all.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Loop a2 times copying each byte from the source stream into the buffer; a zero byte in the stream is substituted with '0' (48).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "NUL-terminate the formatted string at the final result position.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard combining the consumed-count sign (v4 >= 0) with the next unconsumed digit being >= '5' (53) to trigger rounding.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Round-up carry propagation: walk back replacing '9' (57) digits with '0' (48) until a non-9 digit is found, then increment it.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on a1[0] == '1' (49) after rounding, indicating the carry overflowed into the leading digit.",
+          "evidence_refs": [
+            "source:raw",
+            "field:this:0x00000000",
+            "guard:0"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On leading-carry, increment the counter at a3+4 and return the pointer past the leading digit.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Otherwise measure the digit-string length with Strlen and shift the buffer left by one byte via sub_58B130, discarding the leading '0'.",
+          "evidence_refs": [
+            "source:raw",
+            "callee:0x0058E1B0",
+            "callee:0x0058B130"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the shifted buffer pointer produced by sub_58B130 in the leading-zero-skip path.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Exact type of the source object at a3 (stream at +12, counter at +4) is unknown.",
+        "The rounding guard's sign condition v4 >= 0 couples digit count with sign handling; exact semantics not fully recovered.",
+        "Known callers: FloatToStringWithSignWidth (0x0058BDCD), IntToStringWithSignPositionDraw (0x0058BEF0), UtilityFunction_bfec (0x0058BFEC)."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x0058BDCD",
+        "caller:0x0058BEF0",
+        "caller:0x0058BFEC"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00595733",
+      "function_ref": "function:0x00595733",
+      "name": "AmsgExitRuntimeError",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Thin runtime-error exit wrapper: calls CRTAmsgExit (0x0058A2A6) with the argument 2u and returns its result. No local state, no guards, no fields.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call CRTAmsgExit (0x0058A2A6) with the argument 2u to trigger the amsg runtime error exit path.",
+          "evidence_refs": [
+            "callee:0x0058A2A6",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of CRTAmsgExit(2u).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of the exit argument 2u depends on the amsg runtime's contract; not evidenced in this packet."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00595924",
+      "function_ref": "function:0x00595924",
+      "name": "CRTFileHandleAssign",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "CRT file-descriptor handle assignment. If the descriptor index a1 is in range and its slot (in the 36-byte-stride descriptor table) is empty (== -1), optionally binds the console standard handle matching a1 when dword_5E65B4 == 1, stores the supplied handle in the slot and returns 0; otherwise stores error 9 in the TLS error slot, clears the extended error slot and returns -1.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Fail when a1 >= uNumber or the descriptor slot entry at dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) is not -1 (slot already occupied).",
+          "evidence_refs": [
+            "global:0x008D4A20",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When dword_5E65B4 == 1, map descriptor index a1 to a console standard handle and assign hHandle to it: a1 0 -> SetStdHandle(0xFFFFFFF6), a1 1 -> SetStdHandle(0xFFFFFFF5), a1 2 -> SetStdHandle(0xFFFFFFF4).",
+          "evidence_refs": [
+            "global:0x005E65B4",
+            "global:0x0059E098",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store hHandle into the descriptor slot entry at dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 on successful assignment.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Error path: write 9 through TLSOffsetGetter, write 0 through TLSOffsetGetter_afd8, and return -1.",
+          "evidence_refs": [
+            "callee:0x0058AFCF",
+            "callee:0x0058AFD8",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The descriptor table base dword_8D4920 (36-byte stride, indexed by a1 >> 5 with element a1 & 0x1F) is used by the raw source but is not present in the packet globals list; the 36-byte entry layout is inferred from the raw source.",
+        "The exact role of dword_5E65B4 beyond gating the console standard-handle mapping (console-attached flag) is inferred from the prior analysis.",
+        "The 0xFFFFFFF6/0xFFFFFFF5/0xFFFFFFF4 constants are the raw two's-complement renderings of the standard-handle ids; their meaning as STD_INPUT/OUTPUT/ERROR is derived from the SetStdHandle call pattern."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005959A0",
+      "function_ref": "function:0x005959A0",
+      "name": "CRTFileHandleRelease",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "CRT file-descriptor handle release, structural twin of sub_595924. If descriptor index a1 is in range, the slot's flag byte at offset 4 has bit 0 set (slot in use), and the slot dword is not -1, optionally clears the console standard handle matching a1 when dword_5E65B4 == 1, resets the slot dword to -1 and returns 0; otherwise stores error 9 in the TLS error slot, clears the extended error slot and returns -1.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Fail when a1 >= uNumber, or the flag byte at slot offset 4 (dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 4) has bit 0 clear, or the slot dword is -1.",
+          "evidence_refs": [
+            "global:0x008D4A20",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When dword_5E65B4 == 1, clear the console standard handle matching a1 with a null handle: a1 0 -> SetStdHandle(0xFFFFFFF6, 0), a1 1 -> SetStdHandle(0xFFFFFFF5, 0), a1 2 -> SetStdHandle(0xFFFFFFF4, 0).",
+          "evidence_refs": [
+            "global:0x005E65B4",
+            "global:0x0059E098",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Reset the descriptor slot dword at dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) to -1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 on successful release.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Error path: write 9 through TLSOffsetGetter, write 0 through TLSOffsetGetter_afd8, and return -1.",
+          "evidence_refs": [
+            "callee:0x0058AFCF",
+            "callee:0x0058AFD8",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The descriptor table base dword_8D4920 (36-byte stride, indexed by fd >> 5 with element fd & 0x1F) is used by the raw source but is not present in the packet globals list; the 36-byte entry layout is inferred from the raw source.",
+        "The flag byte at slot offset 4 bit 0 is interpreted as an in-use marker only by symmetry with the assign twin; its independent meaning is unconfirmed.",
+        "The 0xFFFFFFF6/0xFFFFFFF5/0xFFFFFFF4 constants are the raw two's-complement renderings of the standard-handle ids; their meaning as STD_INPUT/OUTPUT/ERROR is derived from the SetStdHandle call pattern.",
+        "The caller HandleCloseWithErrorReporting (0x0058C38E) indicates this closes a handle on behalf of a close path, but the error-reporting linkage is not visible in this function body."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00595A1F",
+      "function_ref": "function:0x00595A1F",
+      "name": "CRTFileHandleRead",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00595A1F"
+        ]
+      },
+      "summary": "Returns the raw Windows handle for a CRT file descriptor entry. Guards the descriptor index against the open file count (uNumber), locates the entry as dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) (a block table with 32 entries per 36-byte stride), and returns the handle dword at the entry base when the open flag (bit 0 of the byte at entry + 4) is set. On an out-of-range index or a closed entry it writes TLS error 9 via TLSOffsetGetter and clears the extended error slot via TLSOffsetGetter_afd8, then returns -1.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Descriptor index a1 is validated against the open file count uNumber; the table lookup only runs while a1 < uNumber",
+          "evidence_refs": [
+            "global:0x008D4A20",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Entry address = dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F): a1 selects one of the pointer slots (a1 >> 5), then an entry within a 32-entry block at 36-byte stride (a1 & 0x1F)",
+          "evidence_refs": [
+            "global:0x008D4920",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Open-flag test: the byte at entry + 4 must have bit 0 set; when set the function returns the handle dword stored at the entry base",
+          "evidence_refs": [
+            "global:0x008D4920",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Failure path writes TLS error code 9 through the TLSOffsetGetter pointer and clears the extended error slot through TLSOffsetGetter_afd8 (literal 0)",
+          "evidence_refs": [
+            "callee:0x0058AFCF",
+            "callee:0x0058AFD8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the entry handle dword on success, or -1 on an out-of-range index or closed entry; called by HandleCloseWithErrorReporting (0058C38E), FileSeekViaSetFilePointer (0058C789), sub_592891 (00592891), FilePointerSeekWithErrorHandling (00595F82), sub_59797B (0059797B) and sub_59B650 (0059B650)",
+          "evidence_refs": [
+            "caller:0x0058C38E",
+            "caller:0x0058C789",
+            "caller:0x00592891",
+            "caller:0x00595F82",
+            "caller:0x0059797B",
+            "caller:0x0059B650",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The 36-byte entry layout (handle dword at offset 0, flags byte at offset 4) is inferred from the raw accesses only; the full CRT file-entry structure is not defined in this packet",
+        "The meaning of the extended error slot written via TLSOffsetGetter_afd8 is not documented beyond the literal 0"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00595AC0",
+      "function_ref": "function:0x00595AC0",
+      "name": "FileCriticalSectionLeave",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00595AC0"
+        ]
+      },
+      "summary": "Releases the per-file critical section for file index a1. The section is embedded at offset +12 of a 36-byte record inside the bucket dword_8D4920[a1 >> 5]; the entry within the bucket is selected by a1 & 0x1F. Called from multiple file-I/O sites as the leave half of a guarded per-file access.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute the per-file critical section address: dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 12, i.e. bucket = a1/32, record = a1%32, record stride 36 bytes, critical section at record offset +12.",
+          "evidence_refs": [
+            "global:0x008D4920",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call LeaveCriticalSection on the computed LPCRITICAL_SECTION to release the lock guarding file index a1.",
+          "evidence_refs": [
+            "global:0x0059E170",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked from nine file-I/O call sites (sub_58C331, sub_58C724, sub_58C9B4, sub_58E22B, sub_592891, sub_595AF9, sub_595F11, sub_59B650, sub_59B760) as the common leave path after file operations.",
+          "evidence_refs": [
+            "caller:0x0058C331",
+            "caller:0x0058C724",
+            "caller:0x0058C9B4",
+            "caller:0x0058E22B",
+            "caller:0x00592891",
+            "caller:0x00595AF9",
+            "caller:0x00595F11",
+            "caller:0x0059B650",
+            "caller:0x0059B760"
+          ]
+        }
+      ],
+      "unresolved": [
+        "a1 is a file/index identifier; the exact resource table it indexes is unresolved here.",
+        "The +12 offset and 36-byte stride imply an embedded CRITICAL_SECTION inside a larger per-file record; the record layout is unknown.",
+        "Bucket base array dword_8D4920 allocation/ownership is unresolved."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00595AE2",
+      "function_ref": "function:0x00595AE2",
+      "name": "StringFormatWith0x40Size",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Forwarding wrapper (cdecl): calls sub_595AF9 (0x00595AF9) with lpFileName, a2, the fixed size argument 64, and a3, then returns its result. The third argument is pinned to 64, matching a 0x40-byte format-buffer size. Used by ShortComputation_5050 (0x00405050), sub_4069F0 (0x004069F0) and RegistryKeyQuery (0x00449A20).",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call sub_595AF9 (0x00595AF9) with lpFileName, a2, 64, a3, fixing the format-buffer size argument to 64.",
+          "evidence_refs": [
+            "callee:0x00595AF9",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of sub_595AF9(lpFileName, a2, 64, a3).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by ShortComputation_5050 (0x00405050), sub_4069F0 (0x004069F0) and RegistryKeyQuery (0x00449A20) to format into a fixed 0x40-size buffer.",
+          "evidence_refs": [
+            "caller:0x00405050",
+            "caller:0x004069F0",
+            "caller:0x00449A20",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of a2 and a3 depends on sub_595AF9's contract; the only fixed argument evidenced here is the size 64."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00595F11",
+      "function_ref": "function:0x00595F11",
+      "name": "sub_595F11",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Checked file-handle seek wrapper. If a1 is a valid open file index (a1 below the uNumber count and the record's flag byte, at offset 4 of the per-file record, having bit 0 set), it enters the per-file critical section, performs a seek via FilePointerSeekWithErrorHandling, leaves the critical section and returns the seek result. Otherwise it writes error code 9 into the primary TLS slot, zeroes the secondary TLS slot and returns -1.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Validity guard: a1 < uNumber (count of file records) AND the byte at dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 4 has bit 0 set (record open).",
+          "evidence_refs": [
+            "global:0x008D4A20",
+            "global:0x008D4920",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "CriticalSectionEnterWithLazyInit(a1) enters the per-file critical section before seeking.",
+          "evidence_refs": [
+            "callee:0x00595A61",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "FilePointerSeekWithErrorHandling(a1, a2, a3, dwMoveMethod) performs the seek and returns the result stored in v4.",
+          "evidence_refs": [
+            "callee:0x00595F82",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "FileCriticalSectionLeave(a1) releases the per-file critical section.",
+          "evidence_refs": [
+            "callee:0x00595AC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the seek result v4 on the success path.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "On the invalid-handle path, store 9 into the dword at TLSOffsetGetter() (TLS error code).",
+          "evidence_refs": [
+            "callee:0x0058AFCF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store 0 into the dword at TLSOffsetGetter_afd8() (secondary TLS slot).",
+          "evidence_refs": [
+            "callee:0x0058AFD8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return -1 on the invalid-handle path.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The 36-byte per-file record layout and the exact meaning of the bit-0 open flag at record offset 4 are inferred, not separately evidenced.",
+        "Meaning of TLS error code 9 and the purpose of the secondary TLS slot are unknown.",
+        "Relation to the structural twin sub_58C331 is proposed by clustering, not independently confirmed."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00595F82",
+      "function_ref": "function:0x00595F82",
+      "name": "FilePointerSeekWithErrorHandling",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00595F82"
+        ]
+      },
+      "summary": "Wraps a file seek on a handle resolved from index a1 via sub_595A1F. On handle failure stores the error code 9 through TLSOffsetGetter and returns -1. Performs a 64-bit SetFilePointer seek: high 32 bits passed as a3, low 32 bits assigned from the return value. If the low 32 bits are -1 and GetLastError() is non-zero, routes the error through ErrorIDLookupTable and returns -1. On success clears bit 2 of the file-handle-table flag byte at dword_8D4920[a1>>5] + 36*(a1&0x1F) + 4, then returns the full 64-bit position.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Resolves the file handle for index a1 by calling sub_595A1F",
+          "evidence_refs": [
+            "callee:0x00595A1F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the resolved handle equals -1 (invalid), stores error code 9 through TLSOffsetGetter and returns -1",
+          "evidence_refs": [
+            "callee:0x0058AFCF",
+            "function:0x00595F82",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Calls SetFilePointer with the handle, low 32 bits of the offset (a2), the high 32 bits at &lDistanceToMove+1 (a3), and the move method; assigns the returned low 32 bits into lDistanceToMove",
+          "evidence_refs": [
+            "global:0x0059E168",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the low 32 bits of the result equal -1 and GetLastError() is non-zero, passes the error to ErrorIDLookupTable and returns -1",
+          "evidence_refs": [
+            "global:0x0059E188",
+            "callee:0x0058AF5C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clears bit 2 of the flag byte at dword_8D4920[a1>>5] + 36*(a1&0x1F) + 4 (the file-handle-table entry for a1)",
+          "evidence_refs": [
+            "global:0x008D4920",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the 64-bit seek result",
+          "evidence_refs": [
+            "function:0x00595F82",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Invoked by sub_595F11 as the error-checked file-positioning path",
+          "evidence_refs": [
+            "caller:0x00595F11",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The handle table dword_8D4920 entry layout (36-byte stride, flag byte at +4) is only partially evidenced; the meaning of bit 2 is defined outside this packet",
+        "The meaning of the TLS error code 9 is defined by its consumer, outside this packet",
+        "sub_595A1F's handle-resolution semantics are outside this packet"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00596089",
+      "function_ref": "function:0x00596089",
+      "name": "WideCharToMultiByteSingle",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00596089",
+          "source:raw"
+        ]
+      },
+      "summary": "Converts a single wide character (WideCharStr) into multi-byte form, the wide-to-ANSI mirror of the single-character conversion layer. Returns 0 when the output buffer lpMultiByteStr is NULL. When no locale is set (dword_8D3F38 == 0) and the character fits in one byte (WideCharStr <= 0xFF), it writes the truncation directly into the buffer and returns 1. Otherwise it calls WideCharToMultiByte(CodePage, 0x220u, &WideCharStr, 1, output, cbMultiByte, 0, &defaultCharUsed) and returns the byte count written, or -1 with TLS error 42 when conversion fails or a default (replacement) character was used.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Seed result with the output buffer pointer: result = lpMultiByteStr.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Return result (0) immediately when lpMultiByteStr is NULL.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When dword_8D3F38 (locale) is zero and WideCharStr <= 0xFF, take the direct truncation path.",
+          "evidence_refs": [
+            "global:0x008D3F38",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the wide character truncated to one byte into the output buffer at this+0x0 (*lpMultiByteStr = WideCharStr) and return 1.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call WideCharToMultiByte(CodePage, 0x220u, &WideCharStr, 1, output buffer, cbMultiByte, 0, &defaultCharUsed) and store the byte count written as result.",
+          "evidence_refs": [
+            "global:0x0059E228",
+            "global:0x008D3F48",
+            "global:0x005E6BD4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Failure path taken when the conversion returned 0 or a default (replacement) character flag was set.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "On failure store error 42 via TLSOffsetGetter() and return -1.",
+          "evidence_refs": [
+            "callee:0x0058AFCF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return result (byte count written) on success, or -1 on failure.",
+          "evidence_refs": [
+            "function:0x00596089",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by sub_596030 (00596030) as the single-character wide-to-ANSI conversion step.",
+          "evidence_refs": [
+            "caller:0x00596030"
+          ]
+        }
+      ],
+      "unresolved": [
+        "dword_8D3F38 (locale-present flag) and cbMultiByte (output-buffer capacity / sequence length) are only named as data locations; their exact runtime roles are inferred from the fill analysis, not proven.",
+        "The default-character flag in the raw source aliases the lpMultiByteStr variable after it is repurposed; whether this is a decompiler artifact or genuine stack reuse is unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00596175",
+      "function_ref": "function:0x00596175",
+      "name": "MathErrorHandlerDispatch",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00596175",
+          "source:raw"
+        ]
+      },
+      "summary": "MSVCRT-style math error handler dispatcher (sub_596175). Reads the error type code at *(DWORD*)a2 and maps type 1 and type 5 to action 8, type 2 to 4, type 3 to 17, type 4 to 18, type 6 to a reset (*(DWORD*)a2 = 1, handler skipped) and type 7 to 16; type 8 falls through with no handler. When sub_5919DA returns nonzero the handler is suppressed; otherwise sub_591727 builds the error-handler argument array. Afterwards the FPU control word is restored and SetErrorCodeBasedOnInputRange(*(DWORD*)a2) is returned when the error type is 8, the FPE exception flag dword_5E9AD0 is set, or StubReturning0() returns NULL.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Capture the 16-bit FPU control word at a3 into v3 and read the dispatch key from the error type code at *(DWORD*)a2.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Sequential type dispatch: type 1 and type 5 select action 8; type 2 selects 4; type 3 selects 17; type 4 selects 18; type 6 resets *(DWORD*)a2 to 1 and skips the handler; type 7 selects 16; type 8 falls through without a handler action.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_5919DA with the selected action, the double operand at (double*)(a2 + 24) and the control word; a nonzero return suppresses the handler setup.",
+          "evidence_refs": [
+            "callee:0x005919DA",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "When a1 is 16, 22 or 29, load v15 from (double*)(a2 + 16) and set the low flag bits in the local v16 (v16 & 0xFFFFFFE0 | 3); otherwise clear bit 0 of v16 (v16 &= ~1).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Set up the error-handler argument array via sub_591727((ULONG_PTR)Arguments, &a3, v11, a1, (double*)(a2 + 8), (double*)(a2 + 24)).",
+          "evidence_refs": [
+            "callee:0x00591727",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Restore the saved FPU control word with ReturnFPUControlWord(v3).",
+          "evidence_refs": [
+            "callee:0x00591E66",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Select the error-code return path when *(DWORD*)a2 equals 8, or when the FPE exception flag dword_5E9AD0[0] is set, or when StubReturning0() returns NULL.",
+          "evidence_refs": [
+            "callee:0x0058FB7E",
+            "global:0x005E9AD0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return SetErrorCodeBasedOnInputRange(*(DWORD*)a2) as the resolved error code.",
+          "evidence_refs": [
+            "callee:0x00591C79",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked from MSVCCRTMathErrorHandler (0x0058DC57) and sub_59070A (0x0059070A) as the CRT math error dispatch entry.",
+          "evidence_refs": [
+            "caller:0x0058DC57",
+            "caller:0x0059070A",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of the action codes 4, 8, 16, 17, 18 and their mapping to MSVCRT _matherr / _fpieee_flt error categories is not evidenced by the packet.",
+        "The v16 flag construction (v16 & 0xFFFFFFE0 | 3 / v16 &= ~1) operates on an uninitialized local and is a decompiler artifact; the real caller-visible flag semantics are unknown.",
+        "The FPU control word at a3 is a __int16 in the raw source but is passed around as an unsigned 16-bit value; its precise field meanings are not evidenced."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00596245",
+      "function_ref": "function:0x00596245",
+      "name": "CRTStringToFloatParser",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00596245"
+        ]
+      },
+      "summary": "State-machine string-to-float parser (CRT strtod-style). Skips leading whitespace, then parses an optional sign, integer and fraction digit runs, and an optional decimal exponent, dispatching states through the jump table jpt_5962A8. Digit classification uses the char-type table off_5E69C8 (bit 4) or CharacterEncodingConvertViaLookupTableFallback when cbMultiByte exceeds 1; byte_5E6BD8 is the decimal separator. Collected digits fill a 25-entry buffer (cap 0x19) with overflow count v47; leading zeros and exponent combine into a base-10 exponent v23 (bounds +/-5200) adjusted by format scales a5/a6. sub_597621 packs the digit buffer into a 96-bit value across v34/v35/v36, and BitPackedDataDecodeViaLookupTable applies the exponent. The 96-bit result is written to the output (low word at a1+0, mid dword at a1+2, high dword at a1+6, sign-or-exponent word at a1+10) and a classification code v44 is returned: 4 for no digits parsed, 2 on overflow, 1 on underflow, else 0. The end-of-parse pointer is stored to *a2.",
+      "operations": [
+        {
+          "kind": "loop",
+          "description": "Skip leading whitespace (space 32, tab 9, newline 10, carriage return 13) until a non-whitespace byte is reached",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "State-machine parse loop over the input bytes driven by state v8; the dispatch reads the jump table jpt_5962A8",
+          "evidence_refs": [
+            "global:0x005966E6",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Sign handling: '+' clears the sign flag v39, '-' sets v39 to 0x8000 (negative bit)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Digit classification: char-type table off_5E69C8 bit 4 decides digit vs non-digit, or CharacterEncodingConvertViaLookupTableFallback when cbMultiByte exceeds 1",
+          "evidence_refs": [
+            "global:0x005E69C8",
+            "global:0x005E6BD4",
+            "callee:0x0058C674",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Collect integer digits into the 25-entry (0x19) buffer v32 through v46, incrementing the overflow count v47 once the cap is exceeded",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Decimal separator: byte_5E6BD8 switches the parser from integer collection (state 3) to fraction collection (state 4)",
+          "evidence_refs": [
+            "global:0x005E6BD8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Collect fraction digits, stripping leading zeros by decrementing v47; the digit count v48 caps at 24 with a rounding bump tracked in v33",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Exponent handling: the exponent sign sets v43 to 1 or -1, and v42 accumulates the decimal exponent, capped at 5201",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Combine digit count v47, sign-adjusted exponent v42, and format scales a5/a6 into the base-10 exponent v23, bounds-checked to +/-5200",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_597621(v32, v48, v34) converts the collected digit buffer into a 96-bit packed value spanning v34/v35/v36",
+          "evidence_refs": [
+            "callee:0x00597621",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "BitPackedDataDecodeViaLookupTable(v34, v23, a4) applies the base-10 exponent to the 96-bit value",
+          "evidence_refs": [
+            "callee:0x00597CC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the 96-bit result into the output: low word at a1+0, mid dword at a1+2, high dword at a1+6, and the sign-or-exponent word at a1+10",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000002",
+            "field:this:0x00000006",
+            "field:this:0x0000000A",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Result classification v44: 4 when no digits were parsed (v45 clear), 2 on overflow (v38), 1 on underflow (v37), else 0; *a2 stores the end-of-parse pointer",
+          "evidence_refs": [
+            "function:0x00596245",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the classification code v44",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by EncodingLocaleDetectionFromParseResult, BufferFormatHelper and StringParseWithFormat",
+          "evidence_refs": [
+            "caller:0x0058E12E",
+            "caller:0x00595550",
+            "caller:0x0059557D",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The jpt_5962A8 jump-table dispatch is rendered as a switch by Hex-Rays; the state-id to meaning mapping (states 0-11) is only partially recoverable and several transitions are inferred",
+        "The exact 96-bit layout produced by sub_597621 and the transform applied inside BitPackedDataDecodeViaLookupTable are not documented in this packet",
+        "Format scale arguments a5/a6 (added/subtracted into the exponent when the integer/fraction flags are clear) have caller-dependent meaning",
+        "The classification codes 0-4 semantics are DERIVED from the existing analysis, not independently proven",
+        "The relationship between the output fields at a1+0/2/6/10 and the canonical 96-bit long-double representation is DERIVED"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x00596773",
+      "function_ref": "function:0x00596773",
+      "name": "MultiByteToWideCharSingle",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00596773",
+          "source:raw"
+        ]
+      },
+      "summary": "Converts a single multi-byte character into a wide character (one-character MB_ERR_INVALID_CHARS path of the ANSI layer). Returns 0 when the input buffer or max-byte count is null/zero. When the first byte is a NUL it writes a NUL wide char and returns 0. When no locale is set (dword_8D3F38 == 0) it assigns the byte directly as the wide char and returns 1. Otherwise it consults the character-type table (off_5E69C8) for a lead byte: single-byte characters go through MultiByteToWideChar with length 1, while lead bytes use the cbMultiByte sequence length when a3 allows it. On conversion failure it stores TLS error 42 and returns -1. Returns the number of bytes consumed on success.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Return 0 when lpMultiByteStr is NULL or a3 (max bytes) is zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Read the first byte of the sequence: v3 = *lpMultiByteStr.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the first byte is NUL, write 0 to the output wide char at this+0x0 (*lpWideCharStr) and return 0.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When dword_8D3F38 (locale) is zero, write v3 directly as the wide char at this+0x0 (*lpWideCharStr) and return 1 (direct byte-to-wchar assignment).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "global:0x008D3F38",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Lead-byte check: consult the character-type table off_5E69C8 indexed by v3; proceed only when the table entry is >= 0.",
+          "evidence_refs": [
+            "global:0x005E69C8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call MultiByteToWideChar(CodePage, 9u, lpMultiByteStr, 1, lpWideCharStr, lpWideCharStr != 0) to convert the single character; return 1 on success.",
+          "evidence_refs": [
+            "global:0x0059E12C",
+            "global:0x008D3F48",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "For a lead byte take result = cbMultiByte (sequence byte count) and branch on cbMultiByte > 1.",
+          "evidence_refs": [
+            "global:0x005E6BD4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "When a3 >= cbMultiByte, call MultiByteToWideChar(CodePage, 9u, lpMultiByteStr, cbMultiByte, lpWideCharStr, lpWideCharStr != 0) to convert the full sequence; return cbMultiByte on success.",
+          "evidence_refs": [
+            "global:0x0059E12C",
+            "global:0x008D3F48",
+            "global:0x005E6BD4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "On conversion failure (or when a3 < cbMultiByte / the sequence is truncated) store error 42 via TLSOffsetGetter() and return -1.",
+          "evidence_refs": [
+            "callee:0x0058AFCF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Failure path also taken when a3 < result or when the second byte lpMultiByteStr[1] is missing from an incomplete sequence.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return result (bytes consumed) on the successful sequence path.",
+          "evidence_refs": [
+            "function:0x00596773",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by sub_596716 (00596716) as the single-character ANSI-to-wide conversion step.",
+          "evidence_refs": [
+            "caller:0x00596716"
+          ]
+        }
+      ],
+      "unresolved": [
+        "dword_8D3F38 (locale-present flag), off_5E69C8 (character-type table) and cbMultiByte (lead-byte sequence length) are only named as data locations; their exact runtime roles are inferred from the fill analysis, not proven.",
+        "The multi-byte/wchar argument sizes passed to MultiByteToWideChar reuse lpWideCharStr != 0 as the buffer-count argument in the raw source; whether that is decompiler artifact or intentional is unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00596840",
+      "function_ref": "function:0x00596840",
+      "name": "CRTAllshl",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "64-bit left-shift helper identified by the ABI record as the CRT ___allshl routine. Shifts the 64-bit value a1 (edx:eax) left by the count a2 (cl): a count of at least 0x40 yields a zero result, a count in [0x20, 0x40) zeroes the low 32 bits of the result, and a smaller count returns a1 shifted by (a2 & 0x1F). Invoked by sub_58E4D2 as the 64-bit shift helper.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If the shift count a2 is at least 0x40 the shift is out of range and the result is zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Else if a2 is at least 0x20, only the low 32 bits of the result are zeroed (LODWORD(v2) = 0); the decompiled text shows no high-word assignment on this path.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "For a count below 0x20 the value is shifted by (a2 & 0x1F): a1 << (a2 & 0x1F).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return v2 on the count >= 0x20 paths; the ABI record identifies the routine as CRT ___allshl.",
+          "evidence_refs": [
+            "abi:lead",
+            "function:0x00596840",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_58E4D2 (0x0058E4D2) as the 64-bit left-shift helper.",
+          "evidence_refs": [
+            "caller:0x0058E4D2",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "On the a2 in [0x20, 0x40) path the decompiled text zeroes only LODWORD(v2) and leaves the high dword uninitialized; canonical CRT ___allshl semantics would place the shifted low dword into the high dword, but this packet cannot confirm that transfer.",
+        "Why this helper returns zero for counts in the [0x20, 0x40) range rather than the canonical high-dword result is not established by this packet alone."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00596888",
+      "function_ref": "function:0x00596888",
+      "name": "PushByteToBuffer",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Byte-push writer over an allocator-managed buffer descriptor a2 (current position, element count, allocation end, flag word). Rejects the sentinel input a1 == -1 and flag-state mismatches, lazily initializes the descriptor via MemoryAllocatorInit when no allocation exists, then either writes byte a1 at a decremented position or verifies it matches in match mode (flag 0x40). Returns the byte on success, -1 on failure.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Reject the sentinel input: return -1 immediately when a1 == -1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Read the flag word a2[3]; return -1 when bit 0x1 is clear and (bit 0x80 is clear or bit 0x2 is set), i.e. the descriptor is not in a writable state.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Lazily initialize the descriptor: when the allocation pointer a2[2] is null, call MemoryAllocatorInit(a2).",
+          "evidence_refs": [
+            "callee:0x005957BD",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When the current position *a2 equals the allocation end a2[2]: reject if the element count a2[1] is nonzero, otherwise advance the current position.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Match mode (flag 0x40 set): decrement the current position and compare the stored byte against a1; on mismatch restore the position and return -1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write mode (flag 0x40 clear): decrement the current position and store byte a1 there.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Bump the element count a2[1] and update the flag word: a2[3] = (a2[3] & 0xEE) | 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the written/verified byte as an unsigned char of a1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The concrete class of descriptor a2 is unproven; MemoryAllocatorInit on it only proves it is allocator-managed.",
+        "The semantics of the flag bits (0x1, 0x2, 0x40, 0x80) beyond the observed transitions are unproven.",
+        "Whether a2[1] counts bytes or elements is undetermined."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00596A2E",
+      "function_ref": "function:0x00596A2E",
+      "name": "CRTGetStringType",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00596A2E"
+        ]
+      },
+      "summary": "Character-type (ctype) retrieval for a wide character string, with a one-time CRT mode auto-detection. On first call, probes GetStringTypeW against the test string String2 and falls back to GetStringTypeA against String1, caching the chosen mode (1=Unicode, 2=ANSI) in the global dword_8D41D0. Unicode mode forwards straight to GetStringTypeW. ANSI mode measures the wide string via WideCharToMultiByte, converts it into an alloca'd buffer, then calls GetStringTypeA with the locale (falling back to dword_8D3F38) and a two-word sentinel window to detect the converted length, copying the result into the caller's lpCharType via sub_58B130. Stack buffers are guarded with __alloca_probe inside an SEH frame. Called by sub_58F939 (0058f939).",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Mode cache dword_8D41D0 is read; when zero the CRT mode has not been detected and auto-detection runs, otherwise the cached v6 is reused",
+          "evidence_refs": [
+            "global:0x008D41D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Mode-detection probe: GetStringTypeW(1, &String2, 1, &CharType) tests the Unicode API against the static test string String2; success selects mode 1",
+          "evidence_refs": [
+            "global:0x0059E090",
+            "global:0x005B95C4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Mode-detection fallback: GetStringTypeA(0, 1, String1, 1, &CharType) tests the ANSI API against the static test string String1; failure returns 0, success selects mode 2",
+          "evidence_refs": [
+            "global:0x0059E094",
+            "global:0x007CD8BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Detected mode (1 or 2) is cached back into the global dword_8D41D0 for subsequent calls",
+          "evidence_refs": [
+            "global:0x008D41D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Unicode path: when cached mode v6==1, returns GetStringTypeW(dwInfoType, lpSrcStr, cchSrc, lpCharType) directly",
+          "evidence_refs": [
+            "global:0x0059E090",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "ANSI path: a zero CodePage argument defaults to the global code page (0x008D3F48) before the conversion",
+          "evidence_refs": [
+            "global:0x008D3F48",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Measuring call: WideCharToMultiByte(CodePage, 0x220, lpSrcStr, cchSrc, 0, 0, 0, 0) computes the required multibyte length v8 (cached as v9 and v18)",
+          "evidence_refs": [
+            "global:0x0059E228",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Measurement result v8 must be non-zero to proceed with the ANSI conversion and its stack allocations",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "SEH frame entered for the stack work: the exception registration (TryLevel, old_esp) is set up against the TEB-relative SEH data (byte_FF00000000001692/1695/1699/169B) and the ScriptFrameProcessor handler (0x0058895C), with the stru_5B9AF0 frame region; the frame is released by setting TryLevel back to -1 after the conversions",
+          "evidence_refs": [
+            "global:0x0058895C",
+            "global:0x005B9AF0",
+            "global:0xFF00000000001692",
+            "global:0xFF00000000001695",
+            "global:0xFF00000000001699",
+            "global:0xFF0000000000169B",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "First stack allocation: v8+3 rounded up to a multiple of 4 is reserved with alloca, probed by __alloca_probe",
+          "evidence_refs": [
+            "callee:0x005881C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "The multibyte workspace v16 is zero-filled for v9 bytes by sub_58BB10",
+          "evidence_refs": [
+            "callee:0x0058BB10",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Conversion call: WideCharToMultiByte(CodePage, 0x220, lpSrcStr, cchSrc, lpMultiByteStr, v9, 0, 0) fills the workspace with the ANSI form; its BOOL result gates the rest of the ANSI path",
+          "evidence_refs": [
+            "global:0x0059E228",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Second stack allocation: 2*v9+5 rounded up to a multiple of 4 is reserved with alloca (probed by __alloca_probe) for the WORD character-type buffer v16",
+          "evidence_refs": [
+            "callee:0x005881C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "A zero Locale argument defaults to the global locale dword_8D3F38 (stored into v14)",
+          "evidence_refs": [
+            "global:0x008D3F38",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Sentinel setup: the two WORDs at v16[cchSrc-1] and v16[cchSrc] are preset to -1 (0xFFFF) to mark the end of the converted character-type output",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "ANSI conversion call: GetStringTypeA(v14, dwInfoType, lpMultiByteStr, v18, v16) produces the character-type words into v16; the BOOL result is captured as StringTypeA",
+          "evidence_refs": [
+            "global:0x0059E094",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Sentinel check: the conversion is accepted only when v16[cchSrc-1] is no longer 0xFFFF and v16[cchSrc] is still 0xFFFF, i.e. the converter wrote exactly cchSrc words",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_58B130 copies 2*cchSrc bytes of the converted character-type words from v16 into the caller's lpCharType buffer; on success the function returns StringTypeA",
+          "evidence_refs": [
+            "callee:0x0058B130",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns 0 on the ANSI-detection failure, the conversion failure, the sentinel mismatch, or the code page measurement failure paths; returns StringTypeA on the successful ANSI path and the GetStringTypeW result on the Unicode path",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_58F939 (0058f939), the packet-listed caller of this CRT helper",
+          "evidence_refs": [
+            "caller:0x0058F939",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "dword_8D41D0 is a process-global mode cache shared across callers; its lifecycle and reset points are outside this packet",
+        "The sentinel-window idiom (v16[cchSrc-1]/v16[cchSrc]) is characteristic of an MSVCRT GetStringTypeA helper but its exact upstream contract is not evidenced here",
+        "TEB-relative globals byte_FF00000000001692/1695/1699/169B are compiler-generated SEH bookkeeping, not application state",
+        "GetStringTypeW/GetStringTypeA/WideCharToMultiByte appear as import thunk globals; the packet does not name their import module"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "MEDIUM"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x00594624",
+    "function:0x0059491A",
+    "function:0x00594AB4",
+    "function:0x00594C12",
+    "function:0x00594F3E",
+    "function:0x00595524",
+    "function:0x005955AA",
+    "function:0x00595733",
+    "function:0x00595924",
+    "function:0x005959A0",
+    "function:0x00595A1F",
+    "function:0x00595AC0",
+    "function:0x00595AE2",
+    "function:0x00595F11",
+    "function:0x00595F82",
+    "function:0x00596089",
+    "function:0x00596175",
+    "function:0x00596245",
+    "function:0x00596773",
+    "function:0x00596840",
+    "function:0x00596888",
+    "function:0x00596A2E"
+  ],
+  "required_material_refs": [
+    "callee:0x005881C0",
+    "callee:0x0058A2A6",
+    "callee:0x0058AF5C",
+    "callee:0x0058AFCF",
+    "callee:0x0058AFD8",
+    "callee:0x0058B130",
+    "callee:0x0058BB10",
+    "callee:0x0058C674",
+    "callee:0x0058E1B0",
+    "callee:0x0058FB7E",
+    "callee:0x00591727",
+    "callee:0x005919DA",
+    "callee:0x00591C79",
+    "callee:0x00591E66",
+    "callee:0x0059491A",
+    "callee:0x00594A5E",
+    "callee:0x00594E1A",
+    "callee:0x005953B8",
+    "callee:0x005957BD",
+    "callee:0x00595A1F",
+    "callee:0x00595A61",
+    "callee:0x00595AC0",
+    "callee:0x00595AF9",
+    "callee:0x00595F82",
+    "callee:0x00597621",
+    "callee:0x00597CC0",
+    "field:this:0x00000000",
+    "field:this:0x00000001",
+    "field:this:0x00000002",
+    "field:this:0x00000004",
+    "field:this:0x00000006",
+    "field:this:0x0000000A",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "global:0x0058895C",
+    "global:0x005966E6",
+    "global:0x0059E090",
+    "global:0x0059E094",
+    "global:0x0059E098",
+    "global:0x0059E0A0",
+    "global:0x0059E0A4",
+    "global:0x0059E12C",
+    "global:0x0059E168",
+    "global:0x0059E170",
+    "global:0x0059E188",
+    "global:0x0059E1BC",
+    "global:0x0059E1C0",
+    "global:0x0059E228",
+    "global:0x005B95C4",
+    "global:0x005B9AF0",
+    "global:0x005E65B4",
+    "global:0x005E69C8",
+    "global:0x005E6BD4",
+    "global:0x005E6BD8",
+    "global:0x005E7968",
+    "global:0x005E796C",
+    "global:0x005E7978",
+    "global:0x005E9988",
+    "global:0x005E99A0",
+    "global:0x005E9AD0",
+    "global:0x007CD8BC",
+    "global:0x008D3F38",
+    "global:0x008D3F48",
+    "global:0x008D41B8",
+    "global:0x008D41D0",
+    "global:0x008D4904",
+    "global:0x008D4920",
+    "global:0x008D4A20",
+    "global:0xFF00000000001692",
+    "global:0xFF00000000001695",
+    "global:0xFF00000000001699",
+    "global:0xFF0000000000169B"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x005881C0",
+    "callee:0x0058A2A6",
+    "callee:0x0058AF5C",
+    "callee:0x0058AFCF",
+    "callee:0x0058AFD8",
+    "callee:0x0058B130",
+    "callee:0x0058BB10",
+    "callee:0x0058C674",
+    "callee:0x0058E1B0",
+    "callee:0x0058FB7E",
+    "callee:0x00591727",
+    "callee:0x005919DA",
+    "callee:0x00591C79",
+    "callee:0x00591E66",
+    "callee:0x0059491A",
+    "callee:0x00594A5E",
+    "callee:0x00594E1A",
+    "callee:0x005953B8",
+    "callee:0x005957BD",
+    "callee:0x00595A1F",
+    "callee:0x00595A61",
+    "callee:0x00595AC0",
+    "callee:0x00595AF9",
+    "callee:0x00595F82",
+    "callee:0x00597621",
+    "callee:0x00597CC0",
+    "caller:0x00405050",
+    "caller:0x004069F0",
+    "caller:0x00449A20",
+    "caller:0x0058A973",
+    "caller:0x0058AB58",
+    "caller:0x0058B5D4",
+    "caller:0x0058BDCD",
+    "caller:0x0058BEF0",
+    "caller:0x0058BFEC",
+    "caller:0x0058C331",
+    "caller:0x0058C38E",
+    "caller:0x0058C724",
+    "caller:0x0058C789",
+    "caller:0x0058C9B4",
+    "caller:0x0058DC57",
+    "caller:0x0058E12E",
+    "caller:0x0058E22B",
+    "caller:0x0058E4D2",
+    "caller:0x0058F939",
+    "caller:0x0059070A",
+    "caller:0x00592891",
+    "caller:0x0059325D",
+    "caller:0x00594C12",
+    "caller:0x00595550",
+    "caller:0x0059557D",
+    "caller:0x00595AF9",
+    "caller:0x00595F11",
+    "caller:0x00595F82",
+    "caller:0x00596030",
+    "caller:0x00596716",
+    "caller:0x0059797B",
+    "caller:0x0059B650",
+    "caller:0x0059B760",
+    "field:this:0x00000000",
+    "field:this:0x00000001",
+    "field:this:0x00000002",
+    "field:this:0x00000004",
+    "field:this:0x00000006",
+    "field:this:0x0000000A",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "function:0x00594624",
+    "function:0x0059491A",
+    "function:0x00594AB4",
+    "function:0x00594C12",
+    "function:0x00594F3E",
+    "function:0x00595524",
+    "function:0x005955AA",
+    "function:0x00595733",
+    "function:0x00595924",
+    "function:0x005959A0",
+    "function:0x00595A1F",
+    "function:0x00595AC0",
+    "function:0x00595AE2",
+    "function:0x00595F11",
+    "function:0x00595F82",
+    "function:0x00596089",
+    "function:0x00596175",
+    "function:0x00596245",
+    "function:0x00596773",
+    "function:0x00596840",
+    "function:0x00596888",
+    "function:0x00596A2E",
+    "global:0x0058895C",
+    "global:0x005966E6",
+    "global:0x0059E090",
+    "global:0x0059E094",
+    "global:0x0059E098",
+    "global:0x0059E0A0",
+    "global:0x0059E0A4",
+    "global:0x0059E12C",
+    "global:0x0059E168",
+    "global:0x0059E170",
+    "global:0x0059E188",
+    "global:0x0059E1BC",
+    "global:0x0059E1C0",
+    "global:0x0059E228",
+    "global:0x005B95C4",
+    "global:0x005B9AF0",
+    "global:0x005E65B4",
+    "global:0x005E69C8",
+    "global:0x005E6BD4",
+    "global:0x005E6BD8",
+    "global:0x005E7968",
+    "global:0x005E796C",
+    "global:0x005E7978",
+    "global:0x005E9988",
+    "global:0x005E99A0",
+    "global:0x005E9AD0",
+    "global:0x007CD8BC",
+    "global:0x008D3F38",
+    "global:0x008D3F48",
+    "global:0x008D41B8",
+    "global:0x008D41D0",
+    "global:0x008D4904",
+    "global:0x008D4920",
+    "global:0x008D4A20",
+    "global:0xFF00000000001692",
+    "global:0xFF00000000001695",
+    "global:0xFF00000000001699",
+    "global:0xFF0000000000169B",
+    "guard:0",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/wave_005/wave_005_generic_runtime_objects_29.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

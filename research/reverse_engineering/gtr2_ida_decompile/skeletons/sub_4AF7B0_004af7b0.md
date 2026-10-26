@@ -1,0 +1,30 @@
+## sub_4AF7B0_004af7b0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(*(this+0x30)+0x0) | 0x1C | R | — | [LLM] |
+| *(this+0x30) | 0x0 | R | — | [LLM] |
+| this | 0x30 | R | — | [LLM] |
+| this | 0x114 | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 00b66000 | dword_B66000 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 004363e0 | sub_4363E0 | [LLM] |
+| 004aba50 | sub_4ABA50 | [LLM] |
+| 004ce170 | sub_4CE170 | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

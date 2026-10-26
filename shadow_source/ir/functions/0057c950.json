@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "address": "0x0057C950",
+  "proposed_name": "LookupByIndexAndCopyData",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Thread-safe linked-list lookup by index with mutex protection and a 16-byte data copy. When the index pointer a4 is non-null, acquires the mutex at this+0xAD8 with the timeout at this+0xADC (accepting WAIT_OBJECT_0 or WAIT_TIMEOUT), bounds-checks the index against the list count at this+0xAD4, walks the singly-linked list from the head at *(this+0xAC8) to the index-th node, transforms the node's data pointer field at offset 0x1C via sub_4B3DB0, and copies the transformed structure's first 16 bytes (four dwords) into the output a2, returning 1 on success and 0 otherwise. Releases the mutex before returning. When a4 is null, skips the mutex path and instead copies the cached WORD at this+0x910 into a2+2 and writes -1 at a2+4, returning 1.",
+  "local_names": {
+    "this": "object holding the list structure pointer at +0xAC8, count at +0xAD4, mutex at +0xAD8, timeout at +0xADC, and a cached fallback WORD at +0x910",
+    "a2": "output buffer: receives 16 copied bytes on the lookup path, or a cached WORD plus -1 on the fallback path",
+    "a3": "unused extra argument in the raw body",
+    "a4": "index pointer; when null selects the cached fallback path",
+    "v4": "result flag (0 fail, 1 success)",
+    "v6": "mutex handle loaded from this+0xAD8",
+    "v7": "list base (this+0xAC8); also the origin for the release handle at +16",
+    "v9": "list base when the mutex was acquired, otherwise 0",
+    "v10": "lookup index loaded from *a4",
+    "v11": "current node pointer while walking the list (next at +4)",
+    "v12": "data pointer stored in the selected node (*v11)",
+    "v13": "structure returned by sub_4B3DB0 whose first 16 bytes are copied"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize the result flag v4 to 0 (failure default).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the index pointer a4: non-null selects the mutex-guarded lookup path; null selects the cached-copy fallback.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Load the mutex handle at this+0xAD8 and acquire it via WaitForSingleObject with the timeout at this+0xADC; acquisition succeeds when the result is 0 (WAIT_OBJECT_0) or 128 (WAIT_TIMEOUT).",
+      "evidence_refs": ["global:0x0059E1A0", "field:this:0x00000AD8", "field:this:0x00000ADC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Use the list base (this+0xAC8) only when the mutex handle was present and acquisition succeeded; otherwise set the base to null.",
+      "evidence_refs": ["field:this:0x00000AC8", "field:this:0x00000AD8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Bounds-check the lookup index from *a4: it must be non-negative and strictly below the list count stored at this+0xAD4.",
+      "evidence_refs": ["field:this:0x00000AD4", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the list head pointer from the list structure (offset 0 of *(this+0xAC8)).",
+      "evidence_refs": ["field:*(this+0xAC8):0x00000000", "field:this:0x00000AC8", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the singly-linked list from the head, advancing through each node's next pointer (+4) while the remaining index is positive.",
+      "evidence_refs": ["field:*(this+0xAC8):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "The selected node and its data pointer (*v11) must both be non-null before transforming and copying.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Transform the selected node's data pointer field at offset 0x1C via sub_4B3DB0, yielding a structure whose first 16 bytes are the copy source.",
+      "evidence_refs": ["callee:0x004B3DB0", "field:*(*(this+0xAC8)+0x0):0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the transformed structure's first 16 bytes (four dwords at +0/+4/+8/+12) into the output buffer a2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set the result flag v4 to 1 (success) once the data has been copied.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the mutex (the release handle at this+0xAD8, i.e. v7+16) via ReleaseMutex when it is present.",
+      "evidence_refs": ["global:0x0059E1A4", "field:this:0x00000AD8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result flag v4 (0 when the lookup failed, 1 when data was copied).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Fallback path when a4 is null: copy the cached WORD at this+0x910 into a2+2 and write -1 at a2+4.",
+      "evidence_refs": ["field:this:0x00000910", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Fallback path returns 1 (pass-through) without touching the mutex or the list.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Legacy ABI label Thread_Safe_Linked_List_Lookup_with_Mutex_Data_C corroborates the mutex-protected lookup role.",
+      "evidence_refs": ["abi:lead", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char LookupByIndexAndCopyData(int this, int a2, int a3, int* a4) {",
+    "  char result = 0;",
+    "  if (a4) {",
+    "    void* mutex = *(void**)(this + 0xAD8);",
+    "    int base = this + 0xAC8;",
+    "    if (mutex) {",
+    "      DWORD r = WaitForSingleObject(mutex, *(DWORD*)(this + 0xADC));",
+    "      if (r == 0 || r == 128) base = this + 0xAC8; else base = 0;",
+    "    } else {",
+    "      base = 0;",
+    "    }",
+    "    int index = *a4;",
+    "    if (index >= 0 && index < *(int*)(base + 12)) {",
+    "      int* node = *(int**)base;",
+    "      if (index > 0) {",
+    "        while (node) { node = (int*)node[1]; if (--index <= 0) break; }",
+    "      }",
+    "      if (node) {",
+    "        int data = *node;",
+    "        if (data) {",
+    "          int* src = sub_4B3DB0(*(void**)(data + 0x1C));",
+    "          *(int*)a2 = src[0];",
+    "          *(int*)(a2 + 4) = src[1];",
+    "          *(int*)(a2 + 8) = src[2];",
+    "          *(int*)(a2 + 12) = src[3];",
+    "          result = 1;",
+    "        }",
+    "      }",
+    "    }",
+    "    void* release = *(void**)(base + 16);",
+    "    if (release) ReleaseMutex(release);",
+    "    return result;",
+    "  }",
+    "  *(WORD*)(a2 + 2) = *(WORD*)(this + 0x910);",
+    "  *(int*)(a2 + 4) = -1;",
+    "  return 1;",
+    "}"
+  ],
+  "unresolved": [
+    "The raw source sets the list base to null when the mutex was absent or acquisition failed, yet the bounds check reads the count through that base; the original behavior when base is null is not resolvable from this function alone.",
+    "The list's offset-8 field (tail/other pointer of *(this+0xAC8)) is listed by the evidence extractor but not read anywhere in the raw body.",
+    "The semantics of the 0x1C data field passed to sub_4B3DB0 and the layout of the transformed 16-byte output depend on the list item type, which is unknown."
+  ],
+  "unresolved_evidence_refs": [
+    "field:*(this+0xAC8):0x00000008"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

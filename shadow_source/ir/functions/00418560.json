@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "address": "0x00418560",
+  "proposed_name": "InsertDriverTableEntry",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Inserts an 8-DWORD entry into a 20-slot sorted driver table (first slot at this +0x86C, 32-byte stride). Validates the driver id (not -1) and a score threshold gate, fills entry fields from a driver-lookup table and a score computation, finds the insertion point by empty-slot/time/score ordering, shifts the intervening block with StructCopy, and copies the new entry in. Returns 1 on success, 0 on validation failure or when no insertion position is found. Part of AI/commentary scoring and ranking.",
+  "local_names": {
+    "a2": "incoming driver table entry (8 DWORDs)",
+    "v15": "driver id",
+    "v17": "computed score",
+    "v4": "insertion slot index",
+    "v5": "shift boundary slot index",
+    "v6": "loop counter",
+    "v7": "entry time field pointer"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Return 0 when the driver id (entry DWORD 0) equals -1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Gate the driver id through ScoreThresholdGateCheck; return 0 when the id fails the threshold.",
+      "evidence_refs": ["callee:0x00418B90", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set entry field 1 from the driver-lookup table: a2[1] = dword_5BF9B0[5 * driver_id].",
+      "evidence_refs": ["global:0x005BF9B0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Compute the driver score via ShortComputation_8b70(driver_id) and store it in entry field 7.",
+      "evidence_refs": ["callee:0x00418B70", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan 20 table slots (first at this +0x86C, stride 8 DWORDs / 32 bytes) recording the candidate insertion index: an empty slot whose time equals -1.0 (0xBF800000), or a slot where the candidate time orders earlier, or equals with a higher score (comparison field at this +0x880 + slot*0x20).",
+      "evidence_refs": ["field:this:0x0000086C", "field:this:0x00000880", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Shift the table block between the recorded boundary and insertion indices one slot (forward or backward) using StructCopy to free the insertion slot.",
+      "evidence_refs": ["callee:0x004145C0", "field:this:0x0000086C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the incoming entry into the freed insertion slot via StructCopy.",
+      "evidence_refs": ["callee:0x004145C0", "field:this:0x0000086C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 on successful insert, 0 when no valid insertion position was found.",
+      "evidence_refs": ["function:0x00418560", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (*(int*)a2 == -1) return 0;",
+    "if (!ScoreThresholdGateCheck(*(int*)a2)) return 0;",
+    "a2[1] = dword_5BF9B0[5 * *(int*)a2];",
+    "a2[7] = ShortComputation_8b70(*(int*)a2);",
+    "for (i = 0; i < 20; i++) {",
+    "  slot = &this[8*i + 537];",
+    "  if (slot_time <= entry_time) boundary = i;",
+    "  if (insert < 0 && (slot_time == -1.0f || a2[2] < slot_time || (a2[2] == slot_time && a2[7] > slot_score))) insert = i;",
+    "}",
+    "if (insert < 0) return 0;",
+    "shift block between boundary and insert via StructCopy;",
+    "StructCopy(&this[8*insert + 537], a2);",
+    "return 1;"
+  ],
+  "unresolved": [
+    "Semantics of dword_5BF9B0 (team/owner lookup vs other indexed table) and the 5-word stride are unconfirmed.",
+    "Meaning of entry fields 2 (time) and 7 (score) relative to the scoring subsystem is inferred from sort ordering only.",
+    "Slot type is 8 DWORDs; the shift/compare uses both float (time) and int (score) interpretations."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x00419120",
+    "caller:0x004193A0",
+    "caller:0x00419500",
+    "caller:0x00419690",
+    "caller:0x004198B0",
+    "caller:0x004199E0",
+    "caller:0x00419C50",
+    "caller:0x0041A0C0",
+    "caller:0x0041A170",
+    "caller:0x0041A200",
+    "caller:0x0041A2B0",
+    "caller:0x0041A3A0",
+    "caller:0x0041A4A0",
+    "caller:0x0041A500",
+    "caller:0x0041A6B0",
+    "caller:0x0041A720",
+    "caller:0x0041A8C0",
+    "caller:0x0041A940",
+    "caller:0x0041AA10",
+    "caller:0x0041AB30",
+    "caller:0x0041AC50",
+    "caller:0x0041AD80",
+    "caller:0x0041AFD0",
+    "caller:0x0041B190",
+    "caller:0x0041B200",
+    "caller:0x0041B250",
+    "caller:0x0041B3C0",
+    "caller:0x0041B980",
+    "caller:0x0041BE60",
+    "caller:0x0041C090",
+    "caller:0x0041C0F0",
+    "caller:0x0041C3E0",
+    "caller:0x0041C440",
+    "caller:0x0041C4C0",
+    "caller:0x0041D630",
+    "caller:0x0041DAF0",
+    "caller:0x0041E320",
+    "caller:0x00420490",
+    "caller:0x00420820",
+    "caller:0x00420CF0"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

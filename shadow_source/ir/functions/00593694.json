@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "address": "0x00593694",
+  "proposed_name": "FontGlyphRender",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00593694"]
+  },
+  "summary": "Font glyph rendering dispatcher driven by an SEH exception-record context. Guards on a TLS flag (index 26), optionally runs an SEH trampoline setup, then walks a five-dword-strided glyph range table returned by a binary interval search, dispatching each matching range through MultiArgRenderingDispatchWithLayout. Returns the final range index or the SEH trampoline result.",
+  "local_names": {
+    "ExceptionRecord": "SEH exception record passed into the render path",
+    "a2": "opaque argument forwarded to the SEH trampoline and render dispatch",
+    "a3": "opaque argument forwarded to the SEH trampoline and render dispatch",
+    "a4": "opaque argument forwarded to the SEH trampoline and render dispatch",
+    "a5": "search/dimension argument also forwarded to render dispatch",
+    "a6": "probed value tested against each range interval",
+    "a7": "opaque argument forwarded to the SEH trampoline and render dispatch",
+    "TargetFrame": "SEH target frame forwarded to the trampoline and render dispatch",
+    "v13": "current range index and the returned result",
+    "v12": "end bound of the range table walk",
+    "i": "five-dword range table entry pointer"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Enter the glyph render path only when TLS index 26 retrieved via TLSValueRetrievalWithInit is non-zero",
+      "evidence_refs": ["source:raw", "callee:0x0058E0C7"]
+    },
+    {
+      "kind": "call",
+      "description": "SEHExceptionHandlerTrampolineSetup(ExceptionRecord, a2, a3, a4, a5, a7, TargetFrame); a zero return falls through to the range-table walk",
+      "evidence_refs": ["source:raw", "callee:0x0058A42F"]
+    },
+    {
+      "kind": "call",
+      "description": "BinaryIntervalSearchForMatchingRange(a5, a7, a6, &v13, &v12) returns the base pointer i of a glyph range table with current index v13 and end bound v12",
+      "evidence_refs": ["source:raw", "callee:0x0058A55A"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the range table in five-dword steps (i += 5) while v13 < v12",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "For each entry accept the range only when a6 falls inside [i[0], i[1]]",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Derive the layout address for the matched range: v10 = i[4] + 16 * i[3]; candidate node pointer v11 = *(v10 - 12)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Dispatch only when v11 is null or the byte at v11 + 8 is zero",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "MultiArgRenderingDispatchWithLayout(ExceptionRecord, a2, a3, a4, a5, v10 - 16, 0, i, a7, TargetFrame) renders the matched glyph interval",
+      "evidence_refs": ["source:raw", "callee:0x00593839"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the final range index v13 after the walk; on the early TLS-guard failure path return the SEH trampoline result",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (TLSValueRetrievalWithInit()[26] != 0) {",
+    "  if (SEHExceptionHandlerTrampolineSetup(ExceptionRecord, a2, a3, a4, a5, a7, TargetFrame) != 0)",
+    "    return that result;",
+    "}",
+    "i = BinaryIntervalSearchForMatchingRange(a5, a7, a6, &v13, &v12);",
+    "for (; v13 < v12; ++v13, i += 5) {",
+    "  if (a6 >= i[0] && a6 <= i[1]) {",
+    "    v10 = i[4] + 16 * i[3];",
+    "    v11 = *(v10 - 12);",
+    "    if (v11 == 0 || *(v11 + 8) == 0)",
+    "      MultiArgRenderingDispatchWithLayout(ExceptionRecord, a2, a3, a4, a5, v10 - 16, 0, i, a7, TargetFrame);",
+    "  }",
+    "}",
+    "return v13;"
+  ],
+  "unresolved": [
+    "The exception-record parameters (ExceptionRecord, a2..a7, TargetFrame) flow to the SEH trampoline and render dispatch; their individual meanings are outside this function's evidence",
+    "The TLS flag at index 26 and the glyph range-table entry layout (five dwords per entry with interval and layout indirection) are structural only; the underlying glyph table structure is unknown",
+    "Invoked by sub_5934E1 (005934E1); the caller-side trigger conditions are not visible here"
+  ],
+  "unresolved_evidence_refs": ["caller:0x005934E1"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

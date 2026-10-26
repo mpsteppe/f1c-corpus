@@ -1,0 +1,22 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0052B561
+// Canonical corpus name: QuaternionMultiplySurfaceSample
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/QuaternionMultiplySurfaceSample_0052b561.c
+
+void UnknownObject::MMXQuaternionTransformTextureSample()
+{
+    // MMX/3DNow! fixed-point pipeline that multiplies 16 packed 16-bit lanes of source data (a1 by a3) using the fixed-point scaling constants 0x16A0000016A, 0x11500000115, 0x1D9000001D9 and 0xFD630000FD63 (multiply-add, arithmetic shift right by 8, saturate pack), performs two rotation passes with lane reordering (word/dword interleave), then samples a byte-indexed surface lookup table: for each of 8 destination texel slots (offsets a4[0..7] into buffer a5) it extracts 4 index values from the packed 16-bit result lanes (shift right by 5, mask 0x3FF, then 0x10-bit steps), reads a byte from the table base a6, and writes 4 texel bytes per slot. Flushes MMX state with _m_empty() and returns the final sampled byte.
+    // CALCULATION: Packed 16-bit product phase: multiply source lanes (this+0x0/0x8/0x10/0x18) of a1 and a3 pairwise and form per-lane sum/difference terms for the quaternion multiplication. [field:this:0x00000000, field:this:0x00000008, field:this:0x00000010, field:this:0x00000018, source:raw]
+    // CALCULATION: Fixed-point scale and pack: multiply-add the product terms with the 0x16A0000016A constant, arithmetic-shift right by 8 and saturate-pack the result to 16-bit lanes. [field:this:0x00000020, field:this:0x00000028, field:this:0x00000030, field:this:0x00000038, source:raw]
+    // ASSIGNMENT: Write the first-pass rotated lanes into the output buffer a2 (lanes this+0x40/0x48/0x50/0x58) as 16-bit add/sub combinations of the scaled terms. [field:this:0x00000040, field:this:0x00000048, field:this:0x00000050, field:this:0x00000058, source:raw]
+    // CALCULATION: Cross-term phase: scale additional lane pairs with constants 0x11500000115, 0x1D9000001D9 and 0xFD630000FD63, shift right by 8, and combine into the remaining output lanes (this+0x60/0x68/0x70/0x78). [field:this:0x00000060, field:this:0x00000068, field:this:0x00000070, field:this:0x00000078, source:raw]
+    // CALCULATION: Second rotation pass: reread the intermediate a2 lanes (this+0x0..this+0x20) and recompute add/sub and scale-pack combinations to produce the final transformed 16-bit coordinate lanes. [field:this:0x00000000, field:this:0x00000008, field:this:0x00000010, field:this:0x00000018, field:this:0x00000020, source:raw]
+    // CALCULATION: Lane reordering: word and dword interleave (punpck l/h word/dword) regroups the coordinate lanes so the four index channels of each output texel are contiguous. [field:this:0x00000028, field:this:0x00000030, field:this:0x00000038, field:this:0x00000040, source:raw]
+    // CALCULATION: Sampling extraction (unrolled over the 8 destination slots a4[0..7]): from each packed 16-bit coordinate lane, shift right by 5, mask with 0x3FF to form an index, step 0x10 bits further per byte, read a byte from the surface table at a6, and store four bytes per slot into a5 + a4[i]. [field:this:0x00000048, field:this:0x00000050, field:this:0x00000058, field:this:0x00000060, field:this:0x00000068, source:raw]
+    // ASSIGNMENT: Write the sampled texel byte groups for the remaining destination slots (lanes this+0x70 and this+0x78); the last sampled byte is kept as the return value. [field:this:0x00000070, field:this:0x00000078, source:raw]
+    // RETURN: Flush MMX state with _m_empty() and return the final sampled byte read from a6. [function:0x0052B561, source:raw]
+    // UNRESOLVED: The qword globals 0x005B0C70, 0x005B0C78, 0x005B0C80, 0x005B0C88 and 0x005B0C90 are read-only but do not appear in the decompiled body; the fixed-point scaling constants used in the code are inline immediates (0x16A0000016A, 0x11500000115, 0x1D9000001D9, 0xFD630000FD63), so the globals' relationship to those immediates is not determinable here.
+    // UNRESOLVED: The two-pass layout strongly resembles a fixed-point quaternion/vector transform (per the existing analysis prose), but the lane-to-component mapping (which 16-bit lanes are which axis) is not grounded in the raw source.
+    // UNRESOLVED: The surface table at a6 (byte per entry, indexed with a 0x3FF mask) is inferred from the sampling code; the entry format and the meaning of the byte read are not evidenced here.
+}

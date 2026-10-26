@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "address": "0x005855E0",
+  "proposed_name": "SuspendThreadWithMutex",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Thread suspension guarded by a mutex. If the thread handle this+0x4 is NULL, returns success (1). Otherwise waits on the mutex this+0x20 with timeout this+0x24 (WAIT_OBJECT_0 or WAIT_TIMEOUT both accepted), and if the suspend flag this+0x1C is not already set, retries SuspendThread(this+0x4) up to 50 times with increasing Sleep delays until the thread reports a non-zero previous suspend count. On success sets the suspend flag this+0x1C to 1; on timeout after 50 attempts returns failure (0). Always releases the mutex if present. Part of the ai subsystem.",
+  "local_names": {
+    "v2": "retry attempt counter (also Sleep delay in ms)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If thread handle this+0x4 is NULL, return success (1) immediately.",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Wait on mutex this+0x20 with timeout this+0x24 via WaitForSingleObject; treat return 0 (WAIT_OBJECT_0) or 128 (WAIT_TIMEOUT) as mutex acquired.",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000024", "global:0x0059E1A0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If suspend flag this+0x1C is already non-zero (thread suspended), skip the suspend loop.",
+      "evidence_refs": ["field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Retry SuspendThread(this+0x4) up to 50 times, sleeping the attempt count in ms via Sleep between retries; break out early when the call returns a non-zero previous suspend count; fail (v8=0) after 50 attempts that all returned 0.",
+      "evidence_refs": ["field:this:0x00000004", "global:0x0059E0DC", "global:0x0059E1FC", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set suspend flag this+0x1C to 1 after a successful suspend.",
+      "evidence_refs": ["field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the mutex this+0x20 via ReleaseMutex if present.",
+      "evidence_refs": ["field:this:0x00000020", "global:0x0059E1A4", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return success flag (1 on success, 0 on failure after 50 failed suspend attempts).",
+      "evidence_refs": ["function:0x005855E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (this->threadHandle == 0) return 1;",
+    "flag = 0;",
+    "if (this->mutex && (WaitForSingleObject(this->mutex, this->timeout) == 0 || == 128))",
+    "    flag = &this->suspendFlag;",
+    "if (flag && *flag == 0) {",
+    "    for (attempt = 1; ; attempt++) {",
+    "        if (SuspendThread(this->threadHandle) != -1 && previousSuspendCount != 0) break;",
+    "        Sleep(attempt);",
+    "        if (attempt >= 50) { v8 = 0; goto done; }",
+    "    }",
+    "    *flag = 1;",
+    "}",
+    "done:",
+    "if (this->mutex) ReleaseMutex(this->mutex);",
+    "return v8;"
+  ],
+  "unresolved": [
+    "SuspendThread returning a non-zero previous suspend count is treated as the success condition; a first-time suspend (count 0) is retried until it reports a prior count or the 50-attempt cap fails.",
+    "Owner object (thread + mutex + flag grouping) is unconfirmed; evidence shows only field offsets, not a class.",
+    "The four WinAPI imports are referenced at their IAT global addresses; direct call targets are not listed as callee entries in the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

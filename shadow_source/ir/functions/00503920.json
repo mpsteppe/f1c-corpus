@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "address": "0x00503920",
+  "proposed_name": "AveragePixels2x2Rgb565",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Downsampling helper that averages each 2x2 block of 16-bit RGB565 source pixels into one output pixel: it iterates rows of the source surface (pixel base at +0x18, row stride at +0x1050, row count at +0x105C) and within each row processes pixels up to the per-row bound at +0x1058, summing the four pixels' red/blue components with mask 0xF81F and green with mask 0x7E0, applying rounding constants 4098 and 64, then dividing by 4 (>>2) and writing the 16-bit result to the destination surface's pixel buffer; always returns 0.",
+  "local_names": {
+    "src_surface": "a1[0]",
+    "dst_surface": "a1[1]",
+    "src_stride": "4176",
+    "row_pixel_bound": "4184",
+    "row_count": "4188",
+    "avg_result": "v10"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load the source surface object from a1[0] and the destination surface object from a1[1].",
+      "evidence_refs": ["function:0x00503920", "field:this:0x00000000", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the source pixel data base from the source object at +0x18 and the destination pixel base from the object at a1[1] + 24.",
+      "evidence_refs": ["field:obj:0x00000018", "field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the source row stride (offset 4176) and the source row count (offset 4188) from the source object and compute the row-loop end pointer = pixelBase + stride * rowCount.",
+      "evidence_refs": ["field:obj:0x00001050", "field:obj:0x0000105C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer loop over rows: advance the source pointer by the row stride until the row-count end pointer is reached.",
+      "evidence_refs": ["field:obj:0x00001050", "field:obj:0x0000105C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner loop per row: process source pixels while the pointer stays below the per-row bound computed from offset 4184.",
+      "evidence_refs": ["field:obj:0x00001058", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Average the four 16-bit RGB565 pixels of each 2x2 block: sum red/blue components with mask 0xF81F and green with mask 0x7E0, add rounding constants 4098 and 64, then divide each channel by 4 (>>2) and recombine into a single 16-bit value.",
+      "evidence_refs": ["field:*(obj+0x18):0x00000000", "field:*(obj+0x18):0x00000002", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the averaged 16-bit result into the destination pixel buffer at the current destination pointer.",
+      "evidence_refs": ["field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Advance the destination pointer each row by the destination surface's row stride (offset 4176 on the destination object).",
+      "evidence_refs": ["field:this:0x00001054", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 when all rows have been processed.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "src = *a1; dst = a1[1];",
+    "src_px = *(src+0x18); dst_px = *(dst+24);",
+    "stride = *(src+4176); rows = *(src+4188); bound = *(src+4184);",
+    "for (p = src_px; p < src_px + stride*rows; p += stride) {",
+    "  for (q = p; q < p + bound; q += 2) {",
+    "    avg = (rgb565_avg(q, q+2, q+stride, q+2+stride));",
+    "    *dst_px++ = avg;",
+    "  }",
+    "  dst_px = (word*)((char*)dst_px + *(dst+4176));",
+    "}",
+    "return 0;"
+  ],
+  "unresolved": [
+    "The destination pixel base is read in the raw source as *(a1[1]+24) and the destination stride as *(a1[1]+4176); the packet attributes these reads to field base \"this\" at offsets 0x1C and 0x1054, which differ by 4 from the source object's +0x18 / +0x1050. The base/offset attribution between the extractor and the raw text is unresolved.",
+    "The RGB565 interpretation is inferred from masks 0xF81F / 0x7E0 and rounding constants 4098 / 64; it is not independently confirmed.",
+    "The downsample scale factor and the exact output row layout are not fully established.",
+    "Only one caller is known (COMInterfaceVectorProcessingMethod 0x00504B37); the owning class and invocation context are unknown.",
+    "The packet lists no globals, guards or callees."
+  ],
+  "unresolved_evidence_refs": ["abi:lead", "caller:0x00504B37"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

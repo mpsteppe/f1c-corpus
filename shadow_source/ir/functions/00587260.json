@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "address": "0x00587260",
+  "proposed_name": "DecompressionDecode",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Validates output capacity via AddConstantWrapper, writes the resulting header word into the destination, copies a variable-length data block resolved by BufferQueryReturnPtrSizeIfValid, then appends three trailing struct fields (DWORD at 0x10, DWORD at 0x14, BYTE at 0x18). Returns the total written byte count through *a3.",
+  "local_names": {
+    "v4": "capacity word from AddConstantWrapper",
+    "v14": "remaining destination size (decremented by the 2 header bytes)",
+    "v15": "resolved source buffer pointer",
+    "v6": "destination write cursor"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Call AddConstantWrapper(this) to obtain the value v4 used for the capacity check.",
+      "evidence_refs": ["callee:0x00587250"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v4 > *a3, the destination is too small; return 0 immediately.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write v4 as a WORD header at the start of the destination buffer; set the write cursor to a2+2 and v14 = *a3 - 2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call BufferQueryReturnPtrSizeIfValid(&v15, &v14) to resolve the source pointer/size for the data block.",
+      "evidence_refs": ["callee:0x00587580"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the buffer query succeeds, copy 4*(v14>>2) bytes from the resolved source, then the remaining v14&3 bytes; advance the destination cursor by the full copied size.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Append the first trailing DWORD read from this+0x10 at the destination cursor.",
+      "evidence_refs": ["field:this:0x00000010"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Append the second trailing DWORD read from this+0x14 after the first trailing field.",
+      "evidence_refs": ["field:this:0x00000014"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Append the trailing BYTE read from this+0x18 after the two DWORD fields.",
+      "evidence_refs": ["field:this:0x00000018"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the total written size (final cursor minus start plus one) into *a3.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 on success.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "w = AddConstantWrapper(this);",
+    "if (w > *dstSize) return 0;",
+    "*(WORD*)dst = w; cursor = dst + 2; remain = *dstSize - 2;",
+    "if (BufferQueryReturnPtrSizeIfValid(&src, &remain)) {",
+    "    qmemcpy(cursor, src, 4 * (remain >> 2));",
+    "    qmemcpy(cursor + 4 * (remain >> 2), src + 4 * (remain >> 2), remain & 3);",
+    "    cursor += remain;",
+    "}",
+    "*(DWORD*)cursor = *(DWORD*)(this + 16); cursor += 4;",
+    "*(DWORD*)cursor = *(DWORD*)(this + 20); cursor += 4;",
+    "*cursor = *(BYTE*)(this + 24);",
+    "*dstSize = (cursor - dst) + 1;",
+    "return 1;"
+  ],
+  "unresolved": [
+    "Semantic meaning of the three trailing fields (two DWORDs + one BYTE) appended after the copied data block is unknown; they likely tag the decoded block but no consuming evidence is present.",
+    "Relationship between AddConstantWrapper's return value and the header word written to the destination is unclear (capacity versus data size).",
+    "The off-by-one in the reported size (*a3 = cursor - dst + 1) suggests a byte counting convention that is not explained by the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x00585870",
+    "function:0x00587260"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

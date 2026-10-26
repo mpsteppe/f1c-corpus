@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "address": "0x0058CF35",
+  "proposed_name": "FputcCharacterWrite",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "CRT-style character output to a buffered FILE stream (fputc/_flsbuf pattern): writes one byte a1 through the stream object a2, switching read-mode streams to write mode, allocating a stream buffer when none is assigned, flushing the existing buffer when full, and falling back to a direct one-byte write for unbuffered streams. Returns a1 on success and -1 with error bit 0x20 set on failure.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Validate stream flags at a2[3]: if the write-capable bits 0x82 are clear or the EOF bit 0x40 is set, jump to the error path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the read-mode flag (bit 0) of a2[3] is clear, skip the read-to-write mode transition.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "In read mode without the own-buffer flag 0x10, take the error path (a switch from read to write requires an assigned buffer).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the read-mode bit with mask 0xFE and reset the stream cursor: *v2 = a2[2] (buffer base into the current-pointer slot).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Rebuild flags: a2[3] = (a2[3] & 0xED) | 2, clearing bit 0x10 and bit 2 and setting bit 1 while marking the stream write-mode.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Allocate the stream buffer only when bits 0x10C of the flags are clear and the stream is not one of the sentinels unk_5E6768 / unk_5E6788 as reported by sub_596007(v4).",
+      "evidence_refs": ["callee:0x00596007", "callee:0x005957BD", "global:0x005E6768", "global:0x005E6788"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on buffered flag 0x108 in a2[3]: buffered write path vs direct one-byte write path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Buffer-space accounting: v7 = *v2 - (buffer base a2[2]); advance the current-pointer slot by one and set a2[1] = a2[6] - 1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Buffer full (v7 <= 0): select the per-handle descriptor — unk_5E7898 when v4 is -1, else dword_8D4920[v4 >> 5] + 36 * (v4 & 0x1F).",
+      "evidence_refs": ["global:0x005E7898", "global:0x008D4920"]
+    },
+    {
+      "kind": "call",
+      "description": "When the descriptor's text-mode EOF bit 0x20 (byte 4) is set, reposition the handle with sub_58C724(v4, 0, 2).",
+      "evidence_refs": ["callee:0x0058C724"]
+    },
+    {
+      "kind": "call",
+      "description": "Flush the previously buffered bytes by writing v7 bytes from the buffer via sub_58E22B(v4, buffer, v7).",
+      "evidence_refs": ["callee:0x0058E22B"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the output character: *(BYTE*)a2[2] = a1 into the stream buffer slot.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Unbuffered path: write the single byte a1 directly via sub_58E22B(v4, &a1, 1).",
+      "evidence_refs": ["callee:0x0058E22B"]
+    },
+    {
+      "kind": "return",
+      "description": "On success return a1; otherwise set error bit 0x20 in a2[3] and return -1.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int FputcCharacterWrite(unsigned char ch, FILE* fp) {",
+    "  int flags = fp->flags;            // a2[3]",
+    "  int fd = fp->fd;                  // a2[4]",
+    "  if ((flags & 0x82) == 0 || (flags & 0x40)) { flags |= 0x20; fp->flags = flags; return -1; }",
+    "  if (flags & 1) {                  // read mode: switch to write",
+    "    if (!(flags & 0x10)) { flags |= 0x20; fp->flags = flags; return -1; }",
+    "    fp->cur = fp->buf; fp->flags = flags & 0xFE;",
+    "  }",
+    "  flags = fp->flags; fp->pos = 0; flags = (flags & 0xED) | 2; fp->flags = flags;",
+    "  if ((flags & 0x10C) == 0 && (!is_sentinel_stream(fp) || !sub_596007(fd))) MemoryAllocatorInit(fp);",
+    "  if (flags & 0x108) {              // buffered",
+    "    int left = fp->cur - fp->buf;   // v7",
+    "    fp->cur++; fp->pos = fp->bufsize - 1;",
+    "    if (left <= 0) {",
+    "      unsigned char* desc = (fd == -1) ? unk_5E7898 : dword_8D4920[fd >> 5] + 36 * (fd & 0x1F);",
+    "      if (desc[4] & 0x20) sub_58C724(fd, 0, 2);",
+    "    } else {",
+    "      sub_58E22B(fd, fp->buf, left);",
+    "    }",
+    "    *(unsigned char*)fp->buf = ch;",
+    "  } else {",
+    "    sub_58E22B(fd, &ch, 1);         // direct unbuffered write",
+    "  }",
+    "  if (ok) return ch;",
+    "  fp->flags |= 0x20; return -1;",
+    "}"
+  ],
+  "unresolved": [
+    "Exact meaning of a2[1] (position within the current buffer) is inferred from the raw source; not independently verified.",
+    "The role of sub_58C724's arguments (handle, 0, 2) beyond text-mode EOF repositioning is not established.",
+    "Sentinel stream identity (unk_5E6768, unk_5E6788) and descriptor table layout of dword_8D4920 are DERIVED from the surrounding fill."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

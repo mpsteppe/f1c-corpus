@@ -1,0 +1,39 @@
+## ColorMatrixTransformWithBlend_0050e9e6 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Frame-path:** NOT_FOUND  
+**Call frequency:** UNKNOWN (no static path from tick root)
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0x0 | RW | — | [LLM] |
+| this | 0x4 | RW | — | [LLM] |
+| this | 0x8 | RW | — | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x0: [LLM: once/conditional? does external poke survive?]
+- this 0x4: [LLM: once/conditional? does external poke survive?]
+- this 0x8: [LLM: once/conditional? does external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 0050eb53 | jpt_50EA25 | R | [LLM] |
+| 0059e43c | flt_59E43C | R | physics constant [DERIVED] (also: ` — float threshold for contact aging overflow) |
+| 0059e450 | flt_59E450 | R | DegreesToRadians [DERIVED] |
+| 005adb14 | flt_5ADB14 | R | DegreeWrap360 [DERIVED] (also: ` — 360.0 (degree wrap) |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 0050c5bd | ThunkToThunkFUN0050c5b0 | [LLM] |
+| 0050cbb0 | ThunkToFUN0050cba3 | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

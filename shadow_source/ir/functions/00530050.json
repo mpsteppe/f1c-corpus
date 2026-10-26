@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "address": "0x00530050",
+  "proposed_name": "RenderHuffmanSamplesToFloat",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": [
+      "function:0x00530050"
+    ]
+  },
+  "summary": "Renders Huffman-decoded audio samples from a bitstream into a float output buffer. Iterates granule/subband groups (this+0x24B8) and per-granule samples (this+0x24CC), decoding each Huffman symbol through the lookup table dword_5B4788 while advancing the bit cursor this+0x24A8 over the input buffer this+0x24A4, then writes three interleaved float samples using the DCT coefficient table flt_5B10A4 and scale-factor offsets dword_5DA738. Finally zero-fills the trailing output slots for the subband count and, when the channel count is 2, the second half of the buffer.",
+  "local_names": {
+    "a2": "huffman_input_bytes",
+    "a3": "float_output_buffer",
+    "a6": "codebook_selector_table",
+    "v23": "sample_index",
+    "v24": "granule_index",
+    "v9": "output_row"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Enters the granule loop only while this+0x24B8 (subband/granule count) is greater than zero.",
+      "evidence_refs": [
+        "guard:0",
+        "field:this:0x000024B8"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Enters the per-granule sample loop only while this+0x24CC (samples per granule / channel count) is greater than zero.",
+      "evidence_refs": [
+        "guard:1",
+        "field:this:0x000024CC"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer loop over this+0x24B8 granules; per iteration the Huffman codebook bit width is read from a6 and a6 advances by 2*(1<<width), then the output base advances one slot.",
+      "evidence_refs": [
+        "field:this:0x000024B8",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Output row base v25 = a3 + 64 dwords; each decoded symbol writes three interleaved float samples at row-64, row, row+64.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Reads the next Huffman byte from the input stream and indexes the codebook pair a6[2*value], a6[2*value+1], selecting table entry and sign/scale index.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Decodes a bit-field from the input buffer this+0x24A4 by ANDing the Huffman table entry dword_5B4788 with a byteswapped dword shifted right by the bit cursor this+0x24A8; the cursor is advanced after each symbol.",
+      "evidence_refs": [
+        "field:this:0x000024A4",
+        "field:this:0x000024A8",
+        "global:0x005B4788"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Combines the decoded index with the scale-factor offset table dword_5DA738 and looks up three float coefficients in the DCT table flt_5B10A4 to write the output samples.",
+      "evidence_refs": [
+        "global:0x005DA738",
+        "global:0x005B10A4"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "When the Huffman byte is zero, the three output slots for that sample are zero-filled instead of decoded.",
+      "evidence_refs": [
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "A switch on this+0x24B8 zero-fills trailing output slots (first 32 sample lanes, then 64-lane rows, then the 128-lane row) by fallthrough for the mono case; when this+0x24CC equals 2 the second stereo half of the buffer is zero-filled the same way.",
+      "evidence_refs": [
+        "field:this:0x000024B8",
+        "field:this:0x000024CC"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "Returns this+0x24CC, the channel/sample count used by the caller (value 2 selects the stereo zero-fill path).",
+      "evidence_refs": [
+        "field:this:0x000024CC"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "for granule in 0..this[2350]:",
+    "    width = *selector++; selector += 2*(1<<width)",
+    "    for sample in 0..this[2355]:",
+    "        byte = *input++",
+    "        if byte == 0: write three zero samples",
+    "        else:",
+    "            entry = codebook[2*byte]; sign = codebook[2*byte+1]",
+    "            field = table_5B4788[entry] & byteswap(bitstream dword) >> (entry + bitpos)",
+    "            advance bit cursor",
+    "            write three interleaved float samples via DCT/scale tables",
+    "zero-fill trailing output slots per subband count (and per stereo channel count 2)",
+    "return this[2355]"
+  ],
+  "unresolved": [
+    "The two jump tables jpt_5302EF and jpt_5304EA drive switch dispatch that Hex-Rays collapsed into the fallthrough zero-fill chains; their exact mapping is not pinned down.",
+    "The precise relationship between the -64/0/+64 output lane triplets and the subband/stereo layout of a3 is not confirmed."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0053073C",
+    "global:0x005307BC"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

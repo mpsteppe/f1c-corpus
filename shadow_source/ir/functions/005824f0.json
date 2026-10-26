@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "address": "0x005824F0",
+  "proposed_name": "InitializeLargeStructArrayPool",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Zero-initializes the dual-list header on `this`, then initializes a fixed pool of 16 sub-objects (40 bytes each, 644-byte allocation with a 16-slot count header) via the NTimeCallbackLoopWithSEH_a6eb initializer using StructInitializationWithVTable and sub_57AEF0 callbacks, wraps the pool array in a 12-byte node marked free, and appends it to list1 (this+0x0). Then pre-allocates one 12-byte free node per sub-object slot into list2 (this+0x10), leaving every slot node free (flag 0). Returns `this`. Size-scaled counterpart of sub_5823C0.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Zero all eight dual-list header fields this[0..7] (head/tail/cursor/count for list1 and list2).",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate a 4-byte wrapper via OperatorNewNhMallocWrapper.",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Proceed only if the 4-byte wrapper allocation succeeded.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the 644-byte pool array (16 sub-objects of 40 bytes plus a 4-byte slot-count header).",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the slot count 16 at array offset 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Run NTimeCallbackLoopWithSEH_a6eb over 16 slots with a 40-byte stride, invoking the StructInitializationWithVTable and sub_57AEF0 callbacks per slot under the SEH_5824F0 handler.",
+      "evidence_refs": ["callee:0x0058A6EB", "global:0x0057AEC0", "global:0x0057AEF0", "global:0x0059CCA9", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the initialized pool-array pointer into the wrapper; the wrapper becomes the container node.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate a 12-byte list node to hold the pool container.",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Initialize the node: payload = container pointer, next = 0, free flag = 1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Append the container node to list1: first node sets head this+0x0, cursor this+0x8 and tail this+0x4; later nodes link at the tail. Increment the list1 count at this+0xC.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate v7 = 0; v7 < 640; v7 += 40, producing the address of each of the 16 sub-object slots.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate one 12-byte free node per sub-object slot via OperatorNewNhMallocWrapper.",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Initialize each slot node: payload = slot address, next = 0, free flag = 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Push each slot node onto the head of list2: head this+0x10, tail this+0x14 and cursor this+0x18 set on the first node, and the count at this+0x1C incremented per node.",
+      "evidence_refs": ["field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return this after the pool, list1 node and list2 free nodes are fully initialized.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "_DWORD *sub_5824F0(_DWORD *this) {",
+    "  memset(this, 0, 8 * 4);                          // zero both list headers",
+    "  _DWORD *wrap = OperatorNewNhMallocWrapper(4);",
+    "  if (wrap) {",
+    "    _DWORD *arr = OperatorNewNhMallocWrapper(644);",
+    "    if (arr) {",
+    "      arr[0] = 16;",
+    "      NTimeCallbackLoopWithSEH_a6eb(arr + 1, 40, 16, StructInitializationWithVTable, sub_57AEF0);",
+    "    }",
+    "    wrap[0] = arr;",
+    "    node1 = AllocNode(wrap, 1);                    // payload=wrap, next=0, free=1",
+    "    AppendNode(list1_head=this[0], this[1], this[2], this[3], node1);",
+    "    for (int off = 0; off < 640; off += 40) {      // 16 slots",
+    "      node = AllocNode((int)arr + 4 + off, 0);     // payload=slot, next=0, free=0",
+    "      PushHead(list2_head=this[4], this[5], this[6], this[7], node);",
+    "    }",
+    "  }",
+    "  return this;",
+    "}"
+  ],
+  "unresolved": [
+    "The two-list structure (list1 holding one container node, list2 holding per-slot free nodes) implies a pool/queue consumer; the acquisition/release semantics live in external callers such as sub_57BA10 and are not determined here.",
+    "The SEH_5824F0 exception handler wrapping the allocation/initialization path is not analyzed in this function.",
+    "Whether this function and sub_5823C0 share a common list-manager object type is not established; equal offsets on independent `this` pointers are not proof of identity."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

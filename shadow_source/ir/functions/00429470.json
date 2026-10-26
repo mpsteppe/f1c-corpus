@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "address": "0x00429470",
+  "proposed_name": "updateAIAbility",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Per-frame AI ability/driver tick: selects the AI engagement mode from the ring-buffer input, scales AI difficulty for the session, applies a per-frame +/-0.01 adjustment and a probability-based override to the driver ability value (this+0x453C), recomputes the steering target from vehicle setup bounds, and drives pit-stop decision logic (pit exit force, tire-compound pit duration, post-pit state reset, fuel-weight pit exit) gated by session type and race phase.",
+  "local_names": {
+    "field:this:0x0000453C": "driverAbility",
+    "field:this:0x000044F4": "abilityLowerClamp",
+    "field:this:0x000044D8": "abilityUpperClamp",
+    "field:this:0x000044D4": "abilityProbabilityThreshold",
+    "field:this:0x0000457C": "aiDifficultyScaled",
+    "field:this:0x00004544": "aiActiveFlag",
+    "field:this:0x00004064": "finishState",
+    "field:this:0x00003D6C": "carConditions",
+    "field:this:0x000044B0": "invalidationSentinel",
+    "field:this:0x000045F8": "otherVehiclePtr",
+    "field:this:0x00004044": "ringBufferInputIndex"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard: if FinishState (this+0x4064) equals 1, disable the active flag (this+0x4544) and scale difficulty to 0.75x (this+0x457C via AIDifficultyScalar).",
+      "evidence_refs": [
+        "guard:0",
+        "field:this:0x00004064",
+        "callee:0x00424750",
+        "field:this:0x00004544",
+        "field:this:0x0000457C"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "RingBufferAccessWithWrap on the ring-buffer input index (this+0x4044) selects the engagement mode: pit-lane mode (value 2) disables the active flag (this+0x4544) and sets difficulty to AIDifficultyScalar()*0.75 (this+0x457C); mode 0/1 keeps full AIDifficultyScalar().",
+      "evidence_refs": [
+        "callee:0x004D1CF0",
+        "field:this:0x00004044",
+        "field:this:0x00004544",
+        "field:this:0x0000457C",
+        "callee:0x00424750"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per-frame ability drift: when the frame latch (this+0x4508) is clear, adjust driverAbility (this+0x453C) by -0.01 clamped to this+0x44F4; otherwise adjust by +0.01 clamped to the upper bound derived from this+0x44D8. Runs only for session type 7 (dword_7C56A4).",
+      "evidence_refs": [
+        "field:this:0x0000453C",
+        "field:this:0x000044F4",
+        "field:this:0x000044D8",
+        "global:0x007C56A4",
+        "field:this:0x00004508"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Probability-based override of driverAbility (this+0x453C): compare (this+0x44D4 - this+0x450C*0.5)*100 against RandLCGRandomNumberGenerator()%100, then either raise ability toward the upper bound (this+0x44D8 + this+0x44F4) or lower it to half this+0x44F4.",
+      "evidence_refs": [
+        "callee:0x005884ED",
+        "field:this:0x000044D4",
+        "field:this:0x0000450C",
+        "field:this:0x0000453C",
+        "field:this:0x000044D8",
+        "field:this:0x000044F4"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the per-frame ability latches (this+0x4508 and this+0x450C) after the drift/override adjustment.",
+      "evidence_refs": ["field:this:0x00004508", "field:this:0x0000450C"]
+    },
+    {
+      "kind": "guard",
+      "description": "Car-condition gate (this+0x3D6C): if not equal to 2 and speed threshold (this+0x3984) is valid while this+0x4000 is non-positive, evaluate pit-exit conditions -- ForcePitExit fires when this car's setup pointer (this+0x0) shows worn/unusable components (obj+0xCD4) or a pit-lap trigger (byte this+0x39FA with lap counter this+0x403C vs TotalRaceLaps). In condition 1 also set driverAbility (this+0x453C) to 0.85*this+0x44F4.",
+      "evidence_refs": [
+        "field:this:0x00003D6C",
+        "field:this:0x00003984",
+        "field:this:0x00004000",
+        "callee:0x0042A110",
+        "field:this:0x00000000",
+        "field:obj:0x00000CD4",
+        "field:this:0x000039FA",
+        "global:0x008ACF8C",
+        "field:this:0x0000403C",
+        "field:this:0x0000453C",
+        "field:this:0x000044F4"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Steering-target recompute, gated on session type / final lap / finish state: skip when session type is not 7, lap (this+0x403C) is not the last (dword_8ACF8C-1), finish value (this+0x4040) is not 2 or -1, or speed (this+0x4440) is below 5. Otherwise compute the field at this+0x4534 = session time + 120 and the signed setup-limit steering target from the vehicle-setup pointer (this+0x4354) bounds +0x34/+0x38 vs this+0x4428, stored to this+0x4420; clear the pit byte (this+0x4579).",
+      "evidence_refs": [
+        "global:0x007C56A4",
+        "global:0x008ACF8C",
+        "field:this:0x0000403C",
+        "field:this:0x00004040",
+        "field:this:0x00004440",
+        "field:this:0x00004354",
+        "field:*(this+0x4354):0x00000034",
+        "field:*(this+0x4354):0x00000038",
+        "field:this:0x00004534",
+        "global:0x008AFEA0",
+        "field:this:0x00004428",
+        "field:this:0x00004420",
+        "field:this:0x00004579"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "ConditionalGate runs for session type 7; when this+0x4000 is positive and the reason slot (this+0x4068) is clear, set ReasonCode to 6.",
+      "evidence_refs": [
+        "callee:0x004EFAC0",
+        "global:0x007C56A4",
+        "field:this:0x00004000",
+        "field:this:0x00004068"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "When speed (this+0x4440) is below 1.0, enter the pit-stop decision path: session type 7 clears the pit-lane byte (this+0x45F4) and returns; otherwise run PitStopDecisionTireCompound using the tire-compound slot (this+0x45E0).",
+      "evidence_refs": [
+        "field:this:0x00004440",
+        "global:0x007C56A4",
+        "field:this:0x00004579",
+        "callee:0x0042A3D0",
+        "field:this:0x000045E0",
+        "field:this:0x000045F4"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Select pit-stop duration from the tire-compound delay table (indexed by this+0x45E0, table at this+4453): compare elapsed time (this+0x3988) against the per-compound duration, taking 1.0 as the minimum floor.",
+      "evidence_refs": ["field:this:0x000045E0", "field:this:0x00003988", "callee:0x0042A3D0"]
+    },
+    {
+      "kind": "call",
+      "description": "Post-pit reset sequence: SpeedValueSetterWithGlobalMirror(1.0 or the compound duration), PostPitCleanup, disable the active flag (this+0x4544), ParameterValueSetter(18), set this+0x4550 to 1, set the pit-exit byte (this+0x4548), clear steering/offset fields (this+0x443C, this+0x34F8, this+0x3500, this+0x34FC, this+0x43F8), AIClearStateFlags, set the steering mode (this+0x4510 = 4/5), clear this+0x4524 / this+0x4438 / this+0x4434 / this+0x454C / this+0x4424, re-raise this+0x4550, and call sub_426430; set this+0x4534 = session time + 180.",
+      "evidence_refs": [
+        "callee:0x004F1890",
+        "callee:0x0042A6F0",
+        "callee:0x0042ACD0",
+        "callee:0x0042AE00",
+        "callee:0x00426430",
+        "field:this:0x00004544",
+        "field:this:0x00004550",
+        "field:this:0x00004548",
+        "field:this:0x0000443C",
+        "field:this:0x000034F8",
+        "field:this:0x00003500",
+        "field:this:0x000034FC",
+        "field:this:0x000043F8",
+        "field:this:0x00004510",
+        "field:this:0x00004524",
+        "field:this:0x00004438",
+        "field:this:0x00004434",
+        "field:this:0x0000454C",
+        "field:this:0x00004424",
+        "field:this:0x00004534",
+        "global:0x008AFEA0"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Fuel-weight pit exit: for session type 7, when FuelMultiplierValue is in the 1..2 range and both this car and the other vehicle (this+0x45F8) pass FuelWeightLimitCheck, force a pit exit via ForcePitExit.",
+      "evidence_refs": [
+        "callee:0x0042AD20",
+        "callee:0x0042AD50",
+        "callee:0x0042A110",
+        "global:0x007C56A4",
+        "field:this:0x000045F8"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Evaluate pit entry via RacePhasePitEntryTrigger(this) and write the invalidation sentinel NAN to this+0x44B0 at end of tick; the return value is the pit-entry trigger result.",
+      "evidence_refs": ["callee:0x00429EB0", "field:this:0x000044B0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "mode = RingBufferAccessWithWrap(this[0x4044])",
+    "if mode == 2: activeFlag=0; difficulty = AIDifficultyScalar()*0.75",
+    "elif mode == 0 or 1: difficulty = AIDifficultyScalar()",
+    "if sessionType == 7: ability += (frameLatch? +0.01 : -0.01) clamped to [0x44F4, 0x44D8]; RNG probability override; clear latches",
+    "if carConditions == 1 and speed ok: maybe ForcePitExit; ability = 0.85 * lowerClamp",
+    "if not final-lap gate: steeringTarget = sign(setupLimit) using +0x34/+0x38; clear pit byte 0x4579",
+    "if speed < 1.0: pit-stop decision (tire compound) -> post-pit reset sequence",
+    "return RacePhasePitEntryTrigger(this); this[0x44B0] = NAN"
+  ],
+  "unresolved": [
+    "Field this+0x45F4 (byte) is cleared only in the session-type-7 low-speed branch; its wider role is unknown.",
+    "The exact meaning of the ring-buffer values 0/1/2 from this+0x4044 is inferred from branching, not a named enum.",
+    "The flt_59E* and dword_8ACEE0 globals are read by the function but their roles are not visible in the decompiled body."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x00424E70",
+    "function:0x00429470",
+    "source:raw",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E450",
+    "global:0x0059E600",
+    "global:0x0059E6F8",
+    "global:0x0059E7EC",
+    "global:0x0059E7FC",
+    "global:0x0059E808",
+    "global:0x0059E908",
+    "global:0x0059E968",
+    "global:0x008ACEE0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

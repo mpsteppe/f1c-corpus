@@ -1,0 +1,12 @@
+// f1c  0x0057b680  size=29
+int __thiscall sub_57B680(_DWORD *this, _DWORD *a2)
+{
+  int result; // eax
+
+  *this = *a2;
+  this[1] = a2[1];
+  this[2] = a2[2];
+  result = a2[3];
+  this[3] = result;
+  return result;
+}

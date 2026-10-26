@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "address": "0x0057EAD0",
+  "address_key": "0057ead0",
+  "canonical_name": "NetworkPacketSend_ead0",
+  "declared_name": "sub_57EAD0",
+  "source": {
+    "path": "functions/NetworkPacketSend_ead0_0057ead0.c",
+    "text": "char __thiscall sub_57EAD0(_DWORD *this, u_long a2)\n{\n  void *v3; // eax\n  DWORD v4; // eax\n  u_long **v5; // eax\n  u_long v6; // ebp\n  u_long *v7; // eax\n  u_long *v8; // esi\n  int v9; // eax\n  u_long v10; // edx\n  int v11; // ecx\n  void *v12; // edi\n  int v14; // [esp+8h] [ebp-10h] BYREF\n  u_long v15; // [esp+Ch] [ebp-Ch]\n\n  v15 = htonl(0);\n  htons(0);\n  Copy4DwordsStructToStruct(this + 673, &v14);\n  v3 = (void *)this[708];\n  if ( !v3 )\n    return 0;\n  v4 = WaitForSingleObject(v3, this[709]);\n  if ( v4 )\n  {\n    if ( v4 != 128 )\n      return 0;\n  }\n  v5 = (u_long **)this[704];\n  v6 = v15;\n  if ( !v5 )\n    goto LABEL_8;\n  while ( !*v5 || **v5 != v15 )\n  {\n    v5 = (u_long **)v5[1];\n    if ( !v5 )\n      goto LABEL_8;\n  }\n  v8 = *v5;\n  if ( *v5 )\n  {\n    v8[1] = a2;\n  }\n  else\n  {\nLABEL_8:\n    v7 = (u_long *)OperatorNewNhMallocWrapper(16);\n    if ( v7 )\n    {\n      *v7 = v6;\n      v7[1] = 0;\n      v7[2] = 0;\n      v7[3] = 0;\n      v8 = v7;\n    }\n    else\n    {\n      v8 = 0;\n    }\n    if ( v8 )\n    {\n      v9 = OperatorNewNhMallocWrapper(12);\n      if ( v9 )\n      {\n        *(_DWORD *)v9 = v8;\n        *(_DWORD *)(v9 + 4) = 0;\n        *(_BYTE *)(v9 + 8) = 1;\n      }\n      else\n      {\n        v9 = 0;\n      }\n      if ( this[704] )\n      {\n        *(_DWORD *)(this[705] + 4) = v9;\n      }\n      else\n      {\n        this[704] = v9;\n        this[706] = v9;\n      }\n      this[705] = v9;\n      ++this[707];\n    }\n  }\n  v10 = a2 + v8[2];\n  v11 = v8[3] + 1;\n  v8[1] = a2;\n  v8[2] = v10;\n  v8[3] = v11;\n  v12 = (void *)this[708];\n  if ( v12 )\n    ReleaseMutex(v12);\n  return 1;\n}\n"
+  },
+  "existing_analysis": {
+    "path": "skeletons_filled/NetworkPacketSend_ead0_0057ead0.md",
+    "text": "## NetworkPacketSend_ead0_0057ead0 — send/queue network packet with aggregation\n\n**Summary:** Mutex-protected network send: searches linked list for existing entry matching INADDR_ANY. If found, updates entry with new value `a2`; if not found, allocates new data node and list node. Accumulates `a2` into sum and increments counter on every send.\n\n**Frame-path:** NOT_FOUND  \n**Call frequency:** UNKNOWN (no static path from tick root)\n\n**Called by:** (none static — top-level or indirect-only)\n\n**Struct fields accessed:**\n\n| Base | Offset | R/W | Init (literal → value) | Purpose |\n|------|--------|-----|------------------------|---------|\n| *(this+0xB04) | 0x0 | R | — | Tail node data pointer (first DWORD) |\n| *(this+0xB04) | 0x4 | RW | — | Tail node data[1] — latest send value a2 |\n| *(this+0xB04) | 0x8 | RW | — | Tail node data[2] — accumulated sum of all a2 values |\n| *(this+0xB04) | 0xC | RW | — | Tail node data[3] — send counter (incremented each call) |\n| this | 0xB00 | RW | — | List head pointer (set on first insert) |\n| this | 0xB04 | RW | — | List tail pointer (updated on each insert) |\n| this | 0xB08 | RW | — | List cursor (set = head on first insert) |\n| this | 0xB0C | R | — | Node count (incremented on each insert) |\n| this | 0xB10 | R | — | Mutex handle (WaitForSingleObject / ReleaseMutex) |\n| this | 0xB14 | R | — | Mutex wait timeout in ms |\n\n**Written-by note (persistence):**\n- *(this+0xB04) 0x4: updated every call with latest a2 value; persists until next send\n- *(this+0xB04) 0x8: accumulated sum, grows with each call; survives across calls\n- *(this+0xB04) 0xC: counter, increments each call; survives across calls\n- this 0xB00: written once on first list insert (set to new node); persists until list destroyed\n- this 0xB04: updated on every insert; reflects tail of list\n- this 0xB08: written on first insert (cursor = head); persists until list destroyed\n\n**Globals referenced:**\n\n| Address | Name | R/W | Role |\n|---------|------|-----|------|\n| 0059e1a0 | WaitForSingleObject | R | Wait on mutex before list operation |\n| 0059e1a4 | ReleaseMutex | R | Release mutex after operation |\n| 0059e2d8 | __imp_htonl | R | Convert INADDR_ANY to network byte order for match |\n| 0059e2f4 | __imp_htons | R | Convert port to network byte order |\n\n**Functions called:**\n\n| Address | Name | Purpose |\n|---------|------|---------|\n| 0057b9f0 | Copy4DwordsStructToStruct | Copy 16-byte sockaddr_in to this+0xA84 |\n| 00587c03 | OperatorNewNhMallocWrapper | Allocate 16-byte data block and 12-byte list node |\n\n**Guard conditions:**\n- If mutex handle (this+0xB10) is 0 → return 0 immediately\n- If WaitForSingleObject fails with non-zero and non-128 → return 0\n- If existing node not found and data allocation fails → return 1 (via goto, no list update)\n- If node allocation fails after data allocation → return 1 (data orphaned, no list update)\n"
+  },
+  "prelabel": {
+    "action": "llm"
+  },
+  "on_frame_path": false,
+  "subsystems": [],
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence": []
+  },
+  "abi": {
+    "name": "Network_Packet_Send_57ead0",
+    "address": 5761744,
+    "trust": "LEGACY",
+    "prototype": null
+  },
+  "fields": [
+    {
+      "base": "*(this+0xB04)",
+      "off_hex": "0x0",
+      "rw": "R",
+      "evidence_ref": "field:*(this+0xB04):0x00000000"
+    },
+    {
+      "base": "*(this+0xB04)",
+      "off_hex": "0x4",
+      "rw": "RW",
+      "evidence_ref": "field:*(this+0xB04):0x00000004"
+    },
+    {
+      "base": "*(this+0xB04)",
+      "off_hex": "0x8",
+      "rw": "RW",
+      "evidence_ref": "field:*(this+0xB04):0x00000008"
+    },
+    {
+      "base": "*(this+0xB04)",
+      "off_hex": "0xC",
+      "rw": "RW",
+      "evidence_ref": "field:*(this+0xB04):0x0000000C"
+    },
+    {
+      "base": "this",
+      "off_hex": "0xB00",
+      "rw": "RW",
+      "evidence_ref": "field:this:0x00000B00"
+    },
+    {
+      "base": "this",
+      "off_hex": "0xB04",
+      "rw": "RW",
+      "evidence_ref": "field:this:0x00000B04"
+    },
+    {
+      "base": "this",
+      "off_hex": "0xB08",
+      "rw": "RW",
+      "evidence_ref": "field:this:0x00000B08"
+    },
+    {
+      "base": "this",
+      "off_hex": "0xB0C",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000B0C"
+    },
+    {
+      "base": "this",
+      "off_hex": "0xB10",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000B10"
+    },
+    {
+      "base": "this",
+      "off_hex": "0xB14",
+      "rw": "R",
+      "evidence_ref": "field:this:0x00000B14"
+    }
+  ],
+  "globals": [
+    {
+      "addr": "0059e1a0",
+      "name": "WaitForSingleObject",
+      "rw": "R",
+      "address": "0x0059E1A0",
+      "evidence_ref": "global:0x0059E1A0"
+    },
+    {
+      "addr": "0059e1a4",
+      "name": "ReleaseMutex",
+      "rw": "R",
+      "address": "0x0059E1A4",
+      "evidence_ref": "global:0x0059E1A4"
+    },
+    {
+      "addr": "0059e2d8",
+      "name": "__imp_htonl",
+      "rw": "R",
+      "address": "0x0059E2D8",
+      "evidence_ref": "global:0x0059E2D8"
+    },
+    {
+      "addr": "0059e2f4",
+      "name": "__imp_htons",
+      "rw": "R",
+      "address": "0x0059E2F4",
+      "evidence_ref": "global:0x0059E2F4"
+    }
+  ],
+  "guards": [],
+  "callees": [
+    {
+      "addr": "0057b9f0",
+      "name": "Copy4DwordsStructToStruct",
+      "address": "0x0057B9F0",
+      "evidence_ref": "callee:0x0057B9F0"
+    },
+    {
+      "addr": "00587c03",
+      "name": "OperatorNewNhMallocWrapper",
+      "address": "0x00587C03",
+      "evidence_ref": "callee:0x00587C03"
+    }
+  ],
+  "callers": [],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x0057B9F0",
+    "callee:0x00587C03",
+    "field:*(this+0xB04):0x00000000",
+    "field:*(this+0xB04):0x00000004",
+    "field:*(this+0xB04):0x00000008",
+    "field:*(this+0xB04):0x0000000C",
+    "field:this:0x00000B00",
+    "field:this:0x00000B04",
+    "field:this:0x00000B08",
+    "field:this:0x00000B0C",
+    "field:this:0x00000B10",
+    "field:this:0x00000B14",
+    "function:0x0057EAD0",
+    "global:0x0059E1A0",
+    "global:0x0059E1A4",
+    "global:0x0059E2D8",
+    "global:0x0059E2F4",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_source_schema.json",
+    "output": "shadow_source/ir/functions/0057ead0.json"
+  },
+  "policy": "Raw source and deterministic facts outrank all semantic proposals."
+}

@@ -1,0 +1,911 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_007_math_and_collision_02",
+  "scope": "math_and_collision",
+  "subsystem": {
+    "name": "MathAndCollision",
+    "responsibility": "Chunked pointer-index array allocators, scalar/SSE vector math (normalize with threshold gating, blend/interpolation, cross-product-like routines), SSE 3x3 and 4x4 matrix math, a 3DNow/MMX packed-vector and packed-matrix family sharing packed-qword constants and an _m_femms discipline, plus three data/utility processors (nearest-neighbor palette vector quantization, vtable-driven virtual-object array fill, big-endian byte packing). Most owners are UNKNOWN at the function-IR level; the proposed class groupings are DERIVED/GUESS proposals, not confirmed identities.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x005160AD",
+      "function:0x0051613F",
+      "function:0x005176EC",
+      "function:0x00517F35",
+      "function:0x0051D897",
+      "function:0x0051EA5A",
+      "function:0x0051EC00",
+      "function:0x0051EDAE",
+      "function:0x0051EE7E",
+      "function:0x0051F0BE",
+      "function:0x0051F5F0",
+      "function:0x0051F650",
+      "function:0x0051F700",
+      "function:0x0051FBF0",
+      "function:0x0051FC80",
+      "function:0x0052014E",
+      "function:0x0052035E",
+      "function:0x005207CE",
+      "function:0x00520F69",
+      "function:0x00520FC6",
+      "function:0x005215DB",
+      "function:0x0052179F",
+      "function:0x00521831",
+      "function:0x0052193C",
+      "function:0x005261CE",
+      "function:0x005262C2",
+      "function:0x005265DB",
+      "source:raw"
+    ]
+  },
+  "summary": "Proposal for the math_and_collision slice of Wave 7. The functions fall into six groups. (1) Chunked pointer-index array allocators (0x005160AD element variant, 0x0051613F buffer variant scaled by 2^7) that allocate a 4-byte-per-entry index array via MemoryAllocator (0x00515F23) and fill it by bulk-chunk allocation through MemoryAllocatorWithAlignment (0x0051601F), capping the chunk at min(0x3B9AC9F0 / stride, a4), storing it at this+0x50, and dispatching the shared error path (constant 69 at obj+0x14, vtable call through obj+0x0) when a stride exceeds the 1,000,000,000-byte ceiling; both are consumed by DirectXTextureSurfaceAllocation (0x0051629F). (2) Scalar and SSE vector math writing 3/4-float or __m128 outputs at a1: normalization with a zero-length guard and a table-based fast reciprocal-sqrt approximation (0x005176EC), threshold-gated normalizers with Newton-Raphson refined reciprocal square roots driven by the read-only globals in the 0x008D6000..0x008D6188 region (0x0051EDAE, 0x0051EE7E, 0x0052035E) and the 0x005D8BE0/0x005D8BF0 region (0x0051FC80), weighted blends/interpolations (0x0051EC00, 0x0051F5F0, 0x0051F650, 0x0051F700 with the dword_8B00E0 zero sentinel), and SSE cross-product-like routines applying sign-flip XOR masks (0x0051F0BE, 0x005207CE). (3) SSE matrix math: a 3x3 matrix multiply with XOR masks xmmword_8D6100/60F0/60E0 (0x0051FBF0) and a 4x4-matrix-by-4-vector multiply with an alignment dispatch (0x0052014E). (4) The 3DNow/MMX packed-vector family (0x00520F69, 0x00520FC6, 0x005215DB, 0x0052179F, 0x00521831, 0x0052193C, 0x005262C2) sharing the tiny zero-length threshold literal 0x80000000800000 (associated with qword_5AF970, DERIVED), fallback/scale constants (0x005AF8F0, 0x005AF908) and packed-qword constants in the 0x005AF8F0..0x005AF9E8 region, every helper bracketed by _m_femms; 0x005215DB (slerp) calls F_3DVectorNormalize_8f00 (0x00528F00) and the sub_529700 helper (0x00529700) twice, and is itself called three times by the blend 0x0052179F. (5) 3DNow/MMX 4x4 matrix helpers (0x005261CE, an MMX-flushed stdcall wrapper around 0x00525E9A, and 0x005265DB, a packed-float 4x4 combination shared by callers 0x005267A7/0x0052692F/0x00526B55). (6) Data/utility processors: nearest-neighbor palette vector quantization (0x0051D897, reading count this+0x70 and palette this+0x74 with three component arrays), a vtable-driven virtual-object array fill (0x0051EA5A) and a pure big-endian byte-to-int utility (0x00517F35). Row/column-major conventions, threshold/constant values, and the exact 3DNow lane algebra are unresolved packet-level questions.",
+  "function_roles": [
+    {
+      "address": "0x005160AD",
+      "role": "Chunked element allocator: allocates a pointer-index array of a4 elements via MemoryAllocator (0x00515F23), then fills it by allocating a4 elements in bulk chunks through MemoryAllocatorWithAlignment (0x0051601F), each chunk at most v5 = min(0x3B9AC9F0 / a3, a4) elements. The chunk size is stored at this+0x50 (base pointer cached from this+0x4). An element size exceeding the 0x3B9AC9F0 allocation ceiling triggers the error path: constant 69 written at obj+0x14 and a vtable dispatch through the object vtable at obj+0x0, passing a1. Returns the pointer-index array; consumed by DirectXTextureSurfaceAllocation (0x0051629F).",
+      "owner": "ChunkedArrayAllocator",
+      "evidence_refs": [
+        "function:0x005160AD",
+        "callee:0x00515F23",
+        "callee:0x0051601F",
+        "caller:0x0051629F",
+        "field:this:0x00000004",
+        "field:this:0x00000050",
+        "field:obj:0x00000000",
+        "field:obj:0x00000014",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051613F",
+      "role": "Chunked buffer allocator, structural twin of 0x005160AD with element units scaled by 2^7 (128 bytes per buffer): allocates a pointer-index array of a4 entries via MemoryAllocator (0x00515F23), then fills it by allocating a4 buffers in bulk chunks through MemoryAllocatorWithAlignment (0x0051601F), where each buffer is a3*128 bytes and each chunk holds at most v5 = min(0x3B9AC9F0 / (a3 << 7), a4) buffers. The chunk size is stored at this+0x50 and the final chunk is capped to the remaining count. A buffer size exceeding the 0x3B9AC9F0 ceiling triggers the error path: constant 69 at obj+0x14 and a vtable dispatch through the object vtable at obj+0x0. Returns the pointer-index array; consumed by DirectXTextureSurfaceAllocation (0x0051629F).",
+      "owner": "ChunkedArrayAllocator",
+      "evidence_refs": [
+        "function:0x0051613F",
+        "callee:0x00515F23",
+        "callee:0x0051601F",
+        "caller:0x0051629F",
+        "field:this:0x00000004",
+        "field:this:0x00000050",
+        "field:obj:0x00000000",
+        "field:obj:0x00000014",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005176EC",
+      "role": "Normalizes the 3-vector a2 into the output a1 (this+0x0/+0x4/+0x8). When the squared length is 0.0, writes an all-zero vector; otherwise, when |1.0 - length^2| exceeds the magic threshold 0x3727C5AC, scales each component by a table-based reciprocal-square-root approximation (table address appears in raw source as 5D79E0h, magic constant -1090519041); else copies a2 into a1 unchanged (length already near 1.0). Returns a1. No calls, globals, or owner evidence in the packet.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x005176EC",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00517F35",
+      "role": "Assembles the four bytes at a1[0..3] into a single 32-bit integer by chained left shifts and unsigned byte reads (big-endian: a1[0] is the most significant byte, a1[3] the least). Pure utility with no guards, globals, or calls.",
+      "owner": "ByteArrayPackingUtility",
+      "evidence_refs": [
+        "function:0x00517F35",
+        "field:this:0x00000000",
+        "field:this:0x00000001",
+        "field:this:0x00000002",
+        "field:this:0x00000003",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051D897",
+      "role": "Nearest-neighbor color search over a three-component (R/G/B) palette owned by the object at a1: reads the palette entry count from this+0x70 and the palette structure pointer from this+0x74 (three byte component arrays at palette+0/+4/+8). Computes per-channel weighted squared-distance contributions relative to target values (a3 red, a2 green, a4 blue), tracks the best in-band score (init 0x7FFFFFFF), stores each entry's out-of-band penalty in a local 256-entry array, then writes to the output buffer a5 the index of every palette entry whose stored penalty is <= the best score and returns the number of indices written. Invoked by BitstreamTextureBlockCopy (0x0051DB31).",
+      "owner": "PaletteVectorQuantizer",
+      "evidence_refs": [
+        "function:0x0051D897",
+        "caller:0x0051DB31",
+        "field:this:0x00000070",
+        "field:this:0x00000074",
+        "field:*(this+0x74):0x00000000",
+        "field:*(this+0x74):0x00000004",
+        "field:*(this+0x74):0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051EA5A",
+      "role": "Fills an array of virtual objects through a vtable dispatch: loads the output buffer base from this+0x1A4, computes the size argument v3 = 2 * this+0x5C + 4, and while the element count this+0x64 is positive loops this+0x64 times calling the vtable method at *(this+0x4 + 4) with (a1, 1, v3), storing each result into the buffer at base+68 advancing one DWORD per iteration. Returns the last stored result. Called by CodecModeSelect (0x0051EA90) and ObjectSetupWithBoundsCheck (0x0051EB6E).",
+      "owner": "VirtualObjectArray",
+      "evidence_refs": [
+        "function:0x0051EA5A",
+        "caller:0x0051EA90",
+        "caller:0x0051EB6E",
+        "guard:0",
+        "field:this:0x00000004",
+        "field:this:0x0000005C",
+        "field:this:0x00000064",
+        "field:this:0x000001A4",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051EC00",
+      "role": "SIMD weighted linear combination: computes *a1 = a3[3] + broadcast(low element of a2[0]) * a3[0] + broadcast(low element of a2[1]) * a3[1], storing the resulting 128-bit vector at this+0x0 and returning a1. Straight-line __m128 store with no branching.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x0051EC00",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051EDAE",
+      "role": "3-component normalize with squared-length threshold: computes the squared length of a2 and, when it is at least the global threshold dword_8D6000, computes a Newton-Raphson refined reciprocal square root using the read-only globals dword_8D6004 (scale) and dword_8D6008 (subtractive coefficient) and scales each input component into the output a1 (this+0x0/+0x4/+0x8); otherwise writes a zero vector. Returns a1.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x0051EDAE",
+        "global:0x008D6000",
+        "global:0x008D6004",
+        "global:0x008D6008",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051EE7E",
+      "role": "4-component normalizer with squared-length threshold: computes the squared length over the X/Y/Z components of a2 (W does not participate in the length). When the length reaches the global threshold dword_8D600C, computes a Newton-Raphson refined reciprocal-sqrt (globals dword_8D6010 and dword_8D6014) and writes all four scaled components (including W) into a1 (this+0x0..0xC); below the threshold zeroes all four. Returns a1.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x0051EE7E",
+        "global:0x008D600C",
+        "global:0x008D6010",
+        "global:0x008D6014",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F0BE",
+      "role": "SSE 3D vector math: loads high-pair floats from three input pointers (a2, a3, a4), performs shuffle/multiply/subtract/add sequences to form a cross-product-like result, applies the sign-flip XOR mask xmmword_5D8A20, and stores the resulting __m128 at a1 (this+0x0). Returns a1. Vector semantics (cross product vs 3x3 matrix product) rest on the canonical name only.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x0051F0BE",
+        "field:this:0x00000000",
+        "global:0x005D8A20",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F5F0",
+      "role": "Three-component vector blend: starts from the 3-vector loaded at a2 (base), adds (a3 - base) scaled by the low element of a5 and (a4 - base) scaled by the low element of a6, then stores the resulting 3-float vector at the output a1 (high two floats at a1, low dword at a1+8 = this+0x8) and returns a1.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x0051F5F0",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F650",
+      "role": "Full 4-component vector blend: computes a2 + (a3 - a2) * broadcast(low element of a5) + (a4 - a2) * broadcast(low element of a6), stores the result into the output vector a1 (this+0x0) and returns a1.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x0051F650",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F700",
+      "role": "Computes a scalar via horizontal reduction of products between the vector at a4 and the vectors at a5/a6, refines its reciprocal with one Newton-Raphson step, interpolates the base vector at a5 toward the vector at a6 by the refined factor, writes the resulting 3-float vector to the output buffer a3 (high two floats at a3, low dword at a3+8), and returns a3. When the scalar equals the float at global dword_8B00E0 (a zero sentinel) the function returns 0 without producing output.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x0051F700",
+        "global:0x008B00E0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051FBF0",
+      "role": "Straight-line SSE 3x3 matrix multiply with packed multiplies and sign-flip XOR masks: loads the high double-pair halves of the two input matrices a2/a3 via load-high, splats and shuffles their lanes, XORs the shuffled lanes against the three read-only masks xmmword_8D6100/xmmword_8D60F0/xmmword_8D60E0, accumulates the products, stores the packed result to the output a1 (low half via storel at a1, high half via storeh at a1+4 = this+0x4) and returns a1. The legacy abi name identifies the inputs as rotation matrices; row/column ordering is unresolved.",
+      "owner": "SseMatrixMath",
+      "evidence_refs": [
+        "function:0x0051FBF0",
+        "global:0x008D6100",
+        "global:0x008D60F0",
+        "global:0x008D60E0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051FC80",
+      "role": "Unconditionally normalizes a 4-component float vector (a2 -> a1) using a reciprocal square root refined with one Newton-Raphson step driven by two read-only globals: dword_5D8BF0 (subtractive constant) and dword_5D8BE0 (refinement scale). Writes all four components at a1 (this+0x0..0xC) and returns a1. Part of the SSE/vector math library.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x0051FC80",
+        "global:0x005D8BE0",
+        "global:0x005D8BF0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0052014E",
+      "role": "Multiplies a 4-component vector at a2 by a 4x4 matrix at a3 and stores the resulting 4-vector at a1 (this+0x0). Matrix pointer alignment (a3 & 0xF) selects between unaligned 8-byte half-row loads and aligned __m128 row loads at offsets 0/16/32/48; both branches compute x*row0 + y*row1 + z*row2 + w*row3 (shuffle immediates 0/85/170/255 broadcast x/y/z/w). Returns a1.",
+      "owner": "SseMatrixMath",
+      "evidence_refs": [
+        "function:0x0052014E",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0052035E",
+      "role": "Conditionally normalizes a 3-component float vector (a2 -> a1): when squared length >= the global threshold dword_8D6180, scales the components by a Newton-Raphson refined reciprocal square root using globals dword_8D6184 (scale) and dword_8D6188 (subtractive constant); otherwise writes 0.0 to all three output components (this+0x0/+0x4/+0x8). Returns a1.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x0052035E",
+        "global:0x008D6180",
+        "global:0x008D6184",
+        "global:0x008D6188",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005207CE",
+      "role": "Computes the 3D cross product of two vectors loaded from a2 and a3 via SSE load/shuffle/multiply/subtract/add sequences, applies the XOR sign mask xmmword_5D8C20, and stores the resulting __m128 at a1 (this+0x0). The fourth argument a4 participates in the lane shuffle feeding the component products; returns a1. The sign convention (right-hand rule) is asserted by existing analysis, not proven from the mask bytes.",
+      "owner": "VectorMath",
+      "evidence_refs": [
+        "function:0x005207CE",
+        "field:this:0x00000000",
+        "global:0x005D8C20",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00520F69",
+      "role": "Straight-line 3DNow! packed-vector normalization with a zero-length guard: computes the packed squared length (pfmul + pfacc), compares it against the tiny threshold literal 0x80000000800000 with pfcmpgt, computes a reciprocal square root with pfrsqrt refined by one Newton-Raphson iteration (pfrsqit1/pfrcpit2), masks the components with the comparison result via pand, scales by the refined reciprocal, stores the normalized packed pair to a1 (this+0x0 and this+0x8), and exits the MMX/3DNow state with _m_femms. The threshold constant is associated (DERIVED) with global 0x005AF970.",
+      "owner": "ThreeDNowVectorMath",
+      "evidence_refs": [
+        "function:0x00520F69",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "global:0x005AF970",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00520FC6",
+      "role": "3DNow! conditional 2-float vector normalize with fallback: computes the packed length-squared of the input a1, compares it against the tiny threshold constant 0x80000000800000 (packet global VectorLengthSquaredThreshold 0x005AF970) via pfcmpge, and branches: on fallback writes the packed constant 0xBF8000003F800000 {1.0, -1.0} (packet global SSEZeroThreshold 0x005AF8F0) to a2 and zeroes a3 (both gated on non-null); otherwise refines the reciprocal sqrt with a Newton step, writes normalized components to a2, and when a3 is non-null calls SquareRootApproximation (0x00529000) and writes a scaled component to a3 using the scale constant 0x4000000040000000 (packet global OutputLengthScale 0x005AF908). Returns the branch flag and ends with _m_femms.",
+      "owner": "ThreeDNowVectorMath",
+      "evidence_refs": [
+        "function:0x00520FC6",
+        "callee:0x00529000",
+        "global:0x005AF970",
+        "global:0x005AF8F0",
+        "global:0x005AF908",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005215DB",
+      "role": "3DNow! vector interpolation between a2 and a3 with parameter a4, writing the result to a1 (this+0x0 and this+0x8): computes the dot product, extracts its sign and magnitude, and branches on |dot|: when |dot| is small enough (<= ~0.9999, threshold literal 0x3F7FFF58) it takes the full path computing 1/sin(theta) via pfrsqrt(1-dot^2) with Newton-Raphson refinement through F_3DVectorNormalize_8f00 (0x00528F00) and the sub_529700 helper (0x00529700, called twice) to build sin-based blend weights; otherwise it uses the simple (1-t, t) weights. The final per-lane products are written to a1->m64_u64 (this+0x0) and a1[1].m64_u64 (this+0x8). Called by MMX3DNowVectorTransform (0x00521712) and F_3DVectorBlend (0x0052179F).",
+      "owner": "ThreeDNowVectorMath",
+      "evidence_refs": [
+        "function:0x005215DB",
+        "caller:0x00521712",
+        "caller:0x0052179F",
+        "callee:0x00528F00",
+        "callee:0x00529700",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0052179F",
+      "role": "Blends two vector pairs into an output vector using the 3DNow interpolation helper SIMDVectorNormalization (0x005215DB, called three times): first normalizes/combines (a2, a5) into a temporary v8 and (a3, a4) into a temporary v9 under factor a6, then computes a per-lane coefficient 2.0 * (a6 - a6*a6) using the packed constant 0x4000000040000000 (two 2.0f floats, global qword_5AF908), and performs a final SIMDVectorNormalization of v8 and v9 into a1 with that coefficient. Flushes the MMX state with _m_femms before returning a1.",
+      "owner": "ThreeDNowVectorMath",
+      "evidence_refs": [
+        "function:0x0052179F",
+        "callee:0x005215DB",
+        "global:0x005AF908",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00521831",
+      "role": "3DNow! vector math helper: negates the packed float vector a2 (sign-bit flips via the packed constants at globals 0x005AF918 and 0x005AF9D0) and scales it by the reciprocal of its squared length. The squared length is accumulated with pfadd/pfmul and lane accumulation (pfacc), inverted with pfrcp plus a Newton-Raphson refinement (pfrcpit1/pfrcpit2), and gated by a threshold comparison (pfcmpgt against the packed constant 0x80000000800000 held in qword_5AF970) so near-zero vectors yield a zeroed output. Output written to a1 (this+0x0 and this+0x8); ends with _m_femms.",
+      "owner": "ThreeDNowVectorMath",
+      "evidence_refs": [
+        "function:0x00521831",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "global:0x005AF970",
+        "global:0x005AF918",
+        "global:0x005AF9D0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0052193C",
+      "role": "3DNow!/MMX vector normalization: loads the two packed input qwords (x/y and z), accumulates the squared length via pfmul/pfadd and pfacc, approximates and refines the reciprocal square root (pfrsqrt, pfrsqit1, pfrcpit2), forms a packed scale multiplier from the a1 scalar and the refined rsqrt value, calls PackedFloatingPointMath (0x005295E0), then guards whether the scaled magnitude exceeds the small threshold 0x3400000034000000 before applying the scale to the x/y and z components. Writes the normalized vector into a2 (this+0x0 and this+0x8) and returns a2. Reads the packed-qword globals 0x005AF938 and 0x005AF948 as math constants (contents not in packet).",
+      "owner": "ThreeDNowVectorMath",
+      "evidence_refs": [
+        "function:0x0052193C",
+        "callee:0x005295E0",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "global:0x005AF938",
+        "global:0x005AF948",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005261CE",
+      "role": "Stdcall 3DNow!-oriented wrapper that flushes MMX state (_m_femms), runs the core routine sub_525E9A(a1, a2, a3) (0x00525E9A), flushes MMX state again, and returns the destination pointer a1. The semantics of the wrapped routine (whether it performs a 4x4 matrix multiply) are outside this packet.",
+      "owner": "ThreeDNowMatrix4x4",
+      "evidence_refs": [
+        "function:0x005261CE",
+        "callee:0x00525E9A",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005262C2",
+      "role": "MMX/3DNow! 2-component vector normalizer: reads a packed pair at a2, squares both lanes, horizontally adds them (pfacc) into both lanes, computes a reciprocal square-root estimate (pfrsqrt), guards against a near-zero magnitude with a packed compare against the constant 0x80000000800000 (global qword_5AF970), refines the estimate with one Newton-Raphson step (pfrsqit1/pfrcpit2), and writes the masked normalized pair to a1 (this+0x0 and this+0x8). Exits MMX state with _m_femms on entry and before returning a1. Both callers (Media3DNowMathOperation 0x0052156F, SIMDQuaternionRotationArithmetic 0x00524553) use it to normalize a packed pair in place.",
+      "owner": "ThreeDNowVectorMath",
+      "evidence_refs": [
+        "function:0x005262C2",
+        "caller:0x0052156F",
+        "caller:0x00524553",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "global:0x005AF970",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005265DB",
+      "role": "3DNow/MMX packed-float routine combining two 4x4 matrices (a4 and a5) into output a3: eight packed-float output lanes built from punpck shuffles and pfadd/pfmul multiply-adds across the a5 lanes, then MMX state flushed with femms and the output pointer returned. Shared helper for quaternion composition, matrix blend and vector-transform callers (0x005267A7, 0x0052692F, 0x00526B55). The operand order of the matrix product (a4 x a5 versus a5 x a4) is unproven.",
+      "owner": "ThreeDNowMatrix4x4",
+      "evidence_refs": [
+        "function:0x005265DB",
+        "caller:0x005267A7",
+        "caller:0x0052692F",
+        "caller:0x00526B55",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "ChunkedArrayAllocator",
+      "responsibility": "Chunked pointer-index array allocator: allocates a 4-byte-per-entry pointer-index array and fills it by allocating elements/buffers in bulk chunks through the allocator pair MemoryAllocator (0x00515F23) and MemoryAllocatorWithAlignment (0x0051601F). The chunk size is capped by the allocator's 1,000,000,000-byte ceiling (0x3B9AC9F0 / stride) and stored at this+0x50; the base pointer is cached from this+0x4. Allocation failure writes constant 69 at obj+0x14 and dispatches the error handler through the object vtable at obj+0x0. The object class behind this+0x0 is not resolvable from this packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005160AD",
+        "0x0051613F"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000004", "name": "base_pointer", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004"]},
+        {"base": "this", "offset": "0x00000050", "name": "chunk_size", "type_guess": "int", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000050"]},
+        {"base": "obj", "offset": "0x00000000", "name": "vtable_ptr", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:obj:0x00000000"]},
+        {"base": "obj", "offset": "0x00000014", "name": "error_code", "type_guess": "int", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:obj:0x00000014"]}
+      ],
+      "evidence_refs": [
+        "function:0x005160AD",
+        "function:0x0051613F",
+        "callee:0x00515F23",
+        "callee:0x0051601F",
+        "caller:0x0051629F",
+        "field:this:0x00000004",
+        "field:this:0x00000050",
+        "field:obj:0x00000000",
+        "field:obj:0x00000014",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VectorMath",
+      "responsibility": "Scalar and SSE vector math helpers writing 3/4-float or __m128 outputs at a1 (this+0x0/+0x4/+0x8/+0xC): normalization with a zero-length guard and a table-based fast reciprocal-sqrt approximation (0x005176EC), threshold-gated normalizers with Newton-Raphson refined reciprocal square roots against the read-only globals in the 0x008D6000..0x008D6188 region (0x0051EDAE, 0x0051EE7E, 0x0052035E) and the 0x005D8BE0/0x005D8BF0 region (0x0051FC80), weighted blends/interpolations (0x0051EC00, 0x0051F5F0, 0x0051F650, 0x0051F700) and SSE cross-product-like vector routines applying sign-flip XOR masks (0x0051F0BE, 0x005207CE). Threshold and Newton-Raphson constant values are data-only and absent from the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005176EC",
+        "0x0051EC00",
+        "0x0051EDAE",
+        "0x0051EE7E",
+        "0x0051F0BE",
+        "0x0051F5F0",
+        "0x0051F650",
+        "0x0051F700",
+        "0x0051FC80",
+        "0x0052035E",
+        "0x005207CE"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "v0", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000004", "name": "v1", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000004"]},
+        {"base": "this", "offset": "0x00000008", "name": "v2", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000008"]},
+        {"base": "this", "offset": "0x0000000C", "name": "v3", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x0000000C"]}
+      ],
+      "evidence_refs": [
+        "function:0x005176EC",
+        "function:0x0051EC00",
+        "function:0x0051EDAE",
+        "function:0x0051EE7E",
+        "function:0x0051F0BE",
+        "function:0x0051F5F0",
+        "function:0x0051F650",
+        "function:0x0051F700",
+        "function:0x0051FC80",
+        "function:0x0052035E",
+        "function:0x005207CE",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "global:0x008D6000",
+        "global:0x008D6004",
+        "global:0x008D6008",
+        "global:0x008D600C",
+        "global:0x008D6010",
+        "global:0x008D6014",
+        "global:0x008D6180",
+        "global:0x008D6184",
+        "global:0x008D6188",
+        "global:0x005D8BE0",
+        "global:0x005D8BF0",
+        "global:0x005D8A20",
+        "global:0x005D8C20",
+        "global:0x008B00E0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SseMatrixMath",
+      "responsibility": "SSE matrix math: a 3x3 matrix multiply with packed multiplies and sign-flip XOR masks (0x0051FBF0, masks xmmword_8D6100/60F0/60E0) and a 4x4-matrix-by-4-vector multiply with an alignment dispatch (0x0052014E), both writing to the output buffer a1 (this+0x0, this+0x4). Row/column ordering and the concrete matrix representation are unresolved.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051FBF0",
+        "0x0052014E"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "m00", "type_guess": "float", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000004", "name": "m01", "type_guess": "float", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000004"]}
+      ],
+      "evidence_refs": [
+        "function:0x0051FBF0",
+        "function:0x0052014E",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "global:0x008D6100",
+        "global:0x008D60F0",
+        "global:0x008D60E0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ThreeDNowVectorMath",
+      "responsibility": "3DNow!/MMX packed-vector math helpers operating on 64-bit packed float pairs at this+0x0 and this+0x8: packed normalization with a shared tiny zero-length threshold (0x00520F69, 0x005262C2), conditional normalize with fallback constants (0x00520FC6), vector interpolation/slerp and blend (0x005215DB, 0x0052179F), negate-and-scale by inverse squared length (0x00521831) and scalar-scaled normalization (0x0052193C). All helpers emit _m_femms on entry/exit and read packed-qword constants in the 0x005AF8F0..0x005AF9E8 region whose values are not present in the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00520F69",
+        "0x00520FC6",
+        "0x005215DB",
+        "0x0052179F",
+        "0x00521831",
+        "0x0052193C",
+        "0x005262C2"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "packed_pair_lo", "type_guess": "__m64", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000008", "name": "packed_pair_hi", "type_guess": "__m64", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000008"]}
+      ],
+      "evidence_refs": [
+        "function:0x00520F69",
+        "function:0x00520FC6",
+        "function:0x005215DB",
+        "function:0x0052179F",
+        "function:0x00521831",
+        "function:0x0052193C",
+        "function:0x005262C2",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "global:0x005AF970",
+        "global:0x005AF8F0",
+        "global:0x005AF908",
+        "global:0x005AF918",
+        "global:0x005AF938",
+        "global:0x005AF948",
+        "global:0x005AF9D0",
+        "callee:0x00529000",
+        "callee:0x005295E0",
+        "callee:0x00528F00",
+        "callee:0x00529700",
+        "caller:0x00521712",
+        "caller:0x0052156F",
+        "caller:0x00524553",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ThreeDNowMatrix4x4",
+      "responsibility": "3DNow!/MMX 4x4 matrix helpers: a stdcall wrapper flushing MMX state around the core routine sub_525E9A (0x005261CE) and a packed-float 4x4 combination writing eight output lanes (0x005265DB), both bracketed by _m_femms. The concrete matrix layout equivalence to the scalar/SSE paths is not proven; the output base for 0x005265DB is the caller matrix a3. The wrapped routine 0x00525E9A is outside this packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005261CE",
+        "0x005265DB"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "slot0", "type_guess": "__m64", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000008", "name": "slot1", "type_guess": "__m64", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000008"]}
+      ],
+      "evidence_refs": [
+        "function:0x005261CE",
+        "function:0x005265DB",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "callee:0x00525E9A",
+        "caller:0x005267A7",
+        "caller:0x0052692F",
+        "caller:0x00526B55",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PaletteVectorQuantizer",
+      "responsibility": "Palette-owned nearest-neighbor color search: reads the palette entry count from this+0x70 and the palette structure pointer from this+0x74 (three per-channel byte component arrays at palette+0/+4/+8) and, given per-channel target values and tolerance bands, selects every entry whose out-of-band penalty is within the best in-band score, writing their byte indices to a caller buffer and returning the count. Invoked by BitstreamTextureBlockCopy (0x0051DB31).",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051D897"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000070", "name": "palette_entry_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000070"]},
+        {"base": "this", "offset": "0x00000074", "name": "palette_ptr", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000074"]},
+        {"base": "*(this+0x74)", "offset": "0x00000000", "name": "red_component_array", "type_guess": "byte_array", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0x74):0x00000000"]},
+        {"base": "*(this+0x74)", "offset": "0x00000004", "name": "green_component_array", "type_guess": "byte_array", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0x74):0x00000004"]},
+        {"base": "*(this+0x74)", "offset": "0x00000008", "name": "blue_component_array", "type_guess": "byte_array", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0x74):0x00000008"]}
+      ],
+      "evidence_refs": [
+        "function:0x0051D897",
+        "caller:0x0051DB31",
+        "field:this:0x00000070",
+        "field:this:0x00000074",
+        "field:*(this+0x74):0x00000000",
+        "field:*(this+0x74):0x00000004",
+        "field:*(this+0x74):0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VirtualObjectArray",
+      "responsibility": "Object holding an array of virtual objects created through a vtable dispatch: element count at this+0x64, a size argument computed from this+0x5C, a vtable pointer at this+0x4 (method slot +4) and an output buffer base at this+0x1A4. Each element is produced by calling the vtable method with (a1, 1, size) and stored into the buffer at base+68 advancing one DWORD per iteration. The invoked vtable method and the class owning the metadata are unknown.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051EA5A"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000004", "name": "vtable_ptr", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004"]},
+        {"base": "this", "offset": "0x0000005C", "name": "size_arg_factor", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000005C"]},
+        {"base": "this", "offset": "0x00000064", "name": "element_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000064"]},
+        {"base": "this", "offset": "0x000001A4", "name": "output_buffer_ptr", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001A4"]}
+      ],
+      "evidence_refs": [
+        "function:0x0051EA5A",
+        "caller:0x0051EA90",
+        "caller:0x0051EB6E",
+        "guard:0",
+        "field:this:0x00000004",
+        "field:this:0x0000005C",
+        "field:this:0x00000064",
+        "field:this:0x000001A4",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ByteArrayPackingUtility",
+      "responsibility": "Big-endian byte-to-integer packing utility: assembles the four unsigned bytes at this+0x0..0x3 into a single 32-bit integer. No calls, guards, or globals; a pure leaf utility.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00517F35"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "byte0", "type_guess": "byte", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000"]},
+        {"base": "this", "offset": "0x00000001", "name": "byte1", "type_guess": "byte", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000001"]},
+        {"base": "this", "offset": "0x00000002", "name": "byte2", "type_guess": "byte", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000002"]},
+        {"base": "this", "offset": "0x00000003", "name": "byte3", "type_guess": "byte", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000003"]}
+      ],
+      "evidence_refs": [
+        "function:0x00517F35",
+        "field:this:0x00000000",
+        "field:this:0x00000001",
+        "field:this:0x00000002",
+        "field:this:0x00000003",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "Mmx3DNowStateLifetime",
+      "owner": "ThreeDNowVectorMath",
+      "states": ["x87_clean", "mmx_compute", "x87_restored"],
+      "transitions": [
+        {"from": "x87_clean", "to": "mmx_compute", "condition": "enter: _m_femms() clears MMX/3DNow state before the packed-float math"},
+        {"from": "mmx_compute", "to": "x87_restored", "condition": "exit: _m_femms() restores x87/SSE-usable state before return"}
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00520F69",
+        "function:0x00520FC6",
+        "function:0x005215DB",
+        "function:0x0052179F",
+        "function:0x00521831",
+        "function:0x0052193C",
+        "function:0x005261CE",
+        "function:0x005262C2",
+        "function:0x005265DB",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PackedNormalizeZeroGuard",
+      "owner": "ThreeDNowVectorMath",
+      "states": ["normalize", "zero_masked"],
+      "transitions": [
+        {"from": "normalize", "to": "zero_masked", "condition": "squared length at or below the tiny threshold 0x80000000800000 (pfcmpgt/pfcmpge yields an all-zero mask and the AND masks the output to zero, avoiding division by a near-zero length)"},
+        {"from": "zero_masked", "to": "normalize", "condition": "squared length above the threshold on a later call"}
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00520F69",
+        "function:0x00520FC6",
+        "function:0x00521831",
+        "function:0x005262C2",
+        "global:0x005AF970",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "ChunkedAllocation",
+      "purpose": "Allocate a 4-byte-per-entry pointer-index array and fill it by bulk-chunk allocation, capping the chunk size at min(0x3B9AC9F0 / stride, a4), storing it at this+0x50, and capping the final chunk to the remaining count; on a stride exceeding the allocation ceiling, write constant 69 at obj+0x14 and dispatch the error handler through the object vtable at obj+0x0.",
+      "functions": ["0x005160AD", "0x0051613F"],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x005160AD",
+        "function:0x0051613F",
+        "callee:0x00515F23",
+        "callee:0x0051601F",
+        "field:this:0x00000050",
+        "field:obj:0x00000014",
+        "field:obj:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VectorNormalization",
+      "purpose": "Normalize 3/4-component float vectors: compute the squared length, zero-guard, then scale by a reciprocal square root (Newton-Raphson refined in 0x0051EDAE/0x0051EE7E/0x0051FC80/0x0052035E, table-based approximation in 0x005176EC); threshold-gated variants write an all-zero output below the threshold, 0x0051FC80 normalizes unconditionally.",
+      "functions": ["0x005176EC", "0x0051EDAE", "0x0051EE7E", "0x0051FC80", "0x0052035E"],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x005176EC",
+        "function:0x0051EDAE",
+        "function:0x0051EE7E",
+        "function:0x0051FC80",
+        "function:0x0052035E",
+        "global:0x008D6000",
+        "global:0x008D600C",
+        "global:0x008D6180",
+        "global:0x005D8BE0",
+        "global:0x005D8BF0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VectorBlendInterpolation",
+      "purpose": "Weighted vector combinations/interpolations computed as base + scale1*(sample1-base) + scale2*(sample2-base) in packed lanes: 3-float variant (0x0051F5F0), 4-float variant (0x0051F650), a two-term weighted combination with an additive term (0x0051EC00), and a version refining its scalar with a Newton-Raphson reciprocal step and guarding on the dword_8B00E0 zero sentinel (0x0051F700).",
+      "functions": ["0x0051EC00", "0x0051F5F0", "0x0051F650", "0x0051F700"],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051EC00",
+        "function:0x0051F5F0",
+        "function:0x0051F650",
+        "function:0x0051F700",
+        "global:0x008B00E0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SseCrossProduct",
+      "purpose": "SSE cross-product-like vector routines built from load/shuffle/multiply/subtract/add sequences with sign-flip XOR masks (xmmword_5D8A20 for 0x0051F0BE, xmmword_5D8C20 for 0x005207CE), storing the __m128 result at a1.",
+      "functions": ["0x0051F0BE", "0x005207CE"],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051F0BE",
+        "function:0x005207CE",
+        "global:0x005D8A20",
+        "global:0x005D8C20",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SseMatrixMathInterface",
+      "purpose": "SSE matrix math primitives: a 3x3 matrix multiply with sign-flip XOR masks (0x0051FBF0) and a 4x4-matrix-by-4-vector multiply dispatching on matrix alignment (0x0052014E).",
+      "functions": ["0x0051FBF0", "0x0052014E"],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051FBF0",
+        "function:0x0052014E",
+        "global:0x008D6100",
+        "global:0x008D60F0",
+        "global:0x008D60E0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ThreeDNowPackedVectorMath",
+      "purpose": "3DNow!/MMX packed-float vector math: normalization with a shared tiny zero-length threshold 0x80000000800000 (0x00520F69, 0x005262C2), conditional normalize with fallback outputs (0x00520FC6), vector interpolation/slerp with sin-based weights and a ~0.9999 |dot| branch (0x005215DB) and its two-stage blend wrapper (0x0052179F), negate-and-scale-by-inverse-squared-length (0x00521831) and scalar-scaled normalization (0x0052193C). All helpers bracket with _m_femms and read packed-qword constants in the 0x005AF8F0..0x005AF9E8 region.",
+      "functions": ["0x00520F69", "0x00520FC6", "0x005215DB", "0x0052179F", "0x00521831", "0x0052193C", "0x005262C2"],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00520F69",
+        "function:0x00520FC6",
+        "function:0x005215DB",
+        "function:0x0052179F",
+        "function:0x00521831",
+        "function:0x0052193C",
+        "function:0x005262C2",
+        "global:0x005AF970",
+        "global:0x005AF8F0",
+        "global:0x005AF908",
+        "global:0x005AF918",
+        "global:0x005AF938",
+        "global:0x005AF948",
+        "global:0x005AF9D0",
+        "callee:0x00528F00",
+        "callee:0x00529700",
+        "callee:0x00529000",
+        "callee:0x005295E0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ThreeDNowMatrixMath",
+      "purpose": "3DNow!/MMX 4x4 matrix math: an MMX-flushed stdcall wrapper around a core routine (0x005261CE wrapping 0x00525E9A) and a packed-float 4x4 combination writing eight output lanes (0x005265DB), both bracketed by _m_femms.",
+      "functions": ["0x005261CE", "0x005265DB"],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x005261CE",
+        "function:0x005265DB",
+        "callee:0x00525E9A",
+        "caller:0x005267A7",
+        "caller:0x0052692F",
+        "caller:0x00526B55",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {"from": "0x005160AD", "to": "0x00515F23", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00515F23", "function:0x005160AD"]},
+    {"from": "0x005160AD", "to": "0x0051601F", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0051601F", "function:0x005160AD"]},
+    {"from": "0x0051613F", "to": "0x00515F23", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00515F23", "function:0x0051613F"]},
+    {"from": "0x0051613F", "to": "0x0051601F", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x0051601F", "function:0x0051613F"]},
+    {"from": "0x0051613F", "to": "0x005160AD", "kind": "structural_twin", "trust": "GUESS", "evidence_refs": ["function:0x0051613F", "function:0x005160AD"]},
+    {"from": "0x0052179F", "to": "0x005215DB", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x005215DB", "function:0x0052179F"]},
+    {"from": "0x005215DB", "to": "0x00528F00", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00528F00", "function:0x005215DB"]},
+    {"from": "0x005215DB", "to": "0x00529700", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00529700", "function:0x005215DB"]},
+    {"from": "0x005261CE", "to": "0x00525E9A", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00525E9A", "function:0x005261CE"]},
+    {"from": "0x00520FC6", "to": "0x00529000", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x00529000", "function:0x00520FC6"]},
+    {"from": "0x0052193C", "to": "0x005295E0", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["callee:0x005295E0", "function:0x0052193C"]},
+    {"from": "0x0051629F", "to": "0x005160AD", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x0051629F"]},
+    {"from": "0x0051629F", "to": "0x0051613F", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x0051629F"]},
+    {"from": "0x0051DB31", "to": "0x0051D897", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x0051DB31"]},
+    {"from": "0x0051EA90", "to": "0x0051EA5A", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x0051EA90"]},
+    {"from": "0x0051EB6E", "to": "0x0051EA5A", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x0051EB6E"]},
+    {"from": "0x00521712", "to": "0x005215DB", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x00521712"]},
+    {"from": "0x0052156F", "to": "0x005262C2", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x0052156F"]},
+    {"from": "0x00524553", "to": "0x005262C2", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x00524553"]},
+    {"from": "0x005267A7", "to": "0x005265DB", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x005267A7"]},
+    {"from": "0x0052692F", "to": "0x005265DB", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x0052692F"]},
+    {"from": "0x00526B55", "to": "0x005265DB", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["caller:0x00526B55"]},
+    {"from": "0x005262C2", "to": "0x00520F69", "kind": "structural_twin", "trust": "GUESS", "evidence_refs": ["function:0x005262C2", "function:0x00520F69"]},
+    {"from": "0x00520F69", "to": "0x005262C2", "kind": "shared_state", "trust": "DERIVED", "evidence_refs": ["global:0x005AF970", "function:0x00520F69", "function:0x005262C2"]},
+    {"from": "0x00520FC6", "to": "0x00521831", "kind": "shared_state", "trust": "DERIVED", "evidence_refs": ["global:0x005AF970", "function:0x00520FC6", "function:0x00521831"]}
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "ChunkedAllocatorErrorConvention",
+      "category": "behavioral",
+      "description": "When the per-element/buffer size exceeds the allocator's 1,000,000,000-byte ceiling (0x3B9AC9F0 / stride <= 0), the chunked allocators write constant 69 at obj+0x14 and dispatch the error handler through the object vtable at obj+0x0, passing a1; the call produces no chunk. The error-code and vtable-dispatch convention is shared by the element and buffer variants.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x005160AD", "function:0x0051613F", "field:obj:0x00000014", "field:obj:0x00000000", "source:raw"]
+    },
+    {
+      "name": "ChunkedAllocatorLayoutContract",
+      "category": "behavioral",
+      "description": "The pointer-index array holds a4 entries of 4 bytes each; each chunk holds v5 = min(0x3B9AC9F0 / stride, a4) elements of a3 bytes (element variant) or a3*128-byte buffers with 32*a3 advance (buffer variant); the computed chunk size is stored at this+0x50 (base pointer cached from this+0x4) and the final chunk is capped to the remaining count.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x005160AD", "function:0x0051613F", "field:this:0x00000050", "field:this:0x00000004", "callee:0x00515F23", "callee:0x0051601F"]
+    },
+    {
+      "name": "ThresholdNormalizeZeroContract",
+      "category": "behavioral",
+      "description": "Threshold-gated vector normalizers (0x0051EDAE, 0x0051EE7E, 0x0052035E) must write an all-zero output when the squared length is below the threshold global and scale by the Newton-Raphson refined reciprocal square root otherwise; the threshold/coefficient globals (0x008D6000..0x008D6188) are read-only process constants a replacement must preserve.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x0051EDAE", "function:0x0051EE7E", "function:0x0052035E", "global:0x008D6000", "global:0x008D600C", "global:0x008D6180", "source:raw"]
+    },
+    {
+      "name": "ThreeDNowZeroLengthGuardContract",
+      "category": "behavioral",
+      "description": "3DNow/MMX packed normalizers must treat squared lengths at or below the tiny threshold 0x80000000800000 as zero and AND-mask the output to zero so a division by a near-zero length is avoided; the threshold constant is shared across 0x00520F69, 0x00520FC6, 0x00521831 and 0x005262C2 (its association with global 0x005AF970 is DERIVED).",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x00520F69", "function:0x00520FC6", "function:0x00521831", "function:0x005262C2", "global:0x005AF970", "source:raw"]
+    },
+    {
+      "name": "ThreeDNowStateDisciplineContract",
+      "category": "behavioral",
+      "description": "3DNow/MMX helpers must emit _m_femms on entry and before return so x87/SSE code that runs after a call is not left in MMX mode; a pure stdcall wrapper (0x005261CE) may bracket the whole call, while leaf helpers (0x005215DB, 0x00520FC6, 0x00521831, 0x0052193C, 0x005262C2) flush around their own body.",
+      "trust": "GUESS",
+      "evidence_refs": ["function:0x00520F69", "function:0x00520FC6", "function:0x005215DB", "function:0x00521831", "function:0x0052193C", "function:0x005261CE", "function:0x005262C2", "function:0x005265DB", "source:raw"]
+    },
+    {
+      "name": "SlerpBranchThresholdContract",
+      "category": "behavioral",
+      "description": "VectorSlerpInterpolate (0x005215DB) uses sin-based blend weights while |dot| stays below the near-parallel threshold ~0.9999 (literal 0x3F7FFF58) and the simple (1-t, t) weights otherwise; the parameter t is folded into 64-bit lanes via cvtsi32_si64. The two-stage blend 0x0052179F combines pair-wise intermediates with a 2.0*(a6 - a6*a6) coefficient.",
+      "trust": "GUESS",
+      "evidence_refs": ["function:0x005215DB", "function:0x0052179F", "global:0x005AF908", "source:raw"]
+    },
+    {
+      "name": "PaletteNearestNeighborSelectionContract",
+      "category": "behavioral",
+      "description": "The nearest-neighbor palette search reads the entry count from this+0x70 and the component-array structure pointer from this+0x74 (three byte arrays at palette+0/+4/+8); the output buffer receives the byte index of every palette entry whose out-of-band penalty is <= the best in-band score, and the function returns the count written.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x0051D897", "field:this:0x00000070", "field:this:0x00000074", "field:*(this+0x74):0x00000000", "field:*(this+0x74):0x00000004", "field:*(this+0x74):0x00000008"]
+    }
+  ],
+  "unresolved": [
+    "The heap-manager hierarchy behind the chunked allocators (the object at this+0x0 with the vtable dispatch on error and the obj+0x14 constant-69 convention) is not resolvable from this packet.",
+    "The 128-byte unit multiplier (a3 << 7, 32*a3 advance) in the buffer variant 0x0051613F is only evidence of buffer granularity; the concrete buffer type and the caller's (0x0051629F) use of the returned pointer-index arrays are not determined.",
+    "The 'this' base conflates distinct pointers across these functions (output buffers a1/a2/a3, input vector pointers, heap-manager objects, palette/array owners); the proposed field-to-parameter assignments are DERIVED from the raw source indexing, not proven by fact tables alone.",
+    "The fast path of 0x005176EC uses a table-based reciprocal-square-root approximation (table address 5D79E0h, magic constants 0x3727C5AC, 0x3F000000, -1090519041) whose numeric accuracy and edge-case behavior are only verifiable at runtime; the legacy ABI name Vector_Normalize is uncorroborated by an owner or caller.",
+    "Exact per-channel weighting (4 red / 9 green / 1 blue) and tolerance bands (24/28/24) in 0x0051D897 are decompiler artifacts of un-simplified products; the selection rule compares each entry's out-of-band penalty against the best in-band score, whose semantic is not fully confirmed.",
+    "The vtable method invoked by 0x0051EA5A (slot +4 at this+0x4) is unknown; the store offset +68 within the output buffer has no independent evidence ref; the return value is undefined when the element count this+0x64 <= 0.",
+    "The semantic purpose of the weighted combination in 0x0051EC00 (matrices vs quaternions vs blend weights) is unknown; the packet prelabel linking it as a structural twin of FloatClamp (0x004646C0) is DERIVED and not relied on.",
+    "Newton-Raphson coefficients and thresholds (globals 0x008D6000..0x008D6188, 0x005D8BE0/0x005D8BF0, 0x008B00E0, and the packed-qword region 0x005AF8F0..0x005AF9E8) are data-only; their runtime values are not present in the packet, and several flagged globals (0x005AF938/948/988/9D0/9E8) do not appear by name in the raw decompiled text.",
+    "SSE sign-flip/permutation masks (xmmword_5D8A20, xmmword_5D8C20, xmmword_8D60E0/60F0/6100) are read as constants but their byte values are not in the packet; cross-product vs 3x3-matrix-product semantics of 0x0051F0BE and the right-hand-rule sign convention of 0x005207CE rest on canonical names, not proven.",
+    "Row/column ordering of the matrix operands (0x0051FBF0, 0x0052014E, 0x005265DB) and whether W participates in the squared length of the 4-component normalizers (it does not in 0x0051EE7E, only in scaling) are unresolved.",
+    "The exact contributions of callees 0x00528F00 (F_3DVectorNormalize_8f00), 0x00529700 (sub_529700, called twice) and 0x005295E0 (PackedFloatingPointMath) to the 3DNow interpolation/normalization formulas are not visible in this packet; the semantics of the wrapped core 0x00525E9A are outside this packet.",
+    "Whether the packed 3DNow pairs represent 2D, 3D or 4D quantities, whether a3 may alias a4/a5 in 0x005265DB, and whether the vector-helpers' output buffers may alias their inputs are not determined by these functions alone.",
+    "The meaning of the a3 scaled-component output of 0x00520FC6 and the a1 high-lane scalar in 0x0052193C (unit normalization vs scale-to-target-magnitude) are caller-level conventions not evidenced here.",
+    "The register-passed __m128 values a1 and a2 of 0x0051F700 are consumed only as movehl sources; their required contents and the exact lane algebra of its two horizontal reductions are not pinned."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x000001E8",
+    "global:0x005AF988",
+    "global:0x005AF9E8",
+    "abi:lead"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

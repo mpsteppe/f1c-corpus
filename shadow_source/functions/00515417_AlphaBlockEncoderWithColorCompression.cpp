@@ -1,0 +1,98 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00515417
+// Canonical corpus name: sub_515417
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_515417_00515417.c
+
+void UnknownObject::AlphaBlockEncoderWithColorCompression()
+{
+    // Encode the alpha channel of one 4x4 texture block with 3-bit selectors and error diffusion, delegating the color-channel half to TextureFilterAndLayerCompositing. First pass quantizes 16 float alphas to bytes (value*255.0+0.5, truncated) then back to float via the byte-to-float scale global, storing them in a 16-entry array while tracking the running maximum and last value. ColorQuantization derives optimal alpha min/max bounds; from those endpoints a 7-step (8-level mode) or 5-step (6-level mode) linear interpolation palette is built. Second pass maps each alpha to its nearest palette index, packs 3-bit selectors MSB-first into 48-bit output, applies the same error diffusion weights, and writes the packed selector bytes plus a small header. Fully-opaque (last alpha 1.0) and single-alpha (equal endpoints) blocks take short paths that write marker bytes and skip selector encoding. FPU rounding is switched to the quantization mode via FPUControlWordMerger around the conversion math; the prior control word is kept in the global dword_8B00A0 and restored before returning. Not on the frame path; sole static caller is InitProcessWrapper (005158e3).
+    // CALL: Call FPUControlWordMerger to set the FPU rounding mode used by the byte quantization. [callee:0x00513E5D, source:raw]
+    // ASSIGNMENT: Zero the 16-entry error-diffusion buffer and load the first input alpha float (pixel data at a2+12) into the running alpha state. [source:raw]
+    // LOOP: First 16-pixel pass: sum each error-diffused alpha, quantize to a byte (value*255.0+0.5 truncated to int), scale it back to float with the byte-to-float scale global, and store it in the quantized-alpha array; update the running maximum and last value. [global:0x005AD210, source:raw]
+    // LOOP: Error diffusion: distribute each quantization error to the right neighbor slot (weight 0.4375) and the next-row slots (weights 0.1875, 0.3125, 0.0625), skipping the writes that would cross a 4-column row boundary. [source:raw]
+    // ASSIGNMENT: Save the current FPU control word from the global dword_8B00A0 before entering the color-compression call. [global:0x008B00A0, source:raw]
+    // CALL: Delegate the color-channel block compression to TextureFilterAndLayerCompositing on the input pixel data with the color output at output+8; if it returns a negative result, propagate that error as this function's return (consumed by caller InitProcessWrapper). [callee:0x005147EA, caller:0x005158E3, source:raw]
+    // GUARD: If the last alpha value equals 1.0 (fully opaque block), write the opaque marker bytes (255, 255) followed by a zero terminator word and return 0, skipping selector encoding. [source:raw]
+    // GUARD: If the block is fully transparent (last alpha 0.0) or fully opaque (maximum alpha 1.0), select the 6-level alpha encoding path; otherwise select the 8-level path. [source:raw]
+    // CALL: Call ColorQuantization to derive the optimal alpha min/max bounds over the 16 quantized alphas. [callee:0x00513F7A, source:raw]
+    // CALL: Call FPUControlWordMerger again to restore the quantization rounding mode after ColorQuantization. [callee:0x00513E5D, source:raw]
+    // CALCULATION: Convert both alpha bounds to bytes (value*255.0+0.5 truncated) and back to float via the byte-to-float scale global, producing the palette endpoints alpha0 and alpha1. [global:0x005AD210, source:raw]
+    // GUARD: In 8-level mode, if the two endpoints are byte-equal (single unique alpha in the block), write the equal reference bytes and a zero terminator word, then return 0. [source:raw]
+    // LOOP: 8-level mode: build the 7 interior palette steps by linearly interpolating between the endpoints (step weight 0.14285715). [source:raw]
+    // LOOP: 6-level mode: build the 5 interior palette steps (step weight 0.2) and record the 0.0/1.0 bound pair. [source:raw]
+    // ASSIGNMENT: Bind the selector lookup table: unk_5AF640 for 8-level mode, unk_5AF660 for 6-level mode. [global:0x005AF640, global:0x005AF660, source:raw]
+    // CALCULATION: Compute the palette step factor as (level count minus one) divided by (alpha1 minus alpha0); used to map a quantized alpha to a palette index. [source:raw]
+    // LOOP: Second 16-pixel pass (two 8-pixel groups): reset the error-diffusion buffer, map each quantized alpha to the nearest palette entry (selector index, with special end handling when in 6-level mode), pack 3-bit selectors MSB-first into a DWORD accumulator (selector shifted up 21 bits OR accumulator shifted down 3), apply the same 0.4375/0.1875/0.3125/0.0625 error diffusion, and write each group's packed selector bytes (word plus high byte) to the output block. [source:raw]
+    // RETURN: Restore the FPU control word from the global dword_8B00A0 and return 0. [global:0x008B00A0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int AlphaBlockEncoderWithColorCompression(float out_as_arg, int pixels) {
+    //     out = (int)out_as_arg; // output block pointer
+    //     FPUControlWordMerger();
+    //     memset(errbuf, 0, 64);
+    //     last = alpha[pixels+12]; maxa = last;
+    //     for (i = 0; i < 16; ++i) {
+    //       raw = errbuf[i] + alpha[pixels + 12 + 4*i];
+    //       q = (int)(raw * 255.0 + 0.5);
+    //       qf = q * 0.0039215689;
+    //       quants[i] = qf;
+    //       maxa = max(maxa, qf); last = qf;
+    //       err = raw - qf;
+    //       if ((i & 3) != 3) errbuf[i+1] += 0.4375 * err;
+    //       if (i < 12) {
+    //         if ((i & 3) != 0) errbuf[i+3] += 0.1875 * err;
+    //         errbuf[i+4] += 0.3125 * err;
+    //         if ((i & 3) != 3) errbuf[i+5] += 0.0625 * err;
+    //       }
+    //     }
+    //     saved_fpu = dword_8B00A0;
+    //     r = TextureFilterAndLayerCompositing(pixels, out + 8, 0);
+    //     if (r < 0) return r;
+    //     if (last == 1.0) { *(BYTE*)out = 255; *(BYTE*)(out+1) = 255; *(DWORD*)(out+2) = 0; *(WORD*)(out+6) = 0; return 0; }
+    //     levels = (last == 0.0 || maxa == 1.0) ? 6 : 8;
+    //     ColorQuantization(&minv, &maxv, quants, levels);
+    //     FPUControlWordMerger();
+    //     lo = (int)(minv * 255.0 + 0.5); hi = (int)(maxv * 255.0 + 0.5);
+    //     a0 = (float)((BYTE)lo) * 0.0039215689; a1 = (float)((BYTE)hi) * 0.0039215689;
+    //     if (levels == 8) {
+    //       if ((BYTE)lo == (BYTE)hi) { *(BYTE*)out = (BYTE)lo; *(BYTE*)(out+1) = (BYTE)hi; *(DWORD*)(out+2) = 0; *(WORD*)(out+6) = 0; return 0; }
+    //       *(BYTE*)(out+1) = (BYTE)lo; *(BYTE*)out = (BYTE)hi;
+    //       for (j = 1; j < 7; ++j) pal[j] = ((7 - j) * a0 + j * a1) * 0.14285715;
+    //       table = unk_5AF640;
+    //     } else {
+    //       *(BYTE*)out = (BYTE)lo; *(BYTE*)(out+1) = (BYTE)hi;
+    //       for (j = 1; j < 5; ++j) pal[j] = ((5 - j) * a0 + j * a1) * 0.2;
+    //       table = unk_5AF660;
+    //     }
+    //     step = (levels - 1) / (a1 - a0);
+    //     memset(errbuf, 0, 64);
+    //     for (g = 0; g < 16; g += 8) {
+    //       acc = 0;
+    //       for (k = g; k < g + 8; ++k) {
+    //         val = errbuf[k] + alpha[pixels + 12 + 4*k];
+    //         t = (val - a0) * step;
+    //         if (t <= 0.0) idx = (levels == 6 && a0 * 0.5 >= val) ? 6 : 0;
+    //         else if (t < levels - 1) idx = table[(int)(t + 0.5)];
+    //         else idx = (levels == 6 && (a1 + 1.0) * 0.5 <= val) ? 7 : 1;
+    //         err = val - pal[idx];
+    //         acc = (idx << 21) | (acc >> 3);
+    //         if ((k & 3) != 3) errbuf[k+1] += 0.4375 * err;
+    //         if (k < 12) {
+    //           if ((k & 3) != 0) errbuf[k+3] += 0.1875 * err;
+    //           errbuf[k+4] += 0.3125 * err;
+    //           if ((k & 3) != 3) errbuf[k+5] += 0.0625 * err;
+    //         }
+    //       }
+    //       *(WORD*)(out+3+g/2) = acc & 0xFFFF;
+    //       *(BYTE*)(out+5+g/2) = (acc >> 16) & 0xFF;
+    //     }
+    //     dword_8B00A0 = saved_fpu;
+    //     return 0;
+    //   }
+    // UNRESOLVED: The 11 additional float globals read per deterministic facts (0x0059E43C, 0x0059E440, 0x0059E450, 0x0059E460, 0x0059E7E8, 0x0059E9E0, 0x0059FEC8, 0x005ADB14, 0x005AF634, 0x005AF638, 0x005AF63C) have roles not established by the packet. They are plausibly the FPU immediates inlined as decimal literals in the decompilation (255.0, 0.5, 0.4375, 0.1875, 0.3125, 0.0625, 0.14285715, 0.2, 0.0039215689), but the exact global-to-constant assignment is not verified.
+    // UNRESOLVED: The precise on-disk encoding layout (meaning of the 3-bit selector packing and of the unk_5AF640 / unk_5AF660 lookup tables) is inferred from the packing math in the raw source, not confirmed by an independent source.
+    // UNRESOLVED: Argument a1 is typed float but is reused as a pointer to the output block through its low dword; the real signature is a decompiler artifact and the true parameter count is uncertain.
+    // UNRESOLVED: The color-channel compression performed by TextureFilterAndLayerCompositing is only treated as a delegated black box here; its output layout and contract live in that callee's own reconstruction.
+    // UNRESOLVED: Sole static caller is InitProcessWrapper (005158e3) and no frame-path from the tick root was found; how the block encoder is reached at runtime (texture upload path) is not established.
+}

@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "address": "0x004423B0",
+  "proposed_name": "PhysicsWheelGroundContactStep",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004423B0"]
+  },
+  "summary": "Per-frame wheel ground-contact physics step: computes per-wheel track grip (either a uniform copy or a position-projected 1D-table lookup), queries the spatial grid for the body ground plane, generates collision contacts and friction response for 4 wheels, resolves ground penetration into angular-momentum impulses plus a per-frame impact packet, and optionally applies a per-wheel contact impulse loop gated by a suspension flag.",
+  "local_names": {
+    "this": "vehicle physics object: body transform pointer 0x15F0, wheel contact arrays 0x1660/0x1668, hit-result pointer array 0x16E0, penetration array 0x16F0, grip array 0x4FC, physics-state container pointer 0x1F00, spatial-grid query results 0x1904..0x1928",
+    "v53": "projected lateral-bias value used by the per-wheel grip lookup",
+    "v77_v83": "SpatialGridQuery input struct assembled from body world position plus constant double bit patterns",
+    "v56": "spatial-grid hit object: reads surface fields at +20/+24/+36/+44",
+    "v64": "impulse scalar = -385000*penetration - 17500*slip term",
+    "v57": "clamped contact strength (capped at 1.0)",
+    "v36": "clamped contact distance (capped at 2.0)",
+    "result": "suspension flag byte at this+0x1724 that gates the final impulse loop"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Branch on the float constants flt_8AFEEC and flt_8AFEE8: when equal, fill all wheel grips with the uniform value; otherwise compute a per-wheel projected grip.",
+      "evidence_refs": ["global:0x008AFEEC", "global:0x008AFEE8", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Uniform-grip path: fill the 4 wheel grip doubles at this+0x4FC (8-byte slots, 1124-byte stride) with flt_8AFEE8.",
+      "evidence_refs": ["global:0x008AFEE8", "field:this:0x000004FC", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-wheel grip path: for each of 4 wheels, sample wheel state via PositionChangeMonitor on *(this+0x1F00)+12, compute the absolute lateral deviation (dot product of wheel position against the lookup basis minus the projected bias), pass it through F_1DTableLookupWithLerp and store the absolute value into the grip slot at this+0x4FC.",
+      "evidence_refs": ["callee:0x004E9630", "callee:0x004FD7E0", "field:this:0x000004FC", "field:this:0x00001F00", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Body ground-query path is gated by the contact-active pointer at *(this+0x1F00)+0xCD4 being non-null together with the post-processing flag byte at +0xD14 being set.",
+      "evidence_refs": ["field:*(this+0x1F00):0x00000CD4", "field:*(this+0x1F00):0x00000D14", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Ground-query path: Matrix3x3VectorMultiply(body rotation at *(this+0x15F0)+0x1C, world position input, output at this+0x1918) rotates the body position into world space.",
+      "evidence_refs": ["callee:0x00435E00", "field:this:0x000015F0", "field:*(this+0x15F0):0x0000001C", "field:this:0x00001918", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Assemble the body query vector (v58/v59/v60) from world-position doubles at this+0x1918/0x1920/0x1928 offset by the body-origin translation at *(this+0x15F0)+0x4 and a 0.15 raise, then build the SpatialGridQuery input struct v77..v83 carrying the constant double bit patterns 1717986918, 1071015526, 0x40000000, 1201543096.",
+      "evidence_refs": ["field:this:0x00001918", "field:this:0x00001920", "field:this:0x00001928", "field:*(this+0x15F0):0x00000004", "field:this:0x000015F0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Ground-query path: SpatialGridQuery(&v77) queries the spatial grid; the returned surface pointer is stored to this+0x1904.",
+      "evidence_refs": ["callee:0x0044C4C0", "field:this:0x00001904", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On a ground hit store the ground height this+0x1908 = v59 - v84; otherwise fall back to this+0x1908 = this+0x1910 and this+0x190C = this+0x1914.",
+      "evidence_refs": ["field:this:0x00001908", "field:this:0x0000190C", "field:this:0x00001910", "field:this:0x00001914", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For each of 4 wheels: CollisionContactGenerationAndFrictionResponse on the wheel contact struct at this+0x28C (1124-byte stride) with the per-frame time step double at this+0x60.",
+      "evidence_refs": ["callee:0x00436870", "field:this:0x00000060", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Wheel contact loop: for each of 4 wheels, TransformApply3D(body rotation at *(this+0x15F0)+0x1C, body origin at +0x4, wheel contact point array this+0x1660, output &v58), then run SpatialGridQuery and store the returned surface pointer into the wheel hit-result pointer array at this+0x16E0.",
+      "evidence_refs": ["callee:0x0043AEE0", "callee:0x0044C4C0", "field:this:0x00001660", "field:this:0x000016E0", "field:this:0x000015F0", "field:*(this+0x15F0):0x0000001C", "field:*(this+0x15F0):0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the per-wheel ground separation double into the penetration array at this+0x16F0; when dword_7CE958 (tire-model mode flag) is set, the value is biased by 0.01.",
+      "evidence_refs": ["field:this:0x000016F0", "global:0x007CE958", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the computed separation at this+0x16F0 is negative (wheel penetrating the ground): set the ground-contact flag byte at this+0x1718 to 1, build the penetration vector from the wheel contact point (this+0x1660 world position) minus the body position, derive the contact plane normal from the hit-result surface array at this+0x16E0, and compute the impulse scalar v64 = -385000*separation - 17500*slip term.",
+      "evidence_refs": ["field:this:0x000016F0", "field:this:0x00001718", "field:this:0x000016E0", "field:this:0x00001660", "field:*(this+0x16E0):0x00000000", "field:*(this+0x16E0):0x00000008", "field:*(this+0x16E0):0x00000010", "field:*(this+0x16E0):0x00000018", "field:*(this+0x16E0):0x00000020", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "AccumulateAngularMomentum(&v74, v92) applies the ground-contact angular-momentum impulse at the wheel contact point.",
+      "evidence_refs": ["callee:0x00569AD0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the impulse v64 exceeds the previous maximum at this+0x171C and the hit surface allows impulse recording (byte at hit+44): update this+0x171C = v64, compute a clamped strength v57 (capped at 1.0) and a clamped distance v36 (capped at 2.0), and write the contact packet into the physics-state container: magnitude compared against *(this+0x1F00)+0xB0, strength and response written to +0xB8/+0xBC, and the wheel world position to +0xC0.",
+      "evidence_refs": ["field:this:0x0000171C", "field:*(this+0x1F00):0x000000B0", "field:*(this+0x1F00):0x000000B8", "field:*(this+0x1F00):0x000000BC", "field:*(this+0x1F00):0x000000C0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "The final per-wheel contact impulse loop runs only when the suspension/contact flag byte at this+0x1724 is non-zero.",
+      "evidence_refs": ["field:this:0x00001724", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Final impulse loop: for each of 4 wheels, transform the contact offsets at this+0x1668 (stride 3 doubles, reading the adjacent elements this+0x1660 and this+0x1670) into world space using the body transform matrix at *(this+0x15F0) (translation elements +0x4/+0xC/+0x14, rotation elements +0x24..+0x5C, and impulse terms +0x64..+0x8C), subtract the body position, build the impulse vector from 160000*offset - 6500*velocity terms (velocity read from this+0x1748/0x1750/0x1758), and feed it to AccumulateAngularMomentum(&v58, v91).",
+      "evidence_refs": ["callee:0x00569AD0", "field:this:0x00001660", "field:this:0x00001668", "field:this:0x00001670", "field:this:0x00001748", "field:this:0x00001750", "field:this:0x00001758", "field:*(this+0x15F0):0x00000004", "field:*(this+0x15F0):0x0000000C", "field:*(this+0x15F0):0x00000014", "field:*(this+0x15F0):0x0000001C", "field:*(this+0x15F0):0x00000024", "field:*(this+0x15F0):0x0000002C", "field:*(this+0x15F0):0x00000034", "field:*(this+0x15F0):0x0000003C", "field:*(this+0x15F0):0x00000044", "field:*(this+0x15F0):0x0000004C", "field:*(this+0x15F0):0x00000054", "field:*(this+0x15F0):0x0000005C", "field:*(this+0x15F0):0x00000064", "field:*(this+0x15F0):0x0000006C", "field:*(this+0x15F0):0x00000074", "field:*(this+0x15F0):0x0000007C", "field:*(this+0x15F0):0x00000084", "field:*(this+0x15F0):0x0000008C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked from the frame-path integration step PhysicsIntegrationStep (00441D60).",
+      "evidence_refs": ["caller:0x00441D60", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// if (flt_8AFEEC == flt_8AFEE8) { uniform grip fill into the 4-wheel grip array }",
+    "// else { per-wheel projected grip via PositionChangeMonitor + F_1DTableLookupWithLerp }",
+    "// if (*(*(this+0x1F00)+0xCD4) && *(*(this+0x1F00)+0xD14)) {",
+    "//   body ground query: Matrix3x3VectorMultiply + SpatialGridQuery -> this+0x1904/0x1908/0x190C",
+    "// }",
+    "// for each of 4 wheels { CollisionContactGenerationAndFrictionResponse(wheel, dt) }",
+    "// for each of 4 wheels { TransformApply3D; SpatialGridQuery -> this+0x16E0;",
+    "//   if (penetration < 0) { flag this+0x1718; impulse; AccumulateAngularMomentum;",
+    "//     if (impulse > this+0x171C) write impact packet to *(this+0x1F00)+0xB0..+0xC0 } }",
+    "// if (*(this+0x1724)) for each of 4 wheels { build contact impulse; AccumulateAngularMomentum }"
+  ],
+  "unresolved": [
+    "The 15 read-only constant globals (dbl_59E420, dbl_59E430, flt_59E43C, flt_59E800, dbl_59E880, dbl_59EB20, dbl_59EC60, dbl_59ED80, dbl_59ED88, dbl_59ED90, dbl_59ED98, dbl_59EDA0, dbl_59EDA8, dbl_7C9360, unk_8AFEC0) are read but their exact consumption as inlined literals (for example 0.15, 385000, 17500, 6500, 160000) was not deterministically recovered from the packet; the fill's DERIVED names for them are prose, not evidence.",
+    "The wheel hit surface reads at hit-object offsets +20/+24/+36/+44 and the contact struct at this+0x28C are derived from the raw source dereferences; their exact struct roles are not independently confirmed.",
+    "Whether the fill's naming of this+0x1660/0x1668/0x1670 as suspension constants is correct is doubtful: the raw source shows them as the wheel world-space contact point output of TransformApply3D, which is the reading adopted here."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E800",
+    "global:0x0059E880",
+    "global:0x0059EB20",
+    "global:0x0059EC60",
+    "global:0x0059ED80",
+    "global:0x0059ED88",
+    "global:0x0059ED90",
+    "global:0x0059ED98",
+    "global:0x0059EDA0",
+    "global:0x0059EDA8",
+    "global:0x007C9360",
+    "global:0x008AFEC0"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

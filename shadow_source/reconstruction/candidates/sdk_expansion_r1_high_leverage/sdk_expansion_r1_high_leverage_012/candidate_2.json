@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "contract_id": "sdk_expansion_r1_high_leverage.packet_012.v1",
+  "subsystem": "sdk_expansion_r1_high_leverage",
+  "kind": "interface",
+  "status": "STATIC_DERIVED",
+  "source_functions": ["0x004EF930"],
+  "signature": {
+    "calling_convention": "thiscall",
+    "return_type": "void",
+    "parameters": [
+      {"name": "this", "type": "int"},
+      {"name": "a2", "type": "int"}
+    ]
+  },
+  "layouts": [
+    {"object": "this", "offset": "0x08", "width": 4, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x3578", "width": 4, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x3978", "width": 4, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x3994", "width": 4, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x3998", "width": 4, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x39EC", "width": 1, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x39EE", "width": 1, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x39F0", "width": 4, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x39FC", "width": 4, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x3A00", "width": 4, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x3A04", "width": 4, "evidence_refs": ["func:0x004EF930"]},
+    {"object": "this", "offset": "0x3A08", "width": 4, "evidence_refs": ["func:0x004EF930"]}
+  ],
+  "globals": [],
+  "preconditions": [
+    "this is a valid countdown-owning session/vehicle-state object; the function reads and writes fields at this+0x08 and this+0x3578..this+0x3A08.",
+    "a2 is an int step/state index; a2 == 0 requests a reset of the countdown sequence, a2 > 0 advances or re-enters a step.",
+    "If the byte at this+0x39EE is nonzero, the whole update body is skipped (guard gate)."
+  ],
+  "postconditions": [
+    "On a2 == 0 path: this+0x3A08 = 0, this+0x3A04 = 0, this+0x39F0 = 0 and the function returns.",
+    "On valid-step path (a2 <= step_index): countdown sound effect fired on this+0x08 object, this+0x3A04 reloaded from this+0x3A00.",
+    "On beyond-end path (a2 > step_index): countdown sound effect fired on this+0x08 object, this+0x3A04 reloaded from this+0x39FC.",
+    "If a2 == 1 and step_index == 0 on the beyond-end path: this+0x3A08 = 1, this+0x39F0 = 0, this+0x39EC = 1 and the function returns.",
+    "Fall-through: this+0x3A08 = a2 and this+0x39F0 = 0.",
+    "this+0x39EC is cleared to 0 at entry on every frame except when the a2==1/step_index==0 transition re-sets it to 1."
+  ],
+  "side_effects": [
+    "Writes countdown state on this: byte 0x39EC (in-progress flag), dword 0x39F0 (step index), dword 0x3A04 (timer), dword 0x3A08 (phase).",
+    "Calls SoundEffectTrigger_89a0 (0x004F89A0) with argument this+0x08 on the valid-step path.",
+    "Calls SoundEffectTrigger (0x004F88A0, routed to packet sdk_expansion_r1_high_leverage_014) with argument this+0x08 on the beyond-end path.",
+    "Calls PositionUpdateWithTelemetryRecording (0x004EF4F0) with this when the green-light guard holds: a2 >= 1, float at 0x3578 > 0.0, float at 0x3978 > 0.0, and float at 0x3994 * 0.5 < float at 0x3998."
+  ],
+  "thread_requirement": "game_thread",
+  "lifecycle": [
+    {"phase": "per_frame_update", "owner": "countdown-owning session object (this)", "evidence_refs": ["func:0x004EF930"]},
+    {"phase": "state_owned_across_calls", "owner": "this; fields 0x39F0/0x3A04/0x3A08 persist countdown progress between invocations", "evidence_refs": ["func:0x004EF930"]},
+    {"phase": "reset", "owner": "caller via a2 == 0", "evidence_refs": ["func:0x004EF930"]}
+  ],
+  "external_dependencies": [],
+  "evidence_refs": [
+    "packet:sdk_expansion_r1_high_leverage_012",
+    "func:0x004EF930"
+  ],
+  "candidate_refs": ["candidate_2"],
+  "disputes": [
+    {"field": "kind", "description": "Proposed as an interface contract for the function's externally visible behavior; the alternative lifecycle classification is not used because the function is a per-frame step machine, not an object construction/destruction path."},
+    {"field": "thread_requirement", "description": "game_thread is inferred from the game-loop callers (0x00424E70, 0x00425670, 0x00426330, 0x004A6200), not proven by the raw C body."},
+    {"field": "this+0x39EE", "description": "Byte gate semantics as an 'initial block flag' are DERIVED from control flow (nonzero skips the update); the field's meaning outside this function is unproven."},
+    {"field": "signature.parameters", "description": "this and a2 are kept as raw int per the decompiler C; a2's exact range and enum meaning are not established beyond 0, 1, and 'within/beyond step_index'."}
+  ],
+  "unresolved": [
+    "0x004EF4F0 (PositionUpdateWithTelemetryRecording) is an external contract dependency cut at the packet frontier; its ABI, arguments, side effects, and its dependency on the green-light guard fields are unresolved.",
+    "0x004F89A0 (SoundEffectTrigger_89a0) is an external contract dependency cut at the packet frontier; its calling convention, whether this+0x08 is an object base or a plain pointer argument, and whether it reaches an audio boundary are unresolved.",
+    "Sound trigger calls pass this+0x08 as their argument; the object or data at this+0x08 is not otherwise described in the packet.",
+    "0x004F88A0 (SoundEffectTrigger) is a cut edge routed to packet sdk_expansion_r1_high_leverage_014 (contract sdk_expansion_r1_high_leverage.packet_014.v1); its boundary and ABI resolve there.",
+    "Globals 0x0059E440 and 0x0059E450 are flagged in the packet's function IR unresolved list but do not appear in this function's raw C body; their relationship to this function is unknown, so no width is proposed.",
+    "Field semantics for floats at 0x3578 (speed), 0x3978 (engine state), 0x3994 (throttle) and 0x3998 (comparison threshold) are DERIVED names from the telemetry guard; units and exact meaning are unproven.",
+    "Thread requirement game_thread is inferred from callers, not shown by the raw C body."
+  ],
+  "tests_required": [
+    "Unit: a2 == 0 clears this+0x3A08, this+0x3A04, this+0x39F0 and returns.",
+    "Unit: byte this+0x39EE nonzero skips the entire update.",
+    "Unit: timer <= 0.0 and a2 <= step_index triggers SoundEffectTrigger_89a0 and reloads timer from this+0x3A00.",
+    "Unit: timer <= 0.0 and a2 > step_index triggers SoundEffectTrigger and reloads timer from this+0x39FC; a2 == 1 with step_index == 0 sets phase to 1 and in-progress flag to 1.",
+    "Unit: green-light guard (a2 >= 1, 0x3578 > 0.0, 0x3978 > 0.0, 0x3994 * 0.5 < 0x3998) calls PositionUpdateWithTelemetryRecording.",
+    "ABI: verify thiscall (this, a2) argument layout against the decompiled prologue."
+  ],
+  "dependencies": [
+    "sdk_expansion_r1_high_leverage.packet_014.v1"
+  ]
+}

@@ -1,0 +1,2497 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_003_generic_runtime_objects_02",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Runtime support layer over camera-manager lifecycle, session-phase-aware camera/game action state machines, shared struct-field initialization, commentary/cinematic director config parsing, audio-gated two-phase state initialization, per-tick engine dispatch, collision-shape initialization and mode processing, camera-shake telemetry ring-buffer writing, and track-object-manager teardown.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x0040BD10",
+      "function:0x0040C920",
+      "function:0x0040C9E0",
+      "function:0x0040CDE0",
+      "function:0x0040D090",
+      "function:0x0040D100",
+      "function:0x0040D3C0",
+      "function:0x0040D410",
+      "function:0x0040D490",
+      "function:0x0040D4C0",
+      "function:0x0040DCD0",
+      "function:0x0040E170",
+      "function:0x0040E8F0",
+      "function:0x0040EEC0",
+      "function:0x0040F600",
+      "function:0x0040FB30",
+      "source:raw"
+    ]
+  },
+  "summary": "Evidence-linked reconstruction of generic runtime object support in the F1 Challenge engine, covering: file-load dispatch onto per-entry vtable receivers (LoadFileAndDispatchToEntries 0x0040BD10); camera-manager initialization and restart (0x0040C920, 0x0040C9E0); the action-driven camera/session state machine and its per-frame branch dispatcher (0x0040CDE0, 0x0040D100) with conditional virtual/audio helpers (0x0040D090) and session-phase-aware action dispatch (0x0040D3C0, 0x0040D410); a shared literal-field struct initializer reused by four callers (0x0040D490); commentary/cinematic director state parsed from config tokens (0x0040D4C0); an audio-gated two-phase state-machine initializer (0x0040DCD0); per-tick engine dispatch with a buffer re-initializer (0x0040E170); collision-shape initialization and mode-dispatch float processing (0x0040E8F0, 0x0040EEC0); a camera-shake/telemetry ring-buffer writer (0x0040F600); and track-object-manager teardown freeing every heap array slot (0x0040FB30). Class ownership of nearly all objects is unresolved; every class and field here is a GUESS proposal grounded in packet evidence, and the camera-mode/action-id value meanings are not independently established.",
+  "function_roles": [
+    {
+      "address": "0x0040BD10",
+      "role": "Loads a file (clearing the FILE_ATTRIBUTE_READONLY bit via ToggleFileReadOnlyAttributeViaWin32API, then reading with sub_566940 or sub_566A70 depending on a3) and dispatches the loaded data to each entry of the stride-208 array at this[3] (count this[4]) through the per-entry vtable+8 method; returns 0 if at least one entry received data, else 1.",
+      "owner": "FileDispatchContainer",
+      "evidence_refs": [
+        "function:0x0040BD10",
+        "callee:0x0058BA36",
+        "callee:0x005668B0",
+        "callee:0x00566940",
+        "callee:0x00566A70",
+        "callee:0x00566B90",
+        "callee:0x005668D0",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040C920",
+      "role": "Camera-manager initializer: optional debug log gated on StringSplitLoop; resolves the mainview handle into this+0x0; clears six game-state globals (0x5EA500..0x5EA508, 0x5EA550..0x5EA558); loads the scene file, resolves module asset paths and runs the camera config loader; clears the byte flag at this+0x2D; copies this+0x18 into this+0x8 when sub_40C140 fails; returns GlobalFlagSetClear(32, 1). Called by Game_Init.",
+      "owner": "CameraManager",
+      "evidence_refs": [
+        "function:0x0040C920",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "callee:0x00544F50",
+        "callee:0x0040C240",
+        "callee:0x0040C3B0",
+        "callee:0x0040C520",
+        "callee:0x0040C140",
+        "callee:0x0054A200",
+        "global:0x005BE8E0",
+        "global:0x005BE940",
+        "global:0x005BE958",
+        "global:0x008AD25C",
+        "global:0x005EA500",
+        "global:0x005EA504",
+        "global:0x005EA508",
+        "global:0x005EA550",
+        "global:0x005EA554",
+        "global:0x005EA558",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x00000018",
+        "field:this:0x0000002D",
+        "caller:0x0042D6B0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040C9E0",
+      "role": "Camera-manager restart: optional debug log; re-initializes the camera state machine from the global constant block flt_5EA4E8 via StateInitWithGlobalConstants; resets the stored player/entity id at this+0x38 to -1 and the byte flag at this+0x2E to 0; returns the state-init result.",
+      "owner": "CameraManager",
+      "evidence_refs": [
+        "function:0x0040C9E0",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "callee:0x00408290",
+        "global:0x005BE958",
+        "global:0x005BE980",
+        "global:0x008AD25C",
+        "global:0x005EA4E8",
+        "field:this:0x0000002E",
+        "field:this:0x00000038",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040CDE0",
+      "role": "Action-driven game state machine: dispatches on action id a2 (cases 0-10 plus default) via jump table 0x0040D050, forwarding camera modes to ViewCameraModeDispatch and triggering AudioSoundEffectController, recording the last action in this[3]; every handled case sets the active state pointer this[2] from the session/camera pointer this[6]; case 5 runs the vtable+0x10 virtual on the active state object plus a guarded child transition; case 3 has a secondary transition gated by the byte at dword_7C54E0+13388 and byte_7CFE88; returns 0 on handled cases, 1 on the default path.",
+      "owner": "CameraSessionStateMachine",
+      "evidence_refs": [
+        "function:0x0040CDE0",
+        "global:0x0040D050",
+        "global:0x0040D080",
+        "global:0x007C54E0",
+        "global:0x007CFE88",
+        "callee:0x00409440",
+        "callee:0x004E0ED0",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:*(this+0x8):0x00000010",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040D090",
+      "role": "Conditionally dispatches the virtual method at vtable+16 on this[2] (when non-null) and, when dword_8AFE88 is non-null, zeros the dwords at offsets 424 and 420 of that global object; returns the last computed result.",
+      "owner": "CameraSessionStateMachine",
+      "evidence_refs": [
+        "function:0x0040D090",
+        "field:this:0x00000008",
+        "field:*(this+0x8):0x00000010",
+        "global:0x008AFE88",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040D100",
+      "role": "Per-frame game state branch dispatch: reads the session/camera pointer at this+0x18 and, only when non-zero, switches on the global mode selector dword_7CFDC4 (cases 1-4 plus default) to call ViewCameraModeDispatch and GameActionStateMachine with paired camera-mode/action-id arguments; returns the selected GameActionStateMachine result. Invoked per-frame by sub_40C140, NetCommPlayerSlotSync, sub_4A00A0, sub_4C6B60 and PitTimer.",
+      "owner": "CameraSessionStateMachine",
+      "evidence_refs": [
+        "function:0x0040D100",
+        "field:this:0x00000018",
+        "global:0x007CFDC4",
+        "global:0x0040D198",
+        "callee:0x00409440",
+        "callee:0x0040CDE0",
+        "caller:0x0040C140",
+        "caller:0x0045FC50",
+        "caller:0x004A00A0",
+        "caller:0x004C6B60",
+        "caller:0x004D2E50",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040D3C0",
+      "role": "Session-phase-aware action dispatcher: gated by the session-active flag dword_7D0350, decodes the session phase via SessionPhaseDecode; when the action id a2 is in [7, 10] it stores the decoded phase at this+0x10 (when <= 5), dispatches GameActionStateMachine(this, a2, 0), sets the activity flag this+0x24 to 1 and runs ReciprocalWithSignCheck on flt_5EA4E8. Called by PitStopReadyCheck.",
+      "owner": "CameraSessionStateMachine",
+      "evidence_refs": [
+        "function:0x0040D3C0",
+        "global:0x007D0350",
+        "callee:0x0040CD60",
+        "callee:0x0040CDE0",
+        "global:0x005EA4E8",
+        "field:this:0x00000010",
+        "field:this:0x00000024",
+        "caller:0x004A6200",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040D410",
+      "role": "Per-frame session/pit complementary action: decodes the session phase via SessionPhaseDecode; when the decoded phase is in [7, 10] dispatches GameActionStateMachine with the action id read from this+0x10 and a zero argument; unconditionally computes a safe reciprocal on flt_5EA4E8 via SafeDivisionWithZeroGuard (0.5 divisor) and clears the activity flag byte at this+0x24.",
+      "owner": "CameraSessionStateMachine",
+      "evidence_refs": [
+        "function:0x0040D410",
+        "callee:0x0040CD60",
+        "callee:0x0040CDE0",
+        "callee:0x00408450",
+        "global:0x005EA4E8",
+        "field:this:0x00000010",
+        "field:this:0x00000024",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040D490",
+      "role": "Shared literal-field initializer writing eleven fields at this+0x4..0x2C (all zeroed except the dword at +0x28 set to 1 and the byte at +0x20 written as a single zero byte) and returning 0; no reads, no globals, no callees. Reused by SimpleSetterWithSubCall, RaceCommentaryDirectorSystem, CameraDirectorResetInit and StateMachineInitializer.",
+      "owner": "StateInitBlock",
+      "evidence_refs": [
+        "function:0x0040D490",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "caller:0x0040D470",
+        "caller:0x0040D4C0",
+        "caller:0x0040DA30",
+        "caller:0x0040DCD0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040D4C0",
+      "role": "Initializes a race commentary/cinematic director state from a configuration data block: resets via StructFieldInit, parses the Type token into the action type at this+0x24 (documented token-to-type map), optional probability/time/iterations/wait tokens into this+0xC/+0x10/+0x14/+0x18/+0x20, and resolves the target entity into this+0x2C (camera name, grid position, driver or commentary topic) with the result code at this+0x28; returns 1 on success and 0 (after re-initializing) on failure. Called by ConditionalDelegation and CinematicEventStateMachine.",
+      "owner": "CommentaryDirectorState",
+      "evidence_refs": [
+        "function:0x0040D4C0",
+        "callee:0x0040D490",
+        "callee:0x005679C0",
+        "callee:0x00567970",
+        "callee:0x00588410",
+        "callee:0x0058850F",
+        "callee:0x00587ECE",
+        "callee:0x00587F59",
+        "callee:0x0040DB00",
+        "global:0x005BEB08",
+        "global:0x005BEAF8",
+        "global:0x005BEAE0",
+        "global:0x005BEAC8",
+        "global:0x005BEAB0",
+        "global:0x005BEAA0",
+        "global:0x005BEA8C",
+        "global:0x005BEA7C",
+        "global:0x005BEA70",
+        "global:0x005BEA64",
+        "global:0x005BEA5C",
+        "global:0x005BEA50",
+        "global:0x005BEA44",
+        "global:0x005BEA3C",
+        "global:0x005BEA30",
+        "global:0x005BEA28",
+        "global:0x005BEA24",
+        "global:0x005BEA1C",
+        "global:0x005BEA10",
+        "global:0x005BEA08",
+        "global:0x005BE9FC",
+        "global:0x005BE9F0",
+        "global:0x005BE9E4",
+        "global:0x005BE9D0",
+        "global:0x005BE9C4",
+        "global:0x005BE9BC",
+        "global:0x005BE9B4",
+        "global:0x005C329C",
+        "global:0x007C54F0",
+        "global:0x007C54E8",
+        "global:0x0040D950",
+        "field:this:0x00000004",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "caller:0x0040DD30",
+        "caller:0x0040DDF0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040DCD0",
+      "role": "Two-phase state-machine initializer: phase 1 sets the state at this+0x0 to 1, zeroes this+0x84, initializes the sub-struct at +0x88 via StructFieldInit, stops audio channel a2 via AudioChannelStop and stores the result in this+0x84 (a zero stop result blocks and returns 0); phase 2 sets state to 2 and runs CinematicEventStateMachine, returning 1 on a non-zero result or reverting the state to -1 and returning 0 on failure.",
+      "owner": "TwoPhaseAudioGateStateMachine",
+      "evidence_refs": [
+        "function:0x0040DCD0",
+        "field:this:0x00000000",
+        "field:this:0x00000084",
+        "field:this:0x00000088",
+        "callee:0x0040D490",
+        "callee:0x00568210",
+        "callee:0x0040DDF0",
+        "caller:0x004D3CF0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040E170",
+      "role": "Tick update dispatch: when the sub-struct at this+0x88 is non-null and its field at +0x24 equals 10, runs EngineGuardedInitializer with this+20; reads the sub-struct at this+0x8 and, when the pointer at its +0xAF4 is non-null, invokes that object's vtable method at +0xC; re-initializes the buffer with 10f defaults via BufferInitWith10fDefaults; then tail-calls the camera-director reset init.",
+      "owner": "EngineTickObject",
+      "evidence_refs": [
+        "function:0x0040E170",
+        "field:this:0x00000008",
+        "field:this:0x00000088",
+        "field:*(this+0x8):0x00000AF4",
+        "field:*(this+0x88):0x00000024",
+        "field:*(*(this+0x8)+0xAF4):0x00000000",
+        "field:*(*(*(this+0x8)+0xAF4)+0x0):0x0000000C",
+        "callee:0x004347C0",
+        "callee:0x004186A0",
+        "guard:0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040E8F0",
+      "role": "Physics collision-shape initializer: writes the word discriminator a2 at +0x8, zeroes +0x1C, stores a3 at +0x20, fills a local 6-dword float array, stores inverse-mass scalar 2.5 via CollisionInvMassStore, bulk-sets six float constants via F_6FieldBulkSetter, then runs ShortComputation_e770 when a4 is non-zero and returns its result, otherwise returns 0.",
+      "owner": "CollisionShapeState",
+      "evidence_refs": [
+        "function:0x0040E8F0",
+        "field:this:0x00000008",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "callee:0x00459950",
+        "callee:0x00459990",
+        "callee:0x0040E770",
+        "caller:0x0040FE50",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040EEC0",
+      "role": "Loads a 7-element float array and dispatches on the mode selector this[7] (offset 0x1C) via the jump table at 0x0040EF54: modes 0-5 store the first element as collision inverse mass via CollisionInvMassStore and bulk-set the remaining six float fields via F_6FieldBulkSetter; mode 6+ returns immediately.",
+      "owner": "CollisionShapeState",
+      "evidence_refs": [
+        "function:0x0040EEC0",
+        "field:this:0x0000001C",
+        "global:0x0040EF54",
+        "callee:0x00459950",
+        "callee:0x00459990",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040F600",
+      "role": "Writes a camera-shake/vehicle-telemetry sample into the fixed ring buffer (432-byte entries, at most 1023; write pointer global dword_8AAE64, count dword_83EE60): reads position, orientation (atan2-derived angles), velocity and angular velocity from the source structure at *(this+0x20), quantizes them into clamped 16-bit words, optionally emits a progress-bar HUD event through the mode switch at this+0x1C (cases 0-5) and returns the last quantized value.",
+      "owner": "CameraShakeRingBuffer",
+      "evidence_refs": [
+        "function:0x0040F600",
+        "field:this:0x00000008",
+        "field:this:0x0000000A",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:*(this+0x20):0x00000024",
+        "field:*(this+0x20):0x000000D8",
+        "field:*(this+0x20):0x000000E0",
+        "field:*(this+0x20):0x000000E8",
+        "field:*(this+0x20):0x000000F0",
+        "field:*(this+0x20):0x00000100",
+        "field:*(this+0x20):0x00000108",
+        "field:*(this+0x20):0x00000110",
+        "field:*(this+0x20):0x00000118",
+        "field:*(this+0x20):0x00000120",
+        "field:*(this+0x20):0x00000130",
+        "field:*(this+0x20):0x00000138",
+        "field:*(this+0x20):0x00000140",
+        "field:*(this+0x20):0x00000148",
+        "field:*(this+0x20):0x00000150",
+        "field:*(this+0x20):0x00000158",
+        "field:*(this+0x20):0x00000160",
+        "global:0x008AAE64",
+        "global:0x0083EE60",
+        "global:0x0040FAE4",
+        "global:0x007C54E4",
+        "global:0x007C54F0",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "global:0x0059E6FC",
+        "global:0x0059E700",
+        "global:0x0059E704",
+        "global:0x0059E708",
+        "global:0x0059E70C",
+        "global:0x0059E710",
+        "global:0x0059E714",
+        "global:0x0059E718",
+        "global:0x0059E71C",
+        "callee:0x004B33B0",
+        "callee:0x004B21F0",
+        "callee:0x00588570",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040FB30",
+      "role": "Teardown of a track-object manager: frees every heap array stored at this+0x0..0x68. Simple pointer arrays are freed via FreeWrapper_7bcf using the stored allocation base 4 bytes before each array; 792/808-byte element arrays (0x2C, 0x38, 0x44, 0x50) run ShortComputation_fd70 per element; 36-byte element arrays (0x40, 0x4C, 0x58) are walked with ArrayDestructorIterator and the EmptyStub_aa60 no-op; trailing arrays (0x5C, 0x64, 0x68) are released through ArrayOfObjectsDestructor/ShortComputation_fda0. All freed slots are zeroed. Delegated from DelegationThunk (0x0040E1C0).",
+      "owner": "TrackObjectManager",
+      "evidence_refs": [
+        "function:0x0040FB30",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000040",
+        "field:this:0x00000044",
+        "field:this:0x00000048",
+        "field:this:0x0000004C",
+        "field:this:0x00000050",
+        "field:this:0x00000054",
+        "field:this:0x00000058",
+        "field:this:0x0000005C",
+        "field:this:0x00000060",
+        "field:this:0x00000064",
+        "field:this:0x00000068",
+        "callee:0x00587BCF",
+        "callee:0x0040FD70",
+        "callee:0x00401030",
+        "callee:0x0040FDD0",
+        "callee:0x0040FDA0",
+        "global:0x0040FD70",
+        "global:0x0047AA60",
+        "caller:0x0040E1C0",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "FileDispatchContainer",
+      "responsibility": "Container holding a stride-208 entry array at +0xC with the entry count at +0x10; each entry exposes a vtable whose slot +8 receives loaded file data. Owner type unknown; the 'camera entry' reading from prior analysis is DERIVED, not proven by this packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040BD10"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "entry_array_base",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x0040BD10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "entry_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x0040BD10",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040BD10",
+        "callee:0x0058BA36",
+        "callee:0x00566940",
+        "callee:0x00566A70",
+        "callee:0x00566B90",
+        "callee:0x005668D0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraManager",
+      "responsibility": "Camera manager: resolved manager handle at +0x0, config-load result at +0x8/+0x18, byte flags at +0x2D/+0x2E and stored player/entity id at +0x38. Initialized by CamManInit (also clearing the six game-state globals 0x5EA500..0x5EA558) and reset by CameraManagerRestart. Owner identity is the camera manager itself; the class grouping rests on the two lifecycle functions writing distinct fields of the same object.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040C920",
+        "0x0040C9E0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "manager_handle",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x0040C920",
+            "callee:0x00544F50",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "config_result",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x0040C920",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "config_load_result",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x0040C920",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002D",
+          "name": "init_byte_flag",
+          "type_guess": "BYTE",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002D",
+            "function:0x0040C920",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002E",
+          "name": "restart_byte_flag",
+          "type_guess": "BYTE",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002E",
+            "function:0x0040C9E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "stored_player_entity_id",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "function:0x0040C9E0",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040C920",
+        "function:0x0040C9E0",
+        "callee:0x00544F50",
+        "callee:0x0040C240",
+        "callee:0x0040C3B0",
+        "callee:0x0040C520",
+        "callee:0x0040C140",
+        "callee:0x00408290",
+        "callee:0x0054A200",
+        "global:0x005BE8E0",
+        "global:0x005EA4E8",
+        "global:0x005EA500",
+        "global:0x005EA504",
+        "global:0x005EA508",
+        "global:0x005EA550",
+        "global:0x005EA554",
+        "global:0x005EA558",
+        "caller:0x0042D6B0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraSessionStateMachine",
+      "responsibility": "Game/camera session state machine: active state pointer at +0x8, last action at +0xC, fallback marker at +0x14, session/camera pointer at +0x18, case-5 progression guard words at +0x1C/+0x20, activity flag at +0x24, progression counters at +0x2C/+0x30, plus a phase/action field at +0x10. Dispatches camera modes to ViewCameraModeDispatch and triggers AudioSoundEffectController. Grouping rests on the shared this[2]/this[6] pattern across the dispatch functions; concrete owner identity is unknown.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040CDE0",
+        "0x0040D090",
+        "0x0040D100",
+        "0x0040D3C0",
+        "0x0040D410"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "active_state_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x0040CDE0",
+            "function:0x0040D090",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "last_action",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x0040CDE0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "phase_or_action_field",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x0040D3C0",
+            "function:0x0040D410",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "fallback_state_marker",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x0040CDE0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "session_camera_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x0040CDE0",
+            "function:0x0040D100",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "progression_guard_a",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x0040CDE0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "progression_guard_b",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x0040CDE0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "activity_flag",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "function:0x0040D3C0",
+            "function:0x0040D410",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "progression_counter_a",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x0040CDE0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "progression_counter_b",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "function:0x0040CDE0",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040CDE0",
+        "function:0x0040D090",
+        "function:0x0040D100",
+        "function:0x0040D3C0",
+        "function:0x0040D410",
+        "callee:0x00409440",
+        "callee:0x004E0ED0",
+        "callee:0x0040CD60",
+        "callee:0x0040CDE0",
+        "callee:0x00408450",
+        "global:0x0040D050",
+        "global:0x0040D080",
+        "global:0x0040D198",
+        "global:0x007C54E0",
+        "global:0x007CFDC4",
+        "global:0x007CFE88",
+        "global:0x007D0350",
+        "global:0x005EA4E8",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "StateInitBlock",
+      "responsibility": "Shared zero-defaults initialization block written by StructFieldInit across four callers: dwords at +0x4..+0x1C, byte at +0x20, dword at +0x24, sentinel dword at +0x28 (set to 1) and dword at +0x2C. Owner type unknown; the equal offsets belong to possibly distinct concrete objects and are not merged as proven common ownership.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040D490"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "init_dword_04",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "init_dword_08",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "init_dword_0C",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "init_dword_10",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "init_dword_14",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "init_dword_18",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "init_dword_1C",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "init_byte_20",
+          "type_guess": "BYTE",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "init_dword_24",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "init_sentinel_one_28",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "init_dword_2C",
+          "type_guess": "DWORD",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x0040D490",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040D490",
+        "caller:0x0040D470",
+        "caller:0x0040D4C0",
+        "caller:0x0040DA30",
+        "caller:0x0040DCD0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CommentaryDirectorState",
+      "responsibility": "Commentary/cinematic director state parsed from a config data block: config pointer at +0x4, probability at +0xC, time at +0x10, time mode at +0x14, iterations at +0x18, wait flag byte at +0x20, action type at +0x24, result code at +0x28 and resolved target entity at +0x2C. Embeds a StateInitBlock-shaped region (+0x4..+0x2C) that StructFieldInit re-initializes before parsing; owner type unknown.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040D4C0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "config_data_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x0040D4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "probability",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x0040D4C0",
+            "callee:0x0058850F",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "time",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x0040D4C0",
+            "callee:0x0058850F",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "time_mode",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x0040D4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "iterations",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x0040D4C0",
+            "callee:0x00587ECE",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "wait_flag",
+          "type_guess": "BYTE",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x0040D4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "action_type",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "function:0x0040D4C0",
+            "global:0x0040D950",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "result_code",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x0040D4C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "target_entity",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x0040D4C0",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040D4C0",
+        "callee:0x0040D490",
+        "callee:0x005679C0",
+        "callee:0x00567970",
+        "callee:0x00588410",
+        "callee:0x0058850F",
+        "callee:0x00587ECE",
+        "callee:0x00587F59",
+        "callee:0x0040DB00",
+        "global:0x005BEB08",
+        "global:0x005BEAF8",
+        "global:0x005BEAE0",
+        "global:0x005BEAC8",
+        "global:0x005BEAB0",
+        "global:0x005BEAA0",
+        "global:0x005BEA8C",
+        "global:0x005BEA7C",
+        "global:0x005BEA70",
+        "global:0x005BEA64",
+        "global:0x005BEA5C",
+        "global:0x005BEA50",
+        "global:0x005BEA44",
+        "global:0x005BEA3C",
+        "global:0x005BEA30",
+        "global:0x005BEA28",
+        "global:0x005BEA24",
+        "global:0x005BEA1C",
+        "global:0x005BEA10",
+        "global:0x005BEA08",
+        "global:0x005BE9FC",
+        "global:0x005BE9F0",
+        "global:0x005BE9E4",
+        "global:0x005BE9D0",
+        "global:0x005BE9C4",
+        "global:0x005BE9BC",
+        "global:0x005BE9B4",
+        "global:0x005C329C",
+        "global:0x007C54F0",
+        "global:0x007C54E8",
+        "global:0x0040D950",
+        "caller:0x0040DD30",
+        "caller:0x0040DDF0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TwoPhaseAudioGateStateMachine",
+      "responsibility": "Two-phase state-machine initializer: phase state at +0x0 (1 = stopping audio, 2 = cinematic init, -1 = error), audio-stop result at +0x84 and sub-struct pointer at +0x88. Phase 1 stops the audio channel before phase 2 runs CinematicEventStateMachine. Owner type unknown; the numeric state meanings are DERIVED from control flow only.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040DCD0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "state",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x0040DCD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000084",
+          "name": "audio_stop_result",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000084",
+            "function:0x0040DCD0",
+            "callee:0x00568210",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "substate_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000088",
+            "function:0x0040DCD0",
+            "callee:0x0040D490",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040DCD0",
+        "callee:0x0040D490",
+        "callee:0x00568210",
+        "callee:0x0040DDF0",
+        "caller:0x004D3CF0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "EngineTickObject",
+      "responsibility": "Per-tick engine object: sub-struct pointer at +0x8 (whose field at +0xAF4 holds a dispatchable object exposing a vtable slot +0xC) and a second sub-struct pointer at +0x88 (whose field at +0x24, when equal to 10, gates EngineGuardedInitializer on this+20). Its buffer is re-initialized via BufferInitWith10fDefaults. Owner type unknown.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040E170"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "engine_substruct_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x0040E170",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "flag10_substruct_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000088",
+            "function:0x0040E170",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040E170",
+        "callee:0x004347C0",
+        "callee:0x004186A0",
+        "field:*(this+0x8):0x00000AF4",
+        "field:*(this+0x88):0x00000024",
+        "field:*(*(this+0x8)+0xAF4):0x00000000",
+        "field:*(*(*(this+0x8)+0xAF4)+0x0):0x0000000C",
+        "guard:0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionShapeState",
+      "responsibility": "Physics collision-shape state: word discriminator at +0x8, subtype/mode selector at +0x1C and external data pointer at +0x20. Initialized by StructInitWithFloatConstantsAndSubCalls and mode-dispatched by SwitchBasedFloatProcessing; both delegate inverse-mass and six-float bulk storage to the shared collision helpers CollisionInvMassStore and F_6FieldBulkSetter.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040E8F0",
+        "0x0040EEC0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "type_discriminator",
+          "type_guess": "WORD",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x0040E8F0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "mode_selector",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x0040E8F0",
+            "function:0x0040EEC0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "data_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x0040E8F0",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040E8F0",
+        "function:0x0040EEC0",
+        "callee:0x00459950",
+        "callee:0x00459990",
+        "callee:0x0040E770",
+        "global:0x0040EF54",
+        "caller:0x0040FE50",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraShakeRingBuffer",
+      "responsibility": "Camera-shake / vehicle-telemetry ring-buffer writer: header word at +0x8, active flag byte at +0xA, event mode at +0x1C and source-data pointer at +0x20. Writes 432-byte quantized entries (at most 1023) into the global ring buffer (write pointer 0x008AAE64, entry count 0x0083EE60) and optionally emits HUD progress-bar events. Owner type unknown.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040F600"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "header_word",
+          "type_guess": "WORD",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x0040F600",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000A",
+          "name": "active_flag",
+          "type_guess": "BYTE",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000A",
+            "function:0x0040F600",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "event_mode",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x0040F600",
+            "global:0x0040FAE4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "source_data_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x0040F600",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040F600",
+        "callee:0x004B33B0",
+        "callee:0x004B21F0",
+        "callee:0x00588570",
+        "global:0x008AAE64",
+        "global:0x0083EE60",
+        "global:0x0040FAE4",
+        "global:0x007C54E4",
+        "global:0x007C54F0",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "global:0x0059E6FC",
+        "global:0x0059E700",
+        "global:0x0059E704",
+        "global:0x0059E708",
+        "global:0x0059E70C",
+        "global:0x0059E710",
+        "global:0x0059E714",
+        "global:0x0059E718",
+        "global:0x0059E71C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TrackObjectManager",
+      "responsibility": "Track-object manager torn down by GraphicsResourceDestructor: total count and capacity at +0x0/+0x4, a combined array pointer at +0x8, then per-category count-plus-pointer triples covering vehicle, dspoly, non-DSP, cone, post, sign, wheel, wing and part arrays of 36/792/808-byte elements. The per-slot category pairing is DERIVED from prior analysis and is not independently confirmed by this packet; the single pointer array at +0x8 is freed directly (no -4 base adjustment) while every other array is freed through its stored base.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040FB30"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "total_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "capacity",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "combined_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "vehicle_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "vehicle_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "dspoly_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "dspoly_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "nondsp_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "nondsp_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "cone_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "cone_small_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "cone_large_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "post_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "post_small_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "post_large_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "sign_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "sign_small_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "sign_large_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "wheel_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "wheel_small_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "wheel_large_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "wing_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "wing_small_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "wing_large_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000060",
+          "name": "part_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000060",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "part_small_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000064",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000068",
+          "name": "part_large_array_ptr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000068",
+            "function:0x0040FB30",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040FB30",
+        "callee:0x00587BCF",
+        "callee:0x0040FD70",
+        "callee:0x00401030",
+        "callee:0x0040FDD0",
+        "callee:0x0040FDA0",
+        "global:0x0040FD70",
+        "global:0x0047AA60",
+        "caller:0x0040E1C0",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "AudioGateInitPhases",
+      "owner": "TwoPhaseAudioGateStateMachine",
+      "states": [
+        "Phase1StoppingAudio",
+        "Phase2Cinematic",
+        "Error"
+      ],
+      "transitions": [
+        "Init -> Phase1StoppingAudio: state this+0x0 set to 1, this+0x84 zeroed, sub-struct at +0x88 initialized via StructFieldInit",
+        "Phase1StoppingAudio -> Phase1StoppingAudio: AudioChannelStop(a2) returned 0; result stored in this+0x84, function returns 0 and stays in phase 1",
+        "Phase1StoppingAudio -> Phase2Cinematic: audio stop returned non-zero; state this+0x0 set to 2",
+        "Phase2Cinematic -> Done: CinematicEventStateMachine(this) returned non-zero; function returns 1",
+        "Phase2Cinematic -> Error: CinematicEventStateMachine returned 0; state this+0x0 reverted to -1, function returns 0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040DCD0",
+        "field:this:0x00000000",
+        "field:this:0x00000084",
+        "field:this:0x00000088",
+        "callee:0x00568210",
+        "callee:0x0040DDF0",
+        "callee:0x0040D490",
+        "caller:0x004D3CF0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PerFrameCameraModeDispatch",
+      "owner": "CameraSessionStateMachine",
+      "states": [
+        "Inactive",
+        "Mode1",
+        "Mode2",
+        "Mode3",
+        "Mode4",
+        "DefaultMode"
+      ],
+      "transitions": [
+        "Inactive -> Inactive: session/camera pointer this+0x18 is null; GameStateBranchDispatch returns without dispatching",
+        "Inactive -> Mode1: this+0x18 non-null and dword_7CFDC4 == 1; ViewCameraModeDispatch(camera, 1, 0, 1) then GameActionStateMachine(this, 1, 0)",
+        "Inactive -> Mode2: this+0x18 non-null and dword_7CFDC4 == 2; ViewCameraModeDispatch(camera, 0, 0, 1) then GameActionStateMachine(this, 0, 0)",
+        "Inactive -> Mode3: this+0x18 non-null and dword_7CFDC4 == 3; ViewCameraModeDispatch(camera, 3, 0, 1) then GameActionStateMachine(this, 3, 0)",
+        "Inactive -> Mode4: this+0x18 non-null and dword_7CFDC4 == 4; ViewCameraModeDispatch(camera, 3, 0, 1) then GameActionStateMachine(this, 5, 0)",
+        "Inactive -> DefaultMode: this+0x18 non-null and dword_7CFDC4 otherwise; ViewCameraModeDispatch(camera, 2, 0, 1) then GameActionStateMachine(this, 2, 0)"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D100",
+        "field:this:0x00000018",
+        "global:0x007CFDC4",
+        "global:0x0040D198",
+        "callee:0x00409440",
+        "callee:0x0040CDE0",
+        "caller:0x0040C140",
+        "caller:0x0045FC50",
+        "caller:0x004A00A0",
+        "caller:0x004C6B60",
+        "caller:0x004D2E50",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "ICameraModeDispatch",
+      "purpose": "Uniform camera-mode entry consumed by the camera/session action dispatchers: ViewCameraModeDispatch(camera, mode, flag, arg) routes a session/camera pointer plus a camera mode value (0-8) into the view system. Consumed by DispatchGameAction, GameStateBranchDispatch and the session-phase dispatch paths.",
+      "functions": [
+        "0x00409440"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040CDE0",
+        "function:0x0040D100",
+        "function:0x0040D3C0",
+        "callee:0x00409440",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IGameActionStateMachine",
+      "purpose": "Action-driven game state machine entry: GameActionStateMachine(this, actionId, flag) dispatches a camera/audio action from the per-frame and session-phase paths. Implemented by 0x0040CDE0.",
+      "functions": [
+        "0x0040CDE0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D100",
+        "function:0x0040D3C0",
+        "function:0x0040D410",
+        "callee:0x0040CDE0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IEntryFileDataReceiver",
+      "purpose": "Per-entry receiver contract in LoadFileAndDispatchToEntries (0x0040BD10): each stride-208 entry exposes a vtable whose slot +8 is invoked as entry->vtable[2](entry, loadedData, 0) and whose non-zero result marks that the entry received the file data. No static implementer address exists in the packet (indirect call).",
+      "functions": [],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040BD10",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "CameraSessionStateMachine",
+      "to": "ICameraModeDispatch",
+      "kind": "dispatches_to",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040CDE0",
+        "function:0x0040D100",
+        "callee:0x00409440",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "CameraSessionStateMachine",
+      "to": "IGameActionStateMachine",
+      "kind": "dispatches_to",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D100",
+        "function:0x0040D3C0",
+        "function:0x0040D410",
+        "callee:0x0040CDE0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040CDE0",
+      "to": "0x004E0ED0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040CDE0",
+        "callee:0x004E0ED0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040CDE0",
+      "to": "0x0040D050",
+      "kind": "dispatches_on",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040CDE0",
+        "global:0x0040D050",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040D100",
+      "to": "0x007CFDC4",
+      "kind": "dispatches_on",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D100",
+        "global:0x007CFDC4",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "CameraManager",
+      "to": "0x00408290",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040C9E0",
+        "callee:0x00408290",
+        "global:0x005EA4E8",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "CameraManager",
+      "to": "0x0040C140",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040C920",
+        "callee:0x0040C140",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "CameraManager",
+      "to": "0x0054A200",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040C920",
+        "callee:0x0054A200",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040D3C0",
+      "to": "0x0040CD60",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D3C0",
+        "callee:0x0040CD60",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040D410",
+      "to": "0x00408450",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D410",
+        "callee:0x00408450",
+        "global:0x005EA4E8",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040D4C0",
+      "to": "0x0040D490",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D4C0",
+        "callee:0x0040D490",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040D4C0",
+      "to": "0x005679C0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D4C0",
+        "callee:0x005679C0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040D4C0",
+      "to": "0x0040D950",
+      "kind": "dispatches_on",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D4C0",
+        "global:0x0040D950",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040D4C0",
+      "to": "0x0040DB00",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D4C0",
+        "callee:0x0040DB00",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040D4C0",
+      "to": "0x007C54F0",
+      "kind": "reads",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D4C0",
+        "global:0x007C54F0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040DCD0",
+      "to": "0x0040DDF0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040DCD0",
+        "callee:0x0040DDF0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040DCD0",
+      "to": "0x00568210",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040DCD0",
+        "callee:0x00568210",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040E170",
+      "to": "0x004347C0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040E170",
+        "callee:0x004347C0",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040E170",
+      "to": "0x004186A0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040E170",
+        "callee:0x004186A0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040E170",
+      "to": "0x0040AF4",
+      "kind": "dispatches_virtual",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040E170",
+        "field:*(this+0x8):0x00000AF4",
+        "field:*(*(this+0x8)+0xAF4):0x00000000",
+        "field:*(*(*(this+0x8)+0xAF4)+0x0):0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "CollisionShapeState",
+      "to": "0x00459950",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040E8F0",
+        "function:0x0040EEC0",
+        "callee:0x00459950",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "CollisionShapeState",
+      "to": "0x00459990",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040E8F0",
+        "function:0x0040EEC0",
+        "callee:0x00459990",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040E8F0",
+      "to": "0x0040E770",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040E8F0",
+        "callee:0x0040E770",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040EEC0",
+      "to": "0x0040EF54",
+      "kind": "dispatches_on",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040EEC0",
+        "global:0x0040EF54",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "CameraShakeRingBuffer",
+      "to": "0x004B33B0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040F600",
+        "callee:0x004B33B0",
+        "global:0x007C54E4",
+        "global:0x007C54F0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040F600",
+      "to": "0x008AAE64",
+      "kind": "writes",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040F600",
+        "global:0x008AAE64",
+        "global:0x0083EE60",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040F600",
+      "to": "0x0040FAE4",
+      "kind": "dispatches_on",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040F600",
+        "global:0x0040FAE4",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040BD10",
+      "to": "IEntryFileDataReceiver",
+      "kind": "dispatches_to",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040BD10",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040BD10",
+      "to": "0x0058BA36",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040BD10",
+        "callee:0x0058BA36",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "TrackObjectManager",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040FB30",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "TrackObjectManager",
+      "to": "0x0040FD70",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040FB30",
+        "callee:0x0040FD70",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "TrackObjectManager",
+      "to": "0x00401030",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040FB30",
+        "callee:0x00401030",
+        "global:0x0047AA60",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040FB30",
+      "to": "0x0040FDD0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040FB30",
+        "callee:0x0040FDD0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040FB30",
+      "to": "0x0040FDA0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040FB30",
+        "callee:0x0040FDA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0040FB30",
+      "to": "0x0040E1C0",
+      "kind": "delegated_by",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040FB30",
+        "caller:0x0040E1C0",
+        "source:raw"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "FileDispatchLoadContract",
+      "category": "file_io_dispatch",
+      "description": "LoadFileAndDispatchToEntries (0x0040BD10) must clear the file's read-only attribute via ToggleFileReadOnlyAttributeViaWin32API, load the file through sub_566940 or sub_566A70 depending on a3, dispatch the loaded data to every entry of the stride-208 array at this+0xC (count this+0x10) through the per-entry vtable+8 method, close the file handle, free the temp-struct fields, and return 0 if at least one entry received data (1 on the early-out, skip and no-entry-dispatched paths).",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040BD10",
+        "callee:0x0058BA36",
+        "callee:0x00566940",
+        "callee:0x00566A70",
+        "callee:0x00566B90",
+        "callee:0x005668D0",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CamManagerInitContract",
+      "category": "lifecycle",
+      "description": "CamManInit (0x0040C920) must clear the six game-state globals 0x005EA500..0x005EA508 and 0x005EA550..0x005EA558, resolve the mainview handle into this+0x0, load the scene file, resolve module asset paths, run the camera config loader, clear this+0x2D, copy this+0x18 into this+0x8 when sub_40C140 fails, and return GlobalFlagSetClear(32, 1).",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040C920",
+        "callee:0x00544F50",
+        "callee:0x0040C240",
+        "callee:0x0040C3B0",
+        "callee:0x0040C520",
+        "callee:0x0040C140",
+        "callee:0x0054A200",
+        "global:0x005EA500",
+        "global:0x005EA558",
+        "global:0x005BE8E0",
+        "caller:0x0042D6B0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraManagerRestartContract",
+      "category": "lifecycle",
+      "description": "CameraManagerRestart (0x0040C9E0) must re-initialize the camera state machine from the global constant block flt_5EA4E8, reset the stored player/entity id at this+0x38 to -1 and the byte flag at this+0x2E to 0, and return the state-init result.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040C9E0",
+        "callee:0x00408290",
+        "global:0x005EA4E8",
+        "field:this:0x0000002E",
+        "field:this:0x00000038",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "GameActionDispatchContract",
+      "category": "event_dispatch",
+      "description": "DispatchGameAction (0x0040CDE0) must dispatch the action id a2 through the jump table 0x0040D050 (cases 0-10 plus default), forwarding the derived camera mode to ViewCameraModeDispatch and triggering AudioSoundEffectController, set the active state pointer this[2] from the session/camera pointer this[6] on every handled case, record a2 into this[3], run the case-5 virtual vtable+0x10 dispatch plus its guarded child transition, honor the case-3 secondary transition gated by the byte at dword_7C54E0+13388 and byte_7CFE88, and return 0 on handled cases or 1 on the default path.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040CDE0",
+        "global:0x0040D050",
+        "callee:0x00409440",
+        "callee:0x004E0ED0",
+        "global:0x007C54E0",
+        "global:0x007CFE88",
+        "field:this:0x00000008",
+        "field:this:0x00000018",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PerFrameCameraBranchContract",
+      "category": "event_dispatch",
+      "description": "GameStateBranchDispatch (0x0040D100) must return without dispatching when the pointer at this+0x18 is null; otherwise it must switch on the global mode selector dword_7CFDC4 and for each case call ViewCameraModeDispatch then GameActionStateMachine with the documented camera-mode/action-id pairs (case 1: (1,1), case 2: (0,0), case 3: (3,3), case 4: (3,5), default: (2,2)), returning the selected GameActionStateMachine result.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D100",
+        "field:this:0x00000018",
+        "global:0x007CFDC4",
+        "global:0x0040D198",
+        "callee:0x00409440",
+        "callee:0x0040CDE0",
+        "caller:0x0040C140",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SessionPhaseActionContract",
+      "category": "event_dispatch",
+      "description": "SessionPhaseActionDispatch (0x0040D3C0) must run only while the session-active flag dword_7D0350 is non-zero; when the action id a2 is in [7, 10] it must decode the session phase, store the phase at this+0x10 when it is <= 5, dispatch GameActionStateMachine(this, a2, 0), set the activity flag this+0x24 to 1 and run ReciprocalWithSignCheck on flt_5EA4E8.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D3C0",
+        "global:0x007D0350",
+        "callee:0x0040CD60",
+        "callee:0x0040CDE0",
+        "global:0x005EA4E8",
+        "field:this:0x00000010",
+        "field:this:0x00000024",
+        "caller:0x004A6200",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CommentaryDirectorParseContract",
+      "category": "configuration",
+      "description": "RaceCommentaryDirectorSystem (0x0040D4C0) must parse the Type token into the action type at this+0x24 using the documented token-to-type map (aScriptEnd->0, aWait->12, aGridwalk->11, aFlyOver->10, aCommentaryStop->9, aCommentaryStar->8, aCameraSetLast->7, aCameraReleaseC->6, aCameraAcquireC->3, aCameraTargetSe->2, aCameraSelect->5, no match->4), parse the optional probability/time/iterations/wait tokens into this+0xC/+0x10/+0x14/+0x18/+0x20, resolve the target entity into this+0x2C (camera name, grid position, driver or commentary topic), and return 1 on success or 0 on failure after re-initializing via StructFieldInit.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D4C0",
+        "callee:0x0040D490",
+        "callee:0x005679C0",
+        "callee:0x00567970",
+        "callee:0x00588410",
+        "global:0x005BEB08",
+        "global:0x005BEAF8",
+        "global:0x005BEA50",
+        "global:0x005BEA44",
+        "global:0x005BEA3C",
+        "global:0x005BEA30",
+        "global:0x005BEA28",
+        "global:0x005BEA24",
+        "global:0x005BEA1C",
+        "global:0x005BEA10",
+        "global:0x005BEA08",
+        "global:0x005BE9FC",
+        "global:0x005BE9F0",
+        "global:0x005BE9E4",
+        "global:0x005BE9D0",
+        "global:0x005BE9C4",
+        "global:0x005BE9BC",
+        "global:0x005BE9B4",
+        "global:0x0040D950",
+        "field:this:0x00000024",
+        "field:this:0x0000002C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TwoPhaseAudioGateInitContract",
+      "category": "lifecycle",
+      "description": "StateMachineInitializer (0x0040DCD0) must run a two-phase initialization: phase 1 sets state this+0x0 to 1, zeroes this+0x84, initializes the sub-struct at +0x88 via StructFieldInit, stops audio channel a2 via AudioChannelStop storing the result in this+0x84 and returns 0 when the stop failed; phase 2 sets state to 2 and runs CinematicEventStateMachine, returning 1 on a non-zero result or reverting the state to -1 and returning 0 on failure.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040DCD0",
+        "callee:0x00568210",
+        "callee:0x0040DDF0",
+        "callee:0x0040D490",
+        "field:this:0x00000000",
+        "field:this:0x00000084",
+        "field:this:0x00000088",
+        "caller:0x004D3CF0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TickUpdateDispatchContract",
+      "category": "lifecycle",
+      "description": "TickUpdateDispatch (0x0040E170) must run EngineGuardedInitializer with this+20 when the sub-struct at this+0x88 is non-null and its field at +0x24 equals 10, invoke the vtable+0xC method on the object at *(this+0x8)+0xAF4 when that pointer is non-null, re-initialize the buffer via BufferInitWith10fDefaults, and tail-call the camera-director reset init.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040E170",
+        "callee:0x004347C0",
+        "callee:0x004186A0",
+        "field:this:0x00000088",
+        "field:*(this+0x88):0x00000024",
+        "field:*(this+0x8):0x00000AF4",
+        "field:*(*(*(this+0x8)+0xAF4)+0x0):0x0000000C",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionShapeInitContract",
+      "category": "initialization",
+      "description": "StructInitWithFloatConstantsAndSubCalls (0x0040E8F0) must write the word discriminator a2 at +0x8, zero +0x1C, store a3 at +0x20, fill a local 6-dword float array, store inverse-mass scalar 2.5 via CollisionInvMassStore, bulk-set six float constants via F_6FieldBulkSetter, then run ShortComputation_e770 when a4 is non-zero and return its result (0 when a4 is zero).",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040E8F0",
+        "callee:0x00459950",
+        "callee:0x00459990",
+        "callee:0x0040E770",
+        "field:this:0x00000008",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "caller:0x0040FE50",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CameraShakeRingBufferContract",
+      "category": "telemetry",
+      "description": "CameraShakeRingBufferWrite (0x0040F600) must write a quantized sample into the global ring buffer (write pointer 0x008AAE64, count 0x0083EE60, 432-byte entries, at most 1023), encoding orientation angles scaled/clamped to 16-bit words (entry+19/+21/+23), velocity (entry+25/+27/+29) and angular velocity (entry+31/+33/+35), and must route the mode field at this+0x1C through cases 0-5 to the HUD progress-bar encoder 0x004B33B0.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040F600",
+        "global:0x008AAE64",
+        "global:0x0083EE60",
+        "global:0x0040FAE4",
+        "callee:0x004B33B0",
+        "field:this:0x0000001C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TrackObjectTeardownContract",
+      "category": "lifecycle",
+      "description": "GraphicsResourceDestructor (0x0040FB30) must free every heap array at this+0x0..0x68: simple pointer arrays via FreeWrapper_7bcf using the stored allocation base 4 bytes before each array, 792/808-byte element arrays via per-element ShortComputation_fd70, 36-byte element arrays via ArrayDestructorIterator with the no-op stub, trailing arrays via ArrayOfObjectsDestructor/ShortComputation_fda0, and then zero all freed slots.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040FB30",
+        "callee:0x00587BCF",
+        "callee:0x0040FD70",
+        "callee:0x00401030",
+        "callee:0x0040FDD0",
+        "callee:0x0040FDA0",
+        "global:0x0047AA60",
+        "caller:0x0040E1C0",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "Owner objects and classes of nearly all functions here are unknown; every class grouping is a GUESS resting on shared this-field access patterns, not proven common ownership.",
+    "The vtable+8 dispatch target of LoadFileAndDispatchToEntries (0x0040BD10) is an indirect call with no static callee in the packet; the prior 'camera entry' reading is DERIVED, not proven.",
+    "The difference between sub_566940 and sub_566A70 (the a3-dependent loaders in 0x0040BD10) is unconfirmed beyond the branch itself.",
+    "Globals dword_8AFE64 and dword_8AFE88 are flagged read-only by packet facts but absent from the raw decompiled bodies of CamManInit; dword_8AFE88 is only actually used in VirtualDispatchConditionalAudio (0x0040D090, offsets +420/+424), and dword_8AFE64 has no located use in this packet.",
+    "The exact semantics of the byte flags this+0x2E and this+0x38 in CameraManagerRestart (0x0040C9E0) are not evidenced beyond the restart-reset behavior.",
+    "The meaning of the byte at dword_7C54E0 + 13388 and its interaction with byte_7CFE88 in the case-3 secondary transition is unknown.",
+    "The identity and semantics of sub_40D080 (guard predicate in the case-5 path) and of the vtable+0x10 virtual dispatched in case 5 of DispatchGameAction (0x0040CDE0) are unknown.",
+    "The exact meaning of the camera mode values (0-8) passed to ViewCameraModeDispatch is unverified; why case 4 of GameStateBranchDispatch reuses camera mode 3 with action id 5 is not explained by the packet.",
+    "The ReciprocalWithSignCheck call in SessionPhaseActionDispatch (0x0040D3C0) has no callee address in the packet; what SafeDivisionWithZeroGuard (0x00408450) writes through flt_5EA4E8 with a 0.5 divisor is unresolved.",
+    "The first argument to GameActionStateMachine in ShortComputation_d410 (0x0040D410) is an uninitialized register in the decompilation; the real receiver is not established.",
+    "StructFieldInit (0x0040D490) is reused by four callers (SimpleSetterWithSubCall, RaceCommentaryDirectorSystem, CameraDirectorResetInit, StateMachineInitializer) but the shared target type is not established; whether the single-byte write at +0x20 overlaps an adjacent dword-sized field is unresolved.",
+    "CONTRADICTION: TickUpdateDispatch (0x0040E170) gates EngineGuardedInitializer on *(this+0x88)+0x24 == 10, while StructFieldInit writes that same offset to 0; the +0x88 sub-struct is therefore not evidently a StateInitBlock-typed object, or the flag is set by another writer before the tick.",
+    "sub_588410 token-match semantics (string containment vs equality), sub_58850F (float) and sub_587ECE (integer) config-entry parse formats, and SingleFunctionCallWrapper_7f59's position-value conversion in RaceCommentaryDirectorSystem are unverified.",
+    "The vehicle-array fields at offsets 16480 and 18580 used with dword_7C54F0 and dword_7C54E8 are unlabeled; the array base dword_7C54F0 is the vehicle array anchor from the corpus.",
+    "Action type 1 is not produced by the RaceCommentaryDirectorSystem token chain (assigned types are 0 and 2..12), so its dispatch path is unreachable through normal parsing; this+0x2C is both a gated result field and the resolved target-entity id.",
+    "The numeric state values (1/2/-1) of TwoPhaseAudioGateStateMachine are DERIVED from control flow, not independently established.",
+    "The CameraDirectorResetInit tail-call target of TickUpdateDispatch (0x0040E170) has no callee evidence record in the packet; its address is not recoverable from this packet.",
+    "The six float constants bulk-set by F_6FieldBulkSetter in StructInitWithFloatConstantsAndSubCalls are preserved from raw source without IEEE-754 interpretation; the distinct mode behaviors 0-5 of SwitchBasedFloatProcessing are not visible per case.",
+    "The correspondence between the extracted *(this+0x20) field offsets and the source-data quantities in CameraShakeRingBufferWrite is DERIVED; the individual roles of the float/double constants at 0x0059E420..0x0059E71C are not confirmed.",
+    "The ring buffer written by 0x0040F600 (globals 0x008AAE64/0x0083EE60) is owned elsewhere; the HUD bar id 29 and vehicle-id read dword_7C54F0[dword_7C54E4]+18580 semantics are not established here.",
+    "ArrayOfObjectsDestructor (0x0040FDD0) and ShortComputation_fda0 (0x0040FDA0) are invoked with the constant argument 3 while the guarded object slots (0x5C, 0x64, 0x68) are not passed; the decompiled raw source shows the constant, so the true argument was likely folded away.",
+    "CONTRADICTION: field this+0x8 of TrackObjectManager is freed directly without the -4 base adjustment applied to every other array slot.",
+    "The per-slot category pairing (vehicle/dspoly/non-DSP/cone/post/sign/wheel/wing/part) of TrackObjectManager is DERIVED from existing analysis; no static owner is confirmed by this packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x008AFE64"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "LOW",
+    "contracts": "MEDIUM"
+  }
+}

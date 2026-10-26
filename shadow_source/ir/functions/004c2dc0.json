@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "address": "0x004C2DC0",
+  "proposed_name": "IncrementalRunningAverageWithClamp",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes an incremental running average: reads a counter at this+0x2C, increments it, accumulates old_count * previous_average(this+0x50) + input, then divides by the updated counter and stores the result at this+0x50. A counter-wrap guard resets the counter to 1 when the old value is -1 (i.e. the incremented value would be 0). The stored average is then post-processed through a compare-status branch against 120.0 that replaces it with a constant when the comparison is unordered or when it exceeds 120.0.",
+  "local_names": {
+    "v7": "old counter read from this+0x2C",
+    "v2": "accumulated sum (old_count * old_average + input)",
+    "v3": "computed average (v2 / updated counter)",
+    "v5/v6": "compare-status flags from the final comparison (decompiler locals)"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "v7 := counter at this+0x2C; store v7 + 1 back to this+0x2C — counter incremented each call",
+      "evidence_refs": ["field:this:0x0000002C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v2 := (double)v7 * average at this+0x50 + input a2 — accumulate old_count * old_average plus new input",
+      "evidence_refs": ["field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "if v7 == -1: this+0x2C := 1 — reset counter when the increment would produce zero",
+      "evidence_refs": ["field:this:0x0000002C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v3 := v2 / (int)counter at this+0x2C; this+0x50 := v3 — compute and store the new running average",
+      "evidence_refs": ["field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Compare v3 against 120.0: if the comparison status is unordered, this+0x50 := 1116471296; else if v3 > 120.0, this+0x50 := 1123024896",
+      "evidence_refs": ["field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Function completes without a return value; the updated average persists at this+0x50",
+      "evidence_refs": ["function:0x004C2DC0", "field:this:0x00000050"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v7 = *(this + 44);",
+    "*(this + 44) = v7 + 1;",
+    "v2 = (double)v7 * *(float*)(this + 80) + a2;",
+    "if (v7 == -1) *(this + 44) = 1;",
+    "v3 = v2 / (double)*(int*)(this + 44);",
+    "*(float*)(this + 80) = v3;",
+    "if (compare_status_unordered) *(this + 80) = 1116471296;",
+    "else if (v3 > 120.0) *(this + 80) = 1123024896;"
+  ],
+  "unresolved": [
+    "flt_59E968 (0x0059E968) and flt_5ACB00 (0x005ACB00) are data xrefs recorded by the fact table but absent from the raw source text; their runtime role in this function is not established.",
+    "Literal 1116471296 has no float interpretation given in the packet; decoded as 64.0f it is applied only on the unordered compare branch, not as a symmetric lower clamp.",
+    "The v5/v6 locals are decompiler artifacts of the final compare-status branch; the exact x87 flag mapping is unverified.",
+    "The owner (UnknownObject) and the running-average purpose are DERIVED from structure and the legacy ABI label, not independently confirmed."
+  ],
+  "unresolved_evidence_refs": ["abi:lead", "caller:0x004C29F0", "global:0x0059E968", "global:0x005ACB00"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

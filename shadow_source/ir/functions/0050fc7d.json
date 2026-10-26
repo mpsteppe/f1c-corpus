@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "address": "0x0050FC7D",
+  "proposed_name": "DetectMmxSupportWithRegistryOverride",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0050FC7D", "source:raw"]
+  },
+  "summary": "MMX capability detection with an HKLM registry override. Opens the registry key Software\\Microsoft\\Direct3D via RegOpenKeyA; if open succeeds it queries the value \"DisableMMX\" via RegQueryValueExA, and when that value is present as REG_DWORD (type 4) with a non-zero payload it closes the key and forces the cached state dword_5D7994 to 0 (MMX disabled), returning 0. Otherwise it closes the key and, only when the cached state dword_5D7994 is negative (uninitialized), runs CPU feature detection via sub_50FC58, emits the EMMS instruction (_m_empty) when MMX is available, and stores 1 (MMX enabled) or 0 into dword_5D7994. Returns the cached enable state dword_5D7994. Called from texture/render initialization paths.",
+  "local_names": {
+    "Data": "4-byte buffer receiving the DisableMMX value data",
+    "Type": "DWORD receiving the registry value type (compared against REG_DWORD = 4)",
+    "cbData": "size in/out for the registry query (preset to 4)",
+    "phkResult": "registry key handle from RegOpenKeyA",
+    "dword_5D7994": "cached MMX enable state: -1 uninitialized, 0 disabled, 1 enabled"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard: open HKLM subkey \"Software\\Microsoft\\Direct3D\" (SubKey) via RegOpenKeyA; proceed only when the call succeeds.",
+      "evidence_refs": ["global:0x0059E044", "global:0x005ADE4C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Preset cbData = 4, the size of a REG_DWORD value, before querying.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call RegQueryValueExA(phkResult, ValueName \"DisableMMX\", 0, &Type, Data, &cbData) to read the override value.",
+      "evidence_refs": ["global:0x0059E004", "global:0x005ADE68", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when the query succeeds AND Type == 4 (REG_DWORD) AND the Data DWORD is non-zero, treat MMX as forcibly disabled.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Close the registry key via RegCloseKey(phkResult) on the forced-disable path.",
+      "evidence_refs": ["global:0x0059E008", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store dword_5D7994 = 0 to cache the forced MMX-disabled state.",
+      "evidence_refs": ["global:0x005D7994", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 (MMX disabled) immediately after the registry-forced disable.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On the non-forced path close the opened registry key via RegCloseKey(phkResult).",
+      "evidence_refs": ["global:0x0059E008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: run CPU detection only when the cached state dword_5D7994 is negative (uninitialized).",
+      "evidence_refs": ["global:0x005D7994", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Seed dword_5D7994 = 0 before detection so the state is no longer uninitialized.",
+      "evidence_refs": ["global:0x005D7994", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call sub_50FC58() to run CPU MMX feature detection.",
+      "evidence_refs": ["callee:0x0050FC58", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When detection reports MMX available, emit the EMMS instruction via the _m_empty() intrinsic.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store dword_5D7994 = 1 to cache the MMX-enabled state after successful detection.",
+      "evidence_refs": ["global:0x005D7994", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the cached state dword_5D7994 (0 disabled, 1 enabled).",
+      "evidence_refs": ["global:0x005D7994", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called from texture/render initialization paths: ImageTextureDecompressor, FunctionPointerSwitch, and RenderFeatureDispatch.",
+      "evidence_refs": ["caller:0x00501722", "caller:0x00503888", "caller:0x005038C0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int DetectMmxSupportWithRegistryOverride() {",
+    "  if (RegOpenKeyA(HKEY_LOCAL_MACHINE, \"Software\\\\Microsoft\\\\Direct3D\", &phkResult) == 0) {",
+    "    cbData = 4;",
+    "    if (RegQueryValueExA(phkResult, \"DisableMMX\", 0, &Type, Data, &cbData) == 0 && Type == 4 && *(DWORD*)Data != 0) {",
+    "      RegCloseKey(phkResult);",
+    "      dword_5D7994 = 0;",
+    "      return 0;",
+    "    }",
+    "    RegCloseKey(phkResult);",
+    "  }",
+    "  if (dword_5D7994 < 0) {",
+    "    dword_5D7994 = 0;",
+    "    if (sub_50FC58()) {",
+    "      _m_empty();",
+    "      dword_5D7994 = 1;",
+    "    }",
+    "  }",
+    "  return dword_5D7994;",
+    "}"
+  ],
+  "unresolved": [
+    "_m_empty() is an MSVC intrinsic (EMMS instruction) with no discrete callee address, so it cannot carry a callee evidence ref.",
+    "The exact CPU feature check performed by sub_50FC58 is not visible in this function.",
+    "The owning rendering object that caches the MMX state in dword_5D7994 is unknown."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

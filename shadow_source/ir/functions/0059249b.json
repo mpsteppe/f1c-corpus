@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "address": "0x0059249B",
+  "proposed_name": "DaylightSavingTimeTransitionCheck",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0059249B"]
+  },
+  "summary": "Decides whether a timestamp falls inside Daylight Saving Time. Bails out with FALSE when the DST enable flag dword_5E775C is zero. When the timestamp year (a1[5]) no longer matches either cached transition year (dword_5E77F0 / dword_5E7800), recomputes the DST start/end transition dates by calling sub_592647 twice: once with the Windows TIME_ZONE_INFORMATION DaylightDate/StandardDate members when the timezone-init flag dword_8D3FC0 is set, otherwise with hardcoded April/October defaults. Then compares the day-of-year a1[7] against the cached day-of-year bounds dword_5E77F4/dword_5E7804, and on the boundary days compares the time-of-day value 1000*(h + 60*(m + 60*s)) against the cached boundary times dword_5E77F8/dword_5E7808. Invoked by CriticalSectionGuardedCall (0059247A).",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard on the DST enable flag dword_5E775C; when zero, DST is disabled.",
+      "evidence_refs": ["global:0x005E775C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return FALSE immediately when DST is disabled.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the timestamp year from a1[5] (field this+0x14) into v2.",
+      "evidence_refs": ["field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Year-change guard: recompute transitions only when the year differs from the cached start/end years dword_5E77F0 and dword_5E7800.",
+      "evidence_refs": ["global:0x005E77F0", "global:0x005E7800", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the timezone-init flag dword_8D3FC0 selecting the Windows TIME_ZONE_INFORMATION path over the hardcoded default path.",
+      "evidence_refs": ["global:0x008D3FC0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When DaylightDate.wYear is non-zero, compute the DST start transition via sub_592647(1, 0, year, wMonth, ..., wDay, wHour, wMinute, wSecond, wMilliseconds); otherwise call it with the absolute-date flag sub_592647(1, 1, year, wMonth, wDay, wDayOfWeek, ...) using the DaylightDate members.",
+      "evidence_refs": ["callee:0x00592647", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Compute the DST end transition from the StandardDate members: sub_592647(0, 0, year, ...) when StandardDate.wYear is non-zero, else sub_592647(0, 1, year, wMonth, wDay, wDayOfWeek, ...).",
+      "evidence_refs": ["callee:0x00592647", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Hardcoded default path: sub_592647(1, 1, year, 4, 1, 0, 0, 2, 0, 0, 0) for the April start and sub_592647(0, 1, year, 10, 5, 0, 0, 2, 0, 0, 0) for the October end, using a1[5] as the year.",
+      "evidence_refs": ["callee:0x00592647", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the day-of-year from a1[7] (field this+0x1C) into v3.",
+      "evidence_refs": ["field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build the time-of-day in milliseconds as 1000 * (a1[0] + 60 * (a1[1] + 60 * a1[2])) from fields this+0x0, this+0x4, this+0x8.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the cached start/end day-of-year bounds dword_5E77F4 and dword_5E7804: a normal year has start below end.",
+      "evidence_refs": ["global:0x005E77F4", "global:0x005E7804", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Normal-year range test: v3 inside (start, end) returns TRUE, outside [start, end] returns FALSE, and the boundary days fall through to the time-of-day comparison.",
+      "evidence_refs": ["global:0x005E77F4", "global:0x005E7804", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Wrap-around year test when start >= end: v3 below end or above start returns TRUE, strictly inside (end, start) returns FALSE.",
+      "evidence_refs": ["global:0x005E77F4", "global:0x005E7804", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Boundary-day decisions: on the start day return whether v4 >= dword_5E77F8; on the end day return whether v4 < dword_5E7808.",
+      "evidence_refs": ["global:0x005E77F8", "global:0x005E7808", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by CriticalSectionGuardedCall (0059247A) inside its guarded section.",
+      "evidence_refs": ["caller:0x0059247A", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "BOOL sub_59249B(DWORD *t) {",
+    "  if (!dword_5E775C) return FALSE;",
+    "  int year = t[5];",
+    "  if (year != dword_5E77F0 || year != dword_5E7800) {",
+    "    if (dword_8D3FC0) {",
+    "      sub_592647(1, TimeZoneInformation.DaylightDate.wYear ? 0 : 1, year, DaylightDate members...);",
+    "      sub_592647(0, TimeZoneInformation.StandardDate.wYear ? 0 : 1, year, StandardDate members...);",
+    "    } else {",
+    "      sub_592647(1, 1, year, 4, 1, 0, 0, 2, 0, 0, 0);",
+    "      sub_592647(0, 1, year, 10, 5, 0, 0, 2, 0, 0, 0);",
+    "    }",
+    "  }",
+    "  int doy = t[7];",
+    "  int ms  = 1000 * (t[0] + 60 * (t[1] + 60 * t[2]));",
+    "  if (dword_5E77F4 < dword_5E7804) {",
+    "    if (doy < dword_5E77F4 || doy > dword_5E7804) return FALSE;",
+    "    if (doy > dword_5E77F4 && doy < dword_5E7804) return TRUE;",
+    "  } else {",
+    "    if (doy < dword_5E7804 || doy > dword_5E77F4) return TRUE;",
+    "    if (doy > dword_5E7804 && doy < dword_5E77F4) return FALSE;",
+    "  }",
+    "  if (doy == dword_5E77F4) return ms >= dword_5E77F8;",
+    "  return ms < dword_5E7808;",
+    "}"
+  ],
+  "unresolved": [
+    "The raw source reads the global TIME_ZONE_INFORMATION DaylightDate/StandardDate members, but the packet's global facts encode individual byte globals (byte_8D400C..byte_8D401A, byte_8D4060..byte_8D406E) whose mapping onto those members is not proven by this packet.",
+    "Ten byte globals at 0xFF00000000005455..0xFF00000000005466 are flagged by packet facts as read but appear nowhere in the raw decompiled source; they likely reflect mis-decoded members of the timezone configuration block, unverifiable from this packet.",
+    "The exact contract of sub_592647 (argument roles: daylight flag, absolute-date flag, year, month, day, day-of-week, hour, minute, second, millisecond) is inferred from call sites only; its implementation is not in this packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x008D400C",
+    "global:0x008D400E",
+    "global:0x008D4010",
+    "global:0x008D4012",
+    "global:0x008D4014",
+    "global:0x008D4016",
+    "global:0x008D4018",
+    "global:0x008D401A",
+    "global:0x008D4060",
+    "global:0x008D4062",
+    "global:0x008D4064",
+    "global:0x008D4066",
+    "global:0x008D4068",
+    "global:0x008D406A",
+    "global:0x008D406C",
+    "global:0x008D406E",
+    "global:0xFF00000000005455",
+    "global:0xFF00000000005456",
+    "global:0xFF00000000005457",
+    "global:0xFF00000000005458",
+    "global:0xFF00000000005459",
+    "global:0xFF0000000000545A",
+    "global:0xFF0000000000545B",
+    "global:0xFF0000000000545C",
+    "global:0xFF00000000005463",
+    "global:0xFF00000000005466"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

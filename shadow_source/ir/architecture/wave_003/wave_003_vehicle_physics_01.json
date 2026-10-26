@@ -1,0 +1,2426 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_003_vehicle_physics_01",
+  "scope": "vehicle_physics",
+  "subsystem": {
+    "name": "VehiclePhysics",
+    "responsibility": "Vehicle physics surface for wave_003_vehicle_physics_01: wheel contact-height probing against the spatial terrain grid, time-sliced three-phase wheel dynamics processing (friction/suspension/proximity), collision-shape discriminator/subtype initialization, shape-to-bone and size-class mapping, brake/tire thermal integration and wear simulation on the live vehicle, retirement/failure driver-event commentary, the global active-vehicle pointer array and player-vehicle selection helpers, physics object init/teardown thunks, and the setup/statistics display formatters that present physics parameters (ride height, camber, ratios, speed estimates) to the garage menu.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x00402220",
+      "function:0x00404460",
+      "function:0x00438130",
+      "function:0x0042F470",
+      "function:0x0041B250",
+      "function:0x0042BC80",
+      "source:raw"
+    ]
+  },
+  "summary": "The vehicle_physics scope in this packet spans nine loosely coupled clusters with no proven common owner. (1) Wheel contact-height probing (0x00402220) computes the contact patch and suspension compression via terrain-height queries (SpatialGridQuery 0x0044C4C0); (2) a time-sliced wheel phase machine (0x00404460) runs at most 20 wheels per frame through friction/suspension/proximity phases against a per-run target grip; (3) collision-shape data (0x0040E990, 0x00412C30, 0x004139C0) carries a discriminator, subtype constant, pass-through and a secondary output, seeded via CollisionInvMassStore and F_6FieldBulkSetter; (4) per-vehicle camera/physics update iteration (0x004109D0) applies wheel contact transforms or dispatches render physics and camera-shake writes; (5) session retirement commentary (0x0041B250, owner SessionState) builds sentinel-initialized driver-table entries (event IDs 117-119 player, 235-238 AI) and inserts them into the session event table; (6) the global active-vehicle pointer array service (0x0042BBD0, 0x0042BC40, 0x0042BC80) builds the 104-entry dword_7C54F0 array and records player/vehicle indices; (7) the setup formatter (0x0042F470) and stats estimator (0x00430F00) render setup parameter and performance estimates into display buffers with metric/imperial unit selection and localized labels; (8) physics object lifecycle thunks (0x00433090, 0x00433E60 destructor/teardown, 0x00433870, 0x00434450, 0x00438CA0 init/step, 0x00431BD0 registration) with unproven owners; and (9) brake/tire thermal and wear integration (0x00438130, owner F1CVehicle DERIVED) that clamps integrated temperature, triggers a blowout-style degradation transition and dispatches pit/AI phase callbacks by slip classification. Most class boundaries and all field semantics are GUESS/DERIVED; the twenty-four dbl_59E* read-only globals and the string globals backing the setup formatter are recorded but not tied to literals by this packet.",
+  "function_roles": [
+    {
+      "address": "0x00402220",
+      "role": "Wheel contact-height probe: computes the contact patch position from wheel geometry (origin, scale selector, direction), queries terrain height at the contact center and both side probes via SpatialGridQuery, resolves side-height disagreement beyond a 0.35 threshold, and writes compressed suspension height (center-average + 0.06) and lateral tilt (half the side-height difference) into the output.",
+      "owner": "WheelContactProbe",
+      "evidence_refs": [
+        "function:0x00402220",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "callee:0x0044C4C0",
+        "global:0x0059E450",
+        "global:0x0059E454",
+        "global:0x0059E458",
+        "global:0x007C9360",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00404460",
+      "role": "Time-sliced three-phase wheel processing state machine: computes a per-run target grip from two global grip terms, and when the stored target differs beyond tolerance or the machine is mid-run, processes at most 20 wheels per call through phase 0 friction (sub_4FB260), phase 1 suspension (sub_4FAF60) and phase 2 proximity (VehicleProximity), advancing the phase selector and index, returning to idle with index -1 when a full batch completes.",
+      "owner": "WheelProcessingStateMachine",
+      "evidence_refs": [
+        "function:0x00404460",
+        "field:this:0x00000130",
+        "field:this:0x00000134",
+        "field:this:0x0000016C",
+        "field:this:0x00000170",
+        "field:this:0x00000174",
+        "callee:0x004FB260",
+        "callee:0x004FAF60",
+        "callee:0x004FB2E0",
+        "global:0x008AFEE8",
+        "global:0x008AFEEC",
+        "caller:0x0042D8A0",
+        "caller:0x004B8AE0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0040E990",
+      "role": "Collision-shape type-1 initializer: writes the 16-bit discriminator into this+8, subtype constant 1 into this+28, stores the pass-through argument at this+32, seeds collision mass/inverse-mass bulk data via CollisionInvMassStore with a constant float array, bulk-sets six collision fields via F_6FieldBulkSetter, and continues into ShortComputation_e770 when the fourth argument is non-zero.",
+      "owner": "CollisionShapeData",
+      "evidence_refs": [
+        "function:0x0040E990",
+        "field:this:0x00000008",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "callee:0x00459950",
+        "callee:0x00459990",
+        "callee:0x0040E770",
+        "caller:0x0040FE50",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004109D0",
+      "role": "Per-frame per-vehicle camera/physics update tick: when the scoring gate is in direct-contact mode walks the global vehicle array applying wheel contact transforms (sub_4F0430 then WheelContactTransform 0x004EF180 per slot); otherwise iterates the receiver's camera-element array dispatching mode-ordered render physics (0x0040F300) and, on a coarse shake timer, writes camera-shake data for eligible elements (0x0040F600).",
+      "owner": "CameraPhysicsUpdateReceiver",
+      "evidence_refs": [
+        "function:0x004109D0",
+        "global:0x008AB6E4",
+        "global:0x005C329C",
+        "global:0x007C54F0",
+        "callee:0x004F0430",
+        "callee:0x004EF180",
+        "callee:0x0040F300",
+        "callee:0x0040F600",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x0000006C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00412C30",
+      "role": "Collision-shape-to-bone mapping: dispatches on a shape identifier (1-12, 15, 20, 25, 30, 35, 40, 50) via the jump-table/case globals and computes a bone index (153-189) by subtracting a boolean flag from a shape-specific base; on success writes the bone index to this+8, the sub_414180(0) result to this+0xC, and returns 1 (or -1 when the argument flags or shape are invalid).",
+      "owner": "CollisionShapeData",
+      "evidence_refs": [
+        "function:0x00412C30",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "callee:0x00414180",
+        "global:0x00412DC8",
+        "global:0x00412E18",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004139C0",
+      "role": "Collision-shape size classification: promotes the size argument to double and walks an ascending chain of threshold doubles (dbl_59E788..dbl_59E7E0, 1.0..52.5) with the upper tail split by integer bounds 75/110/999, writing the class index to this+8 and the sub_414180(0) result to this+0xC; runs only under the a2==0 && a4==0 guard, otherwise returns -1. Called by SoundEventDispatcher.",
+      "owner": "CollisionShapeData",
+      "evidence_refs": [
+        "function:0x004139C0",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "callee:0x00414180",
+        "caller:0x00411E90",
+        "global:0x0059E420",
+        "global:0x0059E788",
+        "global:0x0059E790",
+        "global:0x0059E798",
+        "global:0x0059E7A0",
+        "global:0x0059E7A8",
+        "global:0x0059E7B0",
+        "global:0x0059E7B8",
+        "global:0x0059E7C0",
+        "global:0x0059E7C8",
+        "global:0x0059E7D0",
+        "global:0x0059E7D8",
+        "global:0x0059E7E0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0041B250",
+      "role": "Retirement/failure commentary handler: gated by race-active, track-state, session-type (7), race-phase (!=8) and championship-mode (!=5) flags. Sentinel-initializes a driver-table entry; for the player vehicle (field +0x4894 match) maps reason code to event IDs 119/118/117; for AI vehicles derives a context index (FloatRangeIndexLookup on field +0x4044, default 3) and maps the reason code to event IDs 235/238/236/237 with field +0x489C as context; inserts the entry via InsertDriverTableEntry only when the built entry is not the -1 sentinel.",
+      "owner": "SessionState",
+      "evidence_refs": [
+        "function:0x0041B250",
+        "callee:0x004144D0",
+        "callee:0x004144F0",
+        "callee:0x004D7C10",
+        "callee:0x00418560",
+        "global:0x007D0308",
+        "global:0x007CF3C8",
+        "global:0x007C56A4",
+        "global:0x007C56A8",
+        "global:0x007D0410",
+        "global:0x007C54E8",
+        "global:0x005EA618",
+        "field:this:0x00004894",
+        "field:this:0x00004068",
+        "field:this:0x00004044",
+        "field:this:0x0000489C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0042BBD0",
+      "role": "Player-vehicle selector: computes the player vehicle pointer as vehicle-array base plus 18624 * slot index, stores it in dword_7C54E0, scans the 104-entry dword_7C54F0 pointer array for a match, records the matching index in dword_7C54DC and returns it (or 104 when absent).",
+      "owner": "VehiclePointerArrayRegistry",
+      "evidence_refs": [
+        "function:0x0042BBD0",
+        "global:0x005EC6D8",
+        "global:0x007C54E0",
+        "global:0x007C54F0",
+        "global:0x007C54DC",
+        "caller:0x0040D240",
+        "caller:0x0040DE60",
+        "caller:0x0042C1A0",
+        "caller:0x0045FC50",
+        "caller:0x004B9890",
+        "caller:0x004BA1F0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0042BC40",
+      "role": "Alternate player-vehicle selector: computes the player vehicle pointer (base plus 18624 * slot) into dword_7C54E8, scans dword_7C54F0 for a match, records the index in dword_7C54E4 and returns it (or 104 when absent).",
+      "owner": "VehiclePointerArrayRegistry",
+      "evidence_refs": [
+        "function:0x0042BC40",
+        "global:0x005EC6D8",
+        "global:0x007C54E8",
+        "global:0x007C54F0",
+        "global:0x007C54E4",
+        "caller:0x0042C1A0",
+        "caller:0x0045FC50",
+        "caller:0x004BA1F0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0042BC80",
+      "role": "Builds the global 104-entry active-vehicle pointer array: scans vehicle slots for live entries (dword at index 3250 != -1), zero-fills the unused tail, backfills remaining slots with not-yet-listed live vehicles, then records the array indices of the two reference vehicle pointers into dword_7C54DC (CurrentPlayerIndex) and dword_7C54E4 (CurrentVehicleIndex); returns the active vehicle count.",
+      "owner": "VehiclePointerArrayRegistry",
+      "evidence_refs": [
+        "function:0x0042BC80",
+        "global:0x005EC6D8",
+        "global:0x007C54D8",
+        "global:0x007C54F0",
+        "global:0x007C5690",
+        "global:0x007C54DC",
+        "global:0x007C54E4",
+        "global:0x007C54E0",
+        "global:0x007C54E8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0042F470",
+      "role": "Vehicle-setup parameter value formatter for the garage/setup menu: the option index selects a 64-byte per-option slot and dispatches through a large switch (50+ cases) to the correct format specifier and unit conversion (metric/imperial from this+0x4; cm-to-inch 0.3937007874015748, radian-to-degree 57.29577951308232, liter-to-gallon 0.2641720372841846, RPM 9.549296585513721), with localized labels via BinarySearchInStringTable into byte_5EC4CC; several cases delegate to SetupValueFormatDS/1fS/WithOffset. Called only from MenuOptionValueDisplay.",
+      "owner": "SetupValueFormatter",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x00423A00",
+        "callee:0x0058815F",
+        "callee:0x00587BDC",
+        "callee:0x0042F180",
+        "callee:0x0042F1E0",
+        "callee:0x0042F260",
+        "callee:0x004D7570",
+        "callee:0x004D7880",
+        "callee:0x0042DC80",
+        "callee:0x0042DCA0",
+        "callee:0x0042DCC0",
+        "callee:0x0042DCE0",
+        "callee:0x0042DD00",
+        "caller:0x004673B0",
+        "global:0x008AD254",
+        "global:0x005EA438",
+        "global:0x005C307C",
+        "global:0x005EC4C0",
+        "global:0x005EC4CC",
+        "global:0x005C3828",
+        "global:0x005C37F4",
+        "global:0x005C3804",
+        "global:0x005C3810",
+        "global:0x005C36C0",
+        "field:this:0x00000004",
+        "field:this:0x00001644",
+        "field:this:0x00001884",
+        "field:this:0x00001980",
+        "field:this:0x00001984",
+        "field:this:0x00001989",
+        "field:this:0x0000198C",
+        "field:this:0x00001994",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00430F00",
+      "role": "Vehicle performance-estimate formatter: computes acceleration and top-speed estimates with a numeric-integration loop over BrakeTemperatureFadeModel (0x00430A50) and a cornering estimate via sub_430750, selecting metric (150 km/h bound) or imperial (100 mph bound) presentation from byte_7D0474, resolving every label through BinarySearchInStringTable into the shared byte_5EC4CC scratch buffer, and writing the three estimation lines into this display buffers.",
+      "owner": "VehicleStatsEstimator",
+      "evidence_refs": [
+        "function:0x00430F00",
+        "callee:0x00423A00",
+        "callee:0x0058815F",
+        "callee:0x00430A50",
+        "callee:0x00430750",
+        "global:0x007D0474",
+        "global:0x005C3810",
+        "global:0x005C3758",
+        "global:0x005C3F24",
+        "global:0x005C3F28",
+        "global:0x005C3F38",
+        "global:0x005C3F58",
+        "global:0x005C3F64",
+        "global:0x005C3F68",
+        "global:0x005C3F6C",
+        "global:0x005EC4C0",
+        "global:0x005EC4CC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00431BD0",
+      "role": "Static-data registration thunk: passes the address of sub_431BE0 (coerced to int) to BooleanToIntConversion (0x00587B3E) and returns the boolean-to-int result; reports the presence of a function pointer rather than executing it.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x00431BD0",
+        "callee:0x00587B3E",
+        "global:0x00431BE0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00433090",
+      "role": "Physics-config object destructor: first reinitializes the object via SessionConfigDefaultInit (0x00432CC0), then frees up to three owned heap pointer fields (offsets 0x14, 0x8, 0x0) via FreeWrapper_7bcf under individual non-null guards, returning the last free result (or the saved field 0x8 value when that field was null). Called by AutoLoadEntryListLoader.",
+      "owner": "PhysicsObjectConfig",
+      "evidence_refs": [
+        "function:0x00433090",
+        "callee:0x00432CC0",
+        "callee:0x00587BCF",
+        "caller:0x00432E70",
+        "field:this:0x00000014",
+        "field:this:0x00000008",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00433870",
+      "role": "Unconditional vehicle-subsystem step: indexes the read-only global array dword_5F0F6C at element 4656 * a2 and passes the object plus the selected element to the AI driver-name loader, returning its result. Reached via NetCommPlayerSlotSync; the loader target has no recorded address.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x00433870",
+        "global:0x005F0F6C",
+        "caller:0x0045FC50",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00433E60",
+      "role": "Object teardown helper (structural twin of PhysicsObjectDestructor): default-initializes the object via SessionConfigDefaultInit, conditionally frees the three owned sub-buffers at offsets 0, 8 and 20 via FreeWrapper_7bcf, frees the object itself when the low bit of the flags argument is set, and returns the object pointer.",
+      "owner": "PhysicsObjectConfig",
+      "evidence_refs": [
+        "function:0x00433E60",
+        "callee:0x00432CC0",
+        "callee:0x00587BCF",
+        "caller:0x00433D60",
+        "field:this:0x00000014",
+        "field:this:0x00000008",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00434450",
+      "role": "Physics-config initialization thunk: forwards its this pointer unchanged to ConstraintSolverParamInit (referenced only by name in the source text; no callee address recorded) and returns the callee's result. Called from sub_40DE60.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x00434450",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00438130",
+      "role": "Per-frame brake/tire thermal integration and wear simulation on the live vehicle: converts brake force, slip and angular velocity into per-wheel heat, integrates temperatures toward ambient Kelvin offsets (flt_8AFEF0/flt_8AFEF4 + 273.16) with frame-time weighting and a drain term, clamps the integrated temperature, computes a wear/degradation term from torque and slip ratio, triggers a blowout-style transition that scales down brake/tire force fields on extreme slip, and dispatches pit-state or AI-phase transitions (AISessionPhaseCounter / PitStateSlotActivation) based on slip classification. Called by the vehicle physics integration step (0x00441650).",
+      "owner": "F1CVehicle",
+      "evidence_refs": [
+        "function:0x00438130",
+        "caller:0x00441650",
+        "callee:0x00438100",
+        "callee:0x0041AB30",
+        "callee:0x0041AA10",
+        "global:0x008AFEF4",
+        "global:0x008AFEF0",
+        "global:0x008AFEE4",
+        "global:0x007D0308",
+        "global:0x007CF3C8",
+        "global:0x005EC3BC",
+        "global:0x005EB978",
+        "field:this:0x00000078",
+        "field:this:0x000000BC",
+        "field:this:0x0000014C",
+        "field:this:0x0000015C",
+        "field:*(this+0x15C):0x00000064",
+        "field:*(this+0x15C):0x0000006C",
+        "field:*(this+0x15C):0x00000074",
+        "field:this:0x00000234",
+        "field:this:0x00000268",
+        "field:this:0x00000270",
+        "field:this:0x00000278",
+        "field:this:0x00000288",
+        "field:this:0x00000314",
+        "field:this:0x0000031C",
+        "field:this:0x00000324",
+        "field:this:0x00000334",
+        "field:this:0x0000033C",
+        "field:this:0x00000344",
+        "field:this:0x0000034C",
+        "field:this:0x00000354",
+        "field:this:0x0000035C",
+        "field:this:0x00000364",
+        "field:this:0x00000368",
+        "field:this:0x0000036C",
+        "field:this:0x00000374",
+        "field:this:0x0000037C",
+        "field:this:0x00000384",
+        "field:this:0x00000394",
+        "field:this:0x00000398",
+        "field:this:0x0000039C",
+        "field:this:0x000003A4",
+        "field:this:0x000003AC",
+        "field:this:0x000003B4",
+        "field:this:0x000003BC",
+        "field:this:0x000003C4",
+        "field:this:0x000003CC",
+        "field:this:0x0000044C",
+        "field:this:0x00000454",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00438CA0",
+      "role": "Physics subsystem initializer: initializes wheel dynamics via WheelDynamicsInit (0x0043E230), dispatches initialization of a physics subsystem object at this + 5548 via PhysicsSubsystemInitDispatcher (0x0056D410), and returns the result of clearing a physics buffer at this + 492.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x00438CA0",
+        "callee:0x0043E230",
+        "callee:0x0056D410",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "WheelContactProbe",
+      "responsibility": "Computes a wheel's contact patch position and terrain penetration: reads wheel geometry and a half-extent scalar (this+0 / this+4), queries the spatial terrain grid at the contact center and both side probes, and produces the compressed suspension height and lateral tilt.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00402220"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "halfExtentScalar",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "halfExtentScalarAlt",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00402220",
+        "callee:0x0044C4C0",
+        "global:0x0059E450",
+        "global:0x0059E454",
+        "global:0x0059E458",
+        "global:0x007C9360"
+      ]
+    },
+    {
+      "name": "WheelProcessingStateMachine",
+      "responsibility": "Drives time-sliced processing of the vehicle wheel array (base this+0x134, stride 316, count this+0x130): three phases (friction, suspension, proximity) selected by this+0x16C, a per-run target grip float at this+0x170, and a phase/wheel index at this+0x174 with -1 as the idle sentinel.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00404460"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000130",
+          "name": "wheelCount",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000134",
+          "name": "wheelArrayBase",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000016C",
+          "name": "phaseSelector",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000016C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000170",
+          "name": "targetGrip",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000170",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000174",
+          "name": "phaseIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000174",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00404460",
+        "callee:0x004FB260",
+        "callee:0x004FAF60",
+        "callee:0x004FB2E0",
+        "global:0x008AFEE8",
+        "global:0x008AFEEC",
+        "caller:0x0042D8A0",
+        "caller:0x004B8AE0"
+      ]
+    },
+    {
+      "name": "CollisionShapeData",
+      "responsibility": "Collision collision-shape data record: carries a 16-bit discriminator / output dword at this+8, a secondary output at this+0xC (bone index or size class per the mapping/classifying methods), a subtype constant at this+28, and a pass-through value at this+32; seeded with collision mass data by the type-1 initializer.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040E990",
+        "0x00412C30",
+        "0x004139C0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "discriminatorOrOutput",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "secondaryOutput",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "subtype",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "passThrough",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040E990",
+        "function:0x00412C30",
+        "function:0x004139C0",
+        "callee:0x00459950",
+        "callee:0x00459990",
+        "callee:0x00414180",
+        "callee:0x0040E770",
+        "caller:0x0040FE50",
+        "caller:0x00411E90",
+        "global:0x00412DC8",
+        "global:0x00412E18",
+        "global:0x0059E420",
+        "global:0x0059E788",
+        "global:0x0059E7E0"
+      ]
+    },
+    {
+      "name": "SessionState",
+      "responsibility": "Live session/race state used for commentary and event handling: identifies the retiring vehicle (field +0x4894), the retirement reason code (field +0x4068), the AI context float (field +0x4044) and the driver context index (field +0x489C).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0041B250"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00004044",
+          "name": "aiContextFloat",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004044",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004068",
+          "name": "reasonCode",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004068",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004894",
+          "name": "vehicleIdentity",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004894",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000489C",
+          "name": "driverContextIndex",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000489C",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0041B250",
+        "callee:0x004144D0",
+        "callee:0x004144F0",
+        "callee:0x004D7C10",
+        "callee:0x00418560",
+        "global:0x007D0308",
+        "global:0x007CF3C8",
+        "global:0x007C56A4",
+        "global:0x007C56A8",
+        "global:0x007D0410",
+        "global:0x007C54E8",
+        "global:0x005EA618",
+        "abi:lead"
+      ]
+    },
+    {
+      "name": "VehiclePointerArrayRegistry",
+      "responsibility": "Manages the global 104-entry active-vehicle pointer array (dword_7C54F0) and its reference indices: builds the array from live vehicle slots (0x0042BC80), selects the player vehicle into the reference slots dword_7C54E0 / dword_7C54E8, and records the matched indices in dword_7C54DC / dword_7C54E4.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0042BBD0",
+        "0x0042BC40",
+        "0x0042BC80"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0042BBD0",
+        "function:0x0042BC40",
+        "function:0x0042BC80",
+        "global:0x005EC6D8",
+        "global:0x007C54D8",
+        "global:0x007C54F0",
+        "global:0x007C5690",
+        "global:0x007C54DC",
+        "global:0x007C54E4",
+        "global:0x007C54E0",
+        "global:0x007C54E8",
+        "caller:0x0040D240",
+        "caller:0x0040DE60",
+        "caller:0x0042C1A0",
+        "caller:0x0045FC50",
+        "caller:0x004B9890",
+        "caller:0x004BA1F0"
+      ]
+    },
+    {
+      "name": "SetupValueFormatter",
+      "responsibility": "Renders vehicle-setup parameter values to display strings: option-index switch (entry 0x0042F470) selects format specifier, unit conversion (metric/imperial from this+0x4), localized labels, and per-option slot data; shared helpers (0x0042F180 DS, 0x0042F1E0 1fS, 0x0042F260 with-offset) cover delegated layouts.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0042F470"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "unitFlag",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001644",
+          "name": "gearCount",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001644",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001884",
+          "name": "fuelLapsCounter",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001884",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001980",
+          "name": "gearRatioValue",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001980",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001984",
+          "name": "gearRatioValue2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001984",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001989",
+          "name": "rideHeightOverride",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001989",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000198C",
+          "name": "formatFlags",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000198C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001994",
+          "name": "lapFactor",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001994",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x00423A00",
+        "callee:0x0058815F",
+        "callee:0x00587BDC",
+        "callee:0x004D7570",
+        "callee:0x004D7880",
+        "callee:0x0042DC80",
+        "callee:0x0042DCA0",
+        "callee:0x0042DCC0",
+        "callee:0x0042DCE0",
+        "callee:0x0042DD00",
+        "caller:0x004673B0",
+        "global:0x008AD254",
+        "global:0x005EA438",
+        "global:0x005C307C",
+        "global:0x005EC4C0",
+        "global:0x005EC4CC"
+      ]
+    },
+    {
+      "name": "VehicleStatsEstimator",
+      "responsibility": "Computes and formats vehicle performance estimates (acceleration, top speed, cornering G) into setup display buffers, using numeric integration over the brake-temperature fade model and unit selection from byte_7D0474.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00430F00"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x00430F00",
+        "callee:0x00423A00",
+        "callee:0x0058815F",
+        "callee:0x00430A50",
+        "callee:0x00430750",
+        "global:0x007D0474",
+        "global:0x005C3810",
+        "global:0x005C3758",
+        "global:0x005C3F24",
+        "global:0x005C3F28",
+        "global:0x005C3F38",
+        "global:0x005C3F58",
+        "global:0x005C3F64",
+        "global:0x005C3F68",
+        "global:0x005C3F6C",
+        "global:0x005EC4C0",
+        "global:0x005EC4CC"
+      ]
+    },
+    {
+      "name": "PhysicsObjectConfig",
+      "responsibility": "Physics/session-config style object with up to three owned heap allocations (offsets 0x0, 0x8, 0x14) torn down by SessionConfigDefaultInit then FreeWrapper_7bcf; the destructor (0x00433090) and its structural-twin teardown helper (0x00433E60) share the layout. Packet evidence does not prove these two receivers are the same type; the grouping is a proposal.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00433090",
+        "0x00433E60"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "ownedBuffer0",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "ownedBuffer1",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "ownedBuffer2",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00433090",
+        "function:0x00433E60",
+        "callee:0x00432CC0",
+        "callee:0x00587BCF",
+        "caller:0x00432E70",
+        "caller:0x00433D60"
+      ]
+    },
+    {
+      "name": "CameraPhysicsUpdateReceiver",
+      "responsibility": "Per-frame camera/physics update receiver: holds an element count (this+0) and element array pointer (this+8) over which mode-ordered render physics and camera-shake writes are dispatched, and a coarse shake timestamp (this+0x6C).",
+      "trust": "GUESS",
+      "methods": [
+        "0x004109D0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "elementCount",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "elementArray",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000006C",
+          "name": "shakeTimestamp",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000006C",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004109D0",
+        "global:0x008AB6E4",
+        "global:0x005C329C",
+        "global:0x007C54F0",
+        "callee:0x004F0430",
+        "callee:0x004EF180",
+        "callee:0x0040F300",
+        "callee:0x0040F600"
+      ]
+    },
+    {
+      "name": "F1CVehicle",
+      "responsibility": "Live vehicle object (per the corpus SDK naming) whose brake/tire thermal, slip and degradation state is integrated per frame by 0x00438130: brake-force and thermal inputs, a dynamics sub-object (this+0x15C) with angular-velocity doubles, the three-element temperature array (this+0x34C) integrated into this+0x364, slip-state classification (this+0x394) dispatching pit/AI callbacks, and blowout/lock transition scaling. Ownership is DERIVED from the calling context (vehicle physics integration step 0x00441650), not independently proven.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00438130"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000078",
+          "name": "pitSlotIndex",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000078",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000BC",
+          "name": "brakeForce",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000BC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000014C",
+          "name": "brakeDistribution",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000014C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000015C",
+          "name": "dynamicsSubObject",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000015C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x15C)",
+          "offset": "0x00000064",
+          "name": "angularVelocityX",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15C):0x00000064",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x15C)",
+          "offset": "0x0000006C",
+          "name": "angularVelocityY",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15C):0x0000006C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x15C)",
+          "offset": "0x00000074",
+          "name": "angularVelocityZ",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15C):0x00000074",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000234",
+          "name": "tireForceScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000234",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000268",
+          "name": "brakeThermalCoeff",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000268",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000270",
+          "name": "thermalBlendTerm",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000270",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000278",
+          "name": "tireForceScale2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000278",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000288",
+          "name": "tireForceScale3",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000288",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000314",
+          "name": "speedMetersPerSec",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000314",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000031C",
+          "name": "brakeThermalGate",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000031C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000324",
+          "name": "brakeHeatGate",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000324",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000334",
+          "name": "referenceTorque",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000334",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000033C",
+          "name": "slipOffset",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000033C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000344",
+          "name": "slipCoeff",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000344",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000034C",
+          "name": "temperatureArrayBase",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000034C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000354",
+          "name": "wheelTorque0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000354",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000035C",
+          "name": "wheelTorque1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000035C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000364",
+          "name": "integratedTemperature",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000364",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000368",
+          "name": "temperatureClampFlag",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000368",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000036C",
+          "name": "blowoutTimer",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000036C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000374",
+          "name": "slipReference",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000374",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000037C",
+          "name": "slipDrainScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000037C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000384",
+          "name": "brakeForceScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000384",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000394",
+          "name": "slipState",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000394",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000398",
+          "name": "slipStatePayload",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000398",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000039C",
+          "name": "slipAdjustedGrip",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000039C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003A4",
+          "name": "brakeHeatCoeff",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003A4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003AC",
+          "name": "brakeThermalProduct",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003B4",
+          "name": "convectionCoeff",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003B4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003BC",
+          "name": "angularSpeedOffset",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003BC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003C4",
+          "name": "angularSpeedScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003C4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003CC",
+          "name": "wearCoeff",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003CC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000044C",
+          "name": "blowoutForceScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000044C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000454",
+          "name": "blowoutForceScale2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000454",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00438130",
+        "caller:0x00441650",
+        "callee:0x00438100",
+        "callee:0x0041AB30",
+        "callee:0x0041AA10",
+        "global:0x008AFEF4",
+        "global:0x008AFEF0",
+        "global:0x008AFEE4",
+        "global:0x007D0308",
+        "global:0x007CF3C8",
+        "global:0x005EC3BC",
+        "global:0x005EB978"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "WheelProcessingPhaseMachine",
+      "owner": "WheelProcessingStateMachine",
+      "states": [
+        "idle: phase index this+0x174 == -1 sentinel; on the next call a changed target grip re-initializes the machine (phase selector 0, index 0) and stores the new target at this+0x170.",
+        "friction_phase: phase selector this+0x16C == 0; per-wheel batch calls the friction callback (sub_4FB260) with the target grip.",
+        "suspension_phase: phase selector this+0x16C == 1; per-wheel batch calls the suspension callback (sub_4FAF60) on wheelArrayBase + 316 * index.",
+        "proximity_phase: phase selector this+0x16C == 2; per-wheel batch calls the proximity callback (VehicleProximity, sub_4FB2E0) on wheelArrayBase + 316 * index."
+      ],
+      "transitions": [
+        "idle -> friction_phase: |float(this+0x170) - (1.0 - (flt_8AFEE8 + flt_8AFEEC) * 0.5)| > 0.05.",
+        "friction_phase -> suspension_phase: batch bound min(this+0x174 + 20, wheel count this+0x130) reaches this+0x130; phase selector set to 1, index reset to 0.",
+        "suspension_phase -> proximity_phase: batch bound reaches this+0x130; phase selector set to 2, index reset to 0.",
+        "proximity_phase -> idle: batch bound reaches this+0x130; phase selector reset to 0 and index set to -1."
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00404460",
+        "field:this:0x00000130",
+        "field:this:0x0000016C",
+        "field:this:0x00000170",
+        "field:this:0x00000174",
+        "global:0x008AFEE8",
+        "global:0x008AFEEC",
+        "callee:0x004FB260",
+        "callee:0x004FAF60",
+        "callee:0x004FB2E0",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "SetupOptionValueFormatter",
+      "purpose": "Renders a vehicle-setup option value to its display string: entry 0x0042F470 dispatches on option index through a large switch selecting format specifier, unit conversion (metric/imperial) and localized labels, delegating to shared helpers 0x0042F180 (DS), 0x0042F1E0 (1fS) and 0x0042F260 (with-offset).",
+      "functions": [
+        "0x0042F470",
+        "0x0042F180",
+        "0x0042F1E0",
+        "0x0042F260"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0042F180",
+        "callee:0x0042F1E0",
+        "callee:0x0042F260",
+        "caller:0x004673B0",
+        "callee:0x0058815F",
+        "callee:0x00423A00",
+        "global:0x005EC4CC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DriverEventTable",
+      "purpose": "Builds and inserts driver-table commentary entries for session events: sentinel-initializes an entry buffer (StructInitWithSentinelValues), looks up an entry by reason code and context with time conversion (DriverDataTableLookupAndTimeConversion, event IDs 117-119 player / 235-238 AI), and inserts it into the session event table (InsertDriverTableEntry).",
+      "functions": [
+        "0x004144D0",
+        "0x004144F0",
+        "0x00418560"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x004144D0",
+        "callee:0x004144F0",
+        "callee:0x00418560",
+        "function:0x0041B250",
+        "global:0x005EA618",
+        "callee:0x004D7C10",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TerrainHeightQuery",
+      "purpose": "Spatial-grid terrain-height query at a 3D point; supplies ground height for wheel contact and suspension compression computation (center and side probes with failure fallback to the center height).",
+      "functions": [
+        "0x0044C4C0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0044C4C0",
+        "function:0x00402220",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "LocalizedStringResolver",
+      "purpose": "Resolves label and format strings via BinarySearchInStringTable (0x00423A00) into the shared byte_5EC4CC scratch buffer for setup value and estimation display formatting.",
+      "functions": [
+        "0x00423A00"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x00423A00",
+        "global:0x005EC4C0",
+        "global:0x005EC4CC",
+        "function:0x0042F470",
+        "function:0x00430F00",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "function:0x00402220",
+      "to": "callee:0x0044C4C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00402220",
+        "callee:0x0044C4C0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00404460",
+      "to": "callee:0x004FB260",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00404460",
+        "callee:0x004FB260",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00404460",
+      "to": "callee:0x004FAF60",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00404460",
+        "callee:0x004FAF60",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00404460",
+      "to": "callee:0x004FB2E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00404460",
+        "callee:0x004FB2E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0040E990",
+      "to": "callee:0x00459950",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0040E990",
+        "callee:0x00459950",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0040E990",
+      "to": "callee:0x00459990",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0040E990",
+        "callee:0x00459990",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0040E990",
+      "to": "callee:0x0040E770",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0040E990",
+        "callee:0x0040E770",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004109D0",
+      "to": "callee:0x004F0430",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004109D0",
+        "callee:0x004F0430",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004109D0",
+      "to": "callee:0x004EF180",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004109D0",
+        "callee:0x004EF180",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004109D0",
+      "to": "callee:0x0040F300",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004109D0",
+        "callee:0x0040F300",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004109D0",
+      "to": "callee:0x0040F600",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004109D0",
+        "callee:0x0040F600",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00412C30",
+      "to": "callee:0x00414180",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00412C30",
+        "callee:0x00414180",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x004139C0",
+      "to": "callee:0x00414180",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004139C0",
+        "callee:0x00414180",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0041B250",
+      "to": "callee:0x004144D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0041B250",
+        "callee:0x004144D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0041B250",
+      "to": "callee:0x004144F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0041B250",
+        "callee:0x004144F0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0041B250",
+      "to": "callee:0x004D7C10",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0041B250",
+        "callee:0x004D7C10",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0041B250",
+      "to": "callee:0x00418560",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0041B250",
+        "callee:0x00418560",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x00423A00",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x00423A00",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x0058815F",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0058815F",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x00587BDC",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x00587BDC",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x0042F180",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0042F180",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x0042F1E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0042F1E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x0042F260",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0042F260",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x004D7570",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x004D7570",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x004D7880",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x004D7880",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x0042DC80",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0042DC80",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x0042DCA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0042DCA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x0042DCC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0042DCC0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x0042DCE0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0042DCE0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x0042F470",
+      "to": "callee:0x0042DD00",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "callee:0x0042DD00",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00430F00",
+      "to": "callee:0x00423A00",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00430F00",
+        "callee:0x00423A00",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00430F00",
+      "to": "callee:0x0058815F",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00430F00",
+        "callee:0x0058815F",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00430F00",
+      "to": "callee:0x00430A50",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00430F00",
+        "callee:0x00430A50",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00430F00",
+      "to": "callee:0x00430750",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00430F00",
+        "callee:0x00430750",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00431BD0",
+      "to": "callee:0x00587B3E",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00431BD0",
+        "callee:0x00587B3E",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00433090",
+      "to": "callee:0x00432CC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00433090",
+        "callee:0x00432CC0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00433090",
+      "to": "callee:0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00433090",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00433E60",
+      "to": "callee:0x00432CC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00433E60",
+        "callee:0x00432CC0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00433E60",
+      "to": "callee:0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00433E60",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00438130",
+      "to": "callee:0x00438100",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00438130",
+        "callee:0x00438100",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00438130",
+      "to": "callee:0x0041AB30",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00438130",
+        "callee:0x0041AB30",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00438130",
+      "to": "callee:0x0041AA10",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00438130",
+        "callee:0x0041AA10",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00438CA0",
+      "to": "callee:0x0043E230",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00438CA0",
+        "callee:0x0043E230",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "function:0x00438CA0",
+      "to": "callee:0x0056D410",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00438CA0",
+        "callee:0x0056D410",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "caller:0x0040D240",
+      "to": "function:0x0042BBD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0040D240",
+        "function:0x0042BBD0"
+      ]
+    },
+    {
+      "from": "caller:0x0040DE60",
+      "to": "function:0x0042BBD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0040DE60",
+        "function:0x0042BBD0"
+      ]
+    },
+    {
+      "from": "caller:0x0040DE60",
+      "to": "function:0x00434450",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0040DE60",
+        "function:0x00434450"
+      ]
+    },
+    {
+      "from": "caller:0x0040FE50",
+      "to": "function:0x0040E990",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0040FE50",
+        "function:0x0040E990"
+      ]
+    },
+    {
+      "from": "caller:0x00411E90",
+      "to": "function:0x004139C0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00411E90",
+        "function:0x004139C0"
+      ]
+    },
+    {
+      "from": "caller:0x0042C1A0",
+      "to": "function:0x0042BBD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0042C1A0",
+        "function:0x0042BBD0"
+      ]
+    },
+    {
+      "from": "caller:0x0042C1A0",
+      "to": "function:0x0042BC40",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0042C1A0",
+        "function:0x0042BC40"
+      ]
+    },
+    {
+      "from": "caller:0x0042D8A0",
+      "to": "function:0x00404460",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0042D8A0",
+        "function:0x00404460"
+      ]
+    },
+    {
+      "from": "caller:0x00432E70",
+      "to": "function:0x00433090",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00432E70",
+        "function:0x00433090"
+      ]
+    },
+    {
+      "from": "caller:0x00433D60",
+      "to": "function:0x00433E60",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00433D60",
+        "function:0x00433E60"
+      ]
+    },
+    {
+      "from": "caller:0x00441650",
+      "to": "function:0x00438130",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00441650",
+        "function:0x00438130"
+      ]
+    },
+    {
+      "from": "caller:0x0045FC50",
+      "to": "function:0x0042BBD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045FC50",
+        "function:0x0042BBD0"
+      ]
+    },
+    {
+      "from": "caller:0x0045FC50",
+      "to": "function:0x0042BC40",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045FC50",
+        "function:0x0042BC40"
+      ]
+    },
+    {
+      "from": "caller:0x0045FC50",
+      "to": "function:0x00433870",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045FC50",
+        "function:0x00433870"
+      ]
+    },
+    {
+      "from": "caller:0x004673B0",
+      "to": "function:0x0042F470",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004673B0",
+        "function:0x0042F470"
+      ]
+    },
+    {
+      "from": "caller:0x004B8AE0",
+      "to": "function:0x00404460",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004B8AE0",
+        "function:0x00404460"
+      ]
+    },
+    {
+      "from": "caller:0x004B9890",
+      "to": "function:0x0042BBD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004B9890",
+        "function:0x0042BBD0"
+      ]
+    },
+    {
+      "from": "caller:0x004BA1F0",
+      "to": "function:0x0042BBD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004BA1F0",
+        "function:0x0042BBD0"
+      ]
+    },
+    {
+      "from": "caller:0x004BA1F0",
+      "to": "function:0x0042BC40",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004BA1F0",
+        "function:0x0042BC40"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "ActiveVehiclePointerArray",
+      "category": "data_contract",
+      "description": "dword_7C54F0 must remain a 104-entry array of pointers to live vehicle slots; BuildActiveVehiclePointerArray appends each live slot (dword at index 3250 != -1), zero-fills and backfills the tail, and records the indices of the reference pointers dword_7C54E0 / dword_7C54E8 into dword_7C54DC / dword_7C54E4. SetPlayerVehicleIndex stores the computed player pointer (base 0x5EC6D8 + 18624 * slot) and returns the matching array index, or 104 when absent. A replacement executable must maintain the same array capacity, live-slot test and index-record semantics.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x005EC6D8",
+        "global:0x007C54D8",
+        "global:0x007C54F0",
+        "global:0x007C5690",
+        "global:0x007C54DC",
+        "global:0x007C54E4",
+        "global:0x007C54E0",
+        "global:0x007C54E8",
+        "function:0x0042BBD0",
+        "function:0x0042BC40",
+        "function:0x0042BC80",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SessionEventTableInsertion",
+      "category": "behavioral",
+      "description": "Retirement/failure commentary must build a sentinel-initialized driver-table entry and insert it into the session event table referenced by flt_5EA618 only when the built entry's first word is not the -1 sentinel. Player vehicles map reason code to event IDs 119 (=1), 118 (=7) or 117 (other); AI vehicles derive a context index (FloatRangeIndexLookup on field +0x4044, default 3) and map reason code to event IDs 235 (=1), 238 (=4), 236 (=9) or 237 (other) using field +0x489C as context.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x004144D0",
+        "callee:0x004144F0",
+        "callee:0x004D7C10",
+        "callee:0x00418560",
+        "global:0x005EA618",
+        "function:0x0041B250",
+        "field:this:0x00004044",
+        "field:this:0x0000489C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "WheelProcessingTimeSlicing",
+      "category": "behavioral",
+      "description": "Wheel dynamics processing is time-sliced across frames: at most 20 wheels per call, three phases (friction sub_4FB260, suspension sub_4FAF60, proximity sub_4FB2E0) selected by this+0x16C over the wheel array at this+0x134 (stride 316, count this+0x130). The machine re-enters idle (phase selector 0, index -1) after a full batch, and re-initializes when the stored target grip at this+0x170 diverges from 1.0 - (flt_8AFEE8 + flt_8AFEEC) * 0.5 by more than 0.05.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00404460",
+        "field:this:0x00000130",
+        "field:this:0x00000134",
+        "field:this:0x0000016C",
+        "field:this:0x00000170",
+        "field:this:0x00000174",
+        "callee:0x004FB260",
+        "callee:0x004FAF60",
+        "callee:0x004FB2E0",
+        "global:0x008AFEE8",
+        "global:0x008AFEEC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleSetupValueDisplay",
+      "category": "presentation",
+      "description": "Setup value formatting must honor the unit flag (this+0x4, metric vs imperial) and the documented conversion factors (cm-to-inch 0.3937007874015748, radian-to-degree 57.29577951308232, liter-to-gallon 0.2641720372841846, RPM 9.549296585513721), resolve localized labels through BinarySearchInStringTable into the shared byte_5EC4CC scratch buffer, and produce per-option output through the 64-byte slot layout (2992/3000/3012/3020/3022 literals) with StringFormat-style buffer-overflow-checked writes.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0042F470",
+        "field:this:0x00000004",
+        "callee:0x0058815F",
+        "callee:0x00423A00",
+        "global:0x005EC4C0",
+        "global:0x005EC4CC",
+        "caller:0x004673B0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "BrakeTireThermalIntegration",
+      "category": "behavioral",
+      "description": "Per-frame brake/tire thermal integration on the vehicle must accumulate per-wheel heat from brake force, slip and angular velocity toward ambient Kelvin targets (flt_8AFEF0/flt_8AFEF4 + 273.16), clamp the integrated temperature at this+0x364 (273.16 / 546.32 bounds), compute the wear term from torque and slip ratio, and on extreme slip trigger the blowout transition that zeroes this+0x394, writes this+0x398, scales this+0x384 by 0.18, this+0x234 by 4.0 and this+0x44C/0x278/0x454/0x288 by 0.7. Slip classification (this+0x394 vs 0.75) dispatches PitStateSlotActivation or AISessionPhaseCounter per slot this+0x78.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00438130",
+        "callee:0x00438100",
+        "callee:0x0041AB30",
+        "callee:0x0041AA10",
+        "global:0x008AFEF4",
+        "global:0x008AFEF0",
+        "global:0x005EC3BC",
+        "global:0x005EB978",
+        "field:this:0x00000364",
+        "field:this:0x00000394",
+        "field:this:0x00000078",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "Exact mapping of the four read-only globals used by 0x00402220 (0x0059E450, 0x0059E454, 0x0059E458, 0x007C9360) to the float literals in the raw source (0.5, 0.34999999, 0.059999999) is not established; the existing analysis labels (DegreesToRadians / PhysicsConstant_59E454 / ConstraintForceEpsilon / Unknown_Struct_7C9360) are DERIVED and not adopted here.",
+    "The legacy ABI label 'Ray_Sphere_Intersection' (abi:lead) attached to 0x00402220 is inconsistent with the raw source, which performs terrain-height queries; the proposed name follows the existing analysis fill (VehicleWheelContactHeightCheck).",
+    "The exact meanings of the wheel-geometry fields (a2 origin/spring length/scale/direction) and of this[0]/this[1] (a vehicle half-height scalar) used by 0x00402220 are interpretations from the fill, not independently evidenced.",
+    "The float at this+0x170 in 0x00404460 is written with the computed target grip and compared with a 0.05 tolerance, but its exact meaning (a per-run target grip from flt_8AFEE8 + flt_8AFEEC) is not confirmed; existing analysis prose called 0x170 an index, which conflicts with the raw float access.",
+    "The wheel array element type at base this+0x134 (stride 316) is not confirmed; the friction/suspension/proximity callee names (sub_4FB260, sub_4FAF60, sub_4FB2E0) are DERIVED from existing analysis - only their addresses are FACT.",
+    "Globals flt_59E43C, flt_59E450 and dbl_59E480 are listed in the 0x00404460 packet globals but are not referenced by its raw source text; their role is unclear.",
+    "The v6 bit patterns and F_6FieldBulkSetter arguments in 0x0040E990 are float bit fields; their decoded float values are deliberately not asserted (no IEEE-754 synthesis per rules). Whether the constant 1 at this+28 is a physics shape 'type' enum is a prose proposal, not a confirmed enum value; the concrete semantics of CollisionInvMassStore (0x00459950) and F_6FieldBulkSetter (0x00459990) are not confirmed from this packet.",
+    "Per-element camera struct fields at byte offsets +28 (state tag, value 6 excluded) and +10 (flag byte) touched by 0x004109D0 are not in the packet field set; the purpose of the float-parameter sub-call sub_4F0430 is caller-context dependent and unresolved.",
+    "Semantics of sub_414180(0) and the secondary value written to this+0xC by 0x00412C30 and 0x004139C0 are unknown; the shared receiver layout (this+8 / this+0xC) across the three CollisionShapeData methods is assumed from naming and identical offsets, not proven common ownership.",
+    "The exact association of each dbl_59E788..dbl_59E7E0 global to a specific threshold literal (1.0..52.5) in 0x004139C0 is not determinable from the packet; only inline decimal constants appear in the raw source.",
+    "flt_59E440 (read by 0x0041B250 per packet facts) and dword_8AD264 (prior-analysis penalty-message queue) never appear in the decompiled source text; no grounded operation could be derived for them.",
+    "The inner `else if (dword_7C56A8 != 8)` on the AI path of 0x0041B250 duplicates the outer phase guard and has no distinct behavior in the raw text; reason-code value 7 (event 118) and the semantics of event IDs 117-119/235-238 come from the prior-analysis fill, not the raw decompile. The exact interpretation of field +0x489C (retired driver index vs grid position) is not established.",
+    "Semantics of dword_7C54E0 (fill prose: postProcessInput) and dword_7C54DC (fill prose: CurrentPlayerIndex) in 0x0042BBD0, and of the 104 not-found return for callers, come from higher-tier analysis; only the writes are grounded here.",
+    "dword_7C54E4 (CurrentVehicleIndex) is written but never read inside 0x0042BC40; downstream consumers are not visible. No branch verifies a1 is a valid slot index before computing the pointer.",
+    "Semantic names of the reference pointers dword_7C54E0 / dword_7C54E8 and their outputs dword_7C54DC / dword_7C54E4 in 0x0042BC80 come from existing-analysis labels, not this function's code; byte_7C5690 is used purely as the end-of-array sentinel here although the corpus label is InitStateFlag; the backfill loop's null check appears unreachable within the loop bounds.",
+    "The jump-table global jpt_42F49D (0x42FC74) backs the 0x0042F470 switch but never appears in the decompiled text; string globals aS_4, aD_1, a1fS, aDS, a3fS, a2f2f, a2d2d3f, a2f1, a2d2dS2d2d, aD03d, aD, aDSS, a41fSS, aDS_0, a1S, aS, a41f41f, a2fS and byte_42FCC4 are flagged by packet facts but never named in the text; double globals dbl_59E430, dbl_59EA18, dbl_59EA20, dbl_59EA30, dbl_59EA38, dbl_59EA40 may back the inline conversion constants but that mapping is unverified.",
+    "The per-option slot layout in 0x0042F470 (64-byte stride; double at +0, double at +8, int at +20, byte at +28, string at +30) is visible only through raw-source literals 2992/3000/3012/3020/3022 with no dedicated packet field evidence; return-value semantics are ambiguous (format arms return the output buffer pointer, the default arm returns the option index).",
+    "The read-only globals aSS (0x005BE860), aDS (0x005C3778), a2fS (0x005C3820), aS0DSS (0x005C3F48) and the dbl_59E430 / dbl_59EA68 / dbl_59EA88 / dbl_59EA90 / dbl_59EA98 / dbl_59EAA0 / dbl_59EAA8 doubles are recorded as read by 0x00430F00 but do not appear in its raw body; they are likely consumed inside the estimation routines (BrakeTemperatureFadeModel, sub_430750).",
+    "The meaning of the bound constants v8/v45 (150 or 100) and the 41.6666/44.704 doubles in 0x00430F00, and the this-relative display offsets (+6566, +6694, +6822, +6950, +7078, +7206), are DERIVED from the existing analysis; those display offsets are not flagged packet fields.",
+    "Why the address of sub_431BE0 is coerced to int and converted to boolean in 0x00431BD0, and its caller, are not visible; registration context is unknown.",
+    "The concrete object type owned by PhysicsObjectConfig (0x00433090 / 0x00433E60) is unknown; whether SessionConfigDefaultInit is a plain field reset or performs additional allocation is outside this packet's evidence. The leading default-init on the teardown path is unusual and unresolved.",
+    "LoadAIDriverNamesFromConfig called by 0x00433870 has no address in the packet callee facts; the record type behind the 4656-element stride of dword_5F0F6C is not evidenced and left uninterpreted.",
+    "ConstraintSolverParamInit (0x00434450) is referenced only by name in the source text; its address, prototype and the parameter object type are absent from the packet.",
+    "The buffer-clear callee in 0x00438CA0 is not among the packet callees; the layout and purpose of the subsystems at this + 5548 and this + 492 are unknown.",
+    "Twenty-four dbl_59E* globals (0x0059E420-0x0059EB90) are listed as read by 0x00438130 but do not appear in the rendered decompiled source; the average-torque read *v21 has no explicit packet field evidence.",
+    "The owner of 0x004109D0 (CameraPhysicsUpdateReceiver) and of the four thunk functions (0x00431BD0, 0x00433870, 0x00434450, 0x00438CA0) is unknown; they are recorded with owner UnknownObject rather than forcing a design."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x0040DE60",
+    "global:0x0042FC74",
+    "global:0x0042FCC4",
+    "global:0x0059E428",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E480",
+    "global:0x0059E6E8",
+    "global:0x0059E7D8",
+    "global:0x0059E830",
+    "global:0x0059E880",
+    "global:0x0059E8C8",
+    "global:0x0059EA18",
+    "global:0x0059EA20",
+    "global:0x0059EA30",
+    "global:0x0059EA38",
+    "global:0x0059EA40",
+    "global:0x0059EA60",
+    "global:0x0059EA68",
+    "global:0x0059EA88",
+    "global:0x0059EA90",
+    "global:0x0059EA98",
+    "global:0x0059EAA0",
+    "global:0x0059EAA8",
+    "global:0x0059EAC8",
+    "global:0x0059EB30",
+    "global:0x0059EB38",
+    "global:0x0059EB40",
+    "global:0x0059EB48",
+    "global:0x0059EB50",
+    "global:0x0059EB58",
+    "global:0x0059EB60",
+    "global:0x0059EB68",
+    "global:0x0059EB70",
+    "global:0x0059EB78",
+    "global:0x0059EB80",
+    "global:0x0059EB88",
+    "global:0x0059EB90",
+    "global:0x005BE860",
+    "global:0x005C2C18",
+    "global:0x005C3280",
+    "global:0x005C36F4",
+    "global:0x005C3778",
+    "global:0x005C3780",
+    "global:0x005C3788",
+    "global:0x005C3794",
+    "global:0x005C37A4",
+    "global:0x005C37AC",
+    "global:0x005C37C4",
+    "global:0x005C37CC",
+    "global:0x005C37D4",
+    "global:0x005C37E0",
+    "global:0x005C37EC",
+    "global:0x005C37FC",
+    "global:0x005C3808",
+    "global:0x005C3814",
+    "global:0x005C3820",
+    "global:0x005C3F48",
+    "global:0x008AD264"
+  ],
+  "confidence": {
+    "boundaries": "HIGH",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

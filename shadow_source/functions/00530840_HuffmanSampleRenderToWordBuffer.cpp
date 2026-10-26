@@ -1,0 +1,63 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00530840
+// Canonical corpus name: sub_530840
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_530840_00530840.c
+
+void UnknownObject::HuffmanSampleRenderToWordBuffer()
+{
+    // Renders Huffman-decoded audio/VQ samples into an interleaved 16-bit word output buffer (a4) as part of the Bitstream_Texture_Decompression ABI. Reads codebook selector entries from a6, decodes Huffman bit symbols from the input bitstream (buffer this[2345], bit cursor this[2346]) using the dword_5B4788 Huffman decode table, scales via the dword_5DA738 scale table against a2, and writes three interleaved output words per subband while advancing a5 by three codebook indices. Zero-fills unused mono and stereo output slots based on subband count this[2350] and the stereo flag this[2355].
+    // GUARD: If the subband/granule count this[2350] (0x24B8) is <= 0, skip the entire decode loop. [guard:0, field:this:0x000024B8, source:raw]
+    // LOOP: Main subband loop: the output cursor v9 walks the a4 word buffer three interleaved slots per subband; loop counter v31 is compared against this[2350] to terminate. [abi:lead, field:this:0x000024B8, source:raw]
+    // GUARD: Read the next bitstream byte at a3; if zero, emit three zero words into the current subband slots (*(v9-32)=0, v9[32]=0, v9[96]=0) without decoding. [source:raw]
+    // GUARD: Stereo branch: when this[2355] (0x24CC) == 2, decode using the stereo codebook path (entry into LABEL_12); the != 2 path skips the extra stereo reads. [guard:1, field:this:0x000024CC, source:raw]
+    // CALCULATION: Read the Huffman code length v20 from the bitstream byte at a3 and fetch the codebook entry a6[2*v20] (bit length v21) and a6[2*v20+1] (scale index v34). [source:raw]
+    // CALCULATION: Perform Huffman bit reads from the bitstream: dword_5B4788[v21] masked against a byteswapped dword at ((this[2346] >> 3) + this[2345]) shifted right by -(v21 + (this[2346] & 7)). [global:0x005B4788, field:this:0x000024A4, field:this:0x000024A8, source:raw]
+    // ASSIGNMENT: Advance the bitstream cursor this[2346] (0x24A8) by the consumed Huffman code length v21 after each symbol read. [field:this:0x000024A8, source:raw]
+    // CALCULATION: Negative-scale path: compute sample = (v37 * (v34 + v22)) >> 12 using the codebook value from a2 + 4*(*a5 + (v21 << 6)) and write it into the three interleaved output words (*(v9-32), v9[32], v9[96]). [source:raw]
+    // CALCULATION: Non-negative-scale path: look up the scale offset v27 = dword_5DA738[v34], read a byte-triple codebook offset from v27 + 3*v26, fetch three samples from a2 at *a5 + (byte << 6), and store them >> 12. [global:0x005DA738, source:raw]
+    // LOOP: Loop tail: advance the codebook index pointer a5 by 3, the output cursor v9, the counter v31, and skip a6 by 2*(1 << v30) per bit-width v30; continue while v31 < this[2350]. [field:this:0x000024B8, source:raw]
+    // CALCULATION: After the loop, zero-fill the unused mono output words (a4[128..191], a4[64..127], a4[0..63] as needed) via a switch on this[2350] dispatched through the jump table jpt_530C9D. [global:0x00531148, source:raw]
+    // CALCULATION: If this[2355] == 2, zero-fill the unused stereo-channel output words via a second switch on this[2350] dispatched through the jump table jpt_530EF8. [global:0x005311C8, guard:1, field:this:0x000024CC, source:raw]
+    // RETURN: Return this[2355] (the stereo/channel-mode field). [field:this:0x000024CC, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int HuffmanSampleRenderToWordBuffer(this, scale_tbl, bitstream, out_words, idx, codebook) {
+    //     int n = 0;
+    //     if (this->subbands > 0) {
+    //       for (v9 = out_words + 64, n = 0; ; v9++, n++) {
+    //         unsigned char b = *bitstream++;
+    //         if (b) {
+    //           int len = codebook[2*b];
+    //           int sidx = codebook[2*b+1];
+    //           if (sidx < 0) {
+    //             for (k = 0; k < 3; k++) {
+    //               uint32 v = dword_5B4788[len] & (bswap32(*(uint32*)((this->bitpos>>3) + this->buf)) >> (len + (this->bitpos&7)));
+    //               this->bitpos += len;
+    //               out[slot_k] = (*(int*)(scale_tbl + 4*(*idx + (len<<6))) * (sidx + v)) >> 12;
+    //             }
+    //           } else {
+    //             uint32 v = dword_5B4788[len] & (bswap32(*(uint32*)((this->bitpos>>3) + this->buf)) >> (len + (this->bitpos&7)));
+    //             this->bitpos += len;
+    //             byte* t = (byte*)(dword_5DA738[sidx] + 3*v);
+    //             out[0] = *(int*)(scale_tbl + 4*(*idx + (t[0]<<6))) >> 12;
+    //             out[1] = *(int*)(scale_tbl + 4*(*idx + (t[1]<<6))) >> 12;
+    //             out[2] = *(int*)(scale_tbl + 4*(*idx + (t[2]<<6))) >> 12;
+    //           }
+    //           idx += 3;
+    //         } else {
+    //           out[0] = out[1] = out[2] = 0;
+    //         }
+    //         if (n >= this->subbands) break;
+    //         codebook += 2 << codebook[0];
+    //       }
+    //     }
+    //     zero_fill_mono(out_words, this->subbands);
+    //     if (this->stereo == 2) zero_fill_stereo(out_words, this->subbands);
+    //     return this->stereo;
+    //   }
+    // UNRESOLVED: Exact meaning of the codebook selector table a6 (bit-length and scale-index pairs) and the a2 scale table layout are caller-defined.
+    // UNRESOLVED: The input bitstream endianness and the sign handling of the -(char) shift in the Huffman bit reads are inferred from the raw code, not verified.
+    // UNRESOLVED: The a3/bitstream pointer advance pattern (one byte per subband plus over-read into the next) is a decompiler artifact of the bit-positioned reads.
+    // UNRESOLVED: jpt_530C9D and jpt_530EF8 are switch jump tables; their exact zero-fill ordering by subband count is reconstructed from the switch body.
+}

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "address": "0x00509DE6",
+  "proposed_name": "Decode4BitPackedRGBA",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Decodes 4-bit-per-channel packed color texels into float RGBA output. Computes a source pointer from a 2D layout (base this[6], per-column pitch this[1044], per-row pitch this[1045]), iterates this[1046] texels reading 2 packed bytes each, scales each 4-bit nibble by the 1/15 constant at flt_5AC108 (0.06666667), writes three color floats plus a 1.0 alpha per texel, then optionally invokes the callee at 0x00507845 when flag this[4] is set.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Compute the source pointer into the packed texture: v5 = base this[6] (this+0x18) + a3 * this[1045] (this+0x1054 row pitch) + a2 * this[1044] (this+0x1050 column pitch).",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x00001050", "field:this:0x00001054", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate texels: end pointer i = v5 + 2 * this[1046] (this+0x1058), advancing v5 by 2 packed bytes per iteration.",
+      "evidence_refs": ["field:this:0x00001058", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Decode three 4-bit channels from the two packed bytes and scale each by 0.06666667 (1/15) read from flt_5AC108: low nibble of v5[1], high nibble of v5[0], low nibble of v5[0].",
+      "evidence_refs": ["global:0x005AC108", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the three scaled color floats and set the alpha float to 1.0, advancing the output pointer a4 by 4 floats per texel.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When flag this[4] (this+0x10) is nonzero, perform the trailing cleanup call.",
+      "evidence_refs": ["field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call the callee at 0x00507845 (named ContactManifoldCleanup) with this as the first argument and the start of the written float buffer (a4 minus 4 * this[1046] floats) as the second.",
+      "evidence_refs": ["callee:0x00507845", "field:this:0x00001058", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void sub_509DE6(int *this, int a2, int a3, float *out) {",
+    "  unsigned char *src = (unsigned char *)(this[6] + a3 * this[1045] + a2 * this[1044]);",
+    "  unsigned char *end = src + 2 * this[1046];",
+    "  float *base = out;",
+    "  for (; src < end; src += 2) {",
+    "    out[0] = (float)(src[1] & 15) * 0.06666667f;",
+    "    out[1] = (float)((src[0] >> 4) & 15) * 0.06666667f;",
+    "    out[2] = (float)(src[0] & 15) * 0.06666667f;",
+    "    out[3] = 1.0f;",
+    "    out += 4;",
+    "  }",
+    "  if (this[4]) ContactManifoldCleanup((int)this, (unsigned int)base);",
+    "}"
+  ],
+  "unresolved": [
+    "Channel ordering (which nibble is red vs green vs blue) is inferred from write order, not independently confirmed.",
+    "The callee name ContactManifoldCleanup (0x00507845) is inconsistent with color decoding; it is likely a stale or twin-inherited label, and the call's true role (finalize/callback) is unresolved.",
+    "Meaning of the guard flag this[4] (byte offset this+0x10) and the exact a2/a3 grid semantics are unknown.",
+    "A cluster_copy prelabel (DERIVED) marks this function as a structural twin of TextureDecodeRGBA4, which supports the decode interpretation but is not independently verified."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,52 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0041F5D0
+// Canonical corpus name: sub_41F5D0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_41F5D0_0041f5d0.c
+
+void UnknownObject::TopTeamByLimitedScore()
+{
+    // Iterates the 14 constructor team names over the standings node at dword_7D2DB0 for the category range FlagsGetter-1, tracking the highest ChampionshipPointsAccumulator total per team while optionally excluding a named team (a1); returns the allocated [name, score] pair object, or 0 when the allocation failed, the standings node was absent, or the category count was under 2. When the early-return flag a2 is not set, a second pass re-scans the team names with sub_588410/sub_566810 to confirm the winner by name before returning.
+    // CALL: Allocate the 8-byte result pair via OperatorNewNhMallocWrapper, initialize the name slot to 0 and the score slot to -1, and record the pair (or 0 on allocation failure) in the local result. [callee:0x00587C03, source:raw]
+    // CALL: Dereference the standings node from dword_7D2DB0 via LinkedListDereference. [callee:0x004C2850, global:0x007D2DB0]
+    // CALL: Read the number of scoring categories from the standings node via FlagsGetter. [callee:0x004C11D0]
+    // GUARD: If the category count is less than 2, skip scoring and return 0. [source:raw]
+    // LOOP: First pass over the 14 constructor team indices; each switch case (jump table jpt_41F635) selects a team name string (Arrows, off_5C25E0, Renault, Ferrari, Jaguar, Jordan, Mclaren, Minardi, Prost, Sauber, Williams, Toyota, Benetton, Stewart) and copies it into the staging buffer via StringCopyWithBufferRealloc. [global:0x0041F82C, global:0x005C25F4, global:0x005C25E0, global:0x005C25C4, global:0x005C2618, global:0x005C25D8, global:0x005C2604, global:0x005C2620, global:0x005C25E4, global:0x005C25EC, global:0x005C25FC, global:0x005C260C, global:0x005C25B4, global:0x005C25CC, global:0x005C25BC, callee:0x00566650]
+    // CALL: Read the selected team's championship points via ChampionshipPointsAccumulator(&byte_5EA438, categories-1). [callee:0x0041F220, global:0x005EA438]
+    // GUARD: If the team's points exceed the running best and (no name filter a1 is given, or the team name does not match a1 via sub_566810), record the team name in the staging buffer and update the best score. [callee:0x00566810, global:0x005EA438, source:raw]
+    // GUARD: If the early-return flag a2 is set, return the result pair immediately after the first pass. [source:raw]
+    // LOOP: Second pass over the 14 team names (jump table jpt_41F715): compare the recorded best name (or the byte_5EA438 fallback) with each team's name via sub_588410; when the name matches and the name filter passes, stop when the team's accumulated points equal the best score, otherwise return the result pair once the scan completes. [global:0x0041F864, callee:0x00588410, callee:0x00566810, callee:0x0041F220, global:0x005EA438, source:raw]
+    // RETURN: Return the result pair after a completed scan, or 0 when the standings node was absent or had fewer than 2 categories. [source:raw]
+    // CALL: Called by ScoringClassificationDisplay on the scoring/classification path. [caller:0x0041E320]
+
+    // Conservative worker pseudocode:
+    //   char** top_team_by_limited_score(int exclude_name, char early_return) {
+    //       char** result = (char**)OperatorNewNhMallocWrapper(8);
+    //       if (result) { result[0] = 0; result[1] = (char*)-1; }
+    //       int best_score = -1;
+    //       int categories = FlagsGetter(LinkedListDereference(&dword_7D2DB0));
+    //       if (categories < 2) return 0;
+    //       int limit = categories - 1;
+    //       for (int i = 0; i < 14; ++i) {
+    //           copy_team_name(i); // switch selects one of the 14 team name strings
+    //           int score = ChampionshipPointsAccumulator(&byte_5EA438, limit);
+    //           if (best_score < score && (!exclude_name || !sub_566810(&byte_5EA438, exclude_name))) {
+    //               record_team_name_as_best(&byte_5EA438);
+    //               best_score = score;
+    //           }
+    //       }
+    //       if (early_return) return result;
+    //       for (int j = 0; ; ++j) {
+    //           copy_team_name(j); // same 14-name switch
+    //           char* name = result[0] ? result[0] : &byte_5EA438;
+    //           if (sub_588410(name, &byte_5EA438)
+    //                   && (!exclude_name || !sub_566810(name, exclude_name))
+    //                   && best_score == ChampionshipPointsAccumulator(&byte_5EA438, limit))
+    //               return 0; // winner confirmed by name
+    //           if (j + 1 >= 14) return result;
+    //       }
+    //   }
+    // UNRESOLVED: The exact contract of sub_566810 and sub_588410 (name equality versus substring matching) is not established by this packet; both are treated as name comparisons.
+    // UNRESOLVED: The 14 team names map to the constructor teams in a fixed switch order, but the category index range (FlagsGetter-1) is not correlated with the team order.
+    // UNRESOLVED: The result pair's name slot is only initialized to 0/-1 in the decompiled body; the recorded winning name and score are written through the buffer-copy helpers whose destinations are not visible in the raw code.
+}

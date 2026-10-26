@@ -1,0 +1,15 @@
+// f1c  0x0049c490  size=77
+int __stdcall sub_49C490(char *a1, int a2)
+{
+  char *v2; // esi
+  int v3; // eax
+
+  v2 = strcpy(a1, asc_5CCE54);
+  if ( !*(_DWORD *)(dword_7C54E0 + 16484) )
+  {
+    v3 = *(_DWORD *)(dword_7C54E0 + 16596);
+    if ( v3 )
+      sub_58815F(v2, "%s:", (const char *)(v3 + 18168));
+  }
+  return 0;
+}

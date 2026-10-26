@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "address": "0x004072E0",
+  "proposed_name": "AllocateSampleArray",
+  "owner": {
+    "type": "MilesSoundSystem",
+    "trust": "DERIVED",
+    "evidence_refs": ["abi:lead", "caller:0x00406AB0", "function:0x004072E0"]
+  },
+  "summary": "Reallocates the Miles sound-system sample array: tears down the existing 20-byte-entry array at this+0x48 (releasing per-entry virtual sub-objects and AIL sample handles, then freeing the array header), stores the new count into this+0x4C, allocates a fresh zero-filled array via OperatorNewNhMallocWrapper, and, for each new entry, allocates and initializes an AIL sample handle when the driver handle at this+0x90 is set.",
+  "local_names": {
+    "array_ptr": "this+0x48",
+    "entry_count": "this+0x4C",
+    "driver_handle": "this+0x90"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard: only tear down the existing sample array when this[0x48] (array pointer) is non-null.",
+      "evidence_refs": ["field:this:0x00000048", "function:0x004072E0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Loop while the entry count this[0x4C] > 0 (guard), stepping 20 bytes per entry, to tear down each entry of the existing array.",
+      "evidence_refs": ["field:this:0x0000004C", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "For each entry holding a live sub-object (vtable pointer non-null), invoke its virtual release routine via vtable slot +8 (indirect call, no named packet callee).",
+      "evidence_refs": ["source:raw", "field:this:0x00000048"]
+    },
+    {
+      "kind": "call",
+      "description": "Call AIL_release_sample_handle (global 0x0059E3F0) on each entry's sample handle at entry+16 and clear that handle slot.",
+      "evidence_refs": ["global:0x0059E3F0", "field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Free the array header memory by calling FreeWrapper_7bcf (callee 0x00587BCF) on this[0x48]-4.",
+      "evidence_refs": ["callee:0x00587BCF", "field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Null this[0x48] after teardown, then store the new count a2 into this[0x4C].",
+      "evidence_refs": ["field:this:0x00000048", "field:this:0x0000004C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "If a2 > 0, allocate 20*a2+4 bytes via OperatorNewNhMallocWrapper (callee 0x00587C03), storing a2 in the allocation header and zero-filling every 20-byte entry.",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the new array pointer into this[0x48], or 0 when allocation fails.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the allocation succeeded and the driver handle this[0x90] is set, allocate an AIL sample handle via AIL_allocate_sample_handle (global 0x0059E3EC) into each entry+16.",
+      "evidence_refs": ["field:this:0x00000090", "global:0x0059E3EC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Initialize each newly allocated sample handle via AIL_init_sample (global 0x0059E3DC).",
+      "evidence_refs": ["global:0x0059E3DC", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (this[0x48] != 0) {",
+    "  for (i = 0; i < this[0x4C]; ++i) {",
+    "    entry = this[0x48] + i*20;",
+    "    if (*(entry)) (*vtable+8)(*(entry));",
+    "    if (*(entry+16)) { AIL_release_sample_handle(*(entry+16)); *(entry+16) = 0; }",
+    "  }",
+    "  FreeWrapper_7bcf(this[0x48]-4);",
+    "  this[0x48] = 0;",
+    "}",
+    "this[0x4C] = a2;",
+    "if (a2 > 0) {",
+    "  p = OperatorNewNhMallocWrapper(20*a2+4);",
+    "  this[0x48] = p ? p+1 : 0;",
+    "  zero-fill a2 20-byte entries;",
+    "  if (this[0x48]) for each entry: if (this[0x90]) { entry+16 = AIL_allocate_sample_handle(this[0x90]); AIL_init_sample(entry+16); }",
+    "}"
+  ],
+  "unresolved": [
+    "Raw source is elided after AIL_allocate_sample_handle; AIL_init_sample on each handle is confirmed by existing analysis but the exact call ordering after the elision is not fully visible.",
+    "The per-entry virtual release via vtable slot +8 has no named packet callee; the released sub-object type is unknown.",
+    "Field offsets 0x48, 0x4C, 0x90 are read/written only within this function in the packet; their owning class is inferred from the ABI lead, not independently proven.",
+    "Caller GenericObjectConstructorWithVTable (0x00406AB0) instantiates the owner, but no constructor/field evidence beyond the call site is present."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

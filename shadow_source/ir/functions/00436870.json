@@ -1,0 +1,378 @@
+{
+  "schema_version": 1,
+  "address": "0x00436870",
+  "proposed_name": "TireContactAndFrictionSolver",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Per-frame tire/ground contact solver. Generates 3 (or 5 when a debug flag is set) candidate contact patches from suspension geometry, queries the spatial grid for terrain height, derives a contact plane (best-fit or three-point normal), computes penetration depth, selects the nearest stored contact, and applies friction/normal impulses with torque to the rigid body. Friction is modelled with cosine fall-off curves and a cubic longitudinal-force polynomial in normal load. Writes contact state, impulse accumulators and the tangential impulse result back into the vehicle/suspension struct (this).",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Zero-initialize the per-frame contact/friction accumulators on this (0x31C/0x320, 0x134/0x138, 0x144/0x148, 0x13C/0x140, 0x154/0x158, 0x324/0x328), set the longitudinal-force base 0x26C = 1072693248 (1.0f) and 0x268 = 0, and read the contact flag byte at this+0x1C4.",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00436870",
+        "caller:0x004423B0",
+        "field:this:0x000001C4",
+        "field:this:0x0000031C",
+        "field:this:0x00000320",
+        "field:this:0x00000134",
+        "field:this:0x00000138",
+        "field:this:0x00000144",
+        "field:this:0x00000148",
+        "field:this:0x0000014C",
+        "field:this:0x00000150",
+        "field:this:0x00000268",
+        "field:this:0x0000026C",
+        "field:this:0x0000013C",
+        "field:this:0x00000140",
+        "field:this:0x00000154",
+        "field:this:0x00000158",
+        "field:this:0x00000324",
+        "field:this:0x00000328",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If the contact flag byte at this+0x1C4 is set, skip the solve entirely: reset the contact pointer 0x264 = 0 and set the no-contact sentinels 0xFC = -1 (0xFFFFFFFF) and 0x100 = -1048577 (0xFFEFFFFF), then return.",
+      "evidence_refs": [
+        "field:this:0x000001C4",
+        "field:this:0x00000264",
+        "field:this:0x000000FC",
+        "field:this:0x00000100",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build an orthonormal contact basis from the body forward axis (read through body pointer at this+0x15C, offsets 0x1C/0x2C/0x34): compute the cross product, normalize, flip signs to keep the normal upward; fall back to an identity basis when the vector is degenerate (length 0).",
+      "evidence_refs": [
+        "field:this:0x0000015C",
+        "field:*(this+0x15C):0x0000001C",
+        "field:*(this+0x15C):0x0000002C",
+        "field:*(this+0x15C):0x00000034",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the candidate contact-patch geometry: scale the contact offsets by the body position (body pointer at this+0x15C, offsets 0x4/0xC/0x14) and by suspension/contact offsets this+0x20C/0x214/0x21C/0x228, adding a friction-coupling term from this+0xBC, producing up to ten vertex offsets (v156).",
+      "evidence_refs": [
+        "field:*(this+0x15C):0x00000004",
+        "field:*(this+0x15C):0x0000000C",
+        "field:*(this+0x15C):0x00000014",
+        "field:this:0x000000BC",
+        "field:this:0x0000020C",
+        "field:this:0x00000214",
+        "field:this:0x0000021C",
+        "field:this:0x00000224",
+        "field:this:0x00000228",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "When the debug/contact flag byte_7CE994 is set, build 5 candidate contacts (v14 = 5) instead of 3 (v14 = 3) by adding three extra vertex offsets and copying the body position block into v157.",
+      "evidence_refs": [
+        "global:0x007CE994",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Loop over the candidate contacts (v14 = 3 or 5): pack a query vector (position + contact handle) and call SpatialGridQuery on it; on a hit, store the contact record and compute an interpolated terrain height using a sine blend of the spatial data floats at the query result (+20/+24).",
+      "evidence_refs": [
+        "callee:0x0044C4C0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If fewer than 3 contacts were found: with zero contacts reset the contact pointer 0x264 = 0 and the sentinels 0xFC/0x100, then return; with one contact extrapolate a second height sample and rebuild the contact record list (v141..v144, v125 count).",
+      "evidence_refs": [
+        "field:this:0x00000264",
+        "field:this:0x000000FC",
+        "field:this:0x00000100",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Derive the contact plane normal from the collected points: sub_56C640 for the exact three-point case (with a fallback identity normal), otherwise BestFitPlaneFitting over the stored contact records.",
+      "evidence_refs": [
+        "callee:0x0056C640",
+        "callee:0x004366E0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Solve the approach distance: compute v121 (contact origin along the plane normal) and v42 (pierced/sphere distance along the normal), store the minimum penetration depth as a double at this+0x324/0x328, and fold the chosen point into the contact frame (v122/v123/v124).",
+      "evidence_refs": [
+        "field:this:0x00000324",
+        "field:this:0x00000328",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Find the stored contact record nearest to the penetration point by squared distance; write its index/handle into this+0x264.",
+      "evidence_refs": [
+        "field:this:0x00000264",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If the penetration depth at this+0x324 is negative, clear the contact: zero this+0x324/0x328, set the sentinels 0xFC = -1 and 0x100 = -1048577, and return.",
+      "evidence_refs": [
+        "guard:0",
+        "guard:1",
+        "guard:2",
+        "field:this:0x00000324",
+        "field:this:0x00000328",
+        "field:this:0x000000FC",
+        "field:this:0x00000100",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the normal-force impulse this+0x31C = (velocity-based contact term from this+0x22C/0x234 and the contact body frame) * penetration depth; if the result is negative, zero it with the sentinels and return.",
+      "evidence_refs": [
+        "field:this:0x0000031C",
+        "field:this:0x00000320",
+        "field:this:0x0000022C",
+        "field:this:0x00000234",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Re-orient the slip/tangent basis against the body axes: recompute the tangent vectors via cross products against the body frame (body offsets 0x1C/0x2C/0x34, 0x44/0x4C/0x5C and 0x64/0x6C/0x74) and normalize; branch on whether the alignment dot product is within 0.99609375 to pick the primary or secondary tangent frame.",
+      "evidence_refs": [
+        "field:*(this+0x15C):0x0000001C",
+        "field:*(this+0x15C):0x0000002C",
+        "field:*(this+0x15C):0x00000034",
+        "field:*(this+0x15C):0x00000044",
+        "field:*(this+0x15C):0x0000004C",
+        "field:*(this+0x15C):0x0000005C",
+        "field:*(this+0x15C):0x00000064",
+        "field:*(this+0x15C):0x0000006C",
+        "field:*(this+0x15C):0x00000074",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Convert the slip/contact alignment value via FloatConvertWrapper and store the resulting slip angle into this+0x314.",
+      "evidence_refs": [
+        "callee:0x00588570",
+        "field:this:0x00000314",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the contact lever arm in body frame and the resulting tangential force magnitudes: subtract the contact point (body offsets 0x4/0xC/0x14) from the penetration point, cross it with the inverse-inertia rows (body offsets 0x7C/0x84/0x8C and 0x64/0x6C/0x74), add the body velocity terms, and store the combined tangential magnitude into this+0x134/0x138 using the slip-scaled factors.",
+      "evidence_refs": [
+        "field:*(this+0x15C):0x00000004",
+        "field:*(this+0x15C):0x0000000C",
+        "field:*(this+0x15C):0x00000014",
+        "field:*(this+0x15C):0x0000007C",
+        "field:*(this+0x15C):0x00000084",
+        "field:*(this+0x15C):0x0000008C",
+        "field:this:0x00000124",
+        "field:this:0x0000012C",
+        "field:this:0x00000134",
+        "field:this:0x00000138",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Evaluate the friction curves: cosine fall-off for the longitudinal curve (this+0x298/0x2A0/0x2A8/0x2B0) and the lateral curve (this+0x2B8/0x2C0/0x2C8/0x2D0), combine via the peak-limit this+0x2E4, and write the combined traction coefficient into this+0x144 (with the >1.0 clamp to 0x148 = 1072693248) and its square root into this+0x14C.",
+      "evidence_refs": [
+        "field:this:0x00000298",
+        "field:this:0x000002A0",
+        "field:this:0x000002A8",
+        "field:this:0x000002B0",
+        "field:this:0x000002B8",
+        "field:this:0x000002C0",
+        "field:this:0x000002C8",
+        "field:this:0x000002D0",
+        "field:this:0x000002E4",
+        "field:this:0x00000144",
+        "field:this:0x00000148",
+        "field:this:0x0000014C",
+        "field:this:0x00000150",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Run CubicHermiteInterpolation on the blended friction value and the slip magnitude to smooth the friction transition, selecting the interpolation path from the slip-direction dot product (v127).",
+      "evidence_refs": [
+        "callee:0x004D6830",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the longitudinal force as a cubic polynomial of the normal load using this+0x23C/0x244/0x24C/0x254, capped by this+0x25C and scaled by the terrain/contact coefficients (contact block at *(this+0x264)+0x54, offsets 0x8/0xC/0x10) and this+0x39C; store into this+0x13C and scale the tangential impulse by it. Also reads the friction-term inputs this+0x270/0x278/0x280/0x288/0x290 and writes the intermediate into this+0x268.",
+      "evidence_refs": [
+        "field:this:0x0000023C",
+        "field:this:0x00000244",
+        "field:this:0x0000024C",
+        "field:this:0x00000254",
+        "field:this:0x00000270",
+        "field:this:0x00000278",
+        "field:this:0x00000280",
+        "field:this:0x00000288",
+        "field:this:0x00000290",
+        "field:this:0x00000268",
+        "field:this:0x0000025C",
+        "field:this:0x0000039C",
+        "field:this:0x0000013C",
+        "field:this:0x00000264",
+        "field:*(this+0x264):0x00000054",
+        "field:*(*(this+0x264)+0x54):0x00000008",
+        "field:*(*(this+0x264)+0x54):0x0000000C",
+        "field:*(*(this+0x264)+0x54):0x00000010",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Integrate the slip impulse: combine the tangential impulse components into the accumulated contact offsets this+0xE4/0xEC/0xF4 using the body slip basis and the coupling this+0xBC, update the contact timestamp this+0xFC = a2, and apply the friction-cone clamp using the threshold this+0x124/0x12C (falling back to the sentinel state when the impulse exceeds the cone).",
+      "evidence_refs": [
+        "guard:0",
+        "guard:1",
+        "guard:2",
+        "field:this:0x000000E4",
+        "field:this:0x000000EC",
+        "field:this:0x000000F4",
+        "field:this:0x000000FC",
+        "field:this:0x00000100",
+        "field:this:0x00000124",
+        "field:this:0x0000012C",
+        "field:this:0x000000BC",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "When the no-contact sentinels (0xFC == -1 and 0x100 == -1048577) are active, latch the current contact offsets this+0xE4/0xEC/0xF4 and the timestamp this+0xFC = a2 to hold the resting contact.",
+      "evidence_refs": [
+        "field:this:0x000000E4",
+        "field:this:0x000000EC",
+        "field:this:0x000000F4",
+        "field:this:0x000000FC",
+        "field:this:0x00000100",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Apply the steering-force friction reduction: using the slip angle at this+0x314 and the friction curve coefficients this+0x2EC/0x2F4/0x2FC/0x304/0x30C, scale the tangential impulse (v110/v95) by a cosine ramp so the applied force falls off as slip grows.",
+      "evidence_refs": [
+        "field:this:0x00000314",
+        "field:this:0x000002EC",
+        "field:this:0x000002F4",
+        "field:this:0x000002FC",
+        "field:this:0x00000304",
+        "field:this:0x0000030C",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Accumulate the impulse into the rigid body: add the normal force (this+0x31C) along the contact normal into the body torque/force accumulators at body offsets 0x134/0x13C/0x144, subtract the slip-velocity angular term at body offsets 0x14C/0x154/0x15C, and read the contact spatial reference through body pointer this+0x15C.",
+      "evidence_refs": [
+        "field:this:0x0000015C",
+        "field:this:0x0000031C",
+        "field:*(this+0x15C):0x00000134",
+        "field:*(this+0x15C):0x0000013C",
+        "field:*(this+0x15C):0x00000144",
+        "field:*(this+0x15C):0x0000014C",
+        "field:*(this+0x15C):0x00000154",
+        "field:*(this+0x15C):0x0000015C",
+        "field:this:0x0000032C",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Apply the combined tangential impulse to the rigid body with torque via ApplyImpulseToRigidBodyWithTorque, then store the final tangential impulse components into this+0x154/0x158.",
+      "evidence_refs": [
+        "callee:0x00569A20",
+        "field:this:0x00000154",
+        "field:this:0x00000158",
+        "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "void __thiscall sub_436870(int this, double a2) {",
+    "  int contact_flag = *(BYTE*)(this + 0x1C4);",
+    "  ZeroFrameAccumulators(this);",
+    "  if (contact_flag) { SetNoContactSentinels(this); return; }",
+    "  BuildContactBasisFromBodyForward(this);",
+    "  BuildCandidateContactPatches(this, a2);",
+    "  int n = byte_7CE994 ? 5 : 3;",
+    "  int hits = QuerySpatialGridForEachPatch(this, n);",
+    "  if (hits == 0) { SetNoContactSentinels(this); return; }",
+    "  if (hits < 3) ExtrapolateMissingContactHeights(this, hits);",
+    "  if (hits == 3) ComputePlaneNormalViaSub56C640(this);",
+    "  else BestFitPlaneFitting(this, hits, &normal, &depth);",
+    "  ComputePenetrationDepth(this);",
+    "  this->contact = FindNearestStoredContact(this);",
+    "  if (this->penetration < 0.0) { SetNoContactSentinels(this); return; }",
+    "  this->normalForce = ComputeNormalForce(this);",
+    "  if (this->normalForce < 0.0) { SetNoContactSentinels(this); return; }",
+    "  ReorientSlipBasisAgainstBody(this);",
+    "  FloatConvertWrapper();",
+    "  this->slipAngle = v65;",
+    "  ComputeTangentialForceMagnitudes(this);",
+    "  EvaluateFrictionCurves(this);",
+    "  CubicHermiteInterpolation(frictionBlend, slip);",
+    "  ComputeLongitudinalForcePolynomial(this);",
+    "  IntegrateSlipImpulse(this, a2);",
+    "  ApplySteeringFrictionFalloff(this);",
+    "  AccumulateBodyTorqueAndImpulse(this);",
+    "  ApplyImpulseToRigidBodyWithTorque(&contactPoint, &impulse);",
+    "  this->tangentialImpulse = impulse;",
+    "}"
+  ],
+  "unresolved": [
+    "sub_56C640's exact role beyond producing the three-point contact normal is not confirmed.",
+    "The concrete types/layout of the terrain contact block *(*(this+0x264)+0x54) and the body block *(this+0x15C) are inferred from read patterns, not a struct definition.",
+    "The contact-limit sentinels 0xFC == -1 (0xFFFFFFFF) and 0x100 == -1048577 (0xFFEFFFFF) gate both the early-outs and the resting-contact latch; their full state machine is only partially visible here."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E880",
+    "global:0x0059E890",
+    "global:0x0059E898",
+    "global:0x0059E900",
+    "global:0x0059EAF0",
+    "global:0x0059EAF8",
+    "global:0x0059EB00",
+    "global:0x0059EB08",
+    "global:0x0059EB10",
+    "global:0x0059EB18",
+    "global:0x0059EB20",
+    "global:0x0059EB28",
+    "global:0x007C9360"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

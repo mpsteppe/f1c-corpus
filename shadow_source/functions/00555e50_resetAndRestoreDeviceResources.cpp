@@ -1,0 +1,38 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00555E50
+// Canonical corpus name: sub_555E50
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_555E50_00555e50.c
+
+void UnknownObject::resetAndRestoreDeviceResources()
+{
+    // Direct3D device-loss recovery: queries device state through interface vtable slots (interface pointer at this+0x1100), resets the device when it reports the lost / not-reset state, tears down and recreates render targets and an additional swap chain, restores device state, and sets flag bit 2 on the caller result a3 when the reset completed.
+    // GUARD: Invoke device vtable slot 0x3C (device state query, TestCooperativeLevel-style) via the interface pointer stored at this+0x1100; store the HRESULT at this+0. If the result != -2005530520 (device lost), return 0. [field:*(this+0x1100):0x00000000, field:*(*(this+0x1100)+0x0):0x0000003C, field:this:0x00001100, field:this:0x00000000]
+    // GUARD: Invoke device vtable slot 0xC (state re-query) and store the result at this+0; if the result != -2005530519 (device not reset), return 0. [field:*(*(this+0x1100)+0x0):0x0000000C, field:this:0x00000000]
+    // CALL: Invoke device vtable slot 0x7C (Reset) with two null arguments; capture the old present-parameters pointer stored at this+0x152C into a local. [field:*(*(this+0x1100)+0x0):0x0000007C, field:this:0x0000152C, field:this:0x00000000]
+    // CALL: sub_53F6E0 cleanup pass over this using the captured present-parameters pointer from this+0x152C. [callee:0x0053F6E0, field:this:0x0000152C]
+    // CALL: RenderTargetCleanup(this, a3): releases existing render targets before they are recreated. [callee:0x0053F270]
+    // CALL: Invoke device vtable slot 0x38 (SetDisplayMode-style) with the device and this+0x1104; store the result at this+0. [field:*(*(this+0x1100)+0x0):0x00000038, field:this:0x00000000]
+    // GUARD: Error path: if the SetDisplayMode-style result is nonzero, format "%s - 0x%X" (format literal at 0x005DBCE4) with the aCouldNotSetDis message (0x005DBCF0) and the code (re-querying vtable slot 0xC when the code equals -2005530520), report it via sub_53C590(-1, message) and return -1. [global:0x005DBCE4, global:0x005DBCF0, callee:0x0058815F, field:*(*(this+0x1100)+0x0):0x0000000C, callee:0x0053C590]
+    // CALL: Invoke device vtable slot 0x40 (CreateAdditionalSwapChain-style) with the device, two null arguments and the present-parameters pointer at *(this+0x1528)+0xC; store the result at this+0. [field:*(*(this+0x1100)+0x0):0x00000040, field:this:0x00001528, field:this:0x00000000]
+    // CALL: Invoke vtable slot 8 on the newly created swap-chain object located at *(*(this+0x1528)+0xC); this release/commit step follows the swap-chain recreation. [field:*(this+0x1528):0x0000000C, field:this:0x00001528, source:raw]
+    // CALCULATION: Map the display-mode selector at this+0x1114 to a present/format flag word via the jump table jpt_555F7E / byte_55602C: case 2 -> 32, case 3 -> 256, case 4 -> 64, case 0x10 -> 0x100000, default 0. [field:this:0x00001114, global:0x00556018, global:0x0055602C]
+    // CALL: sub_53F3F0 recreation pass over this, a2, the swap-chain configuration at this+0x1528, the present parameters at this+0x152C, and the mapped flag word. [callee:0x0053F3F0, field:this:0x00001528, field:this:0x0000152C]
+    // CALL: Invoke device vtable slot 0x7C (Reset) a second time with present-parameters pointers read from *(this+0x1528)+0xC and *(this+0x152C)+0xC; store the result at this+0. [field:*(*(this+0x1100)+0x0):0x0000007C, field:*(this+0x1528):0x0000000C, field:*(this+0x152C):0x0000000C, field:*(*(this+0x1528)+0xC):0x00000000, field:this:0x00001528, field:this:0x00000000]
+    // CALL: sub_53EB70 restore pass over this with the caller argument a3 after the successful reset. [callee:0x0053EB70]
+    // STATE_TRANSITION: If a3 is nonzero, FlagBitSetter(a3, 2) sets bit 2 on the caller result marking the device reset; the success path returns -2. [callee:0x005458D0]
+
+    // Conservative worker pseudocode:
+    //   hr = device->QueryState(); store_hr(this, hr); if (hr != -2005530520) return 0;
+    //   hr = device->QueryResetState(); if (hr != -2005530519) return 0;
+    //   device->Reset(0, 0); cleanup_and_release_render_targets();
+    //   hr = device->SetDisplayMode(...); if (hr) { report_error(format("%s - 0x%X")); return -1; }
+    //   flags = map_display_mode_to_flags(this->display_mode_selector);
+    //   recreate_swap_chain_and_targets(a2, this->swap_chain_cfg, this->present_params, flags);
+    //   device->Reset(this->present_params); restore_device_state();
+    //   if (a3) set_flag_bit(a3, 2); return -2;
+    // UNRESOLVED: field:*(*(*(this+0x1528)+0xC)+0x0):0x00000008 (backbuffer/surface format read) is not visible in the decompiled body
+    // UNRESOLVED: exact role of the this+0x1104 argument passed to the vtable slot 0x38 call
+    // UNRESOLVED: semantic meaning of the mapped flag values 32 / 256 / 64 / 0x100000
+    // UNRESOLVED: return-code contract (0 / -1 / -2) with caller CallWrapper_c060
+}

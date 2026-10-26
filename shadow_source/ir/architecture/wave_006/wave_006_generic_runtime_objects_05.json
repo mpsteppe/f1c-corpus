@@ -1,0 +1,2347 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_006_generic_runtime_objects_05",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Cross-cutting runtime objects and helpers that do not belong to a single game system: angle normalization, keyframe/movement-path spline evaluation and text serialization, two-strategy parameter resolution, UI value-percent display formatters, network game-list status handling and network-auth registration, AVI playback teardown, linked-list registry teardown and merge sort, shared UI constructor helpers, and a set of global/object lifecycle stubs.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x00455F90",
+      "function:0x00457D00",
+      "function:0x00454D30",
+      "function:0x0045D2D0",
+      "function:0x00465000",
+      "function:0x00466910",
+      "function:0x004668E0"
+    ]
+  },
+  "summary": "This packet groups 29 generic runtime-object functions. The strongest evidence clusters are: (1) an AngleNormalizer whose two structural twins wrap/reflect an in-place angle against +/-PI using global constants, both invoked by CollisionResponseFilter; (2) a MovementPath family of four functions sharing the this+0 keyframe-array-pointer / this+4 count / this+8 span / this+0xC..0x18 time+XYZ layout, covering Catmull-Rom interpolation, cumulative arc-length precomputation, buffer release/reset, and text serialization through BufferWriteWithStringLengthCheck; (3) a ParameterResolver whose two methods (enum-to-ID jump table, two-strategy named-parameter/pause-string lookup) share the single caller 0x0046B0C0; (4) a UI value-percent formatter pair (0x00466910, 0x004669A0) fetching the value through virtual vtable calls and rendering '%d%%' via StringFormatWithBufferOverflowCheck + StringCopyWithBufferRealloc; (5) a shared UI constructor family (InitVTableSet 0x004668E0, VtableSetWithInitCall 0x00466980, ConstructorWithVTableAndFloatInit 0x00466A30, ShortComputation_6c40 0x00466C40) around the UIConstructorWithVTableParams base initializer and the +0x100/+0x104/+0x108 fields; (6) network-layer objects: NetworkAuthKeyManager (XOR-decoded 6-byte key registration with four callbacks), NetworkGameListSession (a game-list status state machine with dev-log gate dword_7C569C==5), and NetworkSystemDispatcher (guarded flag set on the network-system pointer at obj+0x1B79C); (7) a LinkedListRegistry whose teardown frees two big lists, a fixed 104-entry static array, and two flag-linked lists (node payload at +0, next at +4, flag byte at +8) and whose merge sort orders the same next-at-+4 node layout by the float key at (data+4); (8) the AVIPlayer releasing its AVIStream/AVIFile handles; and (9) single-purpose helpers (DataTableAccessor, ConstantOffsetGetter, SaturatedByteAccumulator, FloatTierConverter, MenuOptionScreen) plus four ownerless global/object lifecycle stubs. Most class owners are UNKNOWN in the packet; grouping is a GUESS-level proposal grounded in shared field layouts, shared callees, shared vtables, and shared callers.",
+  "function_roles": [
+    {
+      "address": "0x00454C20",
+      "role": "Enum-to-ID mapping with default fallthrough: jump-table switch on the enum argument returns 89 for case 1, -1 for a large group of cases, and the original value for anything else",
+      "owner": "ParameterResolver",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00454C20",
+        "caller:0x0046B0C0",
+        "global:0x00454C4C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00454D30",
+      "role": "Two-strategy parameter lookup with fallback: named-parameter path (sub_454350) writes (1, value) to the caller's dword pair, else the pause-string path (PAUSEStringCopier) writes (0, value), else returns 0",
+      "owner": "ParameterResolver",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00454D30",
+        "caller:0x0046B0C0",
+        "callee:0x00454350",
+        "callee:0x004541D0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00455F90",
+      "role": "In-place angle wrap to [-PI, PI]: subtract 2*PI when *this exceeds +PI, add 2*PI when below -PI, using the global constants at 0x0059EFA4/0x0059EFA8",
+      "owner": "AngleNormalizer",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00455F90",
+        "caller:0x004584C0",
+        "global:0x0059EFA4",
+        "global:0x0059EFA8",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00455FD0",
+      "role": "In-place angle normalization: wraps upward by 2*PI below -PI and reflects via (2*PI - *this) above +PI (structural twin of AngleWrap 0x00455F90, differing only in the greater-than-PI branch)",
+      "owner": "AngleNormalizer",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00455FD0",
+        "caller:0x004584C0",
+        "global:0x0059EFA4",
+        "global:0x0059EFA8",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00457D00",
+      "role": "Catmull-Rom spline evaluation over the keyframe array at this+0: clamps at both ends (copy first/last keyframe), scans the segment containing the parameter over the 28-byte stride, evaluates four basis polynomials, writes time+X/Y/Z to this[3..6], returns pointer to this[4]",
+      "owner": "MovementPath",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00457D00",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "global:0x0059E46C",
+        "global:0x0059E478",
+        "global:0x0059E7EC",
+        "global:0x0059E800",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00457EE0",
+      "role": "Pre-compute cumulative 3D arc length over the keyframe array: zero the first keyframe's accumulated-distance slot (obj+0x18), add each later keyframe's Euclidean distance, store the total to this+8, and return the array pointer",
+      "owner": "MovementPath",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00457EE0",
+        "caller:0x00457F90",
+        "caller:0x004582E0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:obj:0x00000018",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00458020",
+      "role": "Release the heap buffer at this[0]-4 via FreeWrapper_7bcf when non-null, null this[0], and unconditionally zero the remaining record dwords this[1..6] (offsets 0x4..0x18)",
+      "owner": "MovementPath",
+      "evidence_refs": [
+        "function:0x00458020",
+        "caller:0x00457F90",
+        "caller:0x004582E0",
+        "callee:0x00587BCF",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00458190",
+      "role": "Serialize keyframe (movement path) data as text: pad a scratch buffer, validate a non-null array with at least 4 entries, and emit opening/header/control-point/closing strings into the output buffer via BufferWriteWithStringLengthCheck",
+      "owner": "MovementPath",
+      "evidence_refs": [
+        "function:0x00458190",
+        "callee:0x00566C30",
+        "global:0x005C5AA0",
+        "global:0x005C5988",
+        "global:0x005C5A80",
+        "global:0x005C5800",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "guard:0",
+        "guard:1",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0045BB40",
+      "role": "Forwarding wrapper: delegates this unchanged to ShortComputation_b360 (0x0045B360) and returns this; no field access of its own",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0045BB40",
+        "caller:0x0045BB90",
+        "callee:0x0045B360",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0045BB50",
+      "role": "this-call delegation thunk: forwards the receiver unchanged to a destructor-with-resource-cleanup routine (unnamed in evidence) and returns its int result",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0045BB50",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0045BE50",
+      "role": "Global lifecycle initializer: write 0 to dword_7CD208 and -1 to dword_7CD20C, then zero-initialize the structure at dword_7CD208 via WideStructZeroInit (address outside packet) and return its integer result",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0045BE50",
+        "global:0x007CD208",
+        "global:0x007CD20C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0045BEA0",
+      "role": "AVI player teardown: release and null the two AVIStream handles (this+0x3C, this+0x40) and the AVIFile handle (this+0x38), each only while non-null, then delegate to AVIPlayerCleanup and return its result",
+      "owner": "AVIPlayer",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0045BEA0",
+        "caller:0x0045BE80",
+        "callee:0x00534AE6",
+        "callee:0x00534AEC",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000040",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0045BF70",
+      "role": "Global slot teardown: run per-object teardown on dword_7CD25C[0] when non-null, free the object via FreeWrapper_7bcf keeping the free result, and unconditionally clear the slot to null",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0045BF70",
+        "global:0x007CD25C",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0045CD70",
+      "role": "One-time network-auth initializer: guard on the init flag at this[0], clear the 0x8D4680 scratch dwords, XOR-decode the 6-byte key from byte_59F0C4, register with sub_561BF0 passing this[1], the config pointer, four callbacks and a trailing 0; store true in the init flag on success",
+      "owner": "NetworkAuthKeyManager",
+      "evidence_refs": [
+        "function:0x0045CD70",
+        "caller:0x0045D490",
+        "callee:0x00561BF0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "global:0x0059F0C4",
+        "global:0x005C5B68",
+        "global:0x0045CDE0",
+        "global:0x0045CF50",
+        "global:0x0045D0D0",
+        "global:0x0045D130",
+        "global:0x008D4680",
+        "global:0x008D4684",
+        "global:0x008D4688",
+        "global:0x008D468C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0045D2D0",
+      "role": "Network game-list session state-machine handler: on request a2==1 set the scene-refresh flag byte_7CD2A0, query the current state via sub_563E70, select and dev-log the matching status message (done/getting/searching/querying) unless session type dword_7C569C==5, copy the selected string into byte_5EC4CC via BinarySearchInStringTable, and resolve it via PathRegistryCallWrapper; other a2 values warn on unknown game list or return a2 unchanged",
+      "owner": "NetworkGameListSession",
+      "evidence_refs": [
+        "function:0x0045D2D0",
+        "callee:0x00563E70",
+        "callee:0x00423A00",
+        "callee:0x004630C0",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "global:0x0045D47C",
+        "global:0x007CD2A0",
+        "global:0x007C569C",
+        "global:0x008AD25C",
+        "global:0x005C5CE4",
+        "global:0x005C5CC8",
+        "global:0x005C5CB4",
+        "global:0x005C5CA0",
+        "global:0x005C5C90",
+        "global:0x005C5C8C",
+        "global:0x005C5C6C",
+        "global:0x005EA438",
+        "global:0x005EC4C0",
+        "global:0x005EC4CC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00461F90",
+      "role": "Conditional dispatch: when the network-system pointer at obj+0x1B79C is non-null and sub_563E70 reports the network/system capable, set a flag on that pointer and return its result; otherwise return the early this result unchanged",
+      "owner": "NetworkSystemDispatcher",
+      "evidence_refs": [
+        "function:0x00461F90",
+        "callee:0x00563E70",
+        "field:obj:0x0001B79C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00462410",
+      "role": "Bounds-checked data-table row accessor: when 0 <= a2 < row count at obj+0x3E14, copy a 140-byte row at table+916+140*a2 into a3 and the per-row scalar at table+15476+4*a2 into *a4, returning 1; otherwise return 0",
+      "owner": "DataTableAccessor",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00462410",
+        "caller:0x0045D130",
+        "field:this:0x00000000",
+        "field:obj:0x00003E14",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00463750",
+      "role": "Side-effect-free getter: returns *this + 432 (second argument a2 unused)",
+      "owner": "ConstantOffsetGetter",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00463750",
+        "caller:0x0045D0D0",
+        "caller:0x004637A0",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00464A10",
+      "role": "Saturating 7-bit add on the byte at this+0: mask to 7 bits, add a2, clamp at 127, write back the low 7 bits preserving bit 7, return the clamped sum",
+      "owner": "SaturatedByteAccumulator",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00464A10",
+        "caller:0x00464B10",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00464A60",
+      "role": "Store the input dword at this+0x220, select a divisor by a cascading threshold chain (625000/28800/7200/2975 -> 32/20/16/10/6), convert 1.0/divisor/0.005 with CRTFtol, store the resulting byte at this+0x22A and return it",
+      "owner": "FloatTierConverter",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00464A60",
+        "caller:0x00465430",
+        "callee:0x00587BDC",
+        "field:this:0x00000220",
+        "field:this:0x0000022A",
+        "global:0x0059E420",
+        "global:0x0059E5FC",
+        "global:0x0059E8EC",
+        "global:0x0059E940",
+        "global:0x0059EC20",
+        "global:0x0059EED0",
+        "global:0x0059F138",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00465000",
+      "role": "Teardown of a large heap object: free two big linked lists (heads obj+0xE5C0 and obj+0xE5B0) via ConditionalFreeByFlagCheck + FreeWrapper_7bcf and zero their four head/trailer/tail/count fields, free a fixed 104-entry static pointer array, free two flag-linked lists (heads obj+0x7C and obj+0x6C; payload at node+0 freed only when the flag byte at node+8 is set, node always freed), zero their four fields each, call EmptyStub_0170, then free the object itself",
+      "owner": "LinkedListRegistry",
+      "evidence_refs": [
+        "function:0x00465000",
+        "callee:0x00582290",
+        "callee:0x00587BCF",
+        "callee:0x004B0170",
+        "field:obj:0x0000E5C0",
+        "field:obj:0x0000E5C4",
+        "field:obj:0x0000E5C8",
+        "field:obj:0x0000E5CC",
+        "field:obj:0x0000E5B0",
+        "field:obj:0x0000E5B4",
+        "field:obj:0x0000E5B8",
+        "field:obj:0x0000E5BC",
+        "field:obj:0x0000007C",
+        "field:obj:0x00000080",
+        "field:obj:0x00000084",
+        "field:obj:0x00000088",
+        "field:obj:0x0000006C",
+        "field:obj:0x00000070",
+        "field:obj:0x00000074",
+        "field:obj:0x00000078",
+        "field:*(obj+0x80):0x00000004",
+        "field:*(obj+0x70):0x00000004",
+        "guard:0",
+        "guard:1",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00465C70",
+      "role": "Recursive ascending merge sort of a singly linked list by the float key at (data pointer + 4) of each node: count nodes, return on null/fewer-than-2, split at the midpoint, sort each half recursively (self), then merge by relinking node next pointers (offset 4) in ascending key order",
+      "owner": "LinkedListRegistry",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00465C70",
+        "caller:0x00465460",
+        "callee:0x00465C70",
+        "field:obj:0x00000004",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:*(this+0x8):0x00000004",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004668E0",
+      "role": "Shared UI constructor helper: base initialization via UIConstructorWithVTableParams, then install the vtable pointer off_59F210 into this+0; invoked by a family of UI component constructor stubs",
+      "owner": "UIConfiguredComponent",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004668E0",
+        "callee:0x0048D3A0",
+        "global:0x0059F210",
+        "field:this:0x00000000",
+        "caller:0x00466A30",
+        "caller:0x00479C80",
+        "caller:0x0047A5B0",
+        "caller:0x0047A620",
+        "caller:0x0047A800",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00466910",
+      "role": "Percent-value string formatter: fetch a float pointer via the virtual call at vtable+0xB4, convert *p*100.0+0.5 with CRTFtol, render '%d%%' via StringFormatWithBufferOverflowCheck, and store the result via StringCopyWithBufferRealloc",
+      "owner": "UIValueDisplayFormatter",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00466910",
+        "callee:0x00587BDC",
+        "callee:0x0058815F",
+        "callee:0x00566650",
+        "field:obj:0x000000B4",
+        "global:0x005C37CC",
+        "global:0x0059E6F8",
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00466980",
+      "role": "Constructor helper: base initialization via UIConstructorWithVTableParams, then overwrite the vtable slot at offset 0 with the alternate vtable pointer off_59F2C8 and return this",
+      "owner": "UIConfiguredComponent",
+      "evidence_refs": [
+        "function:0x00466980",
+        "callee:0x0048D3A0",
+        "global:0x0059F2C8",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004669A0",
+      "role": "Percent-value display formatter: fetch the value via the virtual call at vtable+180, normalize by the range width (this+0xF8 minus this+0xF4), scale by 100.0, truncate with CRTFtol, render '%d%%' via StringFormatWithBufferOverflowCheck and store via StringCopyWithBufferRealloc; the flag at this+0xF0 selects signed-int vs float interpretation",
+      "owner": "UIValueDisplayFormatter",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004669A0",
+        "callee:0x00587BDC",
+        "callee:0x0058815F",
+        "callee:0x00566650",
+        "global:0x005C37CC",
+        "global:0x0059E6F8",
+        "global:0x005EA438",
+        "field:this:0x00000000",
+        "field:this:0x000000F0",
+        "field:this:0x000000F4",
+        "field:this:0x000000F8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00466A30",
+      "role": "Object constructor: base init via InitVTableSet(this, a3, a4), install vtable off_59F380 at this+0, store float 0.5f at this+0x104, clear the byte at this+0x100, store parameter a2 at this+0x108, return this",
+      "owner": "UIConfiguredComponent",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00466A30",
+        "callee:0x004668E0",
+        "global:0x0059F380",
+        "field:this:0x00000000",
+        "field:this:0x00000100",
+        "field:this:0x00000104",
+        "field:this:0x00000108",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00466C40",
+      "role": "Physics-state computation: call PhysicsStateInitIndexed(byte_7C56C0, this+0x108, this+0x104) then VehicleStatsEstimationDisplay(byte_7C56C0), clear the byte at this+0x100, and return 0",
+      "owner": "UIConfiguredComponent",
+      "evidence_refs": [
+        "function:0x00466C40",
+        "callee:0x00431390",
+        "callee:0x00430F00",
+        "global:0x007C56C0",
+        "field:this:0x00000100",
+        "field:this:0x00000104",
+        "field:this:0x00000108",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00467340",
+      "role": "Menu option value adjust: compute value +/- 1 from the current value at offset 20 of the option data at this+0x320 (return 0 when null), dispatch through ListSelectionClamp when this+0x32C equals 4 or AIGearSelectionSet otherwise on global byte_7C56C0, then refresh via MenuOptionValueDisplay",
+      "owner": "MenuOptionScreen",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00467340",
+        "callee:0x0042EB60",
+        "callee:0x0042EAA0",
+        "callee:0x004673B0",
+        "global:0x007C56C0",
+        "field:this:0x00000320",
+        "field:this:0x00000324",
+        "field:this:0x00000328",
+        "field:this:0x0000032C",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "ParameterResolver",
+      "responsibility": "Resolves configuration/parameter values: maps an enum argument to an internal ID via a jump table (89 for case 1, -1 for a large group of cases, else pass-through) and resolves parameters through two ordered strategies (named-parameter lookup sub_454350, then pause-string PAUSEStringCopier), writing a (flag, value) dword pair to the caller.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00454C20",
+        "0x00454D30"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00454C20",
+        "function:0x00454D30",
+        "caller:0x0046B0C0",
+        "callee:0x00454350",
+        "callee:0x004541D0",
+        "global:0x00454C4C"
+      ]
+    },
+    {
+      "name": "AngleNormalizer",
+      "responsibility": "Normalizes an in-place floating-point angle at this+0 to the range [-PI, PI] against the global +PI and 2*PI constants; one method wraps by subtracting 2*PI above +PI while the other reflects via (2*PI - value).",
+      "trust": "GUESS",
+      "methods": [
+        "0x00455F90",
+        "0x00455FD0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "angle",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00455F90",
+            "function:0x00455FD0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "caller:0x004584C0",
+        "global:0x0059EFA4",
+        "global:0x0059EFA8",
+        "function:0x00455F90",
+        "function:0x00455FD0"
+      ]
+    },
+    {
+      "name": "MovementPath",
+      "responsibility": "Keyframe/movement-path object holding a keyframe array pointer at this+0 and its count at this+4, with a span/total-length slot at this+8 and a time+X/Y/Z output block at this+0xC..0x18. Evaluates the spline at a parameter (Catmull-Rom basis over the 28-byte keyframe stride), pre-computes cumulative 3D arc length, releases and resets the underlying buffer, and serializes the control points to a text buffer.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00457D00",
+        "0x00457EE0",
+        "0x00458020",
+        "0x00458190"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "keyframe_array_ptr",
+          "type_guess": "float*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00457D00",
+            "function:0x00457EE0",
+            "function:0x00458020",
+            "function:0x00458190"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "keyframe_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x00457D00",
+            "function:0x00457EE0",
+            "function:0x00458020",
+            "function:0x00458190"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "total_span_or_length",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x00457D00",
+            "function:0x00457EE0",
+            "function:0x00458020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "current_time_param",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x00457D00",
+            "function:0x00458020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "interpolated_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x00457D00",
+            "function:0x00458020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "interpolated_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x00457D00",
+            "function:0x00458020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "interpolated_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x00457D00",
+            "function:0x00458020"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "caller:0x00457F90",
+        "caller:0x004582E0",
+        "callee:0x00566C30",
+        "callee:0x00587BCF",
+        "global:0x005C5AA0",
+        "global:0x005C5988",
+        "global:0x005C5A80",
+        "global:0x005C5800",
+        "global:0x0059E46C",
+        "global:0x0059E478",
+        "global:0x0059E7EC",
+        "global:0x0059E800"
+      ]
+    },
+    {
+      "name": "KeyframeElement",
+      "responsibility": "28-byte keyframe record (7 floats: 3D position at elements 0..2 plus tangent/control and time fields). The accumulated 3D distance is stored at element offset +0x18; the offsets +0x1C/+0x20/+0x24/+0x34 (second keyframe position/distance relative to the array base) are an interpretation from the analysis fill, not independently evidenced.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x00000018",
+          "name": "accumulated_distance",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000018",
+            "function:0x00457EE0"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000001C",
+          "name": "second_keyframe_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x0000001C",
+            "function:0x00457D00"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000020",
+          "name": "second_keyframe_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000020",
+            "function:0x00457D00"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000024",
+          "name": "second_keyframe_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000024",
+            "function:0x00457D00"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000034",
+          "name": "second_keyframe_distance",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000034",
+            "function:0x00457D00"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:obj:0x00000018",
+        "field:obj:0x0000001C",
+        "field:obj:0x00000020",
+        "field:obj:0x00000024",
+        "field:obj:0x00000034",
+        "function:0x00457D00",
+        "function:0x00457EE0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AVIPlayer",
+      "responsibility": "Owns AVI playback handles: an AVIFile interface at this+0x38 and two AVIStream interfaces at this+0x3C/+0x40. Its teardown releases each non-null handle and nulls it, then delegates to AVIPlayerCleanup.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0045BEA0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "avifile_handle",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "function:0x0045BEA0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "stream_primary_handle",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "function:0x0045BEA0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "stream_secondary_handle",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "function:0x0045BEA0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0045BEA0",
+        "caller:0x0045BE80",
+        "callee:0x00534AE6",
+        "callee:0x00534AEC"
+      ]
+    },
+    {
+      "name": "NetworkAuthKeyManager",
+      "responsibility": "One-time network-auth initializer. A byte init flag at this+0 guards repeated registration; the configuration pointer at this+4 is forwarded to sub_561BF0 together with a 6-byte XOR-decoded key (byte_59F0C4 each byte XOR 0x3E) decoded into the 0x8D4680 scratch region and four callback function pointers.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0045CD70"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "init_flag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x0045CD70"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "config_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x0045CD70"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0045CD70",
+        "caller:0x0045D490",
+        "callee:0x00561BF0",
+        "global:0x0059F0C4",
+        "global:0x005C5B68",
+        "global:0x0045CDE0",
+        "global:0x0045CF50",
+        "global:0x0045D0D0",
+        "global:0x0045D130",
+        "global:0x008D4680",
+        "global:0x008D4684",
+        "global:0x008D4688",
+        "global:0x008D468C"
+      ]
+    },
+    {
+      "name": "NetworkGameListSession",
+      "responsibility": "Network session that tracks the game-list update state machine. On a get-game-list request it raises the global scene-refresh flag byte_7CD2A0, queries the current state via sub_563E70, selects and (unless session type dword_7C569C==5) dev-logs the matching status string, copies the selected message into byte_5EC4CC through BinarySearchInStringTable, and resolves it via PathRegistryCallWrapper.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0045D2D0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0045D2D0",
+        "callee:0x00563E70",
+        "callee:0x00423A00",
+        "callee:0x004630C0",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "global:0x0045D47C",
+        "global:0x007CD2A0",
+        "global:0x007C569C",
+        "global:0x008AD25C",
+        "global:0x005C5CE4",
+        "global:0x005C5CC8",
+        "global:0x005C5CB4",
+        "global:0x005C5CA0",
+        "global:0x005C5C90",
+        "global:0x005C5C8C",
+        "global:0x005C5C6C",
+        "global:0x005EA438",
+        "global:0x005EC4C0",
+        "global:0x005EC4CC"
+      ]
+    },
+    {
+      "name": "NetworkSystemDispatcher",
+      "responsibility": "Guarded forwarder of a network-system pointer: when the pointer at obj+0x1B79C is non-null and the network/system reports capability via sub_563E70, sets a flag on that pointer and returns the flag result.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00461F90"
+      ],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x0001B79C",
+          "name": "network_system_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x0001B79C",
+            "function:0x00461F90"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00461F90",
+        "callee:0x00563E70",
+        "field:obj:0x0001B79C"
+      ]
+    },
+    {
+      "name": "DataTableAccessor",
+      "responsibility": "Bounds-checked reader of a fixed-size data table: holds the table object pointer at this+0 and reads the row count from the object at obj+0x3E14. A row (140 bytes, stride 140 starting at table+916) is copied into the caller buffer and a parallel per-row scalar (4 bytes per row at table+15476) is written to a dword output.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00462410"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "table_obj_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00462410"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00003E14",
+          "name": "row_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00003E14",
+            "function:0x00462410"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00462410",
+        "caller:0x0045D130"
+      ]
+    },
+    {
+      "name": "ConstantOffsetGetter",
+      "responsibility": "Side-effect-free getter returning the dword at this+0 plus the constant 432; the second argument is unused.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00463750"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "base_value",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00463750"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00463750",
+        "caller:0x0045D0D0",
+        "caller:0x004637A0"
+      ]
+    },
+    {
+      "name": "SaturatedByteAccumulator",
+      "responsibility": "Saturating 7-bit byte accumulator at this+0: adds an increment, clamps the sum at 127, and writes back only the low 7 bits, preserving bit 7 as an independent flag bit.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00464A10"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "accumulator_byte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00464A10"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00464A10",
+        "caller:0x00464B10"
+      ]
+    },
+    {
+      "name": "FloatTierConverter",
+      "responsibility": "Stores an input dword at this+0x220 and converts it to a byte at this+0x22A through a cascading tier chain: the divisor is chosen by thresholds (>=625000 -> 32.0, >=28800 -> 20.0, >=7200 -> 16.0, >=2975 -> 10.0, else 6.0), and 1.0/divisor/0.005 is truncated with CRTFtol.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00464A60"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000220",
+          "name": "stored_value",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000220",
+            "function:0x00464A60"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000022A",
+          "name": "converted_byte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000022A",
+            "function:0x00464A60"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00464A60",
+        "caller:0x00465430",
+        "callee:0x00587BDC",
+        "global:0x0059E420",
+        "global:0x0059E5FC",
+        "global:0x0059E8EC",
+        "global:0x0059E940",
+        "global:0x0059EC20",
+        "global:0x0059EED0",
+        "global:0x0059F138"
+      ]
+    },
+    {
+      "name": "LinkedListRegistry",
+      "responsibility": "Large registry object owning multiple linked lists over a common node layout {data/payload at node+0, next at node+4, flag byte at node+8}: two big lists (heads obj+0xE5C0 and obj+0xE5B0, each with four head/trailer/tail/count fields), a fixed 104-entry static pointer array, and two flag-linked lists (heads obj+0x7C and obj+0x6C). Its teardown frees every node (and payloads when the flag byte is set) and zeroes all list fields; its sort orders the next-at-+4 node layout ascending by the float key at (data+4).",
+      "trust": "GUESS",
+      "methods": [
+        "0x00465000",
+        "0x00465C70"
+      ],
+      "fields": [
+        {
+          "base": "obj",
+          "offset": "0x0000006C",
+          "name": "flaglist2_head",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000006C",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000070",
+          "name": "flaglist2_tail",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000070",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000074",
+          "name": "flaglist2_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000074",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000078",
+          "name": "flaglist2_capacity",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000078",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000007C",
+          "name": "flaglist1_head",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000007C",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000080",
+          "name": "flaglist1_tail",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000080",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000084",
+          "name": "flaglist1_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000084",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000088",
+          "name": "flaglist1_capacity",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000088",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000E5B0",
+          "name": "biglist2_head",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000E5B0",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000E5B4",
+          "name": "biglist2_tail",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000E5B4",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000E5B8",
+          "name": "biglist2_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000E5B8",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000E5BC",
+          "name": "biglist2_capacity",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000E5BC",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000E5C0",
+          "name": "biglist1_head",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000E5C0",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000E5C4",
+          "name": "biglist1_tail",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000E5C4",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000E5C8",
+          "name": "biglist1_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000E5C8",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000E5CC",
+          "name": "biglist1_capacity",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000E5CC",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000004",
+          "name": "node_next",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000004",
+            "function:0x00465C70",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "*(obj+0x80)",
+          "offset": "0x00000004",
+          "name": "flaglist1_node_next",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(obj+0x80):0x00000004",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "*(obj+0x70)",
+          "offset": "0x00000004",
+          "name": "flaglist2_node_next",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(obj+0x70):0x00000004",
+            "function:0x00465000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "merge_cursor_ptr",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x00465C70"
+          ]
+        },
+        {
+          "base": "*(this+0x8)",
+          "offset": "0x00000004",
+          "name": "merge_midpoint_next",
+          "type_guess": "node*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x8):0x00000004",
+            "function:0x00465C70"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00465000",
+        "function:0x00465C70",
+        "caller:0x00465460",
+        "callee:0x00582290",
+        "callee:0x00587BCF",
+        "callee:0x004B0170"
+      ]
+    },
+    {
+      "name": "UIConfiguredComponent",
+      "responsibility": "UI/component object family built on the UIConstructorWithVTableParams base initializer with per-variant vtable installs (off_59F210, off_59F2C8, off_59F380). A configuration block sits at +0x100 (cleared flag byte) / +0x104 (float, default 0.5f) / +0x108 (integer/ID parameter); the compute method feeds those into PhysicsStateInitIndexed + VehicleStatsEstimationDisplay on the byte_7C56C0 working buffer.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004668E0",
+        "0x00466980",
+        "0x00466A30",
+        "0x00466C40"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004668E0",
+            "function:0x00466980",
+            "function:0x00466A30"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000100",
+          "name": "dirty_flag_byte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000100",
+            "function:0x00466A30",
+            "function:0x00466C40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000104",
+          "name": "ratio_float",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000104",
+            "function:0x00466A30",
+            "function:0x00466C40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000108",
+          "name": "index_or_id",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000108",
+            "function:0x00466A30",
+            "function:0x00466C40"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "callee:0x0048D3A0",
+        "callee:0x004668E0",
+        "callee:0x00431390",
+        "callee:0x00430F00",
+        "global:0x0059F210",
+        "global:0x0059F2C8",
+        "global:0x0059F380",
+        "global:0x007C56C0",
+        "caller:0x00479C80",
+        "caller:0x0047A5B0",
+        "caller:0x0047A620",
+        "caller:0x0047A800"
+      ]
+    },
+    {
+      "name": "UIValueDisplayFormatter",
+      "responsibility": "Formats a value as a percentage string. The value is fetched through a virtual call on the object's own vtable (slot +0xB4 in one method, slot +180 in the other), normalized by a range, scaled to a percent, truncated with CRTFtol, rendered as '%d%%' via StringFormatWithBufferOverflowCheck, and persisted via StringCopyWithBufferRealloc. A signedness flag at this+0xF0 selects int vs float interpretation; the range bounds live at this+0xF4/+0xF8.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00466910",
+        "0x004669A0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vtable",
+          "type_guess": "void**",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x004669A0"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000000B4",
+          "name": "percent_value_getter_slot",
+          "type_guess": "func* (vtable slot 180)",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x000000B4",
+            "function:0x00466910"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F0",
+          "name": "signed_flag",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F0",
+            "function:0x004669A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F4",
+          "name": "range_min",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F4",
+            "function:0x004669A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F8",
+          "name": "range_max",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F8",
+            "function:0x004669A0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "callee:0x00587BDC",
+        "callee:0x0058815F",
+        "callee:0x00566650",
+        "global:0x005C37CC",
+        "global:0x0059E6F8",
+        "global:0x005EA438",
+        "function:0x00466910",
+        "function:0x004669A0"
+      ]
+    },
+    {
+      "name": "MenuOptionScreen",
+      "responsibility": "Menu screen option object whose entry reads an option-data pointer at this+0x320, a selection index at this+0x324, a parameter at this+0x328, and a type discriminator at this+0x32C; an adjuster increments/decrements the option value and dispatches through ListSelectionClamp (type 4) or AIGearSelectionSet against the byte_7C56C0 working buffer, then refreshes the displayed text.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00467340"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000320",
+          "name": "option_data_ptr",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000320",
+            "function:0x00467340"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000324",
+          "name": "selection_index",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000324",
+            "function:0x00467340"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000328",
+          "name": "parameter",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000328",
+            "function:0x00467340"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000032C",
+          "name": "type_field",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000032C",
+            "function:0x00467340"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00467340",
+        "callee:0x0042EAA0",
+        "callee:0x0042EB60",
+        "callee:0x004673B0",
+        "global:0x007C56C0"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "GameListState",
+      "owner": "NetworkGameListSession",
+      "states": [
+        "DONE",
+        "GETTING",
+        "SEARCHING",
+        "QUERYING",
+        "UNKNOWN_DEFAULT"
+      ],
+      "transitions": [
+        {
+          "name": "begin_update",
+          "from": "DONE",
+          "to": "GETTING",
+          "trigger": "on a get-game-list request (a2==1) the handler raises the scene-refresh flag byte_7CD2A0 and queries the current state via sub_563E70"
+        },
+        {
+          "name": "advance_getting",
+          "from": "GETTING",
+          "to": "SEARCHING",
+          "trigger": "the state query reports the 'Searching LAN...' status while the request is in progress"
+        },
+        {
+          "name": "advance_searching",
+          "from": "SEARCHING",
+          "to": "QUERYING",
+          "trigger": "the state query reports the 'Querying games...' status while the request is in progress"
+        },
+        {
+          "name": "complete",
+          "from": "QUERYING",
+          "to": "DONE",
+          "trigger": "the state query reports the 'Done updating game list' status"
+        }
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0045D2D0",
+        "callee:0x00563E70",
+        "global:0x007CD2A0",
+        "global:0x005C5CC8",
+        "global:0x005C5CB4",
+        "global:0x005C5CA0",
+        "global:0x005C5C90",
+        "global:0x0045D47C"
+      ]
+    },
+    {
+      "name": "NetworkAuthInitState",
+      "owner": "NetworkAuthKeyManager",
+      "states": [
+        "UNINITIALIZED",
+        "INITIALIZED"
+      ],
+      "transitions": [
+        {
+          "name": "initialize",
+          "from": "UNINITIALIZED",
+          "to": "INITIALIZED",
+          "trigger": "first call while the init flag at this[0] is clear decodes the 6-byte key and registers with sub_561BF0; on a zero return the flag is stored true"
+        }
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "function:0x0045CD70",
+        "callee:0x00561BF0"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "PercentValueFormatterInterface",
+      "purpose": "The two percent formatters reach their value through a virtual call on the object's own vtable (slot +0xB4 in FormatValueAsPercentString, slot +180 in SetupValueDisplayFormatter_69a0), render the value as '%d%%' via StringFormatWithBufferOverflowCheck, and persist the result through StringCopyWithBufferRealloc.",
+      "functions": [
+        "function:0x00466910",
+        "function:0x004669A0"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:obj:0x000000B4",
+        "callee:0x0058815F",
+        "callee:0x00566650",
+        "global:0x005C37CC",
+        "function:0x00466910",
+        "function:0x004669A0"
+      ]
+    },
+    {
+      "name": "UIConstructorInterface",
+      "purpose": "Constructor helpers share the UIConstructorWithVTableParams base initializer (0x0048D3A0) and install per-variant vtable pointers; InitVTableSet is reused as shared base initialization by a family of UI component constructor stubs.",
+      "functions": [
+        "function:0x004668E0",
+        "function:0x00466980",
+        "function:0x00466A30"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0048D3A0",
+        "global:0x0059F210",
+        "global:0x0059F2C8",
+        "global:0x0059F380",
+        "function:0x004668E0"
+      ]
+    },
+    {
+      "name": "GameListStatusSink",
+      "purpose": "Status strings for the game-list session are selected by state and, unless session type dword_7C569C==5, dev-logged through StringSplitLoop/DebugLogWrite on the dword_8AD25C buffer; the selected message is copied via BinarySearchInStringTable into byte_5EC4CC and resolved by PathRegistryCallWrapper.",
+      "functions": [
+        "function:0x0045D2D0"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "callee:0x00423A00",
+        "callee:0x004630C0",
+        "global:0x007C569C",
+        "global:0x008AD25C",
+        "global:0x005EC4CC",
+        "function:0x0045D2D0"
+      ]
+    },
+    {
+      "name": "SplinePathSerializationSink",
+      "purpose": "Movement path serialization writes tagged opening, header, control-point, and closing strings into an output text buffer through BufferWriteWithStringLengthCheck, returning 0 on success and 1 for invalid keyframe data.",
+      "functions": [
+        "function:0x00458190"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566C30",
+        "global:0x005C5AA0",
+        "global:0x005C5988",
+        "global:0x005C5A80",
+        "global:0x005C5800",
+        "function:0x00458190"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "caller:0x0046B0C0",
+      "to": "function:0x00454C20",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0046B0C0",
+        "function:0x00454C20"
+      ]
+    },
+    {
+      "from": "caller:0x0046B0C0",
+      "to": "function:0x00454D30",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0046B0C0",
+        "function:0x00454D30"
+      ]
+    },
+    {
+      "from": "caller:0x004584C0",
+      "to": "function:0x00455F90",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004584C0",
+        "function:0x00455F90"
+      ]
+    },
+    {
+      "from": "caller:0x004584C0",
+      "to": "function:0x00455FD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004584C0",
+        "function:0x00455FD0"
+      ]
+    },
+    {
+      "from": "caller:0x00457F90",
+      "to": "function:0x00457EE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00457F90",
+        "function:0x00457EE0"
+      ]
+    },
+    {
+      "from": "caller:0x00457F90",
+      "to": "function:0x00458020",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00457F90",
+        "function:0x00458020"
+      ]
+    },
+    {
+      "from": "caller:0x004582E0",
+      "to": "function:0x00457EE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004582E0",
+        "function:0x00457EE0"
+      ]
+    },
+    {
+      "from": "caller:0x004582E0",
+      "to": "function:0x00458020",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004582E0",
+        "function:0x00458020"
+      ]
+    },
+    {
+      "from": "caller:0x0045BB90",
+      "to": "function:0x0045BB40",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045BB90",
+        "function:0x0045BB40"
+      ]
+    },
+    {
+      "from": "function:0x0045BB40",
+      "to": "callee:0x0045B360",
+      "kind": "delegates",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0045B360",
+        "function:0x0045BB40"
+      ]
+    },
+    {
+      "from": "caller:0x0045BE80",
+      "to": "function:0x0045BEA0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045BE80",
+        "function:0x0045BEA0"
+      ]
+    },
+    {
+      "from": "function:0x0045BEA0",
+      "to": "callee:0x00534AE6",
+      "kind": "releases",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00534AE6",
+        "function:0x0045BEA0"
+      ]
+    },
+    {
+      "from": "function:0x0045BEA0",
+      "to": "callee:0x00534AEC",
+      "kind": "releases",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00534AEC",
+        "function:0x0045BEA0"
+      ]
+    },
+    {
+      "from": "caller:0x0045D490",
+      "to": "function:0x0045CD70",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045D490",
+        "function:0x0045CD70"
+      ]
+    },
+    {
+      "from": "function:0x0045CD70",
+      "to": "callee:0x00561BF0",
+      "kind": "registers",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00561BF0",
+        "function:0x0045CD70"
+      ]
+    },
+    {
+      "from": "function:0x0045D2D0",
+      "to": "callee:0x00563E70",
+      "kind": "queries_state",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00563E70",
+        "function:0x0045D2D0"
+      ]
+    },
+    {
+      "from": "function:0x0045D2D0",
+      "to": "callee:0x00423A00",
+      "kind": "looks_up",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00423A00",
+        "function:0x0045D2D0"
+      ]
+    },
+    {
+      "from": "function:0x0045D2D0",
+      "to": "callee:0x004630C0",
+      "kind": "resolves_path",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004630C0",
+        "function:0x0045D2D0"
+      ]
+    },
+    {
+      "from": "function:0x0045D2D0",
+      "to": "callee:0x004D7AA0",
+      "kind": "logs",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004D7AA0",
+        "function:0x0045D2D0"
+      ]
+    },
+    {
+      "from": "function:0x00461F90",
+      "to": "callee:0x00563E70",
+      "kind": "queries_state",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00563E70",
+        "function:0x00461F90"
+      ]
+    },
+    {
+      "from": "caller:0x0045D130",
+      "to": "function:0x00462410",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045D130",
+        "function:0x00462410"
+      ]
+    },
+    {
+      "from": "caller:0x0045D0D0",
+      "to": "function:0x00463750",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045D0D0",
+        "function:0x00463750"
+      ]
+    },
+    {
+      "from": "caller:0x004637A0",
+      "to": "function:0x00463750",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004637A0",
+        "function:0x00463750"
+      ]
+    },
+    {
+      "from": "caller:0x00464B10",
+      "to": "function:0x00464A10",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00464B10",
+        "function:0x00464A10"
+      ]
+    },
+    {
+      "from": "caller:0x00465430",
+      "to": "function:0x00464A60",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00465430",
+        "function:0x00464A60"
+      ]
+    },
+    {
+      "from": "function:0x00464A60",
+      "to": "callee:0x00587BDC",
+      "kind": "converts",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BDC",
+        "function:0x00464A60"
+      ]
+    },
+    {
+      "from": "caller:0x00465460",
+      "to": "function:0x00465C70",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00465460",
+        "function:0x00465C70"
+      ]
+    },
+    {
+      "from": "function:0x00465C70",
+      "to": "callee:0x00465C70",
+      "kind": "recurses",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00465C70",
+        "function:0x00465C70"
+      ]
+    },
+    {
+      "from": "function:0x00465000",
+      "to": "callee:0x00582290",
+      "kind": "conditionally_frees",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00582290",
+        "function:0x00465000"
+      ]
+    },
+    {
+      "from": "function:0x00465000",
+      "to": "callee:0x00587BCF",
+      "kind": "frees",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF",
+        "function:0x00465000"
+      ]
+    },
+    {
+      "from": "function:0x00465000",
+      "to": "callee:0x004B0170",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B0170",
+        "function:0x00465000"
+      ]
+    },
+    {
+      "from": "caller:0x00479C80",
+      "to": "function:0x004668E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00479C80",
+        "function:0x004668E0"
+      ]
+    },
+    {
+      "from": "caller:0x0047A5B0",
+      "to": "function:0x004668E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0047A5B0",
+        "function:0x004668E0"
+      ]
+    },
+    {
+      "from": "caller:0x0047A620",
+      "to": "function:0x004668E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0047A620",
+        "function:0x004668E0"
+      ]
+    },
+    {
+      "from": "caller:0x0047A800",
+      "to": "function:0x004668E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0047A800",
+        "function:0x004668E0"
+      ]
+    },
+    {
+      "from": "function:0x004668E0",
+      "to": "callee:0x0048D3A0",
+      "kind": "constructs_base",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0048D3A0",
+        "function:0x004668E0"
+      ]
+    },
+    {
+      "from": "function:0x00466A30",
+      "to": "callee:0x004668E0",
+      "kind": "constructs_base",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004668E0",
+        "function:0x00466A30"
+      ]
+    },
+    {
+      "from": "function:0x00466980",
+      "to": "callee:0x0048D3A0",
+      "kind": "constructs_base",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0048D3A0",
+        "function:0x00466980"
+      ]
+    },
+    {
+      "from": "function:0x00466C40",
+      "to": "callee:0x00431390",
+      "kind": "initializes",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00431390",
+        "function:0x00466C40"
+      ]
+    },
+    {
+      "from": "function:0x00466C40",
+      "to": "callee:0x00430F00",
+      "kind": "computes",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00430F00",
+        "function:0x00466C40"
+      ]
+    },
+    {
+      "from": "function:0x00466910",
+      "to": "callee:0x00587BDC",
+      "kind": "converts",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BDC",
+        "function:0x00466910"
+      ]
+    },
+    {
+      "from": "function:0x00466910",
+      "to": "callee:0x0058815F",
+      "kind": "formats",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0058815F",
+        "function:0x00466910"
+      ]
+    },
+    {
+      "from": "function:0x00466910",
+      "to": "callee:0x00566650",
+      "kind": "stores",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566650",
+        "function:0x00466910"
+      ]
+    },
+    {
+      "from": "function:0x004669A0",
+      "to": "callee:0x00587BDC",
+      "kind": "converts",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BDC",
+        "function:0x004669A0"
+      ]
+    },
+    {
+      "from": "function:0x004669A0",
+      "to": "callee:0x0058815F",
+      "kind": "formats",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0058815F",
+        "function:0x004669A0"
+      ]
+    },
+    {
+      "from": "function:0x004669A0",
+      "to": "callee:0x00566650",
+      "kind": "stores",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566650",
+        "function:0x004669A0"
+      ]
+    },
+    {
+      "from": "function:0x00467340",
+      "to": "callee:0x0042EB60",
+      "kind": "clamps",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0042EB60",
+        "function:0x00467340"
+      ]
+    },
+    {
+      "from": "function:0x00467340",
+      "to": "callee:0x0042EAA0",
+      "kind": "sets",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0042EAA0",
+        "function:0x00467340"
+      ]
+    },
+    {
+      "from": "function:0x00467340",
+      "to": "callee:0x004673B0",
+      "kind": "refreshes",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004673B0",
+        "function:0x00467340"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "movement_path_record_layout",
+      "category": "data_layout",
+      "description": "MovementPath holds the keyframe array pointer at this+0, the keyframe count at this+4, a span/total-length slot at this+8, and a time+X/Y/Z output block at this+0xC..0x18. Buffer release frees the block at this[0]-4 and zeroes this[1..6]; spline evaluation returns a pointer into this[4].",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "function:0x00457D00",
+        "function:0x00458020"
+      ]
+    },
+    {
+      "name": "keyframe_28byte_stride",
+      "category": "data_layout",
+      "description": "Keyframes are 28-byte records (7 floats): the accumulated 3D distance of a keyframe lives at element offset +0x18, and the second keyframe occupies offsets 0x1C/0x20/0x24/0x34 relative to the array base (position and distance). The basis interpolation reads four consecutive keyframes.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:obj:0x00000018",
+        "field:obj:0x0000001C",
+        "field:obj:0x00000020",
+        "field:obj:0x00000024",
+        "field:obj:0x00000034",
+        "function:0x00457D00",
+        "function:0x00457EE0"
+      ]
+    },
+    {
+      "name": "linked_list_node_layout",
+      "category": "data_layout",
+      "description": "Nodes managed by LinkedListRegistry use {data/payload at node+0, next at node+4, flag byte at node+8}. The merge sort orders nodes by the float key at (data+4); the teardown frees a node's payload only when the flag byte at node+8 is non-zero and always frees the node itself. List containers keep four fields (head, trailer/tail, tail/count, count/capacity) at their heads (obj+0x6C/+0x7C/+0xE5B0/+0xE5C0).",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:obj:0x00000004",
+        "field:*(obj+0x80):0x00000004",
+        "field:*(obj+0x70):0x00000004",
+        "field:obj:0x0000006C",
+        "field:obj:0x0000007C",
+        "field:obj:0x0000E5B0",
+        "field:obj:0x0000E5C0",
+        "function:0x00465000",
+        "function:0x00465C70"
+      ]
+    },
+    {
+      "name": "network_auth_key_registration",
+      "category": "behavioral",
+      "description": "One-time network-auth registration: the init flag at this[0] guards repeated calls; the 6-byte key stored XOR-obfuscated in byte_59F0C4 is decoded (each byte XOR 0x3E) into the 0x8D4680..0x8D468C scratch region and passed to sub_561BF0 together with the config pointer at this[4] and four callback function pointers.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "global:0x0059F0C4",
+        "global:0x008D4680",
+        "callee:0x00561BF0",
+        "function:0x0045CD70"
+      ]
+    },
+    {
+      "name": "game_list_status_display",
+      "category": "behavioral",
+      "description": "The game-list handler raises the global scene-refresh flag byte_7CD2A0 on a get-game-list request, selects the status string matching the sub_563E70 state, suppresses dev-log output for session type dword_7C569C==5, copies the selected message into byte_5EC4CC via BinarySearchInStringTable, and resolves it via PathRegistryCallWrapper.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007CD2A0",
+        "global:0x007C569C",
+        "global:0x005EC4CC",
+        "callee:0x00423A00",
+        "callee:0x004630C0",
+        "function:0x0045D2D0"
+      ]
+    },
+    {
+      "name": "avi_handle_cleanup",
+      "category": "data_layout",
+      "description": "AVIPlayer owns an AVIFile handle at this+0x38 and two AVIStream handles at this+0x3C/+0x40; each is released only while non-null and nulled afterwards, then teardown delegates to AVIPlayerCleanup.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000040",
+        "callee:0x00534AE6",
+        "callee:0x00534AEC",
+        "function:0x0045BEA0"
+      ]
+    },
+    {
+      "name": "ui_value_percent_format",
+      "category": "interface",
+      "description": "UI value display formatters fetch the value through a virtual call on the object's vtable (slot +0xB4 or +180), normalize/scale it to a percent, truncate with CRTFtol, render '%d%%' via StringFormatWithBufferOverflowCheck, and persist the result via StringCopyWithBufferRealloc.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:obj:0x000000B4",
+        "callee:0x00587BDC",
+        "callee:0x0058815F",
+        "callee:0x00566650",
+        "global:0x005C37CC",
+        "function:0x00466910",
+        "function:0x004669A0"
+      ]
+    },
+    {
+      "name": "saturated_byte_accumulator",
+      "category": "behavioral",
+      "description": "The byte at this+0 is a 7-bit accumulator with bit 7 preserved as an independent flag: adds the increment, clamps the sum at 127, and writes back only the low 7 bits.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "function:0x00464A10"
+      ]
+    }
+  ],
+  "unresolved": [
+    "All packet owners are UNKNOWN; every class grouping above is a GUESS proposal grounded in shared field layouts (identical base+offset), shared callees, shared vtable installs, and shared callers, not a proven static type.",
+    "MovementPath this+0x8 has a dual role across methods: CatmullRomSplineInterpolate reads it as the total time span (upper clamp bound) while KeyframeArcLengthPrecompute writes it as the total accumulated path length; whether these are the same quantity is unresolved. The final read at byte offset 28*i-60 in KeyframeArcLengthPrecompute is ambiguous (not the last keyframe's +0x18 slot).",
+    "The KeyframeElement obj+0x1C/+0x20/+0x24/+0x34 offsets (second keyframe fields) are extracted relative to a separate obj base and the raw source reaches the keyframe array only through this[0]; the packet does not prove obj and this[0] point to the same array, so this identification is an interpretation, not independently evidenced.",
+    "The six Catmull-Rom coefficient globals (0x0059E440, 0x0059E450, 0x0059E46C, 0x0059E478, 0x0059E7EC, 0x0059E800) are not individually mapped to the floating-point literals; 0x0059E440 and 0x0059E450 are also absent from the FormatValueAsPercentString raw body.",
+    "byte_454C58 (0x00454C58), read-only data adjacent to the EnumToIDMapping jump table, has an unclear role.",
+    "global aMovementpath (0x005C5AA8) is listed for MovementPathSerialize but does not appear in the decompiled body; its role (likely a 'MovementPath' name tag) is unconfirmed.",
+    "The semantic meaning of the enum-to-ID mapping in 0x00454C20 (which enum is consumed, what ID 89 and -1 signify) is not established.",
+    "WideStructZeroInit (called by 0x0045BE50) and sub_45D730 (per-object teardown in 0x0045BF70) have no callee evidence entries; their addresses are unknown.",
+    "The -1 sentinel written to dword_7CD20C by GlobalStateInitializer likely marks an uninitialized index but its meaning is unconfirmed; the object managed through global slot dword_7CD25C is unknown.",
+    "NetworkAuthKeyInit: the exact 8-argument contract of sub_561BF0, the roles of the four callback globals (DebugFloatFormatString, SceneTextureApply, BooleanParameterFormatDispatch, NetworkScorePingDisplay), and why the key is XOR-obfuscated are not grounded beyond this call site.",
+    "GameListStateUpdateHandler: dword_7CD25C is listed as read but absent from the raw body (likely consumed by a callee); the meaning of a2 and of the a2==2 early-return path, and the literal log line numbers (239/244/249/254/266), are unestablished.",
+    "ConditionalNetworkSystemDispatch: SetFlagIfPointerNonNull appears in the raw source but has no callee entry (likely a macro/inlined helper); the identity of the network system object at obj+0x1B79C is unknown.",
+    "DataTableRowAccessor: the per-row scalar array at 15476 and the data-array base offsets 916/15476 are not individually tagged as fields; their semantics are unresolved.",
+    "ConstantOffsetAccessor: the meaning of the constant 432 (member offset versus arithmetic addend) and the unused second argument are unresolved.",
+    "SaturatedByteAdd: the purpose of the preserved bit 7 flag bit is caller-dependent and unresolved here.",
+    "FloatStoreWithConversion: the exact mapping of threshold/divisor literals to the seven named constant globals is not evidenced (raw source shows only the literals); the speed/RPM tier reading is DERIVED prior analysis, not confirmed by this packet.",
+    "ComprehensiveLinkedListCleanup: the fixed 104-entry static pointer array (walked from v1+14734 backward 140 dwords) has no field evidence ref; the node payload at +0 and flag byte at +8 have no allowed field evidence refs either and are described only from the raw control flow; the loop guards are recorded against count fields obj+0x74/obj+0x84 while the raw source loops test the head pointers obj+0x6C/obj+0x7C (relationship unconfirmed); EmptyStub_0170's role is unknown; the returned result when *this is null is uninitialized.",
+    "MergeSortAscendingOnLinkedList: the payload record behind each node's data pointer is unidentified; the sentinel field at this+0x8 doubles as split-termination write and merge-tail terminator; the caller EntityVisibilityGridManager's entity record layout is outside this packet.",
+    "InitVTableSet: the meaning of a2/a3 is delegated to UIConstructorWithVTableParams; the vtable off_59F210 dispatch contents are outside the packet.",
+    "FormatValueAsPercentString: globals flt_59E450 and flt_59E6F8 are listed but absent from the raw body; the byte_5EA438 prefix-byte semantics are unknown.",
+    "VtableSetWithInitCall: the relationship between off_59F2C8 and the default vtable installed by UIConstructorWithVTableParams is unknown.",
+    "SetupValueDisplayFormatter_69a0: the concrete target of the virtual call at vtable+180 is an indirect call with no static callee evidence; the attribution of flt_59E6F8 to the 100.0 constant is DERIVED.",
+    "ConstructorWithVTableAndFloatInit: the meaning of parameter a2 (index/ID per the DERIVED fill) is unverified; the class behind off_59F380 is unknown.",
+    "ShortComputation_6c40: global byte_7C56C0 (labelled SessionNameBuffer in prior analysis) is treated as a physics-state working buffer; its real identity/layout is DERIVED only, and the +0x104/+0x108 field types come from decompiler casts without independent structure evidence.",
+    "MenuOptionValueAdjust: field this+0x334 is listed in the packet but never referenced in the raw source; the option-data structure at this+0x320 (value at offset 20) and the meaning of the type value 4 are unidentified.",
+    "VTableInitConditionalResourceFree (0x0045BB50): DestructorWithResourceCleanup is named only in the raw source with no callee entry; no caller or vtable slot is recorded, and the ABI name VTable_Init_Conditional_Resource_Free is a legacy label, not independent evidence.",
+    "GlobalStateInitializer and TeardownGlobalPointerSlot are left ownerless (UnknownObject): the two operate on distinct globals (0x7CD208 vs 0x7CD25C) and no shared-object evidence links them.",
+    "The UIValueDisplayFormatter and UIConfiguredComponent groupings may be one UI component class with overridden vtables rather than two classes; the percent formatters touch the vtable at this+0 while the constructor family touches +0x100/+0x104/+0x108, and no packet evidence proves either relationship.",
+    "The 28*i-60 final read in KeyframeArcLengthPrecompute, the total span/length dual-use of this+8, and the two PI constant write sites (0x0059EFA4/0x0059EFA8) are outside this packet's evidence."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x00454C58",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x005C5AA8",
+    "field:this:0x00000334"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "LOW",
+    "contracts": "MEDIUM"
+  }
+}

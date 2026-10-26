@@ -1,0 +1,1893 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_003_ui_platform_and_options_05",
+  "scope": "ui_platform_and_options",
+  "subsystem": {
+    "name": "UIPlatformAndOptions",
+    "responsibility": "UI resource and texture plumbing plus the platform layer: a slot-array resource/texture manager (8 slots, shared linked list, per-element D3D texture creation), UI list node/texture-manager construction, recursive UI widget state propagation, conditional UI cleanup dispatch, device-backed parameter notification, D3D device-loss recovery and resource acquisition with reuse, UDP validate-message construction, and platform services (file open with mode selection, reserved DOS device-name rejection, thread shutdown, thread-safe stream reads, byte-buffer quicksort, per-thread TLS data).",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x00546AA0",
+      "function:0x0054BB40",
+      "function:0x0054C1B0",
+      "function:0x005510F0",
+      "function:0x005528F0",
+      "function:0x00554610",
+      "function:0x00554F80",
+      "function:0x00555E50",
+      "function:0x005629B0",
+      "function:0x00566A70",
+      "function:0x005687F0",
+      "function:0x00585550",
+      "function:0x0058803F",
+      "function:0x005890AA",
+      "function:0x0058E0C7"
+    ]
+  },
+  "summary": "DERIVED architecture proposal for the ui_platform_and_options scope. The packet covers fifteen functions. (1) UI texture/resource layer: ResourceTextureManager (0x00546AA0) selects one of eight array slots by bitmask and acquires a named D3D-texture resource object, replacing an old object, reusing a shared linked-list object when found, or creating a new per-element texture set, with a -1 rollback on texture failure; UIListTextureManager (0x005510F0) is a constructor-style initializer for a UI list texture/scale manager and is reused by SceneUIListManager (0x0054BB40), which creates and links a UI list node into the scene chain; UIWidget (0x0054C1B0) recursively propagates widget state updates; UICleanupDispatcher (0x005528F0) conditionally dispatches cleanup through the UI cleanup iterator. (2) Device layer: DeviceStateParameter (0x00554610) notifies the global game device object (dword_8B89A0) through vtable slot +244, D3DResourceAcquirer (0x00554F80) acquires a texture-like resource with linked-list reuse and a device vtable slot +116 dispatch, and D3DDeviceManager (0x00555E50) performs Direct3D device-loss recovery (cooperative-level query, teardown, swap-chain recreation, restore) through the device vtable slots 0x3C/0xC/0x7C/0x38/0x40. (3) Session/platform layer: SessionValidateSender (0x005629B0) builds and sends a Base64-encoded UDP validate message, FileHandleObject (0x00566A70) opens files with a read/write mode selector, and PlatformServices groups four individually-evidenced free helpers: reserved DOS device-name rejection (0x005687F0), thread-safe stream read (0x0058803F), byte-buffer quicksort (0x005890AA) and per-thread TLS data (0x0058E0C7); ThreadHandleObject (0x00585550) performs thread shutdown with mutex-gated termination. Ownership of every object is UNKNOWN in the packet, so all class groupings are GUESS-level aggregations; equal offsets across owners are kept as separate base+offset fields.",
+  "function_roles": [
+    {
+      "address": "0x00546AA0",
+      "role": "Resource/texture manager acquisition: decodes the a2 bitmask into one of eight 148-byte-stride slots at this+0xA8, tears down a replaced object (refcount drop, per-element destructor, linked-list removal), builds per-element names via StringFormatWithBufferOverflowCheck with the extension literal global 0x005CC79C, reuses a linked-list object when found and slot flag 0x100 is clear, otherwise allocates a new object and creates one D3D texture per element, appends to the shared list, refreshes list membership into this+0xB4, clears this+0x9C bit 1, and returns 0, or -1 after rollback on texture failure.",
+      "owner": "ResourceTextureManager",
+      "evidence_refs": [
+        "function:0x00546AA0",
+        "caller:0x004DC450",
+        "callee:0x00547860",
+        "callee:0x005478B0",
+        "callee:0x00547920",
+        "callee:0x005489A0",
+        "callee:0x00548A00",
+        "callee:0x0054FC10",
+        "callee:0x0054FE10",
+        "callee:0x00550080",
+        "callee:0x005502C0",
+        "callee:0x00550300",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "callee:0x0058815F",
+        "field:this:0x0000009C",
+        "field:this:0x000000A8",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "global:0x005CC79C",
+        "global:0x005BE860",
+        "global:0x005DBE54",
+        "global:0x008B8E24",
+        "global:0x00800000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0054BB40",
+      "role": "Creates a 40-byte UI list node from a source template, initializes it through the UI list texture manager (0x005510F0) using template data at a2+0xC, links it into the scene UI list-node chain (head at this+0x214, tail-next through the list-state container at this+0x238), fills per-item sequential indices, registers the node, collects rendering state via sub_557350, and conditionally attaches node state via sub_559200. Called by SceneNode (0x0055A910).",
+      "owner": "SceneUIListManager",
+      "evidence_refs": [
+        "function:0x0054BB40",
+        "abi:lead",
+        "caller:0x0055A910",
+        "callee:0x004B0170",
+        "callee:0x005510F0",
+        "callee:0x00551440",
+        "callee:0x00557350",
+        "callee:0x00559200",
+        "callee:0x00587C03",
+        "field:this:0x00000214",
+        "field:this:0x00000218",
+        "field:this:0x00000238",
+        "field:*(*(this+0x238)+0x24):0x00000024",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0054C1B0",
+      "role": "Recursively propagates a widget state update to two linked child widgets (this+0x44, this+0x4C) gated by a3 / (a3 & a4), then, when the flag-state object at this+0x230 is non-null, sets the global bit-1 flag (Bit1FlagSet) or clears the state flag (StateFlagBitClear) based on a2.",
+      "owner": "UIWidget",
+      "evidence_refs": [
+        "function:0x0054C1B0",
+        "callee:0x0054C1B0",
+        "callee:0x00560FC0",
+        "callee:0x00560FD0",
+        "field:this:0x00000044",
+        "field:this:0x0000004C",
+        "field:this:0x00000230",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005510F0",
+      "role": "Constructor-style initializer for a UI list texture/scale manager: zero-initializes the struct, allocates and initializes a 76-byte sub-object (sub_556220) stored at this+0x0, registers it (sub_556260), allocates a count-header-prefixed array of 136-byte-stride scale-default elements, fills count at this+0x14 and array pointer at this+0x18, zeroes this+0x8/0xC/0x10/0x1C/0x20/0x24, and sets the constant flag 0x20000 at this+0x4.",
+      "owner": "UIListTextureManager",
+      "evidence_refs": [
+        "function:0x005510F0",
+        "callee:0x0053C2A0",
+        "callee:0x00550760",
+        "callee:0x00556220",
+        "callee:0x00556260",
+        "callee:0x00587C03",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005528F0",
+      "role": "Conditional cleanup dispatch: when flag bit 0x20000 at this+0x24 is set and the pointer at this+0x868 is non-null, dispatches UICleanupIterator (0x00554D70) on the object at this+0x868; otherwise returns the (possibly uninitialized) earlier result.",
+      "owner": "UICleanupDispatcher",
+      "evidence_refs": [
+        "function:0x005528F0",
+        "callee:0x00554D70",
+        "field:this:0x00000024",
+        "field:this:0x00000868",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00554610",
+      "role": "Sets a device-backed parameter: when the new value pointer a2 differs from the stored pointer at this+0x30, dispatches the stdcall virtual at vtable slot +244 of the global game device object dword_8B89A0 with the object identifier this+0x0 and a parameter value read from *(*(a2+84)+20) (or 0 when a2 is null), then stores a2 (or 0) at this+0x30. Used by state field setters and cleanup iterators.",
+      "owner": "DeviceStateParameter",
+      "evidence_refs": [
+        "function:0x00554610",
+        "abi:lead",
+        "caller:0x00553FA0",
+        "caller:0x005546A0",
+        "caller:0x00554D70",
+        "caller:0x00554E10",
+        "field:this:0x00000000",
+        "field:this:0x00000030",
+        "global:0x008B89A0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00554F80",
+      "role": "Acquires a texture-like resource with reuse: reads the resource descriptor at a3+84 and, when its setup flag (index 6, bit 0x400) is clear, creates the resource via sub_554E90 into this+0x0; a -1 result triggers a linked-list search through ValueGetter(a2)+40 for a matching node to reuse, with a no-match fallback through StructFieldGetter and D3DResourceListCleanup before a retry; finally dispatches device vtable slot +116 via the device object at this+0x1100 when the descriptor has a target, marks the setup bit 0x400, clears descriptor index 14 and returns 1.",
+      "owner": "D3DResourceAcquirer",
+      "evidence_refs": [
+        "function:0x00554F80",
+        "callee:0x00545F40",
+        "callee:0x00554E10",
+        "callee:0x00554E90",
+        "callee:0x0055C9B0",
+        "field:this:0x00000000",
+        "field:this:0x00001100",
+        "field:*(this+0x1100):0x00000000",
+        "field:*(*(this+0x1100)+0x0):0x00000074",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00555E50",
+      "role": "Direct3D device-loss recovery: queries device state via the interface at this+0x1100 (vtable slot 0x3C, returning -2005530520 device-lost, then slot 0xC returning -2005530519 device-not-reset), resets the device (slot 0x7C), tears down (sub_53F6E0, RenderTargetCleanup), sets the display mode (slot 0x38, error reported via sub_53C590 with the aCouldNotSetDis message and format global 0x005DBCE4), recreates an additional swap chain (slot 0x40), maps the display-mode selector at this+0x1114 through the jump table, recreates via sub_53F3F0, re-resets, restores via sub_53EB70, and sets flag bit 2 on the caller result a3 when the reset completed.",
+      "owner": "D3DDeviceManager",
+      "evidence_refs": [
+        "function:0x00555E50",
+        "caller:0x0055C060",
+        "callee:0x0053C590",
+        "callee:0x0053EB70",
+        "callee:0x0053F270",
+        "callee:0x0053F3F0",
+        "callee:0x0053F6E0",
+        "callee:0x005458D0",
+        "callee:0x0058815F",
+        "field:this:0x00000000",
+        "field:this:0x00001100",
+        "field:this:0x00001114",
+        "field:this:0x00001528",
+        "field:this:0x0000152C",
+        "field:*(this+0x1100):0x00000000",
+        "field:*(*(this+0x1100)+0x0):0x0000000C",
+        "field:*(*(this+0x1100)+0x0):0x00000038",
+        "field:*(*(this+0x1100)+0x0):0x0000003C",
+        "field:*(*(this+0x1100)+0x0):0x00000040",
+        "field:*(*(this+0x1100)+0x0):0x0000007C",
+        "field:*(this+0x1528):0x0000000C",
+        "field:*(this+0x152C):0x0000000C",
+        "field:*(*(this+0x1528)+0xC):0x00000000",
+        "global:0x00556018",
+        "global:0x0055602C",
+        "global:0x005DBCE4",
+        "global:0x005DBCF0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005629B0",
+      "role": "Builds a network message over a UDP socket: when the validation string a4 is non-empty and at most 128 chars, combines it with object data at a1+72 (sub_562150), Base64-encodes it, formats a '\\validate\\%s' segment (format global 0x005E4EB4) and appends it (sub_562710); always appends the mandatory final segment from global aFinal (0x005E4EAC) and sends the composed buffer with sub_562610. Returns 0 without sending when a4 exceeds 128 chars.",
+      "owner": "SessionValidateSender",
+      "evidence_refs": [
+        "function:0x005629B0",
+        "callee:0x00562090",
+        "callee:0x00562150",
+        "callee:0x00562610",
+        "callee:0x00562710",
+        "callee:0x0058815F",
+        "global:0x005E4EAC",
+        "global:0x005E4EB4",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00566A70",
+      "role": "File open helper: optionally runs the a5-gated FileAttributeCheckSequence on the name a2, stores the mode arguments at this+0x0C and this+0x10, clears the local path buffer (sub_568620), opens through sub_587DB0 choosing the read-mode path global unk_5E517C or the write-mode path global unk_5E5180 based on this+0x0C, stores the handle at this+0x00, zeroes this+0x18, and copies the resolved path into this+0x04 when the handle is valid.",
+      "owner": "FileHandleObject",
+      "evidence_refs": [
+        "function:0x00566A70",
+        "caller:0x00409770",
+        "caller:0x0040BD10",
+        "callee:0x00566650",
+        "callee:0x005668F0",
+        "callee:0x00568620",
+        "callee:0x00587DB0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "global:0x005E517C",
+        "global:0x005E5180",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005687F0",
+      "role": "Reserved DOS device-name check: builds a 23-entry candidate table (CON, PRN, AUX, CLOCK$, COM1-COM9, LPT1-LPT9), copies up to 7 chars of the input name, truncates at the first separator or dot, compares against each candidate via sub_588410, and returns 1 on match else 0.",
+      "owner": "PlatformServices",
+      "evidence_refs": [
+        "function:0x005687F0",
+        "callee:0x00587DD0",
+        "callee:0x00588410",
+        "global:0x005D4D10",
+        "global:0x005E5190",
+        "global:0x005E5194",
+        "global:0x005E519C",
+        "global:0x005E51A4",
+        "global:0x005E51AC",
+        "global:0x005E51B4",
+        "global:0x005E51BC",
+        "global:0x005E51C4",
+        "global:0x005E51CC",
+        "global:0x005E51D4",
+        "global:0x005E51DC",
+        "global:0x005E51E4",
+        "global:0x005E51EC",
+        "global:0x005E51F4",
+        "global:0x005E51FC",
+        "global:0x005E5204",
+        "global:0x005E520C",
+        "global:0x005E5214",
+        "global:0x005E521C",
+        "global:0x005E5224",
+        "global:0x005E522C",
+        "global:0x005E5230",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00585550",
+      "role": "Thread shutdown and cleanup: retries ThreadResumeWithMutexWait up to 10 times with a 250 ms sleep, then, when the thread handle at this+0x4 is live, sets the termination flag at this+0xC under the mutex at this+0x10 (wait timeout this+0x14), waits indefinitely on the thread handle, closes it, and clears the handle/id fields at this+0x4/0x8.",
+      "owner": "ThreadHandleObject",
+      "evidence_refs": [
+        "function:0x00585550",
+        "abi:lead",
+        "caller:0x0057FDE0",
+        "callee:0x00585680",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "global:0x0059E0DC",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "global:0x0059E1A8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0058803F",
+      "role": "Synchronous thread-safe read wrapper: acquires the stream lock via StreamBufferLockViaCriticalSection(a4), performs the read by forwarding (a1,a2,a3,a4) to sub_58806E, releases via AddressRangeCriticalSectionLeave(a4), and returns the inner read result. Shared across deserialization, file enumeration, scene parsing, mesh loading and file-write paths.",
+      "owner": "PlatformServices",
+      "evidence_refs": [
+        "function:0x0058803F",
+        "abi:lead",
+        "caller:0x004054E0",
+        "caller:0x004080F0",
+        "caller:0x00421B10",
+        "caller:0x00534F90",
+        "caller:0x00550AD0",
+        "caller:0x0055B200",
+        "caller:0x00566C00",
+        "callee:0x0058806E",
+        "callee:0x0058C1B1",
+        "callee:0x0058C203",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005890AA",
+      "role": "Iterative quicksort over an array of a2 elements each a3 bytes at base a1, ordered by the caller-supplied comparator a4: small subarrays (8 or fewer) are handed to sub_5891FE, the middle element becomes the pivot (ByteBufferSwap), a Hoare-style scan partitions the range, and the larger partition is processed in place while the smaller is pushed onto an explicit stack.",
+      "owner": "PlatformServices",
+      "evidence_refs": [
+        "function:0x005890AA",
+        "callee:0x005891FE",
+        "callee:0x0058924C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0058E0C7",
+      "role": "CRT-style per-thread data retrieval: saves GetLastError, reads the per-thread data block via TlsGetValue(dwTlsIndex); on first access lazily allocates a 116-byte block (sub_58AB58), registers it with TlsSetValue, initializes it (TwoFieldInitializer_e0b4), stamps it with the current thread id and a -1 sentinel, terminates with CRTAmsgExit(0x10) on failure, and restores the saved LastError before returning.",
+      "owner": "PlatformServices",
+      "evidence_refs": [
+        "function:0x0058E0C7",
+        "callee:0x0058A2A6",
+        "callee:0x0058AB58",
+        "callee:0x0058E0B4",
+        "global:0x0059E14C",
+        "global:0x0059E150",
+        "global:0x0059E158",
+        "global:0x0059E15C",
+        "global:0x0059E188",
+        "global:0x005E6D40",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "ResourceTextureManager",
+      "responsibility": "Acquires named D3D-texture resource objects into one of eight slot-array entries at this+0xA8 (148-byte stride): replaces or tears down old objects, reuses shared linked-list objects, creates per-element textures, maintains linked-list membership (this+0xB0/this+0xB4) and flag state (this+0x9C).",
+      "trust": "GUESS",
+      "methods": [
+        "0x00546AA0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000009C",
+          "name": "Flags",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000009C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A8",
+          "name": "SlotArrayBase",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000A8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B0",
+          "name": "SharedObjectList",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B4",
+          "name": "ListMembershipResult",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000B4",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00546AA0",
+        "caller:0x004DC450",
+        "callee:0x00547860",
+        "callee:0x005478B0",
+        "callee:0x00547920",
+        "callee:0x005489A0",
+        "callee:0x00548A00",
+        "callee:0x0054FC10",
+        "callee:0x0054FE10",
+        "callee:0x00550080",
+        "callee:0x005502C0",
+        "callee:0x00550300",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "callee:0x0058815F",
+        "field:this:0x0000009C",
+        "field:this:0x000000A8",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "global:0x005CC79C",
+        "global:0x005BE860",
+        "global:0x005DBE54",
+        "global:0x008B8E24",
+        "global:0x00800000",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SceneUIListManager",
+      "responsibility": "Creates UI list nodes from templates, initializes them through the UI list texture manager, links them into the scene UI list-node chain (head at this+0x214, tail-next through the list-state container at this+0x238), fills per-item indices, and attaches rendering state.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0054BB40"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000214",
+          "name": "ListNodeHead",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000214",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000218",
+          "name": "AttachStateFlag",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000218",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000238",
+          "name": "ListStateContainer",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000238",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(this+0x238)+0x24)",
+          "offset": "0x00000024",
+          "name": "TailNodeNext",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(*(this+0x238)+0x24):0x00000024",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0054BB40",
+        "abi:lead",
+        "caller:0x0055A910",
+        "callee:0x004B0170",
+        "callee:0x005510F0",
+        "callee:0x00551440",
+        "callee:0x00557350",
+        "callee:0x00559200",
+        "callee:0x00587C03",
+        "field:this:0x00000214",
+        "field:this:0x00000218",
+        "field:this:0x00000238",
+        "field:*(*(this+0x238)+0x24):0x00000024",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "UIWidget",
+      "responsibility": "Recursively propagates a widget state update to two linked child widgets and sets/clears a shared state flag through the flag-state object at this+0x230.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0054C1B0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "FirstChild",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "SecondChild",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000230",
+          "name": "FlagStateObject",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000230",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0054C1B0",
+        "callee:0x0054C1B0",
+        "callee:0x00560FC0",
+        "callee:0x00560FD0",
+        "field:this:0x00000044",
+        "field:this:0x0000004C",
+        "field:this:0x00000230",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "UIListTextureManager",
+      "responsibility": "Constructor-style initializer for a UI list texture/scale manager: allocates a 76-byte sub-object, registers it, allocates a count-header-prefixed 136-byte-stride element array, and fills count/array/flag fields.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005510F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "SubObject",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "ModeFlag",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "ZeroedField0",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "ZeroedField1",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "ZeroedField2",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "ElementCount",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "ElementArray",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "ZeroedField3",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "ZeroedField4",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "ZeroedField5",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005510F0",
+        "callee:0x0053C2A0",
+        "callee:0x00550760",
+        "callee:0x00556220",
+        "callee:0x00556260",
+        "callee:0x00587C03",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "UICleanupDispatcher",
+      "responsibility": "Conditional cleanup dispatch: when flag bit 0x20000 at this+0x24 is set and this+0x868 holds a non-null object, dispatches UICleanupIterator on it.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005528F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "CleanupGateFlag",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000868",
+          "name": "CleanupTargetPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000868",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005528F0",
+        "callee:0x00554D70",
+        "field:this:0x00000024",
+        "field:this:0x00000868",
+        "global:0x008B78A0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DeviceStateParameter",
+      "responsibility": "Sets a device-backed parameter by dispatching a stdcall virtual (vtable slot +244) on the global game device object dword_8B89A0 and recording the applied pointer at this+0x30.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00554610"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "ObjectIdentifier",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "StoredParameterPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00554610",
+        "abi:lead",
+        "caller:0x00553FA0",
+        "caller:0x005546A0",
+        "caller:0x00554D70",
+        "caller:0x00554E10",
+        "field:this:0x00000000",
+        "field:this:0x00000030",
+        "global:0x008B89A0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "D3DResourceAcquirer",
+      "responsibility": "Acquires a texture-like resource, reusing an existing linked-list node when possible, with a fallback cleanup/retry path and a final device vtable slot +116 dispatch through the device object at this+0x1100.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00554F80"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "ResourceHandle",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001100",
+          "name": "DeviceObjectPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001100",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1100)",
+          "offset": "0x00000000",
+          "name": "DeviceVtablePtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1100):0x00000000",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00554F80",
+        "callee:0x00545F40",
+        "callee:0x00554E10",
+        "callee:0x00554E90",
+        "callee:0x0055C9B0",
+        "field:this:0x00000000",
+        "field:this:0x00001100",
+        "field:*(this+0x1100):0x00000000",
+        "field:*(*(this+0x1100)+0x0):0x00000074",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "D3DDeviceManager",
+      "responsibility": "Direct3D device-loss recovery and recreation: queries cooperative-level state through the device interface at this+0x1100, resets and re-creates the render targets and an additional swap chain, maps the display-mode selector, restores device state, and reports completion on the caller result.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00555E50"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "LastResult",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001100",
+          "name": "DeviceInterfacePtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001100",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001114",
+          "name": "DisplayModeSelector",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001114",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001528",
+          "name": "SwapChainConfigPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001528",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000152C",
+          "name": "PresentParametersPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000152C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1100)",
+          "offset": "0x00000000",
+          "name": "DeviceVtablePtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1100):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1528)",
+          "offset": "0x0000000C",
+          "name": "SwapChainPresentParamsPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1528):0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x152C)",
+          "offset": "0x0000000C",
+          "name": "ResetPresentParamsPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x152C):0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(this+0x1528)+0xC)",
+          "offset": "0x00000000",
+          "name": "SwapChainObjectPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x1528)+0xC):0x00000000",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00555E50",
+        "caller:0x0055C060",
+        "callee:0x0053C590",
+        "callee:0x0053EB70",
+        "callee:0x0053F270",
+        "callee:0x0053F3F0",
+        "callee:0x0053F6E0",
+        "callee:0x005458D0",
+        "callee:0x0058815F",
+        "field:this:0x00000000",
+        "field:this:0x00001100",
+        "field:this:0x00001114",
+        "field:this:0x00001528",
+        "field:this:0x0000152C",
+        "field:*(this+0x1100):0x00000000",
+        "field:*(*(this+0x1100)+0x0):0x0000000C",
+        "field:*(*(this+0x1100)+0x0):0x00000038",
+        "field:*(*(this+0x1100)+0x0):0x0000003C",
+        "field:*(*(this+0x1100)+0x0):0x00000040",
+        "field:*(*(this+0x1100)+0x0):0x0000007C",
+        "field:*(this+0x1528):0x0000000C",
+        "field:*(this+0x152C):0x0000000C",
+        "field:*(*(this+0x1528)+0xC):0x00000000",
+        "global:0x00556018",
+        "global:0x0055602C",
+        "global:0x005DBCE4",
+        "global:0x005DBCF0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SessionValidateSender",
+      "responsibility": "Builds a UDP validate message: combines existing object data with the validation string, Base64-encodes it into a '\\validate\\%s' segment, appends a mandatory final segment, and sends the composed buffer.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005629B0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x005629B0",
+        "callee:0x00562090",
+        "callee:0x00562150",
+        "callee:0x00562610",
+        "callee:0x00562710",
+        "callee:0x0058815F",
+        "global:0x005E4EAC",
+        "global:0x005E4EB4",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FileHandleObject",
+      "responsibility": "File open helper object: stores mode arguments, opens the file through the mode-selected path, and keeps the handle, resolved path string and a zeroed flag byte.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00566A70"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "Handle",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "PathString",
+          "type_guess": "char*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "Mode",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "ModeArgument",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "FlagByte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00566A70",
+        "caller:0x00409770",
+        "caller:0x0040BD10",
+        "callee:0x00566650",
+        "callee:0x005668F0",
+        "callee:0x00568620",
+        "callee:0x00587DB0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "global:0x005E517C",
+        "global:0x005E5180",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ThreadHandleObject",
+      "responsibility": "Thread shutdown object: retries resume, sets the termination flag under a mutex, waits on and closes the thread handle, and clears the handle/id fields.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00585550"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "ThreadHandle",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "ThreadId",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "TerminationFlag",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "MutexHandle",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "MutexWaitTimeout",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00585550",
+        "abi:lead",
+        "caller:0x0057FDE0",
+        "callee:0x00585680",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "global:0x0059E0DC",
+        "global:0x0059E1A0",
+        "global:0x0059E1A4",
+        "global:0x0059E1A8",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PlatformServices",
+      "responsibility": "Platform/utility helpers, each independently evidenced: reserved DOS device-name rejection (0x005687F0), thread-safe stream read wrapper (0x0058803F), generic byte-buffer quicksort (0x005890AA) and CRT per-thread TLS data access (0x0058E0C7).",
+      "trust": "GUESS",
+      "methods": [
+        "0x005687F0",
+        "0x0058803F",
+        "0x005890AA",
+        "0x0058E0C7"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x005687F0",
+        "function:0x0058803F",
+        "function:0x005890AA",
+        "function:0x0058E0C7",
+        "abi:lead",
+        "caller:0x004054E0",
+        "caller:0x004080F0",
+        "caller:0x00421B10",
+        "caller:0x00534F90",
+        "caller:0x00550AD0",
+        "caller:0x0055B200",
+        "caller:0x00566C00",
+        "callee:0x00587DD0",
+        "callee:0x00588410",
+        "callee:0x0058806E",
+        "callee:0x0058C1B1",
+        "callee:0x0058C203",
+        "callee:0x005891FE",
+        "callee:0x0058924C",
+        "callee:0x0058A2A6",
+        "callee:0x0058AB58",
+        "callee:0x0058E0B4",
+        "global:0x005D4D10",
+        "global:0x005E5190",
+        "global:0x005E5194",
+        "global:0x005E519C",
+        "global:0x005E51A4",
+        "global:0x005E51AC",
+        "global:0x005E51B4",
+        "global:0x005E51BC",
+        "global:0x005E51C4",
+        "global:0x005E51CC",
+        "global:0x005E51D4",
+        "global:0x005E51DC",
+        "global:0x005E51E4",
+        "global:0x005E51EC",
+        "global:0x005E51F4",
+        "global:0x005E51FC",
+        "global:0x005E5204",
+        "global:0x005E520C",
+        "global:0x005E5214",
+        "global:0x005E521C",
+        "global:0x005E5224",
+        "global:0x005E522C",
+        "global:0x005E5230",
+        "global:0x0059E14C",
+        "global:0x0059E150",
+        "global:0x0059E158",
+        "global:0x0059E15C",
+        "global:0x0059E188",
+        "global:0x005E6D40",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "ResourceSlotAcquisition",
+      "owner": "ResourceTextureManager",
+      "states": [
+        "empty (slot+140 null)",
+        "replace_old_object (existing object refcount drop and teardown)",
+        "reuse_existing (linked-list match found and slot flag 0x100 clear)",
+        "create_new (per-element name build and D3D texture creation)",
+        "texture_failure_rollback (return -1)",
+        "completed (linked-list append, list refresh, this+0x9C bit 1 cleared)"
+      ],
+      "transitions": [
+        {
+          "from": "empty",
+          "to": "create_new",
+          "condition": "name template provided, no existing object, linked-list lookup misses"
+        },
+        {
+          "from": "empty",
+          "to": "reuse_existing",
+          "condition": "StringSearchInLinkedList returns a match and slot flag 0x100 is clear"
+        },
+        {
+          "from": "replace_old_object",
+          "to": "create_new",
+          "condition": "existing object refcount drops from 1 to 0, destructor and linked-list removal run, slot+140 detached"
+        },
+        {
+          "from": "create_new",
+          "to": "texture_failure_rollback",
+          "condition": "D3DTextureCreation returns nonzero; created elements torn down, allocation freed, slot+140 detached, return -1"
+        },
+        {
+          "from": "create_new",
+          "to": "completed",
+          "condition": "all elements' textures created; object appended to linked list and refcount bumped"
+        },
+        {
+          "from": "reuse_existing",
+          "to": "completed",
+          "condition": "matched object refcount bumped, jump to completion"
+        }
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00546AA0",
+        "field:this:0x000000A8",
+        "field:this:0x0000009C",
+        "field:this:0x000000B0",
+        "callee:0x005478B0",
+        "callee:0x00547920",
+        "callee:0x00547860",
+        "callee:0x00550080",
+        "callee:0x005502C0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DeviceLossRecovery",
+      "owner": "D3DDeviceManager",
+      "states": [
+        "active",
+        "device_lost (vtable slot 0x3C returns -2005530520)",
+        "device_not_reset (vtable slot 0xC returns -2005530519)",
+        "recreating (teardown, swap-chain recreation, re-reset)",
+        "restored (bit 2 set on a3, return -2)",
+        "error (reported message, return -1)"
+      ],
+      "transitions": [
+        {
+          "from": "active",
+          "to": "device_lost",
+          "condition": "vtable slot 0x3C cooperative-level query returns -2005530520; otherwise return 0"
+        },
+        {
+          "from": "device_lost",
+          "to": "device_not_reset",
+          "condition": "vtable slot 0xC state re-query returns -2005530519; otherwise return 0"
+        },
+        {
+          "from": "device_not_reset",
+          "to": "recreating",
+          "condition": "Reset (slot 0x7C) plus teardown (sub_53F6E0, RenderTargetCleanup), display-mode set (slot 0x38), additional swap-chain creation (slot 0x40), recreation pass sub_53F3F0 and second Reset"
+        },
+        {
+          "from": "recreating",
+          "to": "restored",
+          "condition": "restore pass sub_53EB70 succeeds with a3 nonzero; FlagBitSetter sets bit 2 on a3 and return -2"
+        },
+        {
+          "from": "recreating",
+          "to": "error",
+          "condition": "display-mode set result nonzero; message formatted from globals 0x005DBCE4/0x005DBCF0 reported via sub_53C590, return -1"
+        }
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00555E50",
+        "field:this:0x00001100",
+        "field:*(*(this+0x1100)+0x0):0x0000003C",
+        "field:*(*(this+0x1100)+0x0):0x0000000C",
+        "field:*(*(this+0x1100)+0x0):0x0000007C",
+        "field:*(*(this+0x1100)+0x0):0x00000038",
+        "field:*(*(this+0x1100)+0x0):0x00000040",
+        "callee:0x0053F6E0",
+        "callee:0x0053F270",
+        "callee:0x0053F3F0",
+        "callee:0x0053EB70",
+        "callee:0x005458D0",
+        "callee:0x0053C590",
+        "global:0x005DBCE4",
+        "global:0x005DBCF0",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "D3DDeviceVtable",
+      "purpose": "Direct3D device interaction contract exercised through the device-object pointer stored at this+0x1100: cooperative-level state query (vtable slot 0x3C), state re-query (slot 0xC), display-mode set (slot 0x38), additional swap-chain creation (slot 0x40), device Reset (slot 0x7C), and the resource-setup dispatch (slot 0x74) used by the resource acquirer.",
+      "functions": [
+        "0x00555E50",
+        "0x00554F80"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00555E50",
+        "function:0x00554F80",
+        "field:*(this+0x1100):0x00000000",
+        "field:*(*(this+0x1100)+0x0):0x0000000C",
+        "field:*(*(this+0x1100)+0x0):0x00000038",
+        "field:*(*(this+0x1100)+0x0):0x0000003C",
+        "field:*(*(this+0x1100)+0x0):0x00000040",
+        "field:*(*(this+0x1100)+0x0):0x00000074",
+        "field:*(*(this+0x1100)+0x0):0x0000007C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "GameDeviceNotify",
+      "purpose": "stdcall virtual notification on the global game device object dword_8B89A0: the device-backed parameter setter dispatches vtable slot +244 (0xF4) with the object identifier (this+0x0) and a parameter value derived from the source object, then records the source pointer at this+0x30.",
+      "functions": [
+        "0x00554610"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00554610",
+        "global:0x008B89A0",
+        "field:this:0x00000000",
+        "field:this:0x00000030",
+        "caller:0x00553FA0",
+        "caller:0x005546A0",
+        "caller:0x00554D70",
+        "caller:0x00554E10",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ThreadSafeStreamRead",
+      "purpose": "Synchronous thread-safe read primitive: acquire the stream lock (0x0058C1B1), forward (a1,a2,a3,a4) to the inner read implementation (0x0058806E), release via 0x0058C203, and return the inner result unchanged. Shared by deserialization, file enumeration, scene parsing, mesh loading and file-write paths.",
+      "functions": [
+        "0x0058803F"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0058803F",
+        "callee:0x0058C1B1",
+        "callee:0x0058806E",
+        "callee:0x0058C203",
+        "caller:0x004054E0",
+        "caller:0x004080F0",
+        "caller:0x00421B10",
+        "caller:0x00534F90",
+        "caller:0x00550AD0",
+        "caller:0x0055B200",
+        "caller:0x00566C00",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x00546AA0",
+      "to": "0x00547860,0x005478B0,0x00547920,0x005489A0,0x00548A00,0x0054FC10,0x0054FE10,0x00550080,0x005502C0,0x00550300,0x00557470,0x00587BCF,0x00587C03,0x0058815F",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00546AA0",
+        "callee:0x00547860",
+        "callee:0x005478B0",
+        "callee:0x00547920",
+        "callee:0x005489A0",
+        "callee:0x00548A00",
+        "callee:0x0054FC10",
+        "callee:0x0054FE10",
+        "callee:0x00550080",
+        "callee:0x005502C0",
+        "callee:0x00550300",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "callee:0x0058815F",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0054BB40",
+      "to": "0x004B0170,0x005510F0,0x00551440,0x00557350,0x00559200,0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0054BB40",
+        "callee:0x004B0170",
+        "callee:0x005510F0",
+        "callee:0x00551440",
+        "callee:0x00557350",
+        "callee:0x00559200",
+        "callee:0x00587C03",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0054C1B0",
+      "to": "0x0054C1B0,0x00560FC0,0x00560FD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0054C1B0",
+        "callee:0x0054C1B0",
+        "callee:0x00560FC0",
+        "callee:0x00560FD0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x005510F0",
+      "to": "0x0053C2A0,0x00550760,0x00556220,0x00556260,0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005510F0",
+        "callee:0x0053C2A0",
+        "callee:0x00550760",
+        "callee:0x00556220",
+        "callee:0x00556260",
+        "callee:0x00587C03",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x005528F0",
+      "to": "0x00554D70",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005528F0",
+        "callee:0x00554D70",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00554F80",
+      "to": "0x00545F40,0x00554E10,0x00554E90,0x0055C9B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00554F80",
+        "callee:0x00545F40",
+        "callee:0x00554E10",
+        "callee:0x00554E90",
+        "callee:0x0055C9B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00555E50",
+      "to": "0x0053C590,0x0053EB70,0x0053F270,0x0053F3F0,0x0053F6E0,0x005458D0,0x0058815F",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00555E50",
+        "callee:0x0053C590",
+        "callee:0x0053EB70",
+        "callee:0x0053F270",
+        "callee:0x0053F3F0",
+        "callee:0x0053F6E0",
+        "callee:0x005458D0",
+        "callee:0x0058815F",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x005629B0",
+      "to": "0x00562090,0x00562150,0x00562610,0x00562710,0x0058815F",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005629B0",
+        "callee:0x00562090",
+        "callee:0x00562150",
+        "callee:0x00562610",
+        "callee:0x00562710",
+        "callee:0x0058815F",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00566A70",
+      "to": "0x00566650,0x005668F0,0x00568620,0x00587DB0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00566A70",
+        "callee:0x00566650",
+        "callee:0x005668F0",
+        "callee:0x00568620",
+        "callee:0x00587DB0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x005687F0",
+      "to": "0x00587DD0,0x00588410",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005687F0",
+        "callee:0x00587DD0",
+        "callee:0x00588410",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00585550",
+      "to": "0x00585680",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00585550",
+        "callee:0x00585680",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0058803F",
+      "to": "0x0058806E,0x0058C1B1,0x0058C203",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0058803F",
+        "callee:0x0058806E",
+        "callee:0x0058C1B1",
+        "callee:0x0058C203",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x005890AA",
+      "to": "0x005891FE,0x0058924C",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005890AA",
+        "callee:0x005891FE",
+        "callee:0x0058924C",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0058E0C7",
+      "to": "0x0058A2A6,0x0058AB58,0x0058E0B4",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0058E0C7",
+        "callee:0x0058A2A6",
+        "callee:0x0058AB58",
+        "callee:0x0058E0B4",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0055A910",
+      "to": "0x0054BB40",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0055A910",
+        "function:0x0054BB40",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004DC450",
+      "to": "0x00546AA0",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004DC450",
+        "function:0x00546AA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0055C060",
+      "to": "0x00555E50",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0055C060",
+        "function:0x00555E50",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0057FDE0",
+      "to": "0x00585550",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0057FDE0",
+        "function:0x00585550",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00554D70",
+      "to": "0x00554610",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00554D70",
+        "function:0x00554610",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00554E10",
+      "to": "0x00554610",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00554E10",
+        "function:0x00554610",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00566C00",
+      "to": "0x0058803F",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00566C00",
+        "function:0x0058803F",
+        "source:raw"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "ResourceTextureSlotContract",
+      "category": "resource_management",
+      "description": "The texture manager keeps 8 array slots at this+0xA8 (148-byte stride), each holding a resource object pointer at slot+140 and an element count at slot+72. Acquisition returns 0 on success (reuse or fresh create) and -1 on texture-creation failure after tearing down created elements, freeing the allocation and detaching slot+140. Reuse requires a shared linked-list match (StringSearchInLinkedList) plus slot flag 0x100 clear; the object refcount governs teardown.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00546AA0",
+        "field:this:0x000000A8",
+        "callee:0x00547860",
+        "callee:0x00547920",
+        "callee:0x00550080",
+        "callee:0x005502C0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "D3DDeviceLossRecoveryContract",
+      "category": "rendering",
+      "description": "Device-loss recovery must follow the observed sequence: vtable slot 0x3C cooperative-level query returning -2005530520 (device lost) and slot 0xC returning -2005530519 (device not reset) gate the recovery; then slot 0x7C Reset, teardown (sub_53F6E0 / RenderTargetCleanup 0x0053F270), slot 0x38 display-mode set, slot 0x40 additional swap-chain creation, recreation pass sub_53F3F0, second Reset and restore pass sub_53EB70, with the display-mode selector mapping at this+0x1114 (2->32, 3->256, 4->64, 0x10->0x100000) and return -1 on error or -2 on success with bit 2 set on the caller result.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00555E50",
+        "field:*(*(this+0x1100)+0x0):0x0000003C",
+        "field:*(*(this+0x1100)+0x0):0x0000000C",
+        "field:*(*(this+0x1100)+0x0):0x0000007C",
+        "field:this:0x00001114",
+        "callee:0x0053F270",
+        "callee:0x0053F3F0",
+        "callee:0x0053EB70",
+        "callee:0x005458D0",
+        "global:0x00556018",
+        "global:0x0055602C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "GameDeviceParameterNotificationContract",
+      "category": "device_config",
+      "description": "Setting a device-backed parameter must skip when a2 equals the stored pointer at this+0x30; otherwise dispatch the stdcall virtual at vtable slot +244 (0xF4) of the global game device object dword_8B89A0 with (object identifier this+0x0, parameter value read from *(*(a2+84)+20) or 0 when a2 is null), then store a2 (or 0) at this+0x30.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00554610",
+        "global:0x008B89A0",
+        "field:this:0x00000000",
+        "field:this:0x00000030",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ReservedDosDeviceNameContract",
+      "category": "filesystem",
+      "description": "A device-name string must be rejected when its first up-to-7 characters, truncated at the first separator or dot (backslash, slash, colon, dot), equal one of the 23 reserved DOS device names (CON, PRN, AUX, CLOCK$, COM1-COM9, LPT1-LPT9); returns 1 on match, else 0.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005687F0",
+        "callee:0x00587DD0",
+        "callee:0x00588410",
+        "global:0x005D4D10",
+        "global:0x005E5190",
+        "global:0x005E5230",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ThreadSafeStreamReadContract",
+      "category": "io",
+      "description": "A thread-safe synchronous read must acquire the stream lock (0x0058C1B1), forward (a1,a2,a3,a4) to the inner read (0x0058806E), release the lock (0x0058C203) and return the inner result unchanged.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0058803F",
+        "callee:0x0058C1B1",
+        "callee:0x0058806E",
+        "callee:0x0058C203",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ThreadShutdownContract",
+      "category": "threading",
+      "description": "Thread shutdown must retry ThreadResumeWithMutexWait up to 10 times with a 250 ms sleep, then, when the thread handle at this+0x4 is live, set the termination flag at this+0xC under the mutex at this+0x10 (wait timeout this+0x14), wait indefinitely on the thread handle, CloseHandle it, and clear the handle/id fields at this+0x4/0x8.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00585550",
+        "callee:0x00585680",
+        "field:this:0x00000004",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ValidateMessageProtocolContract",
+      "category": "networking",
+      "description": "The UDP validate message must: when the validation string a4 is non-empty and at most 128 chars, combine it with object data at a1+72 (sub_562150), Base64-encode it, format a '\\validate\\%s' segment (format global 0x005E4EB4) and append it (sub_562710); always append the mandatory final segment from global aFinal (0x005E4EAC) and send the composed buffer (sub_562610); return 0 without sending when a4 exceeds 128 chars.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005629B0",
+        "callee:0x00562090",
+        "callee:0x00562150",
+        "callee:0x00562610",
+        "callee:0x00562710",
+        "global:0x005E4EB4",
+        "global:0x005E4EAC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FileOpenModeContract",
+      "category": "filesystem",
+      "description": "File open must store the mode arguments (a4 at this+0x0C, a3 at this+0x10), optionally gate on the a5-driven FileAttributeCheckSequence, clear the 1024-byte path buffer (sub_568620), open through sub_587DB0 with the read-mode path global unk_5E517C when this+0x0C is nonzero else the write-mode path global unk_5E5180, store the handle at this+0x00, zero this+0x18, and copy the resolved path into this+0x04 when the handle is valid.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00566A70",
+        "callee:0x005668F0",
+        "callee:0x00568620",
+        "callee:0x00587DB0",
+        "global:0x005E517C",
+        "global:0x005E5180",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PerThreadDataContract",
+      "category": "runtime",
+      "description": "Per-thread data access must preserve GetLastError across the TLS setup path: read the block via TlsGetValue(dwTlsIndex 0x005E6D40), lazily allocate a 116-byte block (sub_58AB58), register it with TlsSetValue, initialize it (TwoFieldInitializer 0x0058E0B4), stamp it with the current thread id and a -1 sentinel, and terminate via CRTAmsgExit(0x10) on allocation/registration failure.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0058E0C7",
+        "callee:0x0058AB58",
+        "callee:0x0058A2A6",
+        "callee:0x0058E0B4",
+        "global:0x005E6D40",
+        "global:0x0059E188",
+        "global:0x0059E14C",
+        "global:0x0059E158",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "Owner of every packet object is UNKNOWN; all class groupings are GUESS-level aggregations of individually-evidenced functions and may split or merge when independent class evidence arrives.",
+    "Shared this+0x1100 device-object pointer appears in both D3DDeviceManager (0x00555E50) and D3DResourceAcquirer (0x00554F80); the packet does not prove the two owners are the same class, so they are kept as separate base+offset fields and the possible merge is left unresolved.",
+    "acquireOrCreateResource (0x00546AA0): the slot layout (slot+64/+68/+96/+128) and the individual D3DTextureCreation flag bits are DERIVED from usage only, not confirmed by any independent source; the per-element destructor loop 'for (i = v50; i > 0; ++i)' cannot terminate as shown (presumed a decompiler sign artifact); element count is stored both in the allocation header (obj-4) and at object+0x4C with the reuse of obj+0 as refcount/element-0 field unresolved; unk_800000 may be IDA's rendering of a literal 0x800000 constant rather than a global read; the D3DTextureCreation nonzero=failure return convention is inferred from the rollback path; the aSS/aS2dS globals' exact '%s%s'/'%s%.2d%s' literals are inferred from adjacent format calls.",
+    "CreateUIListNode (0x0054BB40): global dword_8B8F28 is flagged as a read but appears nowhere in the decompiled body; the packet models the tail-node next pointer through base *(*(this+0x238)+0x24) while the raw source walks the chain from this[133] via node+0x24; the two anchors are not reconciled here.",
+    "UIListTextureManagerInit (0x005510F0): the purpose of the 76-byte sub-object constructor sub_556220 and the registration helper sub_556260 is inferred; the meaning of the 0x20000 flag at this+0x4 and the element type of the 136-byte-stride array are caller-contract details; element count is stored both in the array header (v6[0]) and at this+0x14 with no established authoritative copy.",
+    "ConditionalUICleanupDispatch (0x005528F0): global dword_8B78A0 is listed as read by packet facts but is absent from the raw source; the 0x20000 gate flag at this+0x24 (existing analysis labels it a texture-mode gate) and the object at this+0x868 (possibly a font texture object) are DERIVED, not confirmed.",
+    "StateParameterSetterWithVirtualDeviceNotify (0x00554610): the concrete callee behind the indirect dispatch at vtable slot +244 of dword_8B89A0 is not established; the parameter-source object layout (offsets +84 and +84+20) is not in the packet field set.",
+    "ResourceAcquisitionWithReuse (0x00554F80): the descriptor struct at a3+84 and its fields at indices 5/6/14 are not established; the node identity-match fields (a3+80, node +28/+32/+48, node value at +56) carry no owner-level meaning; flt_59E440 is flagged as a referenced global but is absent from the raw body; the virtual slot +116 (0x74) of the device object is uncharacterized.",
+    "resetAndRestoreDeviceResources (0x00555E50): field *(*(*(this+0x1528)+0xC)+0x0):0x00000008 (backbuffer/surface format read) is not visible in the decompiled body; the role of the this+0x1104 argument passed to vtable slot 0x38 is unknown; the semantic meaning of the mapped flag values 32/256/64/0x100000 is not established; the return-code contract (0/-1/-2) with caller 0x0055C060 is inferred.",
+    "BuildAndSendValidateMessage (0x005629B0): the content of the final segment string aFinal (global 0x005E4EAC) is not present in the packet; the purpose of the data at object offset a1+72 and what sub_562150 does with it is unknown; the claim that this is player/session validation on the game networking path is a DERIVED hypothesis, not packet evidence.",
+    "PlatformServices grouping (0x005687F0, 0x0058803F, 0x005890AA, 0x0058E0C7): these are individually-evidenced free helpers grouped only by their platform/utility role; sub_5891FE's body (assumed small-range sorter), the quicksort comparator convention (a4 sign relative to the pivot), and the per-thread block layout beyond Value[0] thread id / Value[1] -1 sentinel are unestablished.",
+    "OpenFileWithReadWriteMode (0x00566A70): the exact purpose of the a5-gated FileAttributeCheckSequence and the distinct roles of a3 (this+0x10) versus a4 (mode at this+0x0C) are not documented in this packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x008B78A0",
+    "global:0x008B8F28",
+    "global:0x0059E440",
+    "field:*(*(*(this+0x1528)+0xC)+0x0):0x00000008"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

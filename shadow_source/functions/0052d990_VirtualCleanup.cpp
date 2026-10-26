@@ -1,0 +1,25 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0052D990
+// Canonical corpus name: VirtualCleanup
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VirtualCleanup_0052d990.c
+
+void UnknownObject::VirtualCleanup()
+{
+    // Guard-based virtual destructor/cleanup helper. Reads the stored object pointer from the pointer slot at this+0x0; if it is NULL, returns 0 immediately. Otherwise dispatches through the object's vtable (first entry) with argument 1, then clears the stored pointer slot to 0 and returns 1. Called by CameraViewStructInitializer (00405440), StructInitWithVTableDispatchAndZeroFill (00405630) and ThreadedObjectCreatorWithSEH (0052D8D0).
+    // GUARD: Reads the stored object pointer from the slot at this+0x0 (obj); if it is NULL, the function returns 0 without touching anything [field:obj:0x00000000, source:raw]
+    // CALL: Loads the vtable pointer from the stored object (*(obj+0x0)) and invokes its first entry with argument 1 (virtual destructor/deleter dispatch); the concrete target is resolved at runtime and is not a static callee [field:*(obj+0x0):0x00000000, source:raw]
+    // ASSIGNMENT: Clears the stored pointer slot at this+0x0 to 0 after the virtual destructor call returns [field:this:0x00000000, source:raw]
+    // RETURN: Returns 1 on the non-NULL path and 0 on the NULL guard path [source:raw]
+    // CALL: Invoked by CameraViewStructInitializer (00405440), StructInitWithVTableDispatchAndZeroFill (00405630) and ThreadedObjectCreatorWithSEH (0052D8D0) as the cleanup stage of their object creation paths [caller:0x00405440, caller:0x00405630, caller:0x0052D8D0]
+
+    // Conservative worker pseudocode:
+    //   obj = *this;
+    //   if (!obj)
+    //     return 0;
+    //   obj->vtable[0](obj, 1);
+    //   *this = 0;
+    //   return 1;
+    // UNRESOLVED: The destructor/deleter is dispatched indirectly through the vtable's first entry with argument 1; the concrete callee is not a static target in this packet
+    // UNRESOLVED: The type of the stored object and the meaning of argument 1 (deleter vs plain destructor) are not confirmed by packet evidence
+}

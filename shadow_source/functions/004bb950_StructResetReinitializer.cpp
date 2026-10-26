@@ -1,0 +1,30 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004BB950
+// Canonical corpus name: StructResetReinitializer
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/StructResetReinitializer_004bb950.c
+
+void UnknownObject::StructResetReinitializer()
+{
+    // Resets a racing/session-management struct: frees three owned allocations (fields +0x8C, +0x90 and the byte array +0x94), counts the number of '1' entries in that array into +0x98 before freeing it, then reinitializes ~40 scalar and -1-filled fields and memsets a trailing 0x28-byte block to 0xFF. Returns -1.
+    // GUARD: If the allocation pointer at +0x8C is non-null, free it via FreeWrapper_7bcf and clear +0x8C to 0. [field:this:0x0000008C, callee:0x00587BCF, source:raw]
+    // GUARD: If the allocation pointer at +0x90 is non-null, free it via FreeWrapper_7bcf and clear +0x90 to 0. [field:this:0x00000090, callee:0x00587BCF, source:raw]
+    // LOOP: Zero the counter at +0x98, then if the byte array pointer at +0x94 is non-null iterate its first field +0x8 elements counting entries equal to 1 into +0x98, free the array via FreeWrapper_7bcf, and clear +0x94 to 0. [field:this:0x00000098, field:this:0x00000094, field:this:0x00000008, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Reset scalar/vector fields: zero +0x8 and +0x10, set +0xC to 2, write the float value -1.0 into +0x14, +0x18, +0x1C, +0x20, zero +0x34, +0x38, +0x3C, +0x60, +0x64, write -1.0 into +0x68..+0x80, and zero +0x84 and +0x88. [field:this:0x00000008, field:this:0x00000010, field:this:0x0000000C, field:this:0x00000014, field:this:0x00000018, field:this:0x0000001C, field:this:0x00000020, field:this:0x00000034, field:this:0x00000038, field:this:0x0000003C, field:this:0x00000060, field:this:0x00000064, field:this:0x00000068, field:this:0x0000006C, field:this:0x00000070, field:this:0x00000074, field:this:0x00000078, field:this:0x0000007C, field:this:0x00000080, field:this:0x00000084, field:this:0x00000088, source:raw]
+    // ASSIGNMENT: Reset state and index fields: zero +0x9C, +0xA0, +0xAC, +0xB0, +0xB8, +0xC4, +0xC8, +0xCC, +0xD0, +0xDC as dwords and +0xA8, +0xB4, +0xD4 as bytes; write -1 into +0xBC, +0xC0 and +0xD8. [field:this:0x0000009C, field:this:0x000000A0, field:this:0x000000A8, field:this:0x000000AC, field:this:0x000000B0, field:this:0x000000B4, field:this:0x000000B8, field:this:0x000000BC, field:this:0x000000C0, field:this:0x000000C4, field:this:0x000000C8, field:this:0x000000CC, field:this:0x000000D0, field:this:0x000000D4, field:this:0x000000D8, field:this:0x000000DC, source:raw]
+    // CALL: memset the trailing 0x28-byte block starting at this+0xE0 to 0xFF (sentinel fill). [source:raw]
+    // RETURN: Return -1. [function:0x004BB950, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (this->+0x8C) { FreeWrapper_7bcf(this->+0x8C); this->+0x8C = 0; }
+    //   if (this->+0x90) { FreeWrapper_7bcf(this->+0x90); this->+0x90 = 0; }
+    //   this->+0x98 = 0;
+    //   if (array = this->+0x94) { for (i = 0; i < this->+0x8; i++) if (array[i] == 1) this->+0x98++; FreeWrapper_7bcf(array); this->+0x94 = 0; }
+    //   this->+0x8 = 0; this->+0x10 = 0; this->+0xC = 2;
+    //   fields +0x14..+0x20 = -1.0; +0x34/+0x38/+0x3C/+0x60/+0x64 = 0; +0x68..+0x80 = -1.0; +0x84/+0x88 = 0;
+    //   +0x9C..+0xDC reset with +0xBC/+0xC0/+0xD8 = -1;
+    //   memset(this+0xE0, 0xFF, 0x28);
+    //   return -1;
+    // UNRESOLVED: Owner type and field semantics are unknown (no existing analysis); callers include Steward_Post (0x004D4600) and several setup readers, suggesting a session/scoring management struct.
+    // UNRESOLVED: The +0x8C/+0x90/+0x94 allocations are not among the declared fields in the packet but are accessed as pointers in the raw source.
+}

@@ -1,0 +1,7 @@
+// Microsoft VisualC 2-14/net runtime
+int __thiscall unknown_libname_203(_DWORD *this)
+{
+  *this = &std::logic_error::`vftable';
+  std::string::_Tidy(this + 3, 1);
+  return sub_5D3136(this);
+}

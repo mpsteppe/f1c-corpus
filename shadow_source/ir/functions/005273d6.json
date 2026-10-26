@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "address": "0x005273D6",
+  "proposed_name": "NormalizedCrossDirection",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "SIMD routine (3DNow!) that reads two components of three input vectors (a2, a3, a4), builds cross-product-like perpendicular terms from their differences, computes a squared-length and performs a guarded reciprocal-square-root normalization (Newton-refined) against a denormal epsilon threshold, then writes a normalized direction pair into the output a1. The output is forced to zero when the squared length is at or below the epsilon guard.",
+  "local_names": {
+    "v4": "y-component of a2 (loaded from a2[1].low)",
+    "v5": "y-difference term (a2.y - a4.y) in each lane",
+    "v6": "x-difference a2.x - a4.x",
+    "v7": "negated x-difference",
+    "v8": "x-difference a2.x - a3.x",
+    "v9": "assembled perpendicular/cross term (sign-flipped)",
+    "v11": "dot-style accumulated term",
+    "v12": "shifted lane of v11",
+    "v14": "squared length (sum of squared components)",
+    "v16": "guard mask: length^2 greater than epsilon threshold",
+    "v17": "refined reciprocal square root of v14"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "_m_femms(): initialize 3DNow! floating-point state (exit MMX integer mode).",
+      "evidence_refs": ["source:raw", "function:0x005273D6"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load y-components from the +0x8 dword of a2/a3/a4 (a2[1].m64_u32[0], a3[1].m64_u32[0], a4[1].m64_u32[0]) and compute v5 = pfsub(punpckldq(v4,v4), punpckldq(cvtsi32_si64(a4[1].low), a3[1].low)): y-difference (a2.y - a4.y) broadcast into both lanes.",
+      "evidence_refs": ["field:this:0x00000008"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute x-component differences from the 64-bit first word of a2/a3/a4: v6 = a2.x - a4.x; v7 = pfsub(0, v6) negation; v8 = a2.x - a3.x.",
+      "evidence_refs": ["field:this:0x00000000"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v9 = pxor(pfacc(pfmul(punpckhdq(v8,v7), v5), pfmul(punpckldq(punpckhdq(v5, 0x8000000000000000), v8), punpckldq(v7,v5))), 0x8000000000000000): assemble perpendicular/cross term from the packed differences and flip a sign bit with the xor mask.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v10 = pfmul(punpckhdq(v6, punpckldq(v6,v7)), v8); v11 = pfacc(v10,v10); v12 = psllqi(v11, 0x20): form the dot-style accumulated term and shift lanes for the squared-length sum.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v13 = pfadd(pfmul(v9,v9), pfmul(v12,v12)); v14 = pfacc(v13,v13): squared length of the perpendicular term.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "v16 = pfcmpgt(v14, 0x80000000800000LL): packed compare of squared length against a denormal epsilon threshold; guards the normalize path against degenerate (near-zero) input vectors.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Newton-Raphson refinement of reciprocal square root: v15 = pfrsqrt(v14); v17 = pfrcpit2(pfrsqit1(v14, pfmul(v15,v15)), v15): refined 1/sqrt(length^2).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v19 = pfmul(pand(v9,v16), v17); v20 = pfmul(pand(v11,v16), v17): apply the guard mask (resulting in zero lanes when length^2 <= epsilon) and scale by the refined reciprocal root.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v21 = pfmul(v19, a2->m64_u64): multiply the first normalized component by the a2 first word.",
+      "evidence_refs": ["field:this:0x00000000"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write outputs into a1: a1->m64_u64 = v19; a1[1].m64_u64 = pxor(punpckldq(v20, pfadd(pfacc(v21,v21), pfmul(v20,v4))), 0x8000000000000000): store the normalized direction pair with a sign flip on the second lane.",
+      "evidence_refs": ["field:this:0x00000000"]
+    },
+    {
+      "kind": "call",
+      "description": "_m_femms(): tear down 3DNow! floating-point state.",
+      "evidence_refs": ["source:raw", "function:0x005273D6"]
+    },
+    {
+      "kind": "return",
+      "description": "Return a1 (pointer to the output normalized direction pair).",
+      "evidence_refs": ["source:raw", "function:0x005273D6"]
+    }
+  ],
+  "clean_pseudocode": [
+    "init_femms();",
+    "yDiff = pfsub(load_y(a2), load_y(a4));",
+    "xDiffA = a2.x - a4.x;  xDiffB = a2.x - a3.x;",
+    "perpendicular = build_cross(xDiffA, xDiffB, yDiff, signMask);",
+    "squaredLen = pfacc(perpendicular^2 + shiftedTerm^2);",
+    "guardMask = pfcmpgt(squaredLen, epsilonThreshold);",
+    "invSqrt = newton_rsqrt(squaredLen);",
+    "out[0] = perpendicular & guardMask * invSqrt;",
+    "out[1] = xor_pack(secondTerm, signMask);",
+    "a1[0] = out[0]; a1[1] = out[1];",
+    "fini_femms();",
+    "return a1;"
+  ],
+  "unresolved": [
+    "Globals qword_5AF970 / qword_5AF980 do not appear in the raw source text; the fill's claimed roles (VectorLengthSquaredThreshold / SIMD_Const_5AF980) are DERIVED prose and unconfirmed by this packet.",
+    "Exact semantic meaning of the two output lanes (cross vs dot / which world direction) is not fully derivable from decompiler output alone.",
+    "Function owner is unknown; no static callers found (indirect-only or top-level).",
+    "Use of a2[1].low only (not a3[1].low/a4[1].low directly as operands) suggests lane assembly whose exact source layout is ambiguous."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005AF970",
+    "global:0x005AF980"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

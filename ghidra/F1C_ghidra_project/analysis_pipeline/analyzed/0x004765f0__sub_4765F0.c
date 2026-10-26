@@ -1,0 +1,15 @@
+// Address: 0x004765f0
+// Size: 13 bytes
+// Name: sub_4765F0
+// Type: char *__thiscall(_DWORD *this)
+// Source: IDA Hex-Rays decompilation
+
+char *__thiscall sub_4765F0(_DWORD *this)
+{
+  char *result; // eax
+
+  result = (char *)this[1];
+  if ( !result )
+    return &byte_5EA438;
+  return result;
+}

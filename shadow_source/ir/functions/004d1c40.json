@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "address": "0x004D1C40",
+  "proposed_name": "BestLapSlotOwnerUpdate",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004D1C40"]
+  },
+  "summary": "Per-slot best-lap-time ownership update. this is a byte array whose element this[a2+400] records which driver currently owns slot a2. A non-zero force flag a4 bypasses the comparison and forcibly installs a3 as the slot owner. Otherwise the current owner index is read, and ownership changes when the current owner is invalid (>= vehicle count dword_5C329C) or when the new driver's lap time (flt_5F0774 indexed by a2 + 4656*a3) is valid and no worse than the current owner's time (flt_5F0774 indexed by 4656*oldOwner + a2). On a takeover, AIOvertakeDefendStateChange is notified with the game-state pointer dword_5EB978, the slot, the new driver and the old driver, then the slot owner is written and 1 is returned; otherwise 0.",
+  "local_names": {
+    "this": "byte array carrying per-slot best-lap owner indices (owner byte at element index a2+400)",
+    "a2": "slot index into the owner array and the lap-time table column",
+    "a3": "new driver index proposed as slot owner",
+    "a4": "force flag; non-zero skips the time comparison and notification",
+    "v5": "current best-lap owner index read from this[a2+400]",
+    "v6": "lap-time table index a2 + 4656*a3 for the new driver"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If the force flag a4 is non-zero, control jumps directly to the assignment, skipping both the time comparison and the AI notification",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the current slot owner index as an unsigned byte at element this[a2+400] into v5",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Takeover fires when the current owner index v5 is at or beyond the vehicle count dword_5C329C, i.e. the recorded owner is out of range and therefore invalid",
+      "evidence_refs": ["global:0x005C329C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the new driver's lap-time table index v6 = a2 + 4656*a3 and the current owner's index 4656*v5 + a2, reading both times from the float table flt_5F0774",
+      "evidence_refs": ["global:0x005F0774", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Alternative takeover condition: the new time flt_5F0774[v6] is not the -1.0 invalid sentinel AND the current owner's time is at least the new time (new time no worse than the existing best)",
+      "evidence_refs": ["global:0x005F0774", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Notify AIOvertakeDefendStateChange with the game-state pointer dword_5EB978, the slot a2, the new driver a3 and the old owner index this[a2+400] (read before the assignment)",
+      "evidence_refs": ["callee:0x00419690", "global:0x005EB978", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the new owner a3 into the slot element this[a2+400]",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 when the slot owner was updated (forced or takeover), 0 when the new time is invalid or the existing best is strictly better; invoked from the LapCompletion path (004BC4E0)",
+      "evidence_refs": ["caller:0x004BC4E0", "function:0x004D1C40", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (a4) goto assign;",
+    "oldOwner = (byte)this[a2 + 400];",
+    "validOwner = oldOwner < dword_5C329C;",
+    "newTime = flt_5F0774[a2 + 4656*a3];",
+    "oldTime = validOwner ? flt_5F0774[4656*oldOwner + a2] : 0;",
+    "takeover = !validOwner || (newTime != -1.0 && oldTime >= newTime);",
+    "if (takeover) {",
+    "  AIOvertakeDefendStateChange(dword_5EB978, a2, a3, oldOwner);",
+    "assign:",
+    "  this[a2 + 400] = a3;",
+    "  return 1;",
+    "}",
+    "return 0;"
+  ],
+  "unresolved": [
+    "flt_59E670 is flagged as a packet global but appears nowhere in the raw decompiled source; its purpose cannot be established from this packet",
+    "The 4656-byte stride of the flt_5F0774 lap-time table is not proven to be the vehicle struct stride from this function alone"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E670"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

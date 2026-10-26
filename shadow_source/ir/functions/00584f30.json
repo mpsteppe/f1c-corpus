@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "address": "0x00584F30",
+  "proposed_name": "AppendToMutexGuardedListWithWait",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00584F30"]
+  },
+  "summary": "Mutex-gated linked-list append. Reads the mutex handle at this+0x5A8 and the wait timeout at this+0x5AC, waits on the mutex with WaitForSingleObject, appends the caller's node to a linked list via LinkedListNodeAppend_6000, then releases the mutex. Returns 1 when the append succeeded, 0 otherwise. Thread-safe list insertion guarded by a Windows mutex.",
+  "local_names": {
+    "a2": "node payload to append to the list",
+    "v3": "list head pointer at dword index 358 past this",
+    "v4": "return flag: 1 if the append succeeded"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Proceed only when the mutex handle stored at this+0x5A8 is non-null; otherwise skip straight to the return of 0",
+      "evidence_refs": ["field:this:0x000005A8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "WaitForSingleObject(handle at this+0x5A8, timeout at this+0x5AC): acquire the mutex before touching the list",
+      "evidence_refs": ["global:0x0059E1A0", "field:this:0x000005A8", "field:this:0x000005AC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Only enter the append section when the wait returned 0 (signaled) or 128 (WAIT_ABANDONED); a timeout or error blocks the append",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "LinkedListNodeAppend_6000(list head at dword index 358 past this, a2, 0): append the caller payload; a non-zero result sets the success flag v4",
+      "evidence_refs": ["callee:0x00586000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ReleaseMutex on the handle stored at this+0x5A8 (read back through the list object) when it is non-null, always after the append attempt",
+      "evidence_refs": ["global:0x0059E1A4", "field:this:0x000005A8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 when the append succeeded, else 0",
+      "evidence_refs": ["function:0x00584F30", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v4 = 0;",
+    "if (this[362] != 0) {",
+    "  v5 = WaitForSingleObject(this[362], this[363]);",
+    "  if (v5 == 0 || v5 == 128) {",
+    "    if (LinkedListNodeAppend_6000(this + 358, a2, 0)) v4 = 1;",
+    "    v6 = (this + 358)[4];",
+    "    if (v6) ReleaseMutex(v6);",
+    "  }",
+    "}",
+    "return v4;"
+  ],
+  "unresolved": [
+    "The container type of the list headed at dword index 358 past this is not evidenced; the append flag third argument to LinkedListNodeAppend_6000 is unexplained",
+    "The same handle is waited on and then released as a mutex while the append operates on the adjacent list object; the owner relationship between this+0x5A8 and the list is not evidenced here",
+    "The timeout literal semantics of this+0x5AC (a DWORD in wait milliseconds) are not verified against a caller"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

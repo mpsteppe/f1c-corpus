@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "address": "0x004C7F30",
+  "proposed_name": "UpdateCameraFOV",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Updates the camera field-of-view value stored at this[2] (this+0x8) toward a target value v2 selected from dword_7C56A4 (session type) and, for cases 5 and 7, from dword_7C56A8 (race phase). The step per call is a2 * 0.125 clamped to a maximum of 0.05; this[2] is decremented toward v2 when above it and incremented when below, never overshooting the target. Case 5 and case 7 compute phase-dependent targets from dbl_8AFEA0, flt_8ACF90, flt_8ACF94 and flt_8ACFB8 (with dword_5F0714 indexed at stride 4656 through sub_4D1B50(0) in case 7), clamped into [0.25, 1.0] or [0.5, 1.0] ranges. Invoked by sub_4C7DE0 (0x004C7DE0).",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Default target FOV v2 = 0.25 applies to session types not handled by cases 3..7 (and is the minimum clamp used elsewhere).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Dispatch on dword_7C56A4 (session type): case 3 sets v2 = 0.28, case 4 sets v2 = 0.31, case 6 sets v2 = 0.31999999, all jumping to the shared interpolation step; the default keeps v2 = 0.25.",
+      "evidence_refs": ["global:0x007C56A4", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Session-type case 5: initial v2 = 0.34; when dword_7C56A8 equals 5, compute v5 = (dbl_8AFEA0 - flt_8ACF90) / (flt_8ACF94 - flt_8ACF90), then v2 = v5 * v5 * 0.60000002 + 0.5, clamped to a minimum of 0.5.",
+      "evidence_refs": ["global:0x007C56A4", "global:0x007C56A8", "global:0x008AFEA0", "global:0x008ACF90", "global:0x008ACF94", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Session-type case 5 with dword_7C56A8 equal to 8: v4 = (dbl_8AFEA0 - flt_8ACF94) * 0.0080000004, then v2 = 1.0 - v4, clamped to a minimum of 0.25.",
+      "evidence_refs": ["global:0x007C56A4", "global:0x007C56A8", "global:0x008AFEA0", "global:0x008ACF94", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "After the case-5 computations, clamp the target upward: when v2 is greater than 1.0, v2 = 1.0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Session-type case 7: initial v2 = 0.38; nested dispatch on dword_7C56A8 where cases 1 and 2 set v2 = 0.44, case 3 sets v2 = 0.5, case 4 computes v2 = 1.0 - (flt_8ACFB8 + 5.0 - dbl_8AFEA0) * 0.029999999 clamped to a minimum of 0.5, and the default keeps v2 = 0.38.",
+      "evidence_refs": ["global:0x007C56A4", "global:0x007C56A8", "global:0x008ACFB8", "global:0x008AFEA0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Session-type case 7, phase 5: v7 = sub_4D1B50(0); when dword_8ACF8C <= 1, v8 = 0.5 - 1.0, otherwise v8 = 0.5 - dword_5F0714[4656 * v7] / (dword_8ACF8C - 1); then v6 = v8 * v8 + v8 * v8 and v2 = v6 + 0.5, clamped to a minimum of 0.5.",
+      "evidence_refs": ["callee:0x004D1B50", "global:0x007C56A8", "global:0x008ACF8C", "global:0x005F0714", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Session-type case 7, phase 8: v4 = (dbl_8AFEA0 - flt_8ACF94) * 0.003, then v2 = 1.0 - v4, clamped to a minimum of 0.25.",
+      "evidence_refs": ["global:0x007C56A8", "global:0x008AFEA0", "global:0x008ACF94", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Shared interpolation step: v9 = a2 * 0.125, then clamped so v9 is at most 0.050000001.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Move this[2] toward v2: when this[2] is greater than or equal to v2, subtract the step v9; when it is below, add the step v9.",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the interpolated value back to this[2] (this+0x8), clamping so it never goes below v2 when decreasing nor above v2 when increasing.",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return void after the interpolation completes.",
+      "evidence_refs": ["function:0x004C7F30", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by sub_4C7DE0 (0x004C7DE0) as part of the camera timer/dispatch tick.",
+      "evidence_refs": ["caller:0x004C7DE0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void UpdateCameraFOV(float* this, float a2) {",
+    "  double v2 = 0.25;",
+    "  switch (dword_7C56A4) {",
+    "    case 3: v2 = 0.28; break;",
+    "    case 4: v2 = 0.31; break;",
+    "    case 5:",
+    "      v2 = 0.34;",
+    "      if (dword_7C56A8 == 5) {",
+    "        double v5 = (dbl_8AFEA0 - flt_8ACF90) / (flt_8ACF94 - flt_8ACF90);",
+    "        v2 = v5 * v5 * 0.60000002 + 0.5;",
+    "        if (v2 < 0.5) v2 = 0.5;",
+    "      } else if (dword_7C56A8 == 8) {",
+    "        v2 = 1.0 - (dbl_8AFEA0 - flt_8ACF94) * 0.0080000004;",
+    "        if (v2 < 0.25) v2 = 0.25;",
+    "      }",
+    "      if (v2 > 1.0) v2 = 1.0;",
+    "      break;",
+    "    case 6: v2 = 0.31999999; break;",
+    "    case 7:",
+    "      v2 = 0.38;",
+    "      switch (dword_7C56A8) {",
+    "        case 1: case 2: v2 = 0.44; break;",
+    "        case 3: v2 = 0.5; break;",
+    "        case 4:",
+    "          v2 = 1.0 - (flt_8ACFB8 + 5.0 - dbl_8AFEA0) * 0.029999999;",
+    "          if (v2 < 0.5) v2 = 0.5;",
+    "          if (v2 > 1.0) v2 = 1.0;",
+    "          break;",
+    "        case 5:",
+    "          {",
+    "            int v7 = sub_4D1B50(0);",
+    "            double v8 = (dword_8ACF8C <= 1)",
+    "              ? 0.5 - 1.0",
+    "              : 0.5 - (double)dword_5F0714[4656 * v7] / (double)(dword_8ACF8C - 1);",
+    "            v2 = (v8 * v8 + v8 * v8) + 0.5;",
+    "            if (v2 < 0.5) v2 = 0.5;",
+    "            if (v2 > 1.0) v2 = 1.0;",
+    "          }",
+    "          break;",
+    "        case 8:",
+    "          v2 = 1.0 - (dbl_8AFEA0 - flt_8ACF94) * 0.003;",
+    "          if (v2 < 0.25) v2 = 0.25;",
+    "          if (v2 > 1.0) v2 = 1.0;",
+    "          break;",
+    "      }",
+    "      break;",
+    "  }",
+    "  double v9 = a2 * 0.125;",
+    "  if (v9 >= 0.050000001) v9 = 0.050000001;",
+    "  if (this[2] >= v2) { this[2] -= v9; if (this[2] < v2) this[2] = v2; }",
+    "  else { this[2] += v9; if (this[2] > v2) this[2] = v2; }",
+    "}"
+  ],
+  "unresolved": [
+    "Globals jpt_4C7F4B (0x004C8144) and jpt_4C8011 (0x004C8158) are the switch jump tables for dword_7C56A4 and dword_7C56A8 respectively and do not appear in the raw source text; their roles here are implicit.",
+    "Globals flt_59E43C (0x0059E43C), flt_59E448 (0x0059E448), flt_59E450 (0x0059E450), flt_59E4E0 (0x0059E4E0), flt_59E4E8 (0x0059E4E8), flt_59E7EC (0x0059E7EC), flt_59E7F8 (0x0059E7F8), flt_59E97C (0x0059E97C), flt_5ACD40 (0x005ACD40), flt_5ACD48 (0x005ACD48), flt_5ACDFC (0x005ACDFC), flt_5ACE00 (0x005ACE00), flt_5ACE04 (0x005ACE04), flt_5ACE08 (0x005ACE08), flt_5ACE0C (0x005ACE0C), flt_5ACE10 (0x005ACE10) and dword_8ACEE0 (0x008ACEE0) are listed in the packet but do not appear in the raw source text; their roles here are unknown.",
+    "dword_7C56A4 is interpreted as a session-type selector and dword_7C56A8 as a race-phase selector based on the branch structure only; that reading is inferred.",
+    "sub_4D1B50(0) returns an index used to read dword_5F0714 at stride 4656; its meaning is not established here."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x004C8144",
+    "global:0x004C8158",
+    "global:0x0059E43C",
+    "global:0x0059E448",
+    "global:0x0059E450",
+    "global:0x0059E4E0",
+    "global:0x0059E4E8",
+    "global:0x0059E7EC",
+    "global:0x0059E7F8",
+    "global:0x0059E97C",
+    "global:0x005ACD40",
+    "global:0x005ACD48",
+    "global:0x005ACDFC",
+    "global:0x005ACE00",
+    "global:0x005ACE04",
+    "global:0x005ACE08",
+    "global:0x005ACE0C",
+    "global:0x005ACE10",
+    "global:0x008ACEE0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

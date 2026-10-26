@@ -1,0 +1,58 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004FF680
+// Canonical corpus name: AudioParameterInterpolation
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AudioParameterInterpolation_004ff680.c
+
+void UnknownObject::AudioParameterInterpolation()
+{
+    // Interpolates a packed audio/physics parameter state between frames: clamps the input delta to [-1.25, 1.25], unpacks short-vector position and rate fields from the source state, applies an Euler-angle rotation and a gravity/acceleration term, re-quantizes the rotated components to 16-bit values (scale 2048.0), copies the trailing packed fields from the source state, and returns success. Called from the frame-path wrappers at 0x005000C0 and 0x00500560.
+    // CALCULATION: Clamp the time delta v28 = a1 - *(float*)(a2 + 4) to the range [-1.25, 1.25]. [source:raw]
+    // CALCULATION: Scale the delta v19 = v28 * 0.33399999 and clamp it to [-0.075000003, 0.075000003]. [source:raw]
+    // ASSIGNMENT: Copy the header fields of the state: *(DWORD*)a3 = *(DWORD*)a2, *(float*)(a3 + 4) = a1, and *(DWORD*)(a3 + 428) = *(DWORD*)(a2 + 428). [source:raw]
+    // CALL: Unpack the packed short vector at a2 + 8: ShortVectorToFloatWithScale produces v20 (scaled floats) and ShortToFloatVectorUnpack produces v24 (unpacked floats). [callee:0x004B2580, callee:0x004B2800, source:raw]
+    // CALCULATION: Interpolate the position components at a3 + 8, +12, +16 from the unpacked/short vectors, the clamped delta v28, and a gravity/acceleration term using a4 * -9.81. [source:raw]
+    // CALCULATION: Build the scaled rate array v22 from byte/short fields at a2 + 44, +45, +46 with factors 0.050000001 and 0.0020000001 and axis weights 0.30000001 and 0.60000002. [source:raw]
+    // CALCULATION: Convert the shorts at a2 + 20, +22, +24 into floats in v21 with the scale 0.00048828125 (1/2048). [source:raw]
+    // CALL: Apply rotation: EulerToRotationMatrix(v21, v25) builds a rotation matrix from the Euler angles and sub_567120(v22, v23) transforms the rate array into v23. [callee:0x00566E40, callee:0x00567120, source:raw]
+    // CALCULATION: Re-quantize the rotated components to 16-bit values via CRTFtol(v23[i] * 2048.0), storing them at a3 + 20, +22, +24. [callee:0x00587BDC, source:raw]
+    // LOOP: Copy the remaining packed byte/word fields from a2 to a3 (byte at a3 + 26 and word at a3 + 30 per iteration) with a do-while loop that terminates when the copied region reaches a3 + 30. [source:raw]
+    // ASSIGNMENT: Copy the trailing packed fields: dwords at a3 + 38, +42, +48, +52, +56 and the word at a3 + 46 from a2. [source:raw]
+    // RETURN: Return 1 (char) indicating success. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char sub_4FF680(float a1, int a2, int a3, float a4) {
+    //     float d = a1 - *(float*)(a2 + 4);
+    //     if (d < -1.25f) d = -1.25f;
+    //     if (d > 1.25f) d = 1.25f;
+    //     float k = d * 0.33399999f;
+    //     if (k < -0.075000003f) k = -0.075000003f;
+    //     if (k > 0.075000003f) k = 0.075000003f;
+    //     *(int*)a3 = *(int*)a2;
+    //     *(float*)(a3 + 4) = a1;
+    //     *(int*)(a3 + 428) = *(int*)(a2 + 428);
+    //     ShortVectorToFloatWithScale((short*)(a2 + 8), v20);
+    //     ShortToFloatVectorUnpack((short*)(a2 + 8), v24);
+    //     *(float*)(a3 + 8)  = (v24[0] * k + v20[0]) * d + *(float*)(a2 + 8);
+    //     *(float*)(a3 + 12) = (k * a4 * -9.81f + v20[1]) * d + *(float*)(a2 + 12);
+    //     *(float*)(a3 + 16) = (v24[2] * k + v20[2]) * d + *(float*)(a2 + 16);
+    //     build v22 from bytes/shorts at a2 + 44, 45, 46;
+    //     build v21 from shorts at a2 + 20, 22, 24 (scale 0.00048828125);
+    //     EulerToRotationMatrix(v21, v25);
+    //     sub_567120(v22, v23);
+    //     *(short*)(a3 + 20) = CRTFtol(v23[0] * 2048.0);
+    //     *(short*)(a3 + 22) = CRTFtol(v23[1] * 2048.0);
+    //     *(short*)(a3 + 24) = CRTFtol(v23[2] * 2048.0);
+    //     copy packed byte/word fields from a2 + 26..37 to a3 + 26..37;
+    //     *(int*)(a3 + 38) = *(int*)(a2 + 38);
+    //     *(int*)(a3 + 42) = *(int*)(a2 + 42);
+    //     *(short*)(a3 + 46) = *(short*)(a2 + 46);
+    //     *(int*)(a3 + 48) = *(int*)(a2 + 48);
+    //     *(int*)(a3 + 52) = *(int*)(a2 + 52);
+    //     *(int*)(a3 + 56) = *(int*)(a2 + 56);
+    //     return 1;
+    //   }
+    // UNRESOLVED: The ten globals listed by the analysis table (0x0059E448, 0x0059E4E8, 0x0059E714, 0x0059E77C, 0x0059E8B4, 0x0059ED50, 0x0059F0C0, 0x005ACCB0, 0x005AD350, 0x005AD354) are not referenced in the raw decompiled source; their role is unverified.
+    // UNRESOLVED: The exact element types and layout of the packed state interpolated at a2/a3 offsets 8..56 are inferred from the decompiled reads and not independently confirmed.
+    // UNRESOLVED: The semantics of sub_567120 (assumed rotation/acceleration application) are inferred from the fill and not verified.
+}

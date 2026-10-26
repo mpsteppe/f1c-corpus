@@ -1,0 +1,44 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004CADA0
+// Canonical corpus name: sub_4CADA0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4CADA0_004cada0.c
+
+void UnknownObject::BlendModeStringToEnum()
+{
+    // Converts a blend-mode token string into a D3DBLEND-style enum value by testing the input against a fixed sequence of named blend-mode strings through sub_588410. The sequence is only entered when the ZERO token matches; every later token that fails its match returns the enum value of the tested mode (ONE=2, SRCCOLOR=3, INVSRCCOLOR=4, SRCALPHA=5, INVSRCALPHA=6, DSTCOLOR=9, INVDSTCOLOR=10, DSTALPHA=7, INVDSTALPHA=8). When all tokens match, a StringSplitLoop probe runs against the source-path token and an unknown-mode warning is logged via DebugLogWrite. Default return is 1 (ZERO).
+    // GUARD: Entry gate: the token sequence is only recognized when sub_588410(this, aZero) matches the ZERO blend token; otherwise the function falls through to the default return of 1. [callee:0x00588410, global:0x005D3770, source:raw]
+    // CALL: Match test against the ONE token; when the input does not match, return enum value 2. [callee:0x00588410, global:0x005D376C, source:raw]
+    // CALL: Match test against the SRCCOLOR token; when the input does not match, return enum value 3. [callee:0x00588410, global:0x005D3760, source:raw]
+    // CALL: Match test against the INVSRCCOLOR token; when the input does not match, return enum value 4. [callee:0x00588410, global:0x005D3754, source:raw]
+    // CALL: Match test against the SRCALPHA token; when the input does not match, return enum value 5. [callee:0x00588410, global:0x005D3748, source:raw]
+    // CALL: Match test against the INVSRCALPHA token; when the input does not match, return enum value 6. [callee:0x00588410, global:0x005D373C, source:raw]
+    // CALL: Match test against the DSTCOLOR token; when the input does not match, return enum value 9. [callee:0x00588410, global:0x005D3730, source:raw]
+    // CALL: Match test against the INVDSTCOLOR token; when the input does not match, return enum value 10. [callee:0x00588410, global:0x005D3724, source:raw]
+    // CALL: Match test against the DSTALPHA token; when the input does not match, return enum value 7. [callee:0x00588410, global:0x005D3718, source:raw]
+    // CALL: Match test against the INVDSTALPHA token; when the input does not match, return enum value 8. [callee:0x00588410, global:0x005D370C, source:raw]
+    // CALL: Fallback probe: StringSplitLoop(1, aDDevF119992002_25, 162) tokenizes the source-path token; a nonzero result flags the mode as unrecognized. [callee:0x004D7A50, global:0x005D3624, source:raw]
+    // CALL: When the fallback probe flags an unknown mode, DebugLogWrite(&dword_8AD25C, aUnknownBlendMo) logs the warning. [callee:0x004D7AA0, global:0x008AD25C, global:0x005D36E4, source:raw]
+    // RETURN: Default return value 1, matching the ZERO blend mode when no token matched. [source:raw, function:0x004CADA0]
+
+    // Conservative worker pseudocode:
+    //   int BlendModeStringToEnum(void *this) {
+    //     if (!sub_588410(this, aZero)) return 1;
+    //     if (!sub_588410(this, aOne)) return 2;
+    //     if (!sub_588410(this, aSrccolor)) return 3;
+    //     if (!sub_588410(this, aInvsrccolor)) return 4;
+    //     if (!sub_588410(this, aSrcalpha)) return 5;
+    //     if (!sub_588410(this, aInvsrcalpha)) return 6;
+    //     if (!sub_588410(this, aDstcolor)) return 9;
+    //     if (!sub_588410(this, aInvdstcolor)) return 10;
+    //     if (!sub_588410(this, aDstalpha)) return 7;
+    //     if (!sub_588410(this, aInvdstalpha)) return 8;
+    //     if (StringSplitLoop(1, aDDevF119992002_25, 162))
+    //       DebugLogWrite(&dword_8AD25C, aUnknownBlendMo);
+    //     return 1;
+    //   }
+    // UNRESOLVED: Semantics of sub_588410 (token comparison / string-lookup helper) and the object type of `this` are not established from the packet.
+    // UNRESOLVED: Purpose of the StringSplitLoop(1, aDDevF119992002_25, 162) probe and its three arguments (count, source-path token, token length) is unclear.
+    // UNRESOLVED: The enum returns are matched to the D3DBLEND convention by the existing analysis; the underlying enum name and the caller-side meaning of values 7..10 are DERIVED, not confirmed.
+    // UNRESOLVED: MaterialShaderReactionEffectParser (caller 0x004CA480) is the only known call site; the exact use of the returned enum value is unresolved.
+}

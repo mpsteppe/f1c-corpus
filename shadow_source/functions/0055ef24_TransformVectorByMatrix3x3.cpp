@@ -1,0 +1,27 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0055EF24
+// Canonical corpus name: F_3x3MatrixFloat3VectorMultiply
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/F_3x3MatrixFloat3VectorMultiply_0055ef24.c
+
+void UnknownObject::TransformVectorByMatrix3x3()
+{
+    // Float 3-vector transform by a 9-float row-major 3x3 matrix without translation. Reads the input vector a1[0..2] (this byte offsets 0x0, 0x4, 0x8) and computes three dot products against matrix rows a3[0..8], storing the result into a2[0..2]. No branches or calls.
+    // CALCULATION: Compute v3 = a3[0]*a1[0] + a3[4]*a1[1] + a3[8]*a1[2] (matrix row 0), later stored to a2[0]. [source:raw]
+    // CALCULATION: Compute v4 = a3[1]*a1[0] + a3[5]*a1[1] + a3[9]*a1[2] (matrix row 1), later stored to a2[1]. [source:raw]
+    // CALCULATION: Compute a2[2] = a3[2]*a1[0] + a3[6]*a1[1] + a3[10]*a1[2] (matrix row 2). [source:raw]
+    // ASSIGNMENT: Write the remaining result components a2[1] = v4 and a2[0] = v3. [source:raw]
+    // CALCULATION: Read the 3-component input vector a1 from this[0..2] at byte offsets 0x0, 0x4, 0x8 as the vector being transformed. [field:this:0x00000000, field:this:0x00000004, field:this:0x00000008, source:raw]
+
+    // Conservative worker pseudocode:
+    //   void sub_55EF24(float* a1, float* a2, float* a3) {
+    //     float v3 = a3[0]*a1[0] + a3[4]*a1[1] + a3[8]*a1[2];
+    //     float v4 = a3[1]*a1[0] + a3[5]*a1[1] + a3[9]*a1[2];
+    //     a2[2] = a3[2]*a1[0] + a3[6]*a1[1] + a3[10]*a1[2];
+    //     a2[1] = v4;
+    //     a2[0] = v3;
+    //   }
+    // UNRESOLVED: a3 is interpreted as a 9-float row-major 3x3 matrix with no translation term; this interpretation is DERIVED from the arithmetic.
+    // UNRESOLVED: Prelabel cluster_copy proposes a link to Vector3ScalarMultiply (0045eb00), but the raw source is a 3x3 matrix-by-vector product, so that label is DERIVED and may be inaccurate.
+    // UNRESOLVED: Canonical corpus name is F_3x3MatrixFloat3VectorMultiply, consistent with the observed arithmetic.
+}

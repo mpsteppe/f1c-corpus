@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "address": "0x0045C8F0",
+  "proposed_name": "CollisionContactSolver",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0045C8F0", "source:raw"]
+  },
+  "summary": "Processes a single collision contact selected by the low byte v4 of the first dword of a2 (a contact slot index). When v4 < 0x68, the per-slot accumulated float this[v4+109] is read and the slot counter this[v4+5] cleared; if that accumulated float exceeds 0.5 an impact is recorded: the slot's impact flag this[v4+1097] is set to -1082130432, the time delta (a3 - v3[1]) is converted to a short via FloatToShortViaFtol and stored into a per-slot ring buffer, a per-slot impact counter (byte this+v4+852) is incremented when below 0x10, a ring offset (byte this+v4+956) advances modulo 0xF, and the accumulator is reset to 0. A ShortArrayLookupAndZeroCheck on the slot optionally subtracts an adjustment value from v3[1], then v3[1] is clamped into [dbl_8AFEA0 - flt_7D108C, dbl_8AFEA0]. Unconditionally the global counters are updated: this[1] += v11 and this[2] incremented, returning the new counter.",
+  "local_names": {
+    "v3": "alias of a2; its float [1] is the contact time being updated",
+    "v4": "contact slot index = low byte of the first dword of a2",
+    "v11": "per-call contact contribution = ((first dword >> 8) & 0x3FF) + 8",
+    "v6": "accumulated float read from the per-slot state this[v4+109]",
+    "v10": "time delta a3 - v3[1] converted to a short for ring storage",
+    "this[v4+1097]": "per-slot impact marker written as -1082130432",
+    "this[1]": "global accumulated contact contribution sum (byte offset 0x4)",
+    "this[2]": "global contact counter (byte offset 0x8)"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "v3 = a2; v4 = (unsigned __int8)first dword of a2; v11 = ((first dword >> 8) & 0x3FF) + 8: decode the contact slot index and the per-call contribution from the packed first dword of the contact record.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on v4 < 0x68: contact processing runs only for slot indices below 0x68; otherwise the function skips directly to the global counter update.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v6 = *(float*)&this[v4+109]; this[v4+5] = 0: read the per-slot accumulated contact float and clear the per-slot counter.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on v6 > 0.5: impact recording runs only when the accumulated per-slot float exceeds the 0.5 threshold.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "this[v4+1097] = -1082130432: set the per-slot impact marker.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v10 = a3 - v3[1]: compute the contact time delta from the current accumulated contact time.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FloatToShortViaFtol(v10, &this[8*v4+265] + byte(this+v4+956)): convert the time delta to a short and store it into the per-slot ring buffer at an offset advanced by the ring byte.",
+      "evidence_refs": ["callee:0x0045C7A0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "If the per-slot byte at this+v4+852 is below 0x10, increment it; advance the ring offset byte at this+v4+956 by 1 masked with 0xF; reset the per-slot accumulator this[v4+109] to 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ShortArrayLookupAndZeroCheck(v4, &a2): when it returns non-zero, subtract *(float*)&a2 from v3[1] as a correction.",
+      "evidence_refs": ["callee:0x0045CBF0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Clamp v3[1] into [dbl_8AFEA0 - flt_7D108C, dbl_8AFEA0]: lower-clamp against the ceiling minus the minimum penetration limit, upper-clamp against the ceiling.",
+      "evidence_refs": ["global:0x008AFEA0", "global:0x007D108C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "result = this[2] + 1; this[1] += v11; this[2] = result: accumulate the per-call contribution into this+0x4 and increment the counter at this+0x8.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return result, the incremented global contact counter.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int CollisionContactSolver(int* this, float* rec, float a3) {",
+    "  int slot = (unsigned char)rec[0];",
+    "  int contrib = ((*(int*)rec >> 8) & 0x3FF) + 8;",
+    "  if (slot < 0x68) {",
+    "    float acc = this[slot + 109];",
+    "    this[slot + 5] = 0;",
+    "    if (acc > 0.5f) {",
+    "      this[slot + 1097] = -1082130432;",
+    "      float d = a3 - rec[1];",
+    "      FloatToShortViaFtol(d, (short*)&this[8*slot + 265] + *((byte*)this + slot + 956));",
+    "      if (*((byte*)this + slot + 852) < 0x10) ++*((byte*)this + slot + 852);",
+    "      *((byte*)this + slot + 956) = (*((byte*)this + slot + 956) + 1) & 0xF;",
+    "      this[slot + 109] = 0;",
+    "    }",
+    "    if (ShortArrayLookupAndZeroCheck(slot, &rec)) rec[1] -= *(float*)&rec[0];",
+    "    if (rec[1] <= dbl_8AFEA0) { if (rec[1] < dbl_8AFEA0 - flt_7D108C) rec[1] = dbl_8AFEA0 - flt_7D108C; }",
+    "    else rec[1] = dbl_8AFEA0;",
+    "  }",
+    "  int result = this[2] + 1;",
+    "  this[1] += contrib;",
+    "  this[2] = result;",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The indexed state arrays (per-slot floats at this[v4+109], impact markers at this[v4+1097], counters at this+v4+852, ring buffers at this[8*v4+265], ring offsets at this+v4+956) are dynamic-indexed and are not packet fields; their layout and the meaning of the 0x68 slot count are not established.",
+    "The literal -1082130432 is preserved exactly as the packet spells it; its interpretation as a float bit pattern is not asserted.",
+    "Global flt_59E450 is listed in the packet but does not appear in the raw source of this function; its role is unknown.",
+    "The owning object (the contact/collision manager holding counters at +0x4/+0x8) is not established by the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E450"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

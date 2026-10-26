@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "address": "0x004BFCD0",
+  "proposed_name": "VehicleArrayIndexAccessor",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": [
+      "source:raw"
+    ]
+  },
+  "summary": "Indexed lookup into the global vehicle-file entry array. Walks a singly-linked list from head (*this) for a2 steps (following the next pointer at node+4), caching the current node in this[2]; reads the vehicle-file index from the node's data pointer (*(this+0x8)+0) and, if it is below the vehicle-file count dword_8AC390, returns dword_8AC394 + 1060 * index (stride 0x424). Returns 0 when a2 is out of range (a2 >= this[3] list count), when a2 is negative (this[2] reset to 0), when the walk hits a null node early, or when the resolved index is out of range. Called by GameFilterDataLoader (004C0DB0).",
+  "local_names": {
+    "v2": "remaining walk steps (counted down from a2)",
+    "v4": "current linked-list node pointer",
+    "v5": "current node pointer cast for dereference",
+    "v6": "data pointer read from the current node",
+    "v7": "vehicle-file index read from the node data"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If a2 >= this[3] (the linked-list element count at this+0xC) return 0; the index is out of range.",
+      "evidence_refs": [
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If a2 < 0, set this[2] (this+0x8) to 0 instead of walking the list; the negative index yields no node.",
+      "evidence_refs": [
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "For a2 >= 0, initialize the current-node cursor this[2] = *this (head of the linked list).",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the list a2 steps: read the current node v4 from this[2]; break if null; decrement the step counter v2 and advance this[2] to the next node via the pointer at v4 + 4. Iterate while v2 > 0.",
+      "evidence_refs": [
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Resolve the node's data pointer: v5 = this[2]; v6 = *v5 if the node exists, else 0; then read the vehicle-file index v7 = *v6.",
+      "evidence_refs": [
+        "field:*(this+0x8):0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If the vehicle-file index v7 >= dword_8AC390 (the vehicle-file entry count), return 0; index is out of range.",
+      "evidence_refs": [
+        "global:0x008AC390",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the target entry address: dword_8AC394 (vehicle-file entry array base) + 1060 * v7, the 0x424-byte stride scaled by the index.",
+      "evidence_refs": [
+        "global:0x008AC394",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "Return the resolved vehicle-file entry pointer, or 0 on any out-of-range path.",
+      "evidence_refs": [
+        "function:0x004BFCD0",
+        "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "result = 0;",
+    "if (a2 < this[3]) {",
+    "    if (a2 < 0) {",
+    "        this[2] = 0;",
+    "    } else {",
+    "        this[2] = *this;",
+    "        v2 = a2;",
+    "        while (v2 > 0) {",
+    "            v4 = this[2];",
+    "            if (!v4) break;",
+    "            --v2;",
+    "            this[2] = *(int *)(v4 + 4);",
+    "        }",
+    "    }",
+    "    v5 = this[2];",
+    "    v6 = v5 ? *v5 : 0;",
+    "    v7 = *v6;",
+    "    if (v7 < dword_8AC390)",
+    "        return dword_8AC394 + 1060 * v7;",
+    "}",
+    "return result;"
+  ],
+  "unresolved": [
+    "The vehicle-file index stored at the node's data pointer (*(this+0x8)+0) has no named field meaning; it is used only as a stride-0x424 index into dword_8AC394.",
+    "The linked-list node layout (data pointer at +0, next pointer at +4) is implied only by the raw source walk; no type/class evidence identifies the node or the owner of `this`.",
+    "The 0x424 stride and the 'vehicle file entry' semantics of dword_8AC394 come from existing_analysis prose (DERIVED); the packet provides no independent writer evidence for the two globals.",
+    "this[2] is a mutable iteration cursor; per existing_analysis an external poke corrupts the list walk, so it is not a safe mod target.",
+    "The edge case where the resolved node exists but its data pointer v6 is null reads *v6 on a null v6; the raw source guards v5 but not the resulting v6 dereference."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x004C0DB0",
+    "abi:lead"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

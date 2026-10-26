@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "address": "0x004DA840",
+  "proposed_name": "RaceFinishStateHandler",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Race-finish state machine tick. State 0 (init) locates the player's slot, transitions to a timer-wait state when the slot is a valid vehicle that has not yet finished, or to the active-finish state otherwise. State 1 holds for a countdown timer (this+0x18) then moves to state 2. State 2 lazily caches the finished lap, runs validation/transition helpers, and when the player's finish state is exactly 1 and the vehicle is present, transitions the session to the results/standings state and returns 0; otherwise returns 1.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Read the current state from this+0x10 (dword index 4).",
+      "evidence_refs": ["field:this:0x00000010", "function:0x004DA840", "abi:lead", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "State 0 (init): set state this+0x10=2, resolve the player slot via sub_4D1B50(dword_8ACEE0, 0); when the slot is in range [0, dword_5C329C) and the finish-state cell dword_5F073C[4656*slot] is 0, set state this+0x10=1 and prime the timer this+0x18=2.0; return 0.",
+      "evidence_refs": ["callee:0x004D1B50", "global:0x008ACEE0", "global:0x005C329C", "global:0x005F073C", "field:this:0x00000010", "field:this:0x00000018"]
+    },
+    {
+      "kind": "guard",
+      "description": "State 1 (timer wait): when this+0x18 reaches <= 0.0 (threshold via flt_59E440), transition state this+0x10=2 and return 0; otherwise return 0 without changing state.",
+      "evidence_refs": ["field:this:0x00000018", "global:0x0059E440"]
+    },
+    {
+      "kind": "guard",
+      "description": "State 2 (active finish check): lazily initialize this+0x24 from the finished-lap table dword_5F0714[4656 * sub_4D1B50(dword_8ACEE0, 0)] when it is still 0.",
+      "evidence_refs": ["field:this:0x00000024", "global:0x005F0714", "callee:0x004D1B50", "global:0x008ACEE0"]
+    },
+    {
+      "kind": "call",
+      "description": "When sub_4DAD80(this) reports a condition, set the secondary timer this+0x1C=2.0.",
+      "evidence_refs": ["callee:0x004DAD80", "field:this:0x0000001C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the result of the finish calculation sub_4DA990(this) into this+0x20.",
+      "evidence_refs": ["callee:0x004DA990", "field:this:0x00000020"]
+    },
+    {
+      "kind": "guard",
+      "description": "When sub_4DAE00(this) returns false, abort with return 0.",
+      "evidence_refs": ["callee:0x004DAE00"]
+    },
+    {
+      "kind": "guard",
+      "description": "Return 1 when any of: qualifying/DSQ flag dword_7CE814 set, finish-state dword_5F073C[4656*slot] != 1, or the player vehicle *(dword_7C54E8+16484) is zero (slot not present) -- i.e. the race-finish transition is not applicable.",
+      "evidence_refs": ["global:0x007CE814", "global:0x005F073C", "global:0x007C54E8", "callee:0x004D1B50", "global:0x008ACEE0"]
+    },
+    {
+      "kind": "call",
+      "description": "Transition the session to the results/summary state: SessionStateTransition(dword_7C54E8+12, 1, 0).",
+      "evidence_refs": ["callee:0x004EF5A0", "global:0x007C54E8"]
+    },
+    {
+      "kind": "call",
+      "description": "Advance the game state machine and log the transition: GameActionStateMachine(&dword_5EA510, 5, 1), GameStateDispatchChain(&dword_5EA510, sub_4D1B50(dword_8ACEE0, 0)), and sub_4D8760(&dword_8AD298, 17, 0); return 0.",
+      "evidence_refs": ["callee:0x0040CDE0", "callee:0x0040D240", "callee:0x004D8760", "callee:0x004D1B50", "global:0x005EA510", "global:0x008ACEE0", "global:0x008AD298"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int RaceFinishStateHandler(float *this) {",
+    "  int state = this[4];",
+    "  if (state == 0) {",
+    "    this[4] = 2;",
+    "    int slot = sub_4D1B50(dword_8ACEE0, 0);",
+    "    if (slot >= 0 && slot < dword_5C329C && !dword_5F073C[4656*slot]) {",
+    "      this[4] = 1;",
+    "      this[6] = 2.0;",
+    "    }",
+    "    return 0;",
+    "  }",
+    "  if (state == 1) {",
+    "    if (this[6] <= 0.0) { this[4] = 2; return 0; }",
+    "    return 0;",
+    "  }",
+    "  if (state != 2) return 0;",
+    "  if (this[9] == 0)",
+    "    this[9] = dword_5F0714[4656 * sub_4D1B50(dword_8ACEE0, 0)];",
+    "  if (sub_4DAD80(this)) this[7] = 2.0;",
+    "  this[8] = sub_4DA990(this);",
+    "  if (!sub_4DAE00(this)) return 0;",
+    "  if (dword_7CE814",
+    "      || dword_5F073C[4656 * sub_4D1B50(dword_8ACEE0, 0)] != 1",
+    "      || !*(int*)(dword_7C54E8 + 16484))",
+    "    return 1;",
+    "  SessionStateTransition(dword_7C54E8+12, 1, 0);",
+    "  GameActionStateMachine(&dword_5EA510, 5, 1);",
+    "  GameStateDispatchChain(&dword_5EA510, sub_4D1B50(dword_8ACEE0, 0));",
+    "  sub_4D8760(&dword_8AD298, 17, 0);",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "The state names and enum values (0=init, 1=timer wait, 2=active) are DERIVED from the state-transition pattern, not confirmed by packet evidence.",
+    "sub_4D1B50(dword_8ACEE0, 0) resolves the current player/slot; its exact contract is outside this packet.",
+    "dword_5F073C, dword_5F0714 and dword_7C54E8 are indexed with the 4656-byte vehicle stride per the corpus facts; the specific field identities (finish state, lap number, vehicle presence) are from the existing analysis and not independently proven here.",
+    "The legacy ABI name 'Pit_Grid_Position_State_Machine' for this address conflicts with the race-finish interpretation of the control flow.",
+    "The comparison threshold flt_59E440 is cited as the zero threshold by the existing analysis but its exact value is not shown in the packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

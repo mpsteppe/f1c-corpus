@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "address": "0x00503CE3",
+  "proposed_name": "BitplaneBlendingCompositing",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00503CE3", "source:raw"]
+  },
+  "summary": "Bitplane blending compositing (canonical name BitplaneBlendingCompositing): for each pair of adjacent source rows, blends the four 16-bit pixels seen through a sliding one-pixel window (two pixels from each row) into one 16-bit destination pixel per step, using 4-bit-per-channel masks 0xF0F0 and 0xF0F with rounding constants 8224 and 514. The source advances one row stride per outer iteration (adjacent-row pairs) and the destination advances its own row stride (this+0x1054), so this is a full-resolution compositing pass rather than a downscale. Always returns 0.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Dereference this+0x0 to obtain the source surface object, then read its +0x18 field to get the source pixel-data base pointer.",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000018"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the source row stride at obj+0x1050 and the blocks-per-row count at obj+0x105C, then compute the outer loop end bound as source base plus stride multiplied by blocks-per-row.",
+      "evidence_refs": ["field:obj:0x00001050", "field:obj:0x0000105C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the destination surface object at this+0x4 and obtain its 16-bit pixel-data base pointer.",
+      "evidence_refs": ["field:this:0x00000004", "field:*(obj+0x18):0x00000000"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer row loop runs while the source pixel pointer is below the end bound; each pass processes the current source row against the next row (one stride ahead), advances the destination pointer by the destination row stride at this+0x1054, and advances the source by one source row stride.",
+      "evidence_refs": ["field:this:0x00001054", "field:obj:0x00001050"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the source block width at obj+0x1058 and form the inner loop row-end bound as the source pointer plus the width.",
+      "evidence_refs": ["field:obj:0x00001058"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner loop slides a one-pixel window over each row pair, reading two 16-bit pixels from the current row and two from the next row (word offsets +0x0 and +0x2), writing one blended 16-bit pixel per step so the output row is one pixel narrower than the source row.",
+      "evidence_refs": ["field:*(obj+0x18):0x00000000", "field:*(obj+0x18):0x00000002"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Blend the four pixels: average each 4-bit channel group separately, using mask 0xF0F0 with rounding constant 8224 and mask 0xF0F with rounding constant 514, shifting right by 2 and XOR-combining into the output pixel.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 after the outer loop completes; no error path exists.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Dispatched as the format-26 handler by COMInterfaceVectorProcessingMethod (00504B37) during vector compositing.",
+      "evidence_refs": ["caller:0x00504B37"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int BitplaneBlendingCompositing(int* this) {",
+    "  char* srcSurf = (char*)this[0];",
+    "  WORD* src = *(WORD**)(srcSurf + 0x18);",
+    "  int srcStride = *(int*)(srcSurf + 0x1050);",
+    "  int blocks = *(int*)(srcSurf + 0x105C);",
+    "  int width = *(int*)(srcSurf + 0x1058);",
+    "  char* dstSurf = (char*)this[1];",
+    "  WORD* dst = *(WORD**)(dstSurf + 0x18);",
+    "  int dstStride = *(int*)(dstSurf + 0x1054);",
+    "  WORD* srcEnd = (WORD*)((char*)src + srcStride * blocks);",
+    "  for (; src < srcEnd; src = (WORD*)((char*)src + srcStride)) {",
+    "    WORD* rowB = (WORD*)((char*)src + srcStride);",
+    "    WORD* out = dst;",
+    "    WORD* rowEnd = src + width;",
+    "    for (WORD* p = src; p + 1 < rowEnd; p++, out++) {",
+    "      WORD a0 = p[0], a1 = p[1];",
+    "      WORD b0 = rowB[(p - src)], b1 = rowB[(p - src) + 1];",
+    "      *out = (WORD)(((((b0 & 0xF0F0) + (a0 & 0xF0F0) + (b1 & 0xF0F0) + (a1 & 0xF0F0) + 8224) >> 2)",
+    "                  ^ ((((a1 & 0xF0F) + (b0 & 0xF0F) + (a0 & 0xF0F) + (b1 & 0xF0F) + 514) >> 2)",
+    "                    ^ (((b0 & 0xF0F0) + (a0 & 0xF0F0) + (b1 & 0xF0F0) + (a1 & 0xF0F0) + 8224) >> 2))) & 0xF0F);",
+    "    }",
+    "    dst = (WORD*)((char*)dst + dstStride);",
+    "  }",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "this+0x1C is recorded as a read field but has no visible use in the raw pseudocode; its purpose is unknown.",
+    "Unlike the structural twins F_16BitTextureBlending (00503b94) and PixelBlenderCompositor (00503e36), the inner read window slides by one 16-bit pixel per iteration and the source advances a single row stride, so this performs a full-resolution adjacent-row blending pass rather than a 2x2 downscale.",
+    "The canonical name BitplaneBlendingCompositing is inherited by cluster_copy from structural twin sub_503920 (00503920) at DERIVED trust; the twin relationship is not independently confirmed.",
+    "The 4-bit-per-channel pixel format implied by masks 0xF0F0 and 0xF0F is inferred from the arithmetic (DERIVED) and not independently grounded; the object type behind this+0x0 and this+0x4 is UnknownObject."
+  ],
+  "unresolved_evidence_refs": ["field:this:0x0000001C"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

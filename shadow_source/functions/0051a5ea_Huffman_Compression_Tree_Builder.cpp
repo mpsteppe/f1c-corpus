@@ -1,0 +1,50 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051A5EA
+// Canonical corpus name: sub_51A5EA
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_51A5EA_0051a5ea.c
+
+void UnknownObject::Huffman_Compression_Tree_Builder()
+{
+    // Builds a length-limited Huffman decoding table (per the LEGACY ABI name Huffman_Compression_Tree_Builder, consistent with the observed structure). Lazily allocates a 1492-byte working buffer through the object's allocation routine dispatched via the function pointer at a1+4, caching it in *a3; retains the 16-byte input count array a2 at buffer offset +208. RLE-expands the 16 counts into a local symbol-length sequence, computes the canonical Huffman code start-index table, writes the tree rows at buffer offsets +4/+72/+144, and populates a fast-decode table pair at offsets +212 (symbols) and +1236 (length bytes) for bit lengths 7..0.
+    // GUARD: If the output slot *a3 is null, allocate the working buffer lazily before any use. [source:raw]
+    // CALL: Invoke the allocation routine through the function pointer stored at a1+4 (object vtable slot) with arguments (a1, 1, 1492), and store the returned buffer address into *a3. [source:raw, field:*(this+0x4):0x00000000, field:this:0x00000004]
+    // ASSIGNMENT: Store the input 16-byte count array pointer a2 at byte offset +208 of the working buffer so the counts are retained for later passes. [source:raw]
+    // LOOP: Pass 1 (i = 1..16): read each input count byte a2[i] and RLE-expand by appending symbol i repeated a2[i] times into the local length-sequence buffer v29, using a memset32 fill of the repeated-byte pattern. [source:raw]
+    // LOOP: Pass 2: walk the expanded length sequence and compute the canonical Huffman code start-index table v28, doubling the running code value at each length boundary (standard canonical code construction). [source:raw]
+    // LOOP: Pass 3 (lengths 1..16): write the tree rows for each present length, storing the start index at +4 and +144 and the end index at +72 (b[1], b[36], b[18]); absent lengths store -1 at +72. [source:raw]
+    // ASSIGNMENT: Write 0xFFFFF to +136 (b[34]) and zero-fill the 0x400-byte symbol table starting at +212 (b+53). [source:raw]
+    // LOOP: Pass 4 (bit lengths j = 7..0): for each length level, fill the fast-decode lookup spans of size 1<<j: store the symbol at the table slot b[start+53] (+212 region) and the length byte at (char*)b + start + 1236, for every symbol at that length. [source:raw]
+    // RETURN: Return the last processed code value (result). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_51A5EA(int a1, int a2, int a3) {
+    //     if (!*(void **)a3)
+    //       *(void **)a3 = (*(void *(__cdecl **)(int, int, int))(a1 + 4))(a1, 1, 1492);
+    //     int *b = *(int **)a3;
+    //     *(int *)((char *)b + 208) = a2;            // retain the 16 count bytes
+    //   
+    //     // RLE-expand counts a2[1..16] into a local length sequence s:
+    //     // symbol i repeated a2[i] times (memset32 fill of the repeated byte i).
+    //     unsigned char s[260];
+    //     int n = 0;
+    //     for (int i = 1; i <= 16; ++i) {
+    //       int c = *(unsigned char *)(a2 + i);
+    //       if (c >= 1) n += c;
+    //     }
+    //     s[n] = 0;
+    //   
+    //     // Canonical Huffman code construction:
+    //     //   - start table: walk the expanded sequence, doubling the running code
+    //     //     value at each length boundary (start[++k] = code++),
+    //     //   - tree rows: for each length 1..16 write start indices at +4/+72/+144
+    //     //     (b[1], b[18], b[36]), or -1 at +72 when the length is absent,
+    //     //   - tables: b[34] = 0xFFFFF, zero the 0x400-byte symbol table at +212,
+    //     //     then for bit lengths j = 7..0 fill the fast-decode spans at +212
+    //     //     (symbol) and +1236 (length byte).
+    //     return result;
+    //   }
+    // UNRESOLVED: The exact meaning of the tree rows at +4/+72/+144 and the 0xFFFFF sentinel at +136 are not independently grounded beyond the Huffman-table-building structure.
+    // UNRESOLVED: The identity of the allocation routine behind the function pointer at a1+4 and the owning class of a1 are unknown; the call is modeled as an unprototyped cdecl call returning a buffer pointer.
+    // UNRESOLVED: Callers ArrayProcessingWithValidation (0x0051AD93) and sub_51B7CD (0x0051B7CD) are not analyzed, so the caller-side encoded/decoded stream contract is unknown.
+}

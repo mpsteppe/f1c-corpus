@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "address": "0x00589CC6",
+  "proposed_name": "CRTProcessExitHandler",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00589CC6"]
+  },
+  "summary": "CRT process-exit/termination handler. Runs a pre-exit cleanup (sub_589D6B), then when the terminate-on-exit flag dword_8D3EB0 equals 1 force-terminates via TerminateProcess. Records the exit state (dword_8D3EAC = 1, byte_8D3EA8 = a3), and when a2 is zero runs the registered atexit function stack (top dword_8D5A50 down to bottom dword_8D5A54) plus a terminate-data-range cleanup via UtilityFunction_9d7d. An unconditional second UtilityFunction_9d7d pass covers the terminate-handler data range. When a3 is zero, marks dword_8D3EB0 = 1 and exits via ExitProcess. Returns CriticalSectionLeave().",
+  "local_names": {
+    "uExitCode": "process exit code forwarded to TerminateProcess/ExitProcess",
+    "a2": "flag gating the atexit stack walk and terminate-data cleanup",
+    "a3": "gate flag stored into byte_8D3EA8; zero also selects the ExitProcess path",
+    "v4": "walker over the registered exit-function stack"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Run the pre-exit cleanup routine sub_589D6B before any exit decision.",
+      "evidence_refs": ["callee:0x00589D6B", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the terminate-on-exit flag dword_8D3EB0 equals 1, hard-terminate the process.",
+      "evidence_refs": ["global:0x008D3EB0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Obtain the current process handle via GetCurrentProcess.",
+      "evidence_refs": ["global:0x0059E18C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Force-terminate the process with TerminateProcess(handle, uExitCode).",
+      "evidence_refs": ["global:0x0059E1D0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Record that the application is exiting: dword_8D3EAC = 1.",
+      "evidence_refs": ["global:0x008D3EAC", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the gate flag a3 into byte_8D3EA8.",
+      "evidence_refs": ["global:0x008D3EA8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When a2 is zero, run the registered exit handlers (atexit stack and terminate-data cleanup); otherwise skip that block.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard the atexit stack walk: proceed only when dword_8D5A54 (stack bottom) is non-null and the stack top (dword_8D5A50 - 4) is at or above it.",
+      "evidence_refs": ["global:0x008D5A54", "global:0x008D5A50", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the registered exit-function stack from the top dword_8D5A50 down to the bottom dword_8D5A54, calling each non-null function pointer.",
+      "evidence_refs": ["global:0x008D5A50", "global:0x008D5A54", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Clean up the terminate data range [unk_5BE3DC, unk_5BE3E4) via UtilityFunction_9d7d.",
+      "evidence_refs": ["callee:0x00589D7D", "global:0x005BE3DC", "global:0x005BE3E4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Clean up the terminate-handler data range [unk_5BE3E8, unk_5BE3F0) via UtilityFunction_9d7d (unconditional).",
+      "evidence_refs": ["callee:0x00589D7D", "global:0x005BE3E8", "global:0x005BE3F0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the gate flag a3 is zero, mark terminate-on-exit (dword_8D3EB0 = 1) and exit normally.",
+      "evidence_refs": ["global:0x008D3EB0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Exit the process with ExitProcess(uExitCode).",
+      "evidence_refs": ["global:0x0059E1D4", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Release the exit critical section via CriticalSectionLeave() and return its result.",
+      "evidence_refs": ["callee:0x00589D74", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by UtilityFunction_9ca4 and sub_589CB5 as the CRT process-exit handler.",
+      "evidence_refs": ["caller:0x00589CA4", "caller:0x00589CB5", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_589CC6(UINT exitCode, int skipCleanup, int gateFlag) {",
+    "  sub_589D6B();",
+    "  if (dword_8D3EB0 == 1) TerminateProcess(GetCurrentProcess(), exitCode);",
+    "  dword_8D3EAC = 1;",
+    "  byte_8D3EA8 = gateFlag;",
+    "  if (!skipCleanup) {",
+    "    if (dword_8D5A54) {",
+    "      void (**fn)(void) = (void (**)(void))(dword_8D5A50 - 4);",
+    "      if ((unsigned)dword_8D5A50 - 4 >= (unsigned)dword_8D5A54) {",
+    "        do {",
+    "          if (*fn) (*fn)();",
+    "          --fn;",
+    "        } while ((unsigned)fn >= (unsigned)dword_8D5A54);",
+    "      }",
+    "    }",
+    "    UtilityFunction_9d7d(&unk_5BE3DC, &unk_5BE3E4);",
+    "  }",
+    "  UtilityFunction_9d7d(&unk_5BE3E8, &unk_5BE3F0);",
+    "  if (!gateFlag) {",
+    "    dword_8D3EB0 = 1;",
+    "    ExitProcess(exitCode);",
+    "  }",
+    "  return CriticalSectionLeave();",
+    "}"
+  ],
+  "unresolved": [
+    "The exact semantics of a2 and a3: a2 gates the atexit/terminate-data cleanup block; a3 gates byte_8D3EA8 and the ExitProcess path. Their caller-level meaning is not established.",
+    "UtilityFunction_9d7d's cleanup behavior over the two data ranges is not established by this packet.",
+    "dword_8D3EB0 is read as the hard-terminate gate and later written to 1 on the normal-exit path; the two states are only partially characterized.",
+    "The registered-exit-function stack layout (top dword_8D5A50, bottom dword_8D5A54) is inferred from the pointer-walk arithmetic."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,24 @@
+// f1c  0x00568a60  size=160
+char __fastcall sub_568A60(int a1, unsigned __int8 a2, unsigned __int8 a3, _DWORD *a4)
+{
+  int v4; // edi
+  int v6; // esi
+  int i; // eax
+
+  *a4 = 0;
+  v4 = sub_587DB0(a1, aRb);
+  if ( !v4 )
+    return 0;
+  if ( !a2 )
+    a2 = 1;
+  *a4 = 0;
+  sub_587F64(v4, 0, 0);
+  v6 = a3;
+  for ( i = sub_589FCC(v4); i != -1; i = sub_589FCC(v4) )
+  {
+    *a4 += v6 * i;
+    v6 = (v6 + 1) % a2;
+  }
+  sub_587D02(v4);
+  return 1;
+}

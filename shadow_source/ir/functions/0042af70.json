@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "address": "0x0042AF70",
+  "proposed_name": "AIOvertakeDecision",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0042AF70", "abi:lead", "source:raw"]
+  },
+  "summary": "AI overtake decision evaluated per frame from AISteering. Returns a3 (the candidate overtake direction value) when an overtake against the opponent vehicle a2 is accepted, otherwise 0. Bails out immediately during replay (ReplayAIStateCheck). Updates the shared max speed this+0x450C to max of own and opponent speed. Then gates by session type dword_7C56A4: for race (7) it compares lap numbers this+0x403C; for session 5 it runs ServerSessionGateCheck on both vehicles; for other types it requires the opponent to be losing (a2 best-lap this+0x409C < own). For session 7 it additionally requires the current overtake target this+0x45F8 to equal a2, checks the overtake-state dword at obj+0x48A8 (obj = *(this+0x0)) against the opponent's with this lap number > 3, and a pit/stop-state eligibility condition on both cars' obj fields. When accepted and this+0x3D6C != 2 (guard:0) and fuel-rate factor this+0x3984 > 0.001, it records the target this+0x45FC = a2 and sets the overtake speed offset this+0x4420 to +3.0 (a3 == 2) or -3.0.",
+  "local_names": {
+    "v4": "return value / overtake candidate (0 or a3)",
+    "v6": "shared max speed = max(this+0x450C, a2 speed)",
+    "v7": "opponent object pointer = *a2",
+    "v8": "this lap number this+0x403C",
+    "v9": "own object pointer = *(this+0x0)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Replay gate: if ReplayAIStateCheck(this + 3) returns nonzero, return 0 immediately (no overtaking during replay).",
+      "evidence_refs": ["callee:0x004F1C20", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Shared max speed: this+0x450C = max(this+0x450C, opponent speed a2+0x44C4).",
+      "evidence_refs": ["field:this:0x0000450C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Session-type gate on global dword_7C56A4: if != 7 and != 5, then if opponent best lap a2+0x409C >= own this+0x409C return 0 (opponent is not losing), else accept the overtake.",
+      "evidence_refs": ["global:0x007C56A4", "field:this:0x0000409C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Session-5 gate: if dword_7C56A4 == 5, return 0 unless ServerSessionGateCheck(this) succeeds while ServerSessionGateCheck(a2) fails.",
+      "evidence_refs": ["global:0x007C56A4", "callee:0x0042AE60", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Session-7 lap comparison: if dword_7C56A4 == 7, v8 = this+0x403C (lap number); if opponent lap a2+0x403C > v8 accept the overtake unconditionally, otherwise fall through to the stricter target checks.",
+      "evidence_refs": ["global:0x007C56A4", "field:this:0x0000403C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Target identity: if this+0x45F8 (current overtake target) != a2 return 0.",
+      "evidence_refs": ["field:this:0x000045F8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Overtake-state comparison: with v9 = *(this+0x0) as the object pointer, if obj+0x48A8 > opponent obj+0x48A8 AND this lap number v8 (this+0x403C) > 3, mark the candidate v4 = a3.",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x000048A8", "field:this:0x0000403C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Pit/stop-state eligibility: a complex AND/OR condition over own obj (v9) and opponent obj (v7) dword/byte fields at +0xCD4/+0xD14/+0xD18/+0xD58 (own car in a stop-request state while opponent is not, or opponent flagged) marks the candidate v4 = a3. Offsets are read from the source but not individually enumerated in the packet field list.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Commit conditions: if v4 (candidate) is set AND this+0x3D6C != 2 (guard:0, car conditions) AND this+0x3984 (fuel-rate factor) > 0.001, then record this+0x45FC = a2 (new overtake target); if a3 == 2 set this+0x4420 = 3.0, else this+0x4420 = -3.0.",
+      "evidence_refs": ["field:this:0x00003D6C", "field:this:0x00003984", "field:this:0x000045FC", "field:this:0x00004420", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v4: the accepted candidate a3 when the overtake conditions hold, otherwise 0.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if ReplayAIStateCheck(this + 3): return 0;",
+    "this[0x450C] = max(this[0x450C], a2[0x44C4]);",
+    "if dword_7C56A4 != 7:",
+    "  if dword_7C56A4 == 5: if ServerSessionGateCheck(this) or not ServerSessionGateCheck(a2): return 0;",
+    "  else if a2[0x409C] >= this[0x409C]: return 0;",
+    "  else: accept;",
+    "else:",
+    "  v8 = this[0x403C];",
+    "  if a2[0x403C] > v8: accept;",
+    "  else if this[0x45F8] != a2: return 0;",
+    "  else if obj(this)[0x48A8] > obj(a2)[0x48A8] and v8 > 3: accept;",
+    "  else if pit/stop eligibility on obj(this) and obj(a2): accept;",
+    "  else: return 0;",
+    "if accepted and this[0x3D6C] != 2 and this[0x3984] > 0.001:",
+    "  this[0x45FC] = a2;",
+    "  this[0x4420] = (a3 == 2) ? 3.0 : -3.0;",
+    "return accepted ? a3 : 0;"
+  ],
+  "unresolved": [
+    "Global flt_59E600 (0x0059E600) is read per the fact table but never appears as a named reference in the .c (FPU-folded into an instruction).",
+    "Several source offsets are not individually enumerated in the packet field list and are only covered by source:raw: the opponent speed field a2+0x44C4, the opponent lap/best-lap fields a2+0x403C and a2+0x409C, the opponent overtake state a2+0x48A8, and the pit/stop-state fields on both vehicles' object pointers at +0xCD4/+0xD14/+0xD18/+0xD58.",
+    "The exact meaning of the pit/stop-state AND/OR condition (which combination of the +0xCD4/+0xD14/+0xD18/+0xD58 flags permits an overtake) and the semantics of a3 (direction) are DERIVED from the fills, not proven by the .c."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E600"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

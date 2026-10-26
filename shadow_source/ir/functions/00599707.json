@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "address": "0x00599707",
+  "proposed_name": "CharByCharBackwardScanWithValidation",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00599707"]
+  },
+  "summary": "Scans a3 bytes of the buffer at a1 backward (starting one byte past the end), feeding each byte to FileIOWrapperWithLock against the stream object a2. Returns 1 when every byte was accepted (a3 consumed entirely); on the first -1 return from FileIOWrapperWithLock it stops and returns 0. A residual drain block that reads bytes back from a2 via StreamGetcWithUnderflowHandler appears unreachable in the given control flow. Called by CharValidationAgainstEncodingTableWithLocaleFall (00598FD4) and FileOffsetPositionValidation (0059A01E).",
+  "local_names": {
+    "a1": "base of the byte buffer being scanned",
+    "a2": "stream/IO object",
+    "a3": "byte count to scan",
+    "v3": "remaining byte count",
+    "v5": "backward cursor, one-past-end initially",
+    "v6": "current byte read from the buffer",
+    "v8": "drain counter in the fallback block"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "v3 = a3 (remaining count) and v5 = a1 + a3 (one-past-end cursor); v4 = (a3 == 0) records the empty-input success flag",
+      "evidence_refs": ["function:0x00599707", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Scan loop is entered only when a3 != 0; an empty buffer falls through to the success return",
+      "evidence_refs": ["function:0x00599707", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "do/while backward scan: pre-decrement v5 and read one byte (v6 = *(unsigned __int8 *)--v5), continuing while v3 is non-zero",
+      "evidence_refs": ["function:0x00599707", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FileIOWrapperWithLock(v6, a2): hands each scanned byte to the stream; the -1 sentinel marks a rejected byte",
+      "evidence_refs": ["callee:0x0059685F", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "if FileIOWrapperWithLock returns -1, break out of the scan early with v3 still non-zero (failure path)",
+      "evidence_refs": ["function:0x00599707", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "--v3 per accepted byte; v4 is recomputed as (v3 == 0) after the loop, and the scan returns 1 when the whole buffer was accepted",
+      "evidence_refs": ["function:0x00599707", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "return 1 when v4 is true (a3 == 0 either initially or fully consumed)",
+      "evidence_refs": ["function:0x00599707", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Fallback drain block calls StreamGetcWithUnderflowHandler(a2) in a do/while over v8",
+      "evidence_refs": ["callee:0x00589FCC", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "return 0 on the failure path (v4 false, i.e. not all bytes accepted)",
+      "evidence_refs": ["function:0x00599707", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by CharValidationAgainstEncodingTableWithLocaleFall (00598FD4) and FileOffsetPositionValidation (0059A01E)",
+      "evidence_refs": ["caller:0x00598FD4", "caller:0x0059A01E"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v3 = a3; v5 = a1 + a3; v4 = (a3 == 0);",
+    "if (a3 != 0) {",
+    "  do {",
+    "    v6 = *(unsigned __int8 *)--v5;",
+    "    if (FileIOWrapperWithLock(v6, a2) == -1) break;",
+    "    --v3;",
+    "  } while (v3);",
+    "  v4 = (v3 == 0);",
+    "}",
+    "if (v4) return 1;",
+    "v8 = 1;",
+    "if (!v3) {",
+    "  do { StreamGetcWithUnderflowHandler(a2); --v8; } while (v8);",
+    "}",
+    "return 0;"
+  ],
+  "unresolved": [
+    "The fallback block (v8 = 1; if (!v3) { do StreamGetcWithUnderflowHandler(a2); --v8; } while (v8);) is unreachable as written: reaching it requires v4 == false, hence v3 != 0, so the inner if(!v3) never fires. Likely a compiler artifact; the intended drain behavior is not verifiable here.",
+    "FileIOWrapperWithLock is treated as a per-byte validator/writer only via its -1 sentinel; its exact semantics are outside this function."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

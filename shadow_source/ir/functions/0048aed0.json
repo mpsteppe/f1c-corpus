@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "address": "0x0048AED0",
+  "proposed_name": "UIScreenLoad",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Loads UI screen resource data from a file into a freshly allocated (pointer, size) buffer, then installs it as the caller's output pointer. The resource filename is built from an override path prefix (dword_5EC408) plus a per-screen name string from this[0xB0], with byte_5EA438 as the fallback for either part. The file is opened through AudioStreamOpen, its data section size is measured with ResourceLookupDispatcher between two seeks, a data buffer is allocated and its chunks are read out with ConditionalDispatchBasedOnFlag/sub_5665B0, any prior output buffer is freed, and the new buffer replaces it. The open resource is closed on return via SubCallWithConditionalFieldFree.",
+  "local_names": {
+    "v7": "loaded_buffer_struct",
+    "v8": "loaded_data_bytes",
+    "v9": "old_output_struct",
+    "v12": "resource_stream",
+    "v13": "iteration_state",
+    "v14": "path_buffer"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Copy byte_5EA438[0] into the path buffer v14[0] and zero the remaining 0x1FC bytes plus the trailing v15/v16, seeding the buffer from the default directory prefix.",
+      "evidence_refs": ["global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ZeroInitSmallStruct(v12) initializes the small resource_stream struct before use.",
+      "evidence_refs": ["callee:0x005668B0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Select the screen name: v3 = this[44] (this+0xB0); if null, fall back to byte_5EA438.",
+      "evidence_refs": ["field:this:0x000000B0", "global:0x005EA438"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Select the path override: v4 = dword_5EC408; if null, fall back to byte_5EA438.",
+      "evidence_refs": ["global:0x005EC408", "global:0x005EA438"]
+    },
+    {
+      "kind": "call",
+      "description": "StringFormatWithBufferOverflowCheck(v14, \"%s%s\", v4, v3) formats the full resource path as override_prefix + screen_name into the buffer.",
+      "evidence_refs": ["callee:0x0058815F", "global:0x005BE860"]
+    },
+    {
+      "kind": "guard",
+      "description": "If AudioStreamOpen(v12, v14, 1) succeeds, proceed with the load; otherwise skip the whole block and go straight to cleanup.",
+      "evidence_refs": ["callee:0x00566B20"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_566DB0(v12, 2) seeks to the end of the opened resource stream.",
+      "evidence_refs": ["callee:0x00566DB0"]
+    },
+    {
+      "kind": "call",
+      "description": "ResourceLookupDispatcher(v12) reads the end-of-stream position (v5) while the stream is at the end.",
+      "evidence_refs": ["callee:0x00566E20"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_566DB0(v12, 0) seeks back to the start of the resource stream.",
+      "evidence_refs": ["callee:0x00566DB0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the data size v6 = end_position - start_position by subtracting a second ResourceLookupDispatcher(v12) reading from v5.",
+      "evidence_refs": ["callee:0x00566E20"]
+    },
+    {
+      "kind": "call",
+      "description": "OperatorNewNhMallocWrapper(8) allocates the 8-byte output buffer struct (data pointer + size).",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the buffer struct was allocated, allocate v6 data bytes; otherwise leave the output struct null.",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the allocated data pointer into v7[0] and the byte count v6 into v7[1], zeroing the first data byte.",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "kind": "call",
+      "description": "ConditionalDispatchBasedOnFlag(v12, v13, 1) begins iteration over the resource data sections.",
+      "evidence_refs": ["callee:0x00566CC0"]
+    },
+    {
+      "kind": "loop",
+      "description": "While ConditionalDispatchBasedOnFlag(v12, v11, 2) yields another chunk, sub_5665B0(v7, v11) copies that chunk into the loaded buffer.",
+      "evidence_refs": ["callee:0x00566CC0", "callee:0x005665B0"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the caller's output *a2 is non-null, free its data pointer (*v9) and the struct itself with FreeWrapper_7bcf, then set *a2 = 0.",
+      "evidence_refs": ["callee:0x00587BCF"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Install the freshly loaded buffer struct as the output: *a2 = v7.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "SubCallWithConditionalFieldFree(v12) closes/cleans up the resource stream and its return value becomes this function's result.",
+      "evidence_refs": ["callee:0x005668D0", "abi:lead", "function:0x0048AED0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "path = StringFormatWithBufferOverflowCheck(\"%s%s\", dword_5EC408 ? dword_5EC408 : byte_5EA438, this[0xB0] ? this[0xB0] : byte_5EA438);",
+    "if (AudioStreamOpen(stream, path, 1)) {",
+    "    seek(stream, end); end_pos = ResourceLookupDispatcher(stream);",
+    "    seek(stream, start); size = end_pos - ResourceLookupDispatcher(stream);",
+    "    out = malloc(8);",
+    "    if (out) { out.data = malloc(size); out.size = size; }",
+    "    ConditionalDispatchBasedOnFlag(stream, state, 1);",
+    "    while (ConditionalDispatchBasedOnFlag(stream, chunk, 2)) sub_5665B0(out, chunk);",
+    "    if (*a2) { free((*a2).data); free(*a2); *a2 = 0; }",
+    "    *a2 = out;",
+    "}",
+    "return SubCallWithConditionalFieldFree(stream);"
+  ],
+  "unresolved": [
+    "The exact meaning of the ConditionalDispatchBasedOnFlag flag arguments (1 then 2) and the chunk buffer format consumed by sub_5665B0 are not established.",
+    "Whether the resource file is a UI screen description or a generic packaged resource container is unproven; the screen-name field (this[0xB0]) is only DERIVED as a filename component.",
+    "The precise format of the 8-byte output struct (pointer + size) is inferred from the assignments and is not independently confirmed.",
+    "byte_5EA438 as the default directory and dword_5EC408 as the override prefix are DERIVED labels; their exact contents are not verified."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

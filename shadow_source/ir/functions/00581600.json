@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "address": "0x00581600",
+  "proposed_name": "NetworkBufferSearch",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Mutex-protected search of a singly linked list keyed by identifier: acquires the mutex at this+0xAD8, walks from the head at this+0xAC8, and locates the first node whose data field read via ReadFieldAtOffset0x14 equals a2. On match the node data is written through the output buffer at a3+4 via BufferWriteWithParams, a counter is incremented when flag a4 is set, and 1 is returned; otherwise 0 is returned. The mutex is released on every path.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize the result flag v14 to 0 (not found).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the mutex handle at this+0xAD8 is null, skip the wait and fall through with the traversal base set to null.",
+      "evidence_refs": ["field:this:0x00000AD8"]
+    },
+    {
+      "kind": "call",
+      "description": "Wait on the mutex with the timeout stored at this+0xADC via WaitForSingleObject; proceed when the result is 0 or 0x80.",
+      "evidence_refs": ["global:0x0059E1A0", "field:this:0x00000ADC"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On successful wait, set the traversal base v7 to the head field this+0xAC8; on failure set v7 to null.",
+      "evidence_refs": ["field:this:0x00000AC8"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the head pointer at this+0xAC8 being null; an empty list skips the search.",
+      "evidence_refs": ["guard:0", "field:this:0x00000AC8"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Seed the walk cursor this+0xAD0 with the head pointer and read the head node's first DWORD (its data pointer) as v10.",
+      "evidence_refs": ["field:this:0x00000AD0", "field:*(this+0xAC8):0x00000000"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate nodes while ReadFieldAtOffset0x14(node data) differs from the search key a2; advance the cursor this+0xAD0 through each node's next pointer (offset +4). The element-count field this+0xAD4 is not consumed by this search path.",
+      "evidence_refs": ["callee:0x005871F0", "field:this:0x00000AD0", "field:this:0x00000AD4"]
+    },
+    {
+      "kind": "call",
+      "description": "On match, write the matched node data into the output buffer via BufferWriteWithParams(a3 + 4).",
+      "evidence_refs": ["callee:0x00587620"]
+    },
+    {
+      "kind": "guard",
+      "description": "When flag a4 is set, increment a counter via CounterIncrementDecrementByFlag(1).",
+      "evidence_refs": ["callee:0x00587230"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set the found flag v14 to 1 once a matching node is processed.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "If the mutex handle at this+0xAD8 is non-null, release it via ReleaseMutex.",
+      "evidence_refs": ["global:0x0059E1A4", "field:this:0x00000AD8"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v14: 1 when a matching node was found and its data written, 0 otherwise.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char sub_581600(int** this_, int key, int out, char count) {",
+    "  char found = 0;",
+    "  int** base = 0;",
+    "  if (this_[0xAD8/4] && WaitForSingleObject(this_[0xAD8/4], this_[0xADC/4]) in {0, 0x80})",
+    "    base = this_ + 0xAC8/4;",
+    "  if (base && *base) {",
+    "    this_[0xAD0/4] = *base;",
+    "    for (node = *base; node;) {",
+    "      int data = *node;",
+    "      if (ReadFieldAtOffset0x14(data) == key) {",
+    "        BufferWriteWithParams(out + 4);",
+    "        if (count) CounterIncrementDecrementByFlag(1);",
+    "        found = 1; break;",
+    "      }",
+    "      node = this_[0xAD0/4] = node[1];",
+    "    }",
+    "  }",
+    "  if (this_[0xAD8/4]) ReleaseMutex(this_[0xAD8/4]);",
+    "  return found;",
+    "}"
+  ],
+  "unresolved": [
+    "The exact payload layout written to a3+4 by BufferWriteWithParams is caller-defined and not visible here.",
+    "Semantic of the element-count field this+0xAD4 is inferred from surrounding bookkeeping; it is not read in this path.",
+    "The node data structure passed to ReadFieldAtOffset0x14 is opaque; only its identifier field at offset 0x14 is compared."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

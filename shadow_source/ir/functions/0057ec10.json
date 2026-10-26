@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "address": "0x0057EC10",
+  "proposed_name": "lookupByIndexAcrossLists",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Two-phase mutex-protected lookup bridging two linked lists. Phase 1 walks the first list (head at this+0xAC8) up to index a2 (bounded by the count at this+0xAD4) under mutex this+0xAD8, then derives an id from the chosen node's data+0x1C via sub_4B3DB0. Phase 2 searches the second list (head at this+0xB00) under mutex this+0xB10 for a node whose data[0] equals that id, and stores data[1] into *a3. Returns 1 when a match is stored, 0 otherwise.",
+  "local_names": {
+    "list1_head": "first list head pointer at this+0xAC8",
+    "list1_count": "first list element count at this+0xAD4",
+    "list1_mutex": "first list mutex handle at this+0xAD8",
+    "list1_timeout": "first list mutex timeout at this+0xADC",
+    "list2_head": "second list head pointer at this+0xB00",
+    "list2_mutex": "second list mutex handle at this+0xB10",
+    "list2_timeout": "second list mutex timeout at this+0xB14",
+    "node_data1": "payload of a second-list node; data[0] is the matched id, data[1] is written to *a3"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If the first list mutex handle at this+0xAD8 is null, return 0 immediately.",
+      "evidence_refs": ["field:this:0x00000AD8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Wait on the first list mutex (WaitForSingleObject) with timeout at this+0xADC.",
+      "evidence_refs": ["global:0x0059E1A0", "field:this:0x00000AD8", "field:this:0x00000ADC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the wait failed with a status other than 128 (WAIT_ABANDONED), release nothing and return 0.",
+      "evidence_refs": ["global:0x0059E1A0", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the first list from head *(this+0xAC8) to index a2, bounded by a2 in [0, count at this+0xAD4), following each node's next pointer at node+4.",
+      "evidence_refs": ["field:this:0x00000AC8", "field:this:0x00000AD4", "field:*(this+0xAC8):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Derive the lookup id from the selected first-list node's data+0x1C via sub_4B3DB0.",
+      "evidence_refs": ["callee:0x004B3DB0", "field:*(*(this+0xAC8)+0x0):0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the derived id is -1, skip the second-list search.",
+      "evidence_refs": ["callee:0x004B3DB0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the first list mutex (ReleaseMutex).",
+      "evidence_refs": ["global:0x0059E1A4", "field:this:0x00000AD8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the second list mutex handle at this+0xB10 is non-null, wait on it with timeout at this+0xB14 (WAIT_OBJECT_0 or WAIT_ABANDONED accepted).",
+      "evidence_refs": ["global:0x0059E1A0", "field:this:0x00000B10", "field:this:0x00000B14", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Search the second list from head *(this+0xB00), following node->next at node+4, for a node whose data[0] equals the derived id; node data is read through the head node's next.",
+      "evidence_refs": ["field:this:0x00000B00", "field:*(this+0xB00):0x00000004", "field:*(*(this+0xB00)+0x4):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On a match, set the output flag and store the matched node's data[1] into *a3.",
+      "evidence_refs": ["field:*(*(this+0xB00)+0x4):0x00000004", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the second list mutex (ReleaseMutex).",
+      "evidence_refs": ["global:0x0059E1A4", "field:this:0x00000B10", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 if a match was stored in *a3, otherwise 0.",
+      "evidence_refs": ["function:0x0057EC10", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v16 = 0;",
+    "if (!*(void**)(this + 0xAD8)) return 0;",
+    "if (WaitForSingleObject(*(void**)(this + 0xAD8), *(DWORD*)(this + 0xADC)) not in {0, 128}) return 0;",
+    "node = *(int**)(this + 0xAC8);",
+    "if (a2 >= 0 && a2 < *(DWORD*)(this + 0xAD4)) {",
+    "  n = a2;",
+    "  while (node && --n > 0) node = (int*)node[1];",
+    "}",
+    "data = node ? (int*)*node : 0;",
+    "id = data ? *((DWORD*)sub_4B3DB0(*(void**)(data + 28)) + 1) : -1;",
+    "if (*(void**)(this + 0xAD8)) ReleaseMutex(*(HANDLE*)(this + 0xAD8));",
+    "if (id != -1 && *(void**)(this + 0xB10)) {",
+    "  if (WaitForSingleObject(*(void**)(this + 0xB10), *(DWORD*)(this + 0xB14)) in {0, 128}) {",
+    "    node2 = *(_DWORD**)(this + 0xB00);",
+    "    while (node2 && (!*node2 || *(_DWORD*)*node2 != id)) node2 = (_DWORD*)node2[1];",
+    "    if (node2 && *node2) { v16 = 1; *a3 = (*(_DWORD*)*node2)[1]; }",
+    "  }",
+    "  if (*(void**)(this + 0xB10)) ReleaseMutex(*(HANDLE*)(this + 0xB10));",
+    "}",
+    "return v16;"
+  ],
+  "unresolved": [
+    "Both linked-list node headers carry a one-byte flag at node+8 (evidence refs for the first and second list heads); that byte is not read by this function, so its role in the list implementation is unresolved.",
+    "The meaning of the derived id (produced by sub_4B3DB0 from data+0x1C) and the roles of data[0]/data[1] in the second list are not determined from this packet alone.",
+    "WAIT_ABANDONED (128) is accepted as a successful wait in both phases; the game's handling of abandoned mutex state is not further specified."
+  ],
+  "unresolved_evidence_refs": [
+    "field:*(this+0xAC8):0x00000008",
+    "field:*(this+0xB00):0x00000008"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "address": "0x00562710",
+  "proposed_name": "SendBufferChunkedOnBackslash",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Recursive helper that sends a string over a socket in backslash-safe chunks. When the concatenation of the remaining string a4 with the current buffer buf fits in 0x546 bytes it appends it with strcat. Otherwise it scans up to 1350 characters for backslash characters (0x5C), remembering the last even-indexed consecutive backslash as a candidate split point so escaped backslash pairs are not cut apart; if no split point exists in the window it returns the scan end pointer. At a split point it temporarily terminates the string, recurses to flush the buffer, restores the backslash, advances to the split point and repeats. Once the remainder fits, it flushes the accumulated buffer through sub_562610 and copies the remaining tail into buf, then returns.",
+  "local_names": {
+    "v4": "count of consecutive backslashes seen; even counts mark candidate split points",
+    "v5": "current remaining-tail pointer (starts at a4)",
+    "v7": "last even-indexed backslash position (candidate split point)",
+    "result": "scan end pointer returned when no split point exists in the window"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If strlen(a4) + strlen(buf) < 0x546 the whole remaining tail fits: strcat(buf, v5) appends it and the function returns 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Otherwise loop while strlen(v5) > 0x546, scanning up to 1350 characters of the tail for backslash bytes.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "During the scan count consecutive backslashes in v4; each time the current count is even (v4 % 2 == 0) record v7 = current position as the candidate split point.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If no backslash was found in the window (v7 == v5) return the scan end pointer instead of splitting.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "At a valid split point temporarily write *v7 = 0 to terminate the buffer.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Recursively call sub_562710(buf, (int)v5) to flush the completed prefix through the same chunking logic.",
+      "evidence_refs": ["callee:0x00562710", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Restore the backslash byte *v7 = 92 after the recursive flush returns.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Advance the remaining tail to the split point: v5 = v7, reset v4 = 0, and re-check whether the buffer plus remainder now fits.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the remainder finally fits, flush the accumulated buffer through sub_562610(a1, a2, buf) (the socket send path).",
+      "evidence_refs": ["callee:0x00562610", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the final tail into the buffer with strcpy(buf, v5).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the scan end pointer from the no-split path, or 0 on the appending path.",
+      "evidence_refs": ["function:0x00562710", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char* SendBufferChunkedOnBackslash(SOCKET* a1, const struct sockaddr* a2, char* buf, const char* a4) {",
+    "  const char* tail = a4;",
+    "  if (strlen(a4) + strlen(buf) < 0x546) {",
+    "    strcat(buf, tail);",
+    "    return 0;",
+    "  }",
+    "  while (strlen(tail) > 0x546) {",
+    "    int backslashCount = 0;",
+    "    char* split = (char*)tail;",
+    "    for (int i = 0; i < 1350; ++i) {",
+    "      if (tail[i] == 92) {            // backslash '\\\\'",
+    "        if (!(backslashCount % 2)) split = &tail[i];  // even backslash = split point",
+    "        ++backslashCount;",
+    "      }",
+    "    }",
+    "    if (split == tail) return &tail[i];   // no split point in window",
+    "    *split = 0;",
+    "    SendBufferChunkedOnBackslash(a1, a2, buf, tail);",
+    "    *split = 92;",
+    "    tail = split;",
+    "    if (strlen(buf) + strlen(split) < 0x546) {",
+    "      strcat(buf, split);",
+    "      return 0;",
+    "    }",
+    "  }",
+    "  sub_562610(a1, a2, buf);  // flush accumulated buffer",
+    "  strcpy(buf, tail);",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "The constant 0x546 and the scan window of 1350 characters are structural limits whose packet-level meaning is not established; 0x546 may be a wire-packet size limit.",
+    "The purpose of keeping backslash pairs intact (even/odd counting) suggests escaping conventions in the transmitted data, but the underlying protocol is not documented in the packet.",
+    "The two named callers (StackBufferZeroInitWithCallback, StackBufferZeroInitWithVTableCall) and the four anonymous ones are not analyzed here; their names look like pipeline heuristics.",
+    "The return value of the recursive flush is ignored at the call site in the packet source.",
+    "sub_562610's parameter meaning (socket, sockaddr, buffer) is only inferred from the declared prototype."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x005626B0",
+    "caller:0x00562830",
+    "caller:0x00562890",
+    "caller:0x005628F0",
+    "caller:0x00562950",
+    "caller:0x005629B0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

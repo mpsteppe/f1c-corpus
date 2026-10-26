@@ -1,0 +1,86 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004E96C0
+// Canonical corpus name: sub_4E96C0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4E96C0_004e96c0.c
+
+void UnknownObject::Vehicle_Wheel_Contact_Proximity_Check()
+{
+    // Per-vehicle wheel-contact proximity check on the frame path. Computes the squared position delta between the current history slots (this+15020/15024/15028) and the recorded position triplet (this+13524/13528/13532), returns 0 in the dead-zone when movement is near zero, then rolls the recorded position into the history slots. When the rotation alignment dot product at this+13504 is high (>= 0.94999999) it runs the full proximity test through PositionChangeMonitor, projecting the recorded offset onto the monitor basis and testing extents at offsets 88 and 92 against the threshold at this+15212; otherwise a low-alignment path scans up to 4 active contact entries at this+2088 (stride 296) before the same test. Returns 1 when no condition disqualifies.
+    // ASSIGNMENT: v2 = this + 13524: pointer to the recorded position triplet (byte offset 0x34D4). [field:this:0x000034D4, source:raw]
+    // CALCULATION: Per-axis position delta between the current history slots (this+15020, this+15024, this+15028 = offsets 0x3AAC/0x3AB0/0x3AB4) and the recorded triplet (offsets 0x34D4/0x34D8/0x34DC). [field:this:0x00003AAC, field:this:0x00003AB0, field:this:0x00003AB4, field:this:0x000034D4, field:this:0x000034D8, field:this:0x000034DC, source:raw]
+    // CALCULATION: v6 = v4*v4 + v3*v3 + v5*v5: squared magnitude of the position delta. [source:raw]
+    // GUARD: Early-out band: when v6 < 0.0009 (dbl_5AD1C8) the movement is near zero. [global:0x005AD1C8, source:raw]
+    // GUARD: If the dead-zone enable flag at this+12988 (offset 0x32BC) is set, the position is pinned: return 0. [field:this:0x000032BC, source:raw]
+    // RETURN: return 0 (pinned / dead-zone suppressed). [source:raw]
+    // GUARD: If movement is still below 0.000009 (dbl_5AD1D0) even with the flag clear, treat as static: return 0. [global:0x005AD1D0, source:raw]
+    // RETURN: return 0 (essentially static). [source:raw]
+    // ASSIGNMENT: Snapshot recorded Y/Z values: v8 = *(this+13528), v9 = *(this+13532) (offsets 0x34D8/0x34DC). [field:this:0x000034D8, field:this:0x000034DC, source:raw]
+    // ASSIGNMENT: Roll the recorded position into history: *(this+15020) = *(v2); *(this+15024) = v8; *(this+15028) = v9 (offsets 0x3AAC/0x3AB0/0x3AB4 updated). [field:this:0x000034D4, field:this:0x00003AAC, field:this:0x00003AB0, field:this:0x00003AB4, source:raw]
+    // GUARD: Alignment branch on the rotation dot product at this+13504 (offset 0x34C0): if it is >= 0.94999999 (flt_59EE8C) run the full monitor proximity test; otherwise take the low-alignment path. [field:this:0x000034C0, global:0x0059EE8C, source:raw]
+    // CALL: PositionChangeMonitor(this) returns the monitor record v12; read the two neighbor records v13 = *(v12+272) and v14 = *(v12+268). [callee:0x004E9630, source:raw]
+    // CALCULATION: Project the relative offset of the recorded position against the monitor basis: v27 = *(v2)-*(v12), v28 = *(v2+4)-*(v12+4), v26 = (*(v2+8)-*(v12+8))*(v12+40) + v28*(v12+36) + v27*(v12+32). [field:this:0x000034D4, field:this:0x000034D8, field:this:0x000034DC, source:raw]
+    // GUARD: Positive-side contact: when v26 < threshold at this+15212 (offset 0x3B6C), compare the extent field at offset 88 across the monitor/neighbors; return 1 if (threshold - v26) exceeds the minimum extent. [field:this:0x00003B6C, source:raw]
+    // RETURN: return 1 (positive-side overlap detected). [source:raw]
+    // GUARD: Negative-side contact: when -(threshold at this+15212) < v26, compare the extent field at offset 92; return 1 if (v26 + threshold) exceeds the minimum extent. [field:this:0x00003B6C, source:raw]
+    // RETURN: return 1 (negative-side overlap detected). [source:raw]
+    // GUARD: Return 1 when the first compare-flag pair (v21|v22) is set. [source:raw]
+    // RETURN: return 1 (first flag pair set). [source:raw]
+    // GUARD: Return 0 when the second compare-flag pair (v24|v25) is clear. [source:raw]
+    // RETURN: return 0 (second flag pair clear). [source:raw]
+    // LOOP: Low-alignment path: scan the contact array from this+2088 (offset 0x828) in stride 296 while an entry is present and its active byte at +64 (offset 0x868) is set; stop after 4 entries and fall through to the monitor test. [field:this:0x00000828, field:this:0x00000868, source:raw]
+    // GUARD: Very low alignment: when the rotation dot product at this+13504 (offset 0x34C0) is below 0.70710677 (flt_5AD1C4), return 1 immediately without the monitor test. [field:this:0x000034C0, global:0x005AD1C4, source:raw]
+    // RETURN: return 1 (alignment too low). [source:raw]
+    // RETURN: return 1 fallback when no early-return condition triggered. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   // Contact proximity check; returns 1 when the contact persists.
+    //   char sub_4E96C0(int this_) {
+    //     char* rec = (char*)(this_ + 13524);
+    //     float dy = *(float*)(this_ + 15024) - *(float*)(this_ + 13528);
+    //     float dz = *(float*)(this_ + 15028) - *(float*)(this_ + 13532);
+    //     float dx = *(float*)(this_ + 15020) - *(float*)(this_ + 13524);
+    //     double dist2 = dx*dx + dy*dy + dz*dz;
+    //     if (dist2 < 0.0009) {
+    //       if (*(int*)(this_ + 12988)) return 0;
+    //       if (dist2 < 0.000009) return 0;
+    //     }
+    //     *(int*)(this_ + 15020) = *(int*)rec;
+    //     *(int*)(this_ + 15024) = *(int*)(this_ + 13528);
+    //     *(int*)(this_ + 15028) = *(int*)(this_ + 13532);
+    //     if (*(float*)(this_ + 13504) >= 0.94999999) {
+    //       int* mon = PositionChangeMonitor((_DWORD*)this_);
+    //       char* nb1 = *(char**)((char*)mon + 272);
+    //       char* nb2 = *(char**)((char*)mon + 268);
+    //       float rx = *(float*)rec - *(float*)mon;
+    //       float ry = *(float*)(rec + 4) - *(float*)((char*)mon + 4);
+    //       float rz = *(float*)(rec + 8) - *(float*)((char*)mon + 8);
+    //       float dot = rx * *(float*)((char*)mon + 32)
+    //                 + ry * *(float*)((char*)mon + 36)
+    //                 + rz * *(float*)((char*)mon + 40);
+    //       if (dot < *(float*)(this_ + 15212)) {
+    //         float a = min(*(float*)(nb1 + 88), *(float*)(nb2 + 88));
+    //         float b = (*(float*)((char*)mon + 88) >= a) ? a : *(float*)((char*)mon + 88);
+    //         if (*(float*)(this_ + 15212) - dot > b) return 1;
+    //       }
+    //       if (-*(float*)(this_ + 15212) < dot) {
+    //         float a = min(*(float*)(nb1 + 92), *(float*)(nb2 + 92));
+    //         float b = (*(float*)((char*)mon + 92) >= a) ? a : *(float*)((char*)mon + 92);
+    //         if (dot + *(float*)(this_ + 15212) > b) return 1;
+    //       }
+    //       // trailing compare flags decide a final return 0 or 1
+    //     } else {
+    //       if (*(float*)(this_ + 13504) < 0.70710677) return 1;
+    //       int idx = 0;
+    //       char* c = (char*)(this_ + 2088);
+    //       while (*(int*)c && *(char*)(c + 64)) {
+    //         if (++idx >= 4) break;
+    //         c += 296;
+    //       }
+    //     }
+    //     return 1;
+    //   }
+    // UNRESOLVED: Owner object is a per-vehicle collision/proximity record; field semantics (alignment dot product, proximity threshold, dead-zone flag, contact array) are DERIVED from existing analysis, not proven by packet evidence alone.
+    // UNRESOLVED: The PositionChangeMonitor (0x004E9630) return layout (offsets 268/272, basis 32/36/40, extents 88/92) is not documented in the packet, so the projection and extent checks are interpreted from raw arithmetic.
+    // UNRESOLVED: The trailing v21/v22/v24/v25 compare-flag exits are represented conservatively; their exact meaning depends on the compare instructions, which the packet does not show.
+}

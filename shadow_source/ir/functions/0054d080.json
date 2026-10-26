@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "address": "0x0054D080",
+  "proposed_name": "ComputeTriangleMeshBounds",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "For each triangle in a mesh, computes the triangle centroid, the bounding sphere radius (the square root of the maximum squared distance from the centroid to any of the triangle's three vertices), and a dominant normal axis code (0-5 selecting axis and sign) derived from a per-vertex normal lookup. Handles both 64-byte and 48-byte vertex strides selected by the MMX flag. Writes the centroid to triangle-entry +16/+20/+24, the radius to +28, and the axis code to +6. Returns the number of triangles processed.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize result and the triangle counter to 0 before the count guard.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: the triangle count at this+0x120 must be greater than 0; otherwise return 0 immediately with no triangles processed.",
+      "evidence_refs": ["guard:0", "field:this:0x00000120", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate over triangle entries in the array at this+0x124; each entry is 36 bytes and holds three uint16 vertex indices and a pointer to per-triangle data.",
+      "evidence_refs": ["field:this:0x00000124", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the three vertex indices (uint16 at entry +0/+2/+4) and resolve the vertex-position array base through the per-triangle data pointer (+12).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Branch on the MMX flag: bit 0x800000 of this+0x14 (tested via global 0x00800000) selects 64-byte vertex stride, otherwise 48-byte stride.",
+      "evidence_refs": ["field:this:0x00000014", "global:0x00800000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the triangle centroid as the sum of the three vertex positions scaled by 0.33333334 and store it at triangle-entry +16/+20/+24.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the bounding sphere radius as the square root of the maximum squared distance from the centroid to the three vertices; store it at triangle-entry +28.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Look up a per-vertex normal in the array at this+0x12C using a 16-byte stride indexed through the triangle's data field, and compute a dot product of that normal against the vertex position.",
+      "evidence_refs": ["field:this:0x0000012C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Select the dominant normal axis by comparing absolute component magnitudes; encode axis and sign into a code in range 0-5.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the dominant-axis code as a uint16 at triangle-entry +6.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the number of triangles processed (counter advanced per triangle, bounded by the count at this+0x120).",
+      "evidence_refs": ["field:this:0x00000120", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_54D080(void *self) {",
+    "  int processed = 0;",
+    "  if (triangleCount(self) > 0) {",
+    "    for (off = 0; off < triangleCount(self); off += 36) {",
+    "      entry = triangleArray(self) + off;",
+    "      i0 = entry.word[0]; i1 = entry.word[1]; i2 = entry.word[2];",
+    "      verts = resolveVertexBase(entry);",
+    "      stride = (flags(self) & 0x800000) ? 64 : 48;",
+    "      // Centroid.",
+    "      cx = (v0.x + v1.x + v2.x) * 0.33333334;",
+    "      cy = (v0.y + v1.y + v2.y) * 0.33333334;",
+    "      cz = (v0.z + v1.z + v2.z) * 0.33333334;",
+    "      entry.float[4] = cx; entry.float[5] = cy; entry.float[6] = cz;",
+    "      // Bounding sphere radius = max distance from centroid.",
+    "      r2 = max(|v_i - c|^2 for i in 0..2);",
+    "      entry.float[7] = sqrt(r2);",
+    "      // Dominant normal axis from the per-vertex normal array (16-byte stride).",
+    "      n = normalArray(self) + 16 * entry.dword[3];",
+    "      code = dominantAxisCode(n);",
+    "      entry.word[3] = code;",
+    "      processed++;",
+    "    }",
+    "  }",
+    "  return processed;",
+    "}"
+  ],
+  "unresolved": [
+    "Purpose of the unused second parameter a2 (not referenced in the decompiled body).",
+    "Exact semantics of the normal dot product against the vertex position (the decompiled text shows the accumulation but not its classification meaning).",
+    "Use of globals 0x0059E440 and 0x0059E98C is not visible in the raw decompiled text; they likely feed folded float literals in the per-triangle comparisons."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440",
+    "global:0x0059E98C"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

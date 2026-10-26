@@ -1,0 +1,47 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0044FCC0
+// Canonical corpus name: D3DShaderConstantSetup
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/D3DShaderConstantSetup_0044fcc0.c
+
+void UnknownObject::D3DShaderConstantSetup()
+{
+    // Per-frame force-feedback constant setup. If the DirectInput device object at this+0x80 exists, polls it (vtable+0x64), reads 80 bytes of device state into a local buffer (vtable+0x24), and recovers from a lost/not-acquired device by reacquiring (vtable+0x1C) and retrying the read. On success it copies the first 8 state dwords to axis input floats at this+0x398..0x3B4, then transforms each of the 8 axes into smoothed, dead-zone/clamped shader output values at this+0x3B8, writes 4 dwords of device state to the constant 4-vector at this+0x3E8, and stores 16 direction/sign flag bytes after the axes. Called by sub_4537B0.
+    // GUARD: If the device object pointer at this+0x80 is non-null, proceed with the device-state pipeline. [field:this:0x00000080, source:raw]
+    // CALL: Poll/flush the device via vtable method at vtable+0x64 on the device object (vtable pointer at *(this+0x80)). [field:*(this+0x80):0x00000000, field:*(*(this+0x80)+0x0):0x00000064, source:raw]
+    // CALL: Read 80 bytes of device state into the local _DWORD v17[20] buffer via vtable method at vtable+0x24. [field:*(*(this+0x80)+0x0):0x00000024, field:*(this+0x80):0x00000000, source:raw]
+    // GUARD: If the read returned -2147024884 or -2147024866 (device lost / not acquired), reacquire the device via vtable+0x1C; if the reacquire fails return its result, otherwise retry the 80-byte read. [field:*(*(this+0x80)+0x0):0x0000001C, field:*(*(this+0x80)+0x0):0x00000024, source:raw]
+    // ASSIGNMENT: On successful read, copy the first 8 device-state dwords as floats to the axis input array this+0x398..0x3B4. [field:this:0x00000398, field:this:0x0000039C, field:this:0x000003A0, field:this:0x000003A4, field:this:0x000003A8, field:this:0x000003AC, field:this:0x000003B0, field:this:0x000003B4, source:raw]
+    // LOOP: Transform each of the 8 axes into an output float at this+0x3B8: a zero axis input maps to -1.0; otherwise the input is scaled/smoothed using per-axis parameters stored before the output array (offsets absent from the packet field list), with magnitude clamped to 1.0 and sign handled through comparison flags. [field:this:0x00000398, field:this:0x000003B8, source:raw]
+    // ASSIGNMENT: Copy device-state dwords v17[8..11] to the constant 4-vector at this+0x3E8..0x3F4. [field:this:0x000003E8, field:this:0x000003EC, field:this:0x000003F0, field:this:0x000003F4, source:raw]
+    // LOOP: For 16 iterations, extract the sign bit (value >> 7) of successive bytes of the device state and store each as a byte flag in the array at this+984. [source:raw]
+    // RETURN: Return the final result (0 on the success path, the reacquire/read error otherwise). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_44FCC0(this) {
+    //     dev = *(dword*)(this + 128);
+    //     if (dev) {
+    //       dev->vtable[25](dev);
+    //       result = dev->vtable[9](dev, 80, state);
+    //       if (result == -2147024884 || result == -2147024866) {
+    //         result = dev->vtable[7](dev);
+    //         if (result) return result;
+    //         result = dev->vtable[9](dev, 80, state);
+    //       }
+    //       if (!result) {
+    //         for (i = 0; i < 8; i++) axisInput[i] = (float)state[i];
+    //         for (i = 0; i < 8; i++) axisOut[i] = (axisInput[i] == 0.0f) ? -1.0f
+    //                                              : clamp(smooth(axisInput[i]));
+    //         this->constVec[0] = state[8]; this->constVec[1] = state[9];
+    //         this->constVec[2] = state[10]; this->constVec[3] = state[11];
+    //         for (i = 0; i < 16; i++) *(byte*)(this + 984 + i) = ((byte*)&state[12])[i] >> 7;
+    //         return result;
+    //       }
+    //     }
+    //     return result;
+    //   }
+    // UNRESOLVED: globals flt_59E43C and flt_59E440 are listed as read but never appear in the packet source excerpt (which is truncated at 2000 chars); their exact role is unknown.
+    // UNRESOLVED: The per-axis dead-zone, clamp and smoothing parameters live at offsets before the output array that are not in the packet field list.
+    // UNRESOLVED: The constant 4-vector at this+0x3E8 and the 16 sign-flag bytes at this+984 are confirmed in the raw source but their shader binding is outside this packet.
+    // UNRESOLVED: Caller sub_4537B0 (0x004537B0) context and frame-path frequency are not established.
+}

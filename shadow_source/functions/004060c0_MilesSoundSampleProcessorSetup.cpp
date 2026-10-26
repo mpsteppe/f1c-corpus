@@ -1,0 +1,41 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004060C0
+// Canonical corpus name: MilesSoundSampleProcessorSetup
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/MilesSoundSampleProcessorSetup_004060c0.c
+
+void UnknownObject::MilesSoundSampleProcessorSetup()
+{
+    // Configures a Miles Sound System sample: loads the sample-info pointer from this[22] (offset 0x58), takes the Miles sample handle at its +0x10 field, and calls AIL_set_sample_processor with this[25] (offset 0x64) as the processor value. When this[24] (offset 0x60) is not -1, resolves a filter preference via sub_404FC0 and applies it with AIL_set_filter_sample_preference. Returns early (result) when either the sample-info pointer or the handle is null.
+    // ASSIGNMENT: Load result = this[22], the sample-info pointer at offset 0x58 [field:this:0x00000058, source:raw]
+    // GUARD: If the sample-info pointer this[22] is null, fall through to the final return of that null result [field:this:0x00000058, source:raw]
+    // ASSIGNMENT: Load result = *(result + 0x10), the Miles sample handle inside the sample-info structure [field:*(this+0x68):0x00000010, source:raw]
+    // GUARD: If the sample handle is null, fall through to the final return of that null result [field:*(this+0x68):0x00000010, source:raw]
+    // CALL: Call AIL_set_sample_processor (0x0059E3A8) with the sample handle, processor type 1, and this[25] (offset 0x64) as the processor value [global:0x0059E3A8, field:*(this+0x68):0x00000010, field:this:0x00000064, source:raw]
+    // ASSIGNMENT: Load v3 = this[24], the filter index at offset 0x60 [field:this:0x00000060, source:raw]
+    // GUARD: If the filter index v3 equals -1, skip filter preference setup and return the current result [field:this:0x00000060, source:raw]
+    // CALL: Call sub_404FC0(v3) to resolve the filter preference data from the numeric index [callee:0x00404FC0, field:this:0x00000060, source:raw]
+    // ASSIGNMENT: Store the resolved preference pointer into v4 [callee:0x00404FC0, source:raw]
+    // CALL: Call AIL_set_filter_sample_preference (0x0059E3AC) with the sample handle from the sample-info structure, the resolved preference v4, and this + 26 (offset 0x68) as the filter data buffer [global:0x0059E3AC, field:*(this+0x68):0x00000010, field:this:0x00000068, source:raw]
+    // RETURN: Return the result (the AIL_set_filter_sample_preference return value in the filter branch, otherwise the handle or null from the guard fall-throughs) [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int MilesSoundSampleProcessorSetup(DWORD* this) {
+    //     int result = this[22];
+    //     if (result) {
+    //       result = *(DWORD*)(result + 16);
+    //       if (result) {
+    //         result = AIL_set_sample_processor(result, 1, this[25]);
+    //         v3 = this[24];
+    //         if (v3 != -1) {
+    //           v4 = sub_404FC0(v3);
+    //           return AIL_set_filter_sample_preference(*(DWORD*)(this[22] + 16), v4, this + 26);
+    //         }
+    //       }
+    //     }
+    //     return result;
+    //   }
+    // UNRESOLVED: The meaning of the processor type literal 1 and of the this[25] processor value is not grounded in this packet.
+    // UNRESOLVED: sub_404FC0's exact resolution (string lookup vs conversion) is outside this packet's evidence.
+    // UNRESOLVED: The object class owning the Miles sample state is unknown.
+}

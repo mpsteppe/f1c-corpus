@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "address": "0x004BF790",
+  "proposed_name": "BuildOpponentList",
+  "owner": {
+    "type": "AIOpponentSelection",
+    "trust": "DERIVED",
+    "evidence_refs": ["abi:lead", "function:0x004BF790", "caller:0x004BFD90"]
+  },
+  "summary": "Builds a linked list of AI opponent candidates. Logs a 'NotAI' debug line, optionally short-circuits through AIPathPerformanceFunction for a2 <= 10, then randomly walks the vehicle roster (modulo the roster count read from a global) selecting candidates. Each accepted candidate gets an 8-byte node (an accessor value plus a float parameter computed by sub_4BF6A0) wrapped in a 12-byte linked-list node that is appended to a head/tail/iter/count list stored on 'this'. After selection the list is counted, split at its midpoint, and the two halves are merge-sorted by the float value at node+4, then the sorted head is written back to 'this'. Returns the number of candidates appended.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize the appended-candidate counter to 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Reset the list state on 'this' via sub_4BF730 before building.",
+      "evidence_refs": ["callee:0x004BF730"]
+    },
+    {
+      "kind": "call",
+      "description": "Format a debug line into the local buffer using the format string from global aSNotNotai ('%s NOT: NotAI') with argument a4.",
+      "evidence_refs": ["global:0x005D266C", "callee:0x0058815F"]
+    },
+    {
+      "kind": "call",
+      "description": "Report the formatted 'NotAI' message via sub_4C4D50.",
+      "evidence_refs": ["callee:0x004C4D50"]
+    },
+    {
+      "kind": "guard",
+      "description": "When a2 <= 10 and AIPathPerformanceFunction(a2, a3) returns a2, return a2 immediately without building a list.",
+      "evidence_refs": ["callee:0x004BFA00", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read the roster candidate count through ReadFieldAtOffset0x14 applied to global dword_8AC36C and remember it for later loops.",
+      "evidence_refs": ["callee:0x005871F0", "global:0x008AC36C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute a random starting roster index: 2 * RandLCGRandomNumberGenerator() modulo the roster count.",
+      "evidence_refs": ["callee:0x005884ED"]
+    },
+    {
+      "kind": "guard",
+      "description": "Only build when the roster count is positive and a2 is positive.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate selecting candidates until the appended count reaches a2, advancing the roster index cyclically by 1 modulo the count each iteration.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Pick a candidate vehicle via RandomVehicleSelector at the current roster index.",
+      "evidence_refs": ["callee:0x004C5070"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Fall back to the default name global byte_5EA438 when the candidate slot exposes no name pointer.",
+      "evidence_refs": ["global:0x005EA438"]
+    },
+    {
+      "kind": "call",
+      "description": "Accept the candidate when sub_588410(vehicle name, a3) is true or the roster has fewer than 2 entries.",
+      "evidence_refs": ["callee:0x00588410"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate an 8-byte candidate node via OperatorNewNhMallocWrapper(8), initialized with a NaN float value and 0.0.",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store GuardedListAccessor(roster index) as the candidate node's value field.",
+      "evidence_refs": ["callee:0x004C50E0"]
+    },
+    {
+      "kind": "call",
+      "description": "Compute the candidate's float parameter with sub_4BF6A0 on the candidate data at offset 188.",
+      "evidence_refs": ["callee:0x004BF6A0"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate a 12-byte linked-list node via OperatorNewNhMallocWrapper(12), holding the candidate node pointer plus next-pointer and active-flag fields.",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Append the new list node: when the head at this+0x0 is empty set head and iter to it, otherwise link the current tail's next pointer; then update the tail pointer at this+0x4 and increment the count at this+0xC. The tail's own next pointer is the node-level next field.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x0000000C", "field:obj:0x00000004", "field:*(obj+0x4):0x00000004"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Count the list length by walking the node-level next pointers from the head.",
+      "evidence_refs": ["field:*(*(obj+0x4)+0x4):0x00000004"]
+    },
+    {
+      "kind": "guard",
+      "description": "Only merge-sort when the counted list length is at least 2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Split the list into two halves at the midpoint node and sever the link between them.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Merge-sort each half with MergeSortLinkedListByFloat, then merge the two sorted runs by comparing the float value stored at the node pointer target's +4 field.",
+      "evidence_refs": ["callee:0x004C2E20"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Write the sorted head back to this+0x0, walk to the last node to set the tail at this+0x4, and reset the iter pointer at this+0x8 to the sorted head.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the number of candidates appended during selection.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int BuildOpponentList(AIOpponentSelection *this, int a2, int a3, const char *a4) {",
+    "  int appended = 0;",
+    "  ResetList(this);",
+    "  StringFormatWithBufferOverflowCheck(buf, \"%s NOT: NotAI\", a4);",
+    "  ReportMessage(buf);",
+    "  if (a2 <= 10 && AIPathPerformanceFunction(a2, a3) == a2) return a2;",
+    "  int count = ReadFieldAtOffset0x14(&rosterGlobal);",
+    "  int idx = 2 * RandLCGRandomNumberGenerator() % count;",
+    "  if (count > 0 && a2 > 0) {",
+    "    do {",
+    "      candidate = RandomVehicleSelector(idx);",
+    "      name = *candidate ? *(char**)candidate : defaultName;",
+    "      if (sub_588410(name, a3) || count < 2) {",
+    "        node8 = Alloc(8); node8[0] = GuardedListAccessor(idx); node8[1] = sub_4BF6A0(candidate + 188);",
+    "        node12 = Alloc(12); node12[0] = node8; node12[1] = 0; node12[2] = 1;",
+    "        AppendNode(this, node12);",
+    "        ++appended;",
+    "      }",
+    "      idx = (idx + 1) % count;",
+    "    } while (appended < a2);",
+    "    SortListByFloatValue(this);",
+    "  }",
+    "  return appended;",
+    "}"
+  ],
+  "unresolved": [
+    "Subsystem relation between sub_4C4D50 (message reporting), sub_4BF730 (list reset) and the candidate float parameter produced by sub_4BF6A0.",
+    "Whether AIPathPerformanceFunction early return represents an already-configured grid or an AI-performance short-circuit.",
+    "Meaning of the byte/active flag at node+8 of the 12-byte list node."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

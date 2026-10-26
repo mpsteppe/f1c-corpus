@@ -1,0 +1,68 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00561660
+// Canonical corpus name: sub_561660
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_561660_00561660.c
+
+void UnknownObject::TransformNodeProcessBatched()
+{
+    // Walks a linked list of transform nodes (next pointer at entry+0x10) and, for each node carrying the 0x4000 visibility bit, iterates its faces and emits culled, camera-projected, batched vertices. Each face passes a distance test via a vtable call on the dword_8B8F24 object and a plane-sign test against camera position; surviving faces write three interpolated, perspective-projected vertices into the output buffer at *(this+0x8), bounded by the batch count at *(this+0x20) (1023) and the total vertex count at *(this+0x4) (2045).
+    // ASSIGNMENT: Load the transform-world base offset v3 = *(this+0x18) + 232, used as the anchor for the per-face distance test. [field:this:0x00000018, source:raw]
+    // ASSIGNMENT: Read the head of the transform-node linked list from a2+516. [source:raw]
+    // LOOP: Traverse the singly linked list of nodes, following the next pointer at v4[4] until null. [source:raw]
+    // GUARD: Skip any node whose flags dword v4[5] lacks the 0x4000 visibility bit. [source:raw]
+    // CALCULATION: Load camera/FOV parameters from the struct at *(this+0xC): near/far plane fields at +0xC/+0x14, screen offsets at +0x10/+0x18, and reciprocal scale factors v22/v25 from the integer fields at +0x54/+0x58. [field:this:0x0000000C, field:*(this+0xC):0x0000000C, field:*(this+0xC):0x00000010, field:*(this+0xC):0x00000014, field:*(this+0xC):0x00000018, field:*(this+0xC):0x00000054, field:*(this+0xC):0x00000058, source:raw]
+    // LOOP: For the current node, iterate v4[72] faces; each face record is reached from the v4[73] table with a 9-dword stride. [source:raw]
+    // CALL: Per-face depth test: call the __thiscall distance method at vtable+32 of the dword_8B8F24 object with (v3, face vertex) and compare the result against the face threshold v8[3]. [global:0x008B8F24, source:raw]
+    // CALCULATION: Plane-sign test: dot of the face direction v11 with the face-to-camera vector, formed against the camera position fields at *(this+0xC)+0x24/+0x28/+0x2C; keep the face when the result is positive. [field:*(this+0xC):0x00000024, field:*(this+0xC):0x00000028, field:*(this+0xC):0x0000002C, source:raw]
+    // GUARD: Cull the face when the emitted vertex count *(this+0x4) reaches 2045. [guard:1, field:this:0x00000004, source:raw]
+    // GUARD: Read the batch-limits struct pointer at *(this+0x20) and cull the face when its element count at +0 reaches 1023. [guard:0, field:this:0x00000020, field:*(this+0x20):0x00000000, source:raw]
+    // ASSIGNMENT: Record the face index into the output index array at *(this+0x20)+0x4 and increment the batch count *(this+0x20)+0. [field:*(this+0x20):0x00000004, field:*(this+0x20):0x00000000, source:raw]
+    // LOOP: For each accepted face, loop over its three vertices; each vertex is resolved through the index table into a 48-byte-strided source record. [source:raw]
+    // ASSIGNMENT: Write the interpolated vertex output at *(this+0x8): position X/Y/Z blended by 0.05 between the two face vertices, plus a copy of the source dword at +12. [field:*(this+0x8):0x00000000, field:*(this+0x8):0x00000004, field:*(this+0x8):0x00000008, field:*(this+0x8):0x0000000C, source:raw]
+    // CALL: Transform the source vertex to camera space via the cdecl method at vtable+4 of the dword_8B8F24 object, writing the result into the local v26 array using the view matrix at *(this+0xC)+348. [global:0x008B8F24, source:raw]
+    // CALCULATION: Perspective divide by v26[2], then scale by the precomputed camera factors to screen space; store projected X at *(this+0x8)+0x10 and projected Y at *(this+0x8)+0x14. [field:*(this+0x8):0x00000010, field:*(this+0x8):0x00000014, source:raw]
+    // ASSIGNMENT: Advance the output write pointer *(this+0x8) by 24 bytes per vertex and increment the emitted vertex count *(this+0x4) by 3 per face. [field:this:0x00000008, field:this:0x00000004, source:raw]
+
+    // Conservative worker pseudocode:
+    //   void sub_561660(int this, int a2) {
+    //     int base = *(int*)(this+24) + 232;
+    //     for (Node* n = *(Node**)(a2+516); n; n = n->next) {
+    //       if ((n->flags & 0x4000) == 0) continue;
+    //       Cam = *(int*)(this+12);
+    //       float sx = *(float*)(Cam+12), ox = *(float*)(Cam+20);
+    //       float rx = 1.0f/*(int*)(Cam+84), ry = 1.0f/*(int*)(Cam+88);
+    //       float oy = -*(float*)(Cam+16), sy = *(float*)(Cam+24);
+    //       for (int f = 0; f < n->faceCount; ++f) {
+    //         float* rec = (float*)(n->faceTable + 20 + 36*f);
+    //         float* dir = (float*)(n->vertexTable + 16 * *(rec-2));
+    //         int src = *(rec-3);
+    //         if (vtbl_dist(engine, base, dir) > rec[3]
+    //             && (rec[1]-CamY)*dir[2] + (rec[0]-CamX)*dir[1] + (*(rec-1)-CamZ)*dir[0] > 0.0f
+    //             && *(int*)(this+4) < 2045) {
+    //           Batch* b = *(Batch**)(this+32);
+    //           if (*b < 1023) {
+    //             b->indexes[b->count++] = n->faceId;
+    //             for (int j = 0; j < 3; ++j) {
+    //               int v = *(int*)(src+12) + 48 * *(unsigned short*)(faceId + 2*j);
+    //               float* out = *(float**)(this+8);
+    //               out[0] = *(float*)(v+12)*0.05f + *(float*)(v+0);
+    //               out[1] = *(float*)(v+16)*0.05f + *(float*)(v+4);
+    //               out[2] = *(float*)(v+20)*0.05f + *(float*)(v+8);
+    //               out[3] = *(int*)(v+24);
+    //               vtbl_cam(engine, v, v26, *(int*)(this+12)+348);
+    //               out[4] = (v26[0]/v26[2]*sx + ox) * rx;
+    //               out[5] = (v26[1]/v26[2]*oy + sy) * ry;
+    //               *(int*)(this+8) += 24;
+    //             }
+    //             *(int*)(this+4) += 3;
+    //           }
+    //         }
+    //       }
+    //     }
+    //   }
+    // UNRESOLVED: The float globals flt_59E43C, flt_59E440, flt_59E448 and flt_59E5FC are read by this function but do not surface as named operands in the Hex-Rays text (materialized FP constants); their exact values and the operation each feeds are not evidenced here.
+    // UNRESOLVED: The camera/FOV struct roles at *(this+0xC)+0x54/+0x58 (reciprocal factors) are inferred from the 1.0/integer pattern; exact units are unknown.
+    // UNRESOLVED: The carry-flag locals v7 and v10 are decompiler artifacts of the floating-point comparison chain, not independent decisions.
+    // UNRESOLVED: a2 is an external list/context object; only a2+516 is touched here.
+}

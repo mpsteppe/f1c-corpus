@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "address": "0x004526C0",
+  "proposed_name": "ArrayDestructorViaVirtualDispatch",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004526C0"]
+  },
+  "summary": "Destroys an array of 10 vtable-backed objects: first zeroes the count field this[261] (+0x414), then iterates the object-pointer array starting at this+25 (+0x64) with a stride of 26 dwords. For each non-null entry it invokes the object's vtable slot +44 method (stop/release-style call), then its vtable slot +8 method (refcount-release style), and clears the array slot to null. The last vtable-slot result is returned. Called once from HWInput_Post (0x00455E70).",
+  "local_names": {
+    "v1": "cursor over the 10-entry object-pointer array at this+0x64, stride 26 dwords (0x68 bytes)",
+    "v2": "loop counter, runs 10 times down to 0",
+    "result": "array element pointer / last vtable-slot +8 call result, returned"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Zero this[261] (+0x414), the object count/reset field, before the array walk",
+      "evidence_refs": ["field:this:0x00000414", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk exactly 10 entries of the object-pointer array at this+25 (+0x64), advancing the cursor v1 by 26 dwords (0x68 bytes) per iteration",
+      "evidence_refs": ["field:this:0x00000064", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Each array entry is processed only while its pointer *v1 is non-null",
+      "evidence_refs": ["field:this:0x00000064", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "For a live entry, read the object's vtable pointer at *(*v1)+0 and call the method at vtable slot +44 (offset 0x2C) on it (stop/release-style teardown)",
+      "evidence_refs": ["field:*(this+0x64):0x00000000", "field:*(*(this+0x64)+0x0):0x0000002C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "For a live entry, call the method at vtable slot +8 (offset 0x8) on it (refcount-release style), storing its result",
+      "evidence_refs": ["field:*(this+0x64):0x00000000", "field:*(*(this+0x64)+0x0):0x00000008", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the processed array slot *v1 to null after the two vtable calls",
+      "evidence_refs": ["field:this:0x00000064", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result of the last vtable slot +8 call after the 10-iteration loop completes",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by HWInput_Post (0x00455E70), consistent with a cleanup/destructor role on an input-object array",
+      "evidence_refs": ["caller:0x00455E70", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "this[261] = 0;",
+    "v1 = this + 25;",
+    "v2 = 10;",
+    "do {",
+    "    result = *v1;",
+    "    if (result) {",
+    "        (*(*(DWORD*)result + 44))(*v1);",
+    "        result = (*(*(DWORD*)*v1 + 8))(*v1);",
+    "        *v1 = 0;",
+    "    }",
+    "    v1 += 26;",
+    "    --v2;",
+    "} while (v2);",
+    "return result;"
+  ],
+  "unresolved": [
+    "The vtable slot +44 and +8 method semantics (stop vs release, COM-style refcount) are inferred from the HWInput cleanup caller and the call-after-call pattern, not evidenced in this packet",
+    "The meaning of the +0x414 count field and the object type behind the array are not evidenced here"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

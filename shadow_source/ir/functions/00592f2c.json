@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "address": "0x00592F2C",
+  "proposed_name": "CRT_LowioInit",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Initializes the CRT low-level I/O file-entry table. Allocates the first 1152-byte block (32 slots x 36 bytes) indexed by dword_8D4920 with count uNumber = 32, extending the block array anchored at unk_8D4924 by 32-slot blocks while the inherited count (from GetStartupInfoA lpReserved2, clamped to 2048) exceeds it. Inherited handles whose flag byte passes the bit checks (or GetFileType) are copied into slots; the first three slots are then filled from GetStdHandle(-10/-11/-12) when unset and tagged per GetFileType. Returns SetHandleCount(uNumber).",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "MallocWrapperForNhMalloc(1152) allocates the first file-entry block (32 slots x 36 bytes).",
+      "evidence_refs": ["callee:0x0058A935", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the first block allocation returns null, CRTAmsgExit(0x1B) terminates the process.",
+      "evidence_refs": ["callee:0x0058A935", "callee:0x0058A2A6", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the first block base into dword_8D4920[0] and set the open-file count uNumber to 32.",
+      "evidence_refs": ["global:0x008D4920", "global:0x008D4A20", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Initialize 32 slots of 36 bytes each: handle dword at +0 = -1, flag byte at +4 = 0, byte at +5 = 10, dword at +8 = 0.",
+      "evidence_refs": ["global:0x008D4920", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "GetStartupInfoA(&StartupInfo) reads the parent-process startup info including the inherited handle table.",
+      "evidence_refs": ["global:0x0059E1CC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Inherited-handle processing runs only when both StartupInfo.cbReserved2 and StartupInfo.lpReserved2 are nonzero.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the inherited handle count from the dword at lpReserved2 and clamp it to a maximum of 2048.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "While uNumber is below the inherited count, allocate additional 1152-byte blocks appended through the unk_8D4924 chain and increment uNumber by 32 each time; on allocation failure stop and set the count to the current uNumber.",
+      "evidence_refs": ["callee:0x0058A935", "global:0x008D4924", "global:0x008D4A20", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For each inherited entry, store the handle and flag byte into slot dword_8D4920[k >> 5] + 36 * (k & 0x1F) when the handle is not -1, flag bit 0 is set, and (flag bit 3 is set or GetFileType(handle) is nonzero).",
+      "evidence_refs": ["global:0x0059E0F8", "global:0x008D4920", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For slots 0..2 (stdin/stdout/stderr) whose handle is unset (-1), fetch the standard handle via GetStdHandle(-10 / -11 / -12) and GetFileType; tag the slot with 0x40 on invalid/char-device, 0x08 on pipe, and 0x80 when a handle was already present.",
+      "evidence_refs": ["global:0x0059E104", "global:0x0059E0F8", "global:0x008D4920", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "SetHandleCount(uNumber) updates the CRT maximum handle count and its return value is returned.",
+      "evidence_refs": ["global:0x0059E108", "global:0x008D4A20", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "UINT CRT_LowioInit(void) {",
+    "  BYTE* block = MallocWrapperForNhMalloc(1152);",
+    "  if (!block) CRTAmsgExit(0x1B);",
+    "  dword_8D4920[0] = (int)block;",
+    "  uNumber = 32;",
+    "  for (BYTE* p = block; p < block + 1152; p += 36) {",
+    "    *(DWORD*)p = -1; *((BYTE*)p + 4) = 0; *((BYTE*)p + 5) = 10; *(DWORD*)(p + 8) = 0;",
+    "  }",
+    "  STARTUPINFOA si; GetStartupInfoA(&si);",
+    "  if (si.cbReserved2 && si.lpReserved2) {",
+    "    int count = *(DWORD*)si.lpReserved2; if (count >= 2048) count = 2048;",
+    "    unsigned int* next = (unsigned int*)&unk_8D4924;",
+    "    while (uNumber < count) {",
+    "      BYTE* b2 = MallocWrapperForNhMalloc(1152); if (!b2) break;",
+    "      uNumber += 32; *next = (unsigned int)b2;",
+    "      for (BYTE* p = b2; p < b2 + 1152; p += 36) {",
+    "        *(DWORD*)p = -1; *((BYTE*)p + 4) = 0; *((BYTE*)p + 5) = 10; *(DWORD*)(p + 8) = 0;",
+    "      }",
+    "      next++;",
+    "    }",
+    "    if (uNumber < count) count = uNumber;",
+    "    LPBYTE flags = si.lpReserved2 + 4;",
+    "    HANDLE* hp = (HANDLE*)&si.lpReserved2[*(DWORD*)si.lpReserved2 + 4];",
+    "    for (int k = 0; k < count; k++, flags++, hp++) {",
+    "      if (*hp != (HANDLE)-1 && (*flags & 1) && ((*flags & 8) || GetFileType(*hp))) {",
+    "        BYTE* slot = (BYTE*)dword_8D4920[k >> 5] + 36 * (k & 0x1F);",
+    "        *(DWORD*)slot = (DWORD)*hp; *((BYTE*)slot + 4) = *flags;",
+    "      }",
+    "    }",
+    "  }",
+    "  for (int m = 0; m < 3; m++) {",
+    "    BYTE* slot = (BYTE*)dword_8D4920[0] + 36 * m;",
+    "    if (*(DWORD*)slot == -1) {",
+    "      *((BYTE*)slot + 4) = -127;",
+    "      DWORD std = (m == 0) ? -10 : (m == 1 ? -11 : -12);",
+    "      HANDLE h = GetStdHandle(std);",
+    "      if (h == (HANDLE)-1 || (FileType = GetFileType(h)) == 0) {",
+    "        *(DWORD*)slot = (DWORD)h; *((BYTE*)slot + 4) |= 0x40;",
+    "      } else if ((BYTE)FileType == 2) {",
+    "        *(DWORD*)slot = (DWORD)h; *((BYTE*)slot + 4) |= 0x40;",
+    "      } else if ((BYTE)FileType == 3) {",
+    "        *(DWORD*)slot = (DWORD)h; *((BYTE*)slot + 4) |= 8;",
+    "      }",
+    "    } else {",
+    "      *((BYTE*)slot + 4) |= 0x80;",
+    "    }",
+    "  }",
+    "  return SetHandleCount(uNumber);",
+    "}"
+  ],
+  "unresolved": [
+    "The two byte globals byte_FF000000000053EB and byte_FF000000000053EC are listed as accessed but do not appear in the raw source; likely decompiler artifacts.",
+    "The meaning of the per-slot flag bits (0x1 inherited, 0x8 pipe, 0x40, 0x80) is DERIVED from CRT conventions, not proven by the packet alone.",
+    "The relationship to the sole caller sub_58A19E is recorded but not analyzed here."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0xFF000000000053EB",
+    "global:0xFF000000000053EC",
+    "caller:0x0058A19E"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,24 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0044C7A0
+// Canonical corpus name: CollisionStateInitAlpha
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/CollisionStateInitAlpha_0044c7a0.c
+
+void UnknownObject::CollisionStateInitAlpha()
+{
+    // Initializes four collision-state globals: sets the state/type word at 0x007CD198 to 5, two float fields to 0.0, and the dword at 0x007CD1A4 to the literal 1065353216 (the IEEE-754 bit pattern of 1.0f, preserved as written). Unconditional writes, no guards and no callees.
+    // ASSIGNMENT: Write the integer literal 5 to dword_7CD198 at 0x007CD198. [source:raw, function:0x0044C7A0, global:0x007CD198]
+    // ASSIGNMENT: Write 0.0f to flt_7CD19C at 0x007CD19C. [source:raw, function:0x0044C7A0, global:0x007CD19C]
+    // ASSIGNMENT: Write 0.0f to flt_7CD1A0 at 0x007CD1A0. [source:raw, function:0x0044C7A0, global:0x007CD1A0]
+    // ASSIGNMENT: Write the integer literal 1065353216 (float 1.0f bit pattern) to dword_7CD1A4 at 0x007CD1A4. [source:raw, function:0x0044C7A0, global:0x007CD1A4]
+
+    // Conservative worker pseudocode:
+    //   void CollisionStateInitAlpha() {
+    //     dword_7CD198 = 5;
+    //     flt_7CD19C = 0.0;
+    //     flt_7CD1A0 = 0.0;
+    //     dword_7CD1A4 = 1065353216;
+    //   }
+    // UNRESOLVED: The init role is carried only by the canonical/abi name (LEGACY trust); no caller or field evidence grounds what the initialized state is used for.
+    // UNRESOLVED: flt_7CD19C and flt_7CD1A0 are floats per source naming but the second and third globals are written without a surrounding object, so their semantic role is unrecoverable from this packet.
+}

@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "address": "0x004C73F0",
+  "proposed_name": "VehiclePhysicsTimeStep",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x004C73F0", "source:raw"]
+  },
+  "summary": "Per-frame vehicle physics timestep: computes dt from the frame time argument, converts packed wheel/input data into steering, orientation and velocity fields, updates per-wheel suspension state, then runs subsystem/vibration state machines selected by a mode field. Ends by decoding braking, driver-visible and reverse flags from input bits and toggling the audio-effect controller on a state change.",
+  "local_names": {
+    "v36": "frame dt (a3 - last frame time)",
+    "v30": "clamped steering float from bitfield conversion",
+    "v37": "orientation quaternion/vector output from ArithmeticComparison_2420",
+    "v39": "Euler angle triple",
+    "v43": "36-byte rotation matrix",
+    "v41": "per-wheel unpacked float values",
+    "v33": "pointer to this+0x8C0 (suspension accumulator base)",
+    "v26": "bit 0x8000000 of a2+56 (driving-state change flag)",
+    "v27": "bit 0x4000000 of a2+56 (brake flag)"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Compute frame delta v36 = a3 - this+0x48B8 (previous time), then store a3 into this+0x48B8.",
+      "evidence_refs": ["field:this:0x00018616"]
+    },
+    {
+      "kind": "call",
+      "description": "ArithmeticComparison_2420 on input block a2+8 producing v37 and v39.",
+      "evidence_refs": ["callee:0x004B2420"]
+    },
+    {
+      "kind": "call",
+      "description": "EulerToRotationMatrix(v39, v43) converts the Euler triple into a 36-byte rotation matrix.",
+      "evidence_refs": ["callee:0x00566E40"]
+    },
+    {
+      "kind": "call",
+      "description": "F_3x3MatrixTransform(v37, v39, v43) transforms the comparison vector through the rotation matrix.",
+      "evidence_refs": ["callee:0x004E23D0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "BitfieldToFloatConversion(a2+8) yields steering v30, clamped into [-1, 1]; the clamped value is stored to this+0x1040.",
+      "evidence_refs": ["callee:0x004B2A80", "field:this:0x00004160"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v35 = this+0x1044 * v30 (damping factor scaled by steering).",
+      "evidence_refs": ["field:this:0x00004164"]
+    },
+    {
+      "kind": "loop",
+      "description": "For wheels 0..3: sub_4B28F0(v5, i, &v32, &v41[i]) unpacks the wheel word; v34 = v36 * v41[i] + this+0x8C0[i*74]; SuspensionParamUpdate(i, v32, v34, v35 for front wheels i<2, else 0.0).",
+      "evidence_refs": ["callee:0x004B28F0", "callee:0x004E24A0", "field:this:0x00002240"]
+    },
+    {
+      "kind": "call",
+      "description": "ShortVectorToFloatWithScale(v5, v38) unpacks the short-vector velocity block.",
+      "evidence_refs": ["callee:0x004B2580"]
+    },
+    {
+      "kind": "call",
+      "description": "FloatTruncation(v5, v42) produces the truncated float triple.",
+      "evidence_refs": ["callee:0x004B26D0"]
+    },
+    {
+      "kind": "call",
+      "description": "ShortToFloatVectorUnpack(v5, v40) unpacks the 12-byte short vector.",
+      "evidence_refs": ["callee:0x004B2800"]
+    },
+    {
+      "kind": "call",
+      "description": "BitfieldExtractScale(v5) produces v31.",
+      "evidence_refs": ["callee:0x004B2980"]
+    },
+    {
+      "kind": "call",
+      "description": "ShortComputation_29f0(v5) produces v32 (velocity magnitude).",
+      "evidence_refs": ["callee:0x004B29F0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store unpacked state: this+0x1C/0x20/0x24 = v37[0..2]; this+0x58/0x5C/0x60 = v38[0..2]; this+0xA0 = v31; this+0xA4 = v32; 0x24-byte block copy of v43 to this+0x34.",
+      "evidence_refs": ["field:this:0x00000028", "field:this:0x00000032", "field:this:0x00000036", "field:this:0x00000088", "field:this:0x00000092", "field:this:0x00000096", "field:this:0x00000160", "field:this:0x00000164"]
+    },
+    {
+      "kind": "assignment",
+      "description": "this+0x1069 = (a2+52 & 0x80) != 0 (single-bit flag from input byte).",
+      "evidence_refs": ["field:this:0x00004201"]
+    },
+    {
+      "kind": "guard",
+      "description": "Read mode field this+0x32C8 and branch: mode == 2 takes the setup path, mode == 3 the state-machine path.",
+      "evidence_refs": ["field:this:0x00013000"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Mode 2 path: store steering v30 to this+0x3580; BitfieldExtract(v5) feeds VehicleSetupDataCopy(v37, v39, v43, v38, v42, v40, extracted) and EffectParameterSetter(v31, 0.5, v32).",
+      "evidence_refs": ["field:this:0x00013696", "callee:0x004B2A30", "callee:0x004F1650", "callee:0x004F17A0"]
+    },
+    {
+      "kind": "loop",
+      "description": "Mode 2 path: copy v41[0..3] into this+0x35BC strided by 62 floats across the 4-wheel block.",
+      "evidence_refs": ["field:this:0x00013756"]
+    },
+    {
+      "kind": "guard",
+      "description": "Mode 2 path: this+0x344C = (a2+56 < 0); if fabs(a3 - this+0x48B4) > 15.0 then this+0x48B4 = a3 and loop 14 subsystem bits: BitTest(v5, i) -> SubsystemStateMachine(i, bit).",
+      "evidence_refs": ["field:this:0x00013388", "field:this:0x00018612", "callee:0x004B2AD0", "callee:0x004E17C0"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Mode 3 path: MatrixVectorSetup(v43, v40); VibrationStateMachine(j, v41[j]) for j 0..3; BitTest(v5, k) -> SubsystemStateMachine(k, bit) for k 0..13.",
+      "evidence_refs": ["callee:0x004F17D0", "callee:0x004E2230", "callee:0x004B2AD0", "callee:0x004E17C0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v26 = (a2+56 & 0x8000000) != 0; if this+0x105D != v26 then set this+0x105D = v26 and call AudioSoundEffectController(this+0x1054) to refresh the audio state.",
+      "evidence_refs": ["field:this:0x00004189", "field:this:0x00004180", "callee:0x004E0ED0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v27 = (a2+56 & 0x4000000) != 0; store v27 to this+0x1065 and write this+0x3584 = v27 ? 1.0f : 0.0f.",
+      "evidence_refs": ["field:this:0x00004197", "field:this:0x00013700"]
+    },
+    {
+      "kind": "assignment",
+      "description": "this+0x1067 = (a2+56 & 0x2000000) != 0.",
+      "evidence_refs": ["field:this:0x00004199"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Trailing extraction helpers (addresses absent from packet, evidenced only by raw source): ShortComputation_2b00(v5) feeds PropertySetter; BitfieldExtract_2b80(v5) stored as word to this+0x48B0; this+0x4024 = a2+59 & 1; this+0x4028 = BitfieldExtractionWithScale(v5).",
+      "evidence_refs": ["field:this:0x00018608", "field:this:0x00016420", "field:this:0x00016424", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "dt = a3 - this[0x48B8]; this[0x48B8] = a3;",
+    "ArithmeticComparison_2420(a2+8, &q, &euler); EulerToRotationMatrix(euler, &rot); F_3x3MatrixTransform(q, euler, rot);",
+    "steer = clamp(BitfieldToFloatConversion(a2+8), -1.0, 1.0); this[0x1040] = steer;",
+    "for i in 0..3: sub_4B28F0(a2+8, i, &val, &wheel[i]); SuspensionParamUpdate(i, val, dt*wheel[i] + this[0x8C0 + i*74], i<2 ? this[0x1044]*steer : 0.0);",
+    "unpack short vectors; store position/velocity/orientation into this+0x1C..0xA4;",
+    "mode = this[0x32C8];",
+    "if mode == 2: this[0x3580] = steer; VehicleSetupDataCopy(...); EffectParameterSetter(v31, 0.5, v32); copy wheel values; if fabs(dt_large) > 15.0 run 14 SubsystemStateMachine steps;",
+    "elif mode == 3: MatrixVectorSetup(rot, v40); VibrationStateMachine x4; SubsystemStateMachine x14;",
+    "brake/driver-visible/reverse flags decoded from a2+56 bits; audio controller refreshed on driver-visible change"
+  ],
+  "unresolved": [
+    "Global floats flt_59E43C, flt_59E670, flt_59E8D8 are read during the frame but their use sites are not visible in the raw source (likely constants folded inside inlined helper callees).",
+    "Callers TeamColorLoader (0x004F03E0) and sub_4F0430 (0x004F0430) are inbound context only and not modeled as operations.",
+    "this+0x34 (0x24-byte block) is written by the qmemcpy from v43 but that offset is not enumerated in the packet field list.",
+    "The trailing helper calls ShortComputation_2b00, PropertySetter, BitfieldExtract_2b80 and BitfieldExtractionWithScale exist in raw source but have no packet addresses; described from source only."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059E43C", "global:0x0059E670", "global:0x0059E8D8", "caller:0x004F03E0", "caller:0x004F0430"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

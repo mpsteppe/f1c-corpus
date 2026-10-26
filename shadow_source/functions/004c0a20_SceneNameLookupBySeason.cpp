@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C0A20
+// Canonical corpus name: SceneNameLookupBySeason
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SceneNameLookupBySeason_004c0a20.c
+
+void UnknownObject::SceneNameLookupBySeason()
+{
+    // Copies the current vehicle's scene name into an output buffer with a length limit. When the output buffer is non-null it is cleared, the vehicle name is taken from this+0x8 (fallback byte_5EA438) and resolved via VehicleLookupByName, then the current vehicle is fetched via CurrentVehicleAccessor on unk_8AC388. If a vehicle is found and the buffer size a3 is > 1, the scene-name string at vehicle+124 is copied through sub_587DD0 with limit a3-1 and the buffer is null-terminated at a3-1.
+    // GUARD: Guard: output buffer a2 non-null before any work. [source:raw]
+    // ASSIGNMENT: Clear output buffer: *a2 = 0. [source:raw]
+    // ASSIGNMENT: Load vehicle-name string from this+0x8, falling back to byte_5EA438 when null. [field:this:0x00000008, global:0x005EA438, source:raw]
+    // CALL: Resolve the vehicle name via VehicleLookupByName (return value discarded). [callee:0x004C3F80, source:raw]
+    // CALL: Fetch the current vehicle via CurrentVehicleAccessor on the unk_8AC388 buffer. [callee:0x004C4080, global:0x008AC388, source:raw]
+    // GUARD: Guard: current vehicle pointer non-null before copying the scene name. [source:raw]
+    // GUARD: Guard: buffer size a3 > 1, leaving room for at least one character plus terminator. [source:raw]
+    // CALL: Copy the scene-name string at vehicle+124 into a2 via sub_587DD0 with length limit a3-1. [callee:0x00587DD0, source:raw]
+    // ASSIGNMENT: Null-terminate the copy: a2[a3-1] = 0. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   void sub_4C0A20(DWORD* this, BYTE* out, unsigned int size) {
+    //     if (!out) return;
+    //     *out = 0;
+    //     char* name = this[2] ? (char*)this[2] : byte_5EA438;
+    //     VehicleLookupByName(name);
+    //     int veh = CurrentVehicleAccessor(&unk_8AC388);
+    //     if (veh && size > 1) {
+    //       sub_587DD0(out, veh + 124, size - 1);
+    //       out[size - 1] = 0;
+    //     }
+    //   }
+    // UNRESOLVED: The scene-name offset +124 into the vehicle object is read in the raw source but has no packet field entry.
+    // UNRESOLVED: VehicleLookupByName's return value is discarded; the resolved vehicle is obtained from CurrentVehicleAccessor instead, so the lookup result linkage is unclear.
+    // UNRESOLVED: Purpose and contents of the unk_8AC388 buffer are unknown.
+    // UNRESOLVED: The 'by season' name meaning is not evidenced by this function's body.
+}

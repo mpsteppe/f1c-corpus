@@ -1,0 +1,4378 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_001_vehicle_physics_03",
+  "scope": "vehicle_physics",
+  "subsystem": {
+    "name": "VehiclePhysics",
+    "responsibility": "Per-vehicle physics state and lifecycle: suspension/tire force computation, per-frame integration step configuration, wheel-space and rigid-body transforms, respawn/reset and cleanup, vehicle audio config loading, and collision spark/damage feedback.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x004D68A0",
+      "function:0x004D6AE0",
+      "function:0x004E0800",
+      "function:0x004E09E0",
+      "function:0x004E23D0",
+      "function:0x004E24A0",
+      "function:0x004E3360",
+      "function:0x004E4570",
+      "function:0x004E45B0",
+      "function:0x004E4910",
+      "function:0x004E49B0",
+      "function:0x004E5470",
+      "function:0x004E9BD0",
+      "function:0x004EC1A0",
+      "function:0x004EF6C0",
+      "global:0x007C8A18",
+      "global:0x007C7428",
+      "source:raw"
+    ]
+  },
+  "summary": "Reconstructs the vehicle physics subsystem from 15 validated functions sharing a single 'this'-base object (VehiclePhysicsObject). The object carries default-initialized suspension/contact constants (0x0..0x144), a 74-float-stride wheel-state block at 0xD4, respawn/reset/collision-zone state (0x828..0x990), audio playback sub-slots, per-frame integration fields (0x3498..0x34AC), a 3x3 orientation matrix plus world position (0x34B0..0x34DC), a camera/rendering snapshot block, rigid-body point transforms, and collision damage-feedback thresholds. Behavior is split between respawn/reset drivers (0x4E0800, 0x4E09E0), per-frame step configuration (0x4E45B0), force/torque solving over four wheels (0x4E5470), lock-guarded physics-node propagation (0x4E4910), per-frame setup snapshots (0x4E49B0), vehicle audio config loading (0x4E3360), and collision spark/damage feedback (0x4EC1A0), supported by shared helper services (tire-brush solver, HDV parser, audio-stream record parser, transform math, lifecycle reset, collision feedback, memory).",
+  "function_roles": [
+    {
+      "address": "0x004D68A0",
+      "role": "Default-initializer for the unnamed vehicle physics-state object: writes 82 DWORD literals into this[0..81] (offsets 0x0..0x144) - -1/0 sentinel slots at 0x130..0x144 followed by contact/geometry, suspension/strut and scalar/vector default constant blocks. No reads, globals, branches or calls. Invoked once by TireBrandFileParser.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004D68A0",
+        "caller:0x004D7150",
+        "field:this:0x00000130",
+        "field:this:0x00000000",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004D6AE0",
+      "role": "Temperature-scaled suspension force helper: force = (this+0x118 + 273.16) * a2 * 0.002778858444950814 * (this+0x38) + (this+0x40). Reads the Kelvin-conversion term, an input factor and two field scalars; returns the computed force.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004D6AE0",
+        "field:this:0x00000118",
+        "field:this:0x00000038",
+        "field:this:0x00000040",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E0800",
+      "role": "Vehicle respawn / race-restart state reset: clears the respawn marker byte, runs a conditional aux reset (sub_5506A0) on a prior-collision flag, computes a random respawn delay from the rotating noise table, re-initializes substructures (MultiSystemStructInitializer, optional StateArrayReset), writes a progress-bar event when the base object is not in an active race, resets audio/sound state and scale propagation, zeroes collision force/torque accumulators, writes sentinel IDs, computes a speed scale, dispatches per-contact-zone resets and clears pending-cleanup entries.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "field:this:0x00000974",
+        "callee:0x005506A0",
+        "callee:0x004E0DB0",
+        "callee:0x004B33B0",
+        "global:0x008AAE74",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E09E0",
+      "role": "Full vehicle state reset/destructor path: conditional multi-system re-init, 3D sound-source destruction and collision-status copy from the geometry object; zeroes timer/counter/wheel/sensor/audio field runs; runs embedded-array init/destructor loops (4x stride-296, 17-element and 68-byte loops, 11x stride-748 dual-array destructors); frees and nulls the pointer slot at this+0x2BD4 and returns the freed pointer.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "caller:0x004C6E80",
+        "caller:0x004DFBB0",
+        "global:0x008AFE88",
+        "global:0x005EA560",
+        "field:this:0x00002BD4",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E23D0",
+      "role": "3x3 rotation-plus-translation transform: copies rotation angles to this+0x14..0x1C, a 0x24-byte 3x3 rotation matrix to this+0x20..0x40, and the translation vector to this+0x54..0x5C; computes matrix * (this+0x48..0x50) + translation into this+0x8/0xC/0x10 and returns a pointer to that result.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E23D0",
+        "field:this:0x00000020",
+        "field:this:0x00000054",
+        "field:this:0x00000048",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E24A0",
+      "role": "Per-wheel suspension parameter update (wheel index a2, 74-float per-wheel stride): computes ride-height offset v5 = a3 - this+0x4C, stores it into two per-wheel slots, computes the new damper angle a5 + stored angle, stores the steering angle; only on an actual damper-angle change saves the angle and rebuilds the 3x3 rotation matrix via F_33RotationMatrixFromEulerAngles; copies a 0x24-byte wheel-state block and returns the Y-axis Euler extraction of the steering orientation.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E24A0",
+        "caller:0x004C73F0",
+        "caller:0x004F0430",
+        "callee:0x005670D0",
+        "callee:0x00567340",
+        "field:this:0x0000004C",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E3360",
+      "role": "Vehicle audio/sound configuration loader: resolves the vehicle name from the vehicle-database array, parses its .hdv file, opens the audio stream, reads restriction-sphere and force-field-sphere records (counting and allocating per-record slots), initializes per-vehicle audio playback sub-slots (base slot, two conditional slots, 8 stride-68 group entries) via sub_4DE610, then frees scratch allocations and returns the leftover pointer.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x004F4270",
+        "callee:0x004DE610",
+        "global:0x008AC394",
+        "field:this:0x00000BA8",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E4570",
+      "role": "Cleanup/destructor sequence: calls sub_4E4790(this), runs DualArrayDestructorLoopFree on the dual-array storage at this+441, then returns the result of a thunk dispatch on (this+2).",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E4570",
+        "callee:0x004E4790",
+        "callee:0x004DFCA0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E45B0",
+      "role": "Per-frame vehicle physics configuration and one integration step: calls sub_4E4790, gates on a mode flag at this+0x32BC (0 = one-time TireModelInit into dbl_7C7428; 1..3 = step; else early return), parses the vehicle HDV file twice, clamps the integration sub-step count at this+0x3498 to [1,64], derives four step-size fields, runs SuspensionAndWheelPhysics and TireBrushModelForceSolver, frees temp allocations and returns the leftover pointer.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x004E5F60",
+        "callee:0x004E8010",
+        "callee:0x0043E050",
+        "field:this:0x000032BC",
+        "field:this:0x00003498",
+        "global:0x007C7428",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E4910",
+      "role": "Thin lock-guarded wrapper around the tire-brush solver and physics-node propagation: acquires TireBrushModelForceSolver(1), runs PhysicsNodePropagationWithDistanceFalloff over the node set dword_5EA2C0, releases TireBrushModelForceSolver(0), returns the solver result.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E4910",
+        "callee:0x004E8010",
+        "callee:0x00401C90",
+        "global:0x005EA2C0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E49B0",
+      "role": "Per-frame setup/rendering snapshot copy from global physics state: steering-geometry result via TransformApply3D, 3x3 orientation matrix copy, gimbal-lock-guarded pitch/roll atan2, world position copy, camera-projection rows, a 4-entry per-corner camera-data copy, mode-selected suspension-ride-height average, camera scale/offset calculations; returns the physics-global base pointer.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "caller:0x004E4930",
+        "callee:0x0043AEE0",
+        "global:0x007C8A18",
+        "field:this:0x000034B0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E5470",
+      "role": "Per-frame suspension force/torque computation over all 4 wheels (stride 62 floats): transforms per-wheel vectors through the wheel-space rotation matrix plus world offset, computes steer cross products and cos/sin of the steering-angle product, runs TireContactForceComputation and WheelSpringDamperForceAndSteering per wheel, applies body-roll torque redistribution gated on a matrix element > 0.7, damps per-wheel values and accumulates forces/torques back into per-wheel slots.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E5470",
+        "caller:0x004E4E60",
+        "callee:0x004E3AA0",
+        "callee:0x004E3D00",
+        "field:this:0x000034B0",
+        "field:this:0x000034D4",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004E9BD0",
+      "role": "Rigid-body point transform: transforms the local offset vector at this+0x3B54..0x3B5C by the 3x3 rotation matrix at this+0x34B0, adds the body world position at this+0x34D4..0x34DC, stores the world-space result at this+0x3B60/0x3B64/0x3B68.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004E9BD0",
+        "caller:0x004E5F60",
+        "caller:0x004E9CA0",
+        "field:this:0x000034B0",
+        "field:this:0x000034D4",
+        "field:this:0x00003B54",
+        "field:this:0x00003B60",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004EC1A0",
+      "role": "Per-frame collision visual/damage feedback: gated by vehicle identity vs dword_7C54E8 and restricted-mode/race-phase guards, scales the impact impulse, fires spark/damage events into a ring buffer (ProgressBarEventEncode + StateTransition), runs two body-zone repair-service blocks, an 8-zone body loop and a 4-zone wheel loop with RepairServiceStateDispatcher/ShortComputation_1330, applies steering-geometry deformation and tire-scrub reset on severe impacts.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "caller:0x004EBC60",
+        "global:0x007C54E8",
+        "global:0x007C56A8",
+        "callee:0x004B33B0",
+        "callee:0x004ED250",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004EF6C0",
+      "role": "Coordinate transform with offset: builds a 3x3 rotation matrix from Euler input a3, computes the ride-height delta 3-vector, rotates it by the matrix, adds the position offset at this+0x34D4..0x34DC, and writes into a4 the difference between (a2 + position offset) and the transformed vector.",
+      "owner": "VehiclePhysicsObject",
+      "evidence_refs": [
+        "function:0x004EF6C0",
+        "caller:0x004441F0",
+        "caller:0x004E9CA0",
+        "callee:0x00566E40",
+        "callee:0x004EF680",
+        "field:this:0x000034D4",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "VehiclePhysicsObject",
+      "responsibility": "Per-vehicle physics and state object: default-initialized contact/geometry and suspension/strut constant block (0x0..0x144), 74-float-stride wheel-state block based at 0xD4, collision/respawn/reset state (0x828..0x990), audio playback sub-slots (0x5E4..0x6AD, count at 0xBA8), body/wheel collision-zone gating (0xCC8..0xD90), pointer slot pair at 0x2BD0, per-frame integration fields (0x3498..0x34AC), 3x3 orientation matrix + world position (0x34B0..0x34DC), camera/rendering snapshot block (0x3510..0x39F0), rigid-body contact point transform (0x3B54..0x3B68), and collision damage-feedback thresholds (0x3D48..0x3EB8).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004D68A0",
+        "0x004D6AE0",
+        "0x004E0800",
+        "0x004E09E0",
+        "0x004E23D0",
+        "0x004E24A0",
+        "0x004E3360",
+        "0x004E4570",
+        "0x004E45B0",
+        "0x004E4910",
+        "0x004E49B0",
+        "0x004E5470",
+        "0x004E9BD0",
+        "0x004EC1A0",
+        "0x004EF6C0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "transform_result_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x004E23D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "transform_result_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x004E23D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "transform_result_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x004E23D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "rotation_angle_0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x004E23D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "rotation_angle_1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x004E23D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "rotation_angle_2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x004E23D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "rotation_matrix_3x3_block",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x004E23D0",
+            "field:this:0x00000040"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "transform_input_vector",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "function:0x004E23D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "chassis_reference_height",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "function:0x004E24A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "translation_vector",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "function:0x004E23D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "suspension_force_scale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "function:0x004D6AE0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "suspension_force_addend",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "function:0x004D6AE0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "wheel_state_block_base",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "function:0x004E09E0",
+            "function:0x004E24A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000118",
+          "name": "temperature_kelvin_input",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000118",
+            "function:0x004D6AE0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000130",
+          "name": "sentinel_slot_0",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000130",
+            "function:0x004D68A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000134",
+          "name": "sentinel_slot_1",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "function:0x004D68A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000138",
+          "name": "sentinel_slot_2",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000138",
+            "function:0x004D68A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000013C",
+          "name": "sentinel_slot_3",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000013C",
+            "function:0x004D68A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000140",
+          "name": "sentinel_slot_4",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000140",
+            "function:0x004D68A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000144",
+          "name": "sentinel_slot_5",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000144",
+            "function:0x004D68A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005E4",
+          "name": "audio_subslot_2_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000005E4",
+            "function:0x004E3360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000628",
+          "name": "audio_subslot_3_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000628",
+            "function:0x004E3360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000624",
+          "name": "audio_subslot_2_enable_0",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000624",
+            "function:0x004E3360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000625",
+          "name": "audio_subslot_2_enable_1",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000625",
+            "function:0x004E3360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000668",
+          "name": "audio_group_entries_base",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000668",
+            "function:0x004E3360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000669",
+          "name": "audio_group_entry_enable_0",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000669",
+            "function:0x004E3360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000066C",
+          "name": "audio_group_entry_enable_1",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000066C",
+            "function:0x004E3360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006AC",
+          "name": "audio_group_entry_enable_2",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000006AC",
+            "function:0x004E3360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006AD",
+          "name": "audio_group_entry_enable_3",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000006AD",
+            "function:0x004E3360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000BA8",
+          "name": "active_audio_subslot_count",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000BA8",
+            "function:0x004E3360",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000828",
+          "name": "wheel_zone_gate_dword",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000828",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000868",
+          "name": "wheel_zone_gate_byte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000868",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000CC8",
+          "name": "body_zone_a_gate_dword",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000CC8",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D08",
+          "name": "body_zone_a_gate_byte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000D08",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D0C",
+          "name": "body_zone_b_gate_dword",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000D0C",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D4C",
+          "name": "body_zone_b_gate_byte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000D4C",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D50",
+          "name": "body_zone_loop_gate_dword",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000D50",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D90",
+          "name": "body_zone_loop_gate_byte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000D90",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000898",
+          "name": "contact_zone_dispatch_enable",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000898",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000008A4",
+          "name": "prior_collision_flag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000008A4",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000008B4",
+          "name": "contact_zone_count",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000008B4",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000008B8",
+          "name": "contact_zone_handle",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000008B8",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000008C4",
+          "name": "contact_zone_params",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000008C4",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000094C",
+          "name": "respawn_delay",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000094C",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000964",
+          "name": "audio_handle",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000964",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000096C",
+          "name": "respawn_audio_flag_0",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000096C",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000096D",
+          "name": "respawn_audio_flag_1",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000096D",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000974",
+          "name": "respawn_marker_byte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000974",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000934",
+          "name": "collision_force_torque_accum_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000934",
+            "function:0x004E0800",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000938",
+          "name": "collision_force_torque_accum_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000938",
+            "function:0x004E0800",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000093C",
+          "name": "collision_force_torque_accum_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000093C",
+            "function:0x004E0800",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000940",
+          "name": "collision_force_torque_accum_3",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000940",
+            "function:0x004E0800",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000944",
+          "name": "collision_force_torque_accum_4",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000944",
+            "function:0x004E0800",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000948",
+          "name": "collision_force_torque_accum_5",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000948",
+            "function:0x004E0800",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000979",
+          "name": "post_audio_clear_byte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000979",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000980",
+          "name": "sentinel_id_minus1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000980",
+            "function:0x004E0800",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000984",
+          "name": "sentinel_id_minus8388609",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000984",
+            "function:0x004E0800",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000988",
+          "name": "speed_scale",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000988",
+            "function:0x004E0800",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000098C",
+          "name": "pending_cleanup_byte",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000098C",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000990",
+          "name": "pending_cleanup_entries_base",
+          "type_guess": "bytearray",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000990",
+            "function:0x004E0800"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002BD0",
+          "name": "object_ptr_slot",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00002BD0",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002BD4",
+          "name": "freed_object_ptr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00002BD4",
+            "function:0x004E09E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000032BC",
+          "name": "restricted_mode_flag",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000032BC",
+            "function:0x004E45B0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003440",
+          "name": "race_phase_byte_gate",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003440",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003498",
+          "name": "integration_substep_count",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003498",
+            "function:0x004E45B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000349C",
+          "name": "step_size_squared_input",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000349C",
+            "function:0x004E45B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034A0",
+          "name": "step_size_1_over_40n",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034A0",
+            "function:0x004E45B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034A4",
+          "name": "step_size_1_over_8_5n5",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034A4",
+            "function:0x004E45B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034A8",
+          "name": "step_size_copy",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034A8",
+            "function:0x004E45B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034AC",
+          "name": "session_race_time",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034AC",
+            "function:0x004E45B0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034B0",
+          "name": "orientation_matrix_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034B0",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034B4",
+          "name": "orientation_matrix_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034B4",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034B8",
+          "name": "orientation_matrix_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034B8",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034BC",
+          "name": "orientation_matrix_3",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034BC",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034C0",
+          "name": "orientation_matrix_4",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034C0",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034C4",
+          "name": "orientation_matrix_5",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034C4",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034C8",
+          "name": "orientation_matrix_6",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034C8",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034CC",
+          "name": "orientation_matrix_7",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034CC",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034D0",
+          "name": "orientation_matrix_8",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034D0",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034D4",
+          "name": "world_position_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034D4",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034D8",
+          "name": "world_position_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034D8",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034DC",
+          "name": "world_position_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000034DC",
+            "function:0x004E49B0",
+            "function:0x004E5470",
+            "function:0x004E9BD0",
+            "function:0x004EF6C0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034E0",
+          "name": "negated_m21",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034E0",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034E4",
+          "name": "pitch_angle",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034E4",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034E8",
+          "name": "roll_angle",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034E8",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034EC",
+          "name": "setup_world_position_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034EC",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034F0",
+          "name": "setup_world_position_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034F0",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034F4",
+          "name": "setup_world_position_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034F4",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034F8",
+          "name": "dot_product_row_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034F8",
+            "function:0x004E49B0",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034FC",
+          "name": "dot_product_row_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000034FC",
+            "function:0x004E49B0",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003500",
+          "name": "dot_product_row_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003500",
+            "function:0x004E49B0",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003504",
+          "name": "camera_vector_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003504",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003508",
+          "name": "camera_vector_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003508",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000350C",
+          "name": "camera_vector_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000350C",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003510",
+          "name": "camera_scalar_input",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003510",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003514",
+          "name": "camera_scale_composite",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003514",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003518",
+          "name": "camera_scale_inverse",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003518",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003534",
+          "name": "camera_dot_row_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003534",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003538",
+          "name": "camera_dot_row_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003538",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000353C",
+          "name": "camera_dot_row_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000353C",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003540",
+          "name": "camera_transform_row_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003540",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003544",
+          "name": "camera_transform_row_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003544",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003548",
+          "name": "camera_transform_row_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003548",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000354C",
+          "name": "accumulated_force_torque_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000354C",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003550",
+          "name": "accumulated_force_torque_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00003550",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003554",
+          "name": "accumulated_force_torque_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00003554",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003558",
+          "name": "accumulated_force_torque_3",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00003558",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000355C",
+          "name": "accumulated_force_torque_4",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000355C",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003560",
+          "name": "accumulated_force_torque_5",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00003560",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003570",
+          "name": "camera_value_0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003570",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003574",
+          "name": "camera_product",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003574",
+            "function:0x004E49B0",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003578",
+          "name": "camera_value_1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003578",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003588",
+          "name": "wheel_transform_slot_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003588",
+            "function:0x004E5470",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000358C",
+          "name": "wheel_transform_slot_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000358C",
+            "function:0x004E5470",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003590",
+          "name": "wheel_transform_slot_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003590",
+            "function:0x004E5470",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003594",
+          "name": "wheel_transform_slot_3",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003594",
+            "function:0x004E5470",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003598",
+          "name": "wheel_transform_slot_4",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003598",
+            "function:0x004E5470",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000359C",
+          "name": "wheel_transform_slot_5",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000359C",
+            "function:0x004E5470",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000035A0",
+          "name": "wheel_transform_slot_6",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000035A0",
+            "function:0x004E5470",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000035A8",
+          "name": "steer_angle_product",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000035A8",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000035B0",
+          "name": "per_corner_camera_base_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000035B0",
+            "function:0x004E49B0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000036A8",
+          "name": "per_corner_camera_base_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000036A8",
+            "function:0x004E49B0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000037A0",
+          "name": "per_corner_camera_base_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000037A0",
+            "function:0x004E49B0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003898",
+          "name": "per_corner_camera_base_3",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003898",
+            "function:0x004E49B0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000035C4",
+          "name": "per_wheel_damper_force",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000035C4",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000035E0",
+          "name": "wheel_transform_input_2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000035E0",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000035F4",
+          "name": "per_wheel_damper_term",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000035F4",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003600",
+          "name": "per_wheel_multiplier",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003600",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000363C",
+          "name": "steer_cos",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000363C",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003640",
+          "name": "steer_sin",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003640",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003734",
+          "name": "steer_cos_copy",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003734",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003738",
+          "name": "steer_sin_copy",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003738",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000036A0",
+          "name": "steer_angle_product_copy",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000036A0",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003960",
+          "name": "steer_angle_term",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003960",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003964",
+          "name": "suspension_ride_height_average",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003964",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003974",
+          "name": "roll_redistribution_scale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003974",
+            "function:0x004E5470"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003978",
+          "name": "camera_value_2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003978",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003994",
+          "name": "camera_clamped_value",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003994",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000039B4",
+          "name": "suspension_average_mode",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000039B4",
+            "function:0x004E49B0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000039F0",
+          "name": "camera_global_copy",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000039F0",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003B54",
+          "name": "rigid_body_local_offset_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003B54",
+            "function:0x004E9BD0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003B58",
+          "name": "rigid_body_local_offset_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003B58",
+            "function:0x004E9BD0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003B5C",
+          "name": "rigid_body_local_offset_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003B5C",
+            "function:0x004E9BD0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003B60",
+          "name": "rigid_body_world_point_0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003B60",
+            "function:0x004E9BD0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003B64",
+          "name": "rigid_body_world_point_1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003B64",
+            "function:0x004E9BD0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003B68",
+          "name": "rigid_body_world_point_2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003B68",
+            "function:0x004E9BD0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D48",
+          "name": "camera_collision_value_0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003D48",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D4C",
+          "name": "camera_collision_value_1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003D4C",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D50",
+          "name": "camera_collision_value_2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003D50",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D64",
+          "name": "sign_flip_value",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003D64",
+            "function:0x004E49B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D78",
+          "name": "impact_ramp_addend",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D78",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D7C",
+          "name": "impact_ramp_scale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D7C",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D80",
+          "name": "impact_clamp",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D80",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D84",
+          "name": "tire_scrub_force_threshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D84",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D88",
+          "name": "damage_scale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D88",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D8C",
+          "name": "damage_threshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D8C",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D90",
+          "name": "spark_scale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D90",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D94",
+          "name": "body_zone_a_force_threshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D94",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D98",
+          "name": "body_zone_a_random_threshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D98",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D9C",
+          "name": "body_zone_a_ref_0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D9C",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DA0",
+          "name": "body_zone_a_ref_1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DA0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DA4",
+          "name": "body_zone_a_ref_2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DA4",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DC4",
+          "name": "body_zone_b_force_threshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DC4",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DC8",
+          "name": "body_zone_b_random_threshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DC8",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DCC",
+          "name": "body_zone_b_ref_0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DCC",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DD0",
+          "name": "body_zone_b_ref_1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DD0",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DD4",
+          "name": "body_zone_b_ref_2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DD4",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DF4",
+          "name": "wheel_zone_force_band_lo",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DF4",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DF8",
+          "name": "wheel_zone_force_band_hi",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DF8",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DFC",
+          "name": "wheel_zone_random_threshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DFC",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E90",
+          "name": "body_zone_force_threshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003E90",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003EB4",
+          "name": "body_zone_anchor_0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003EB4",
+            "function:0x004EC1A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003EB8",
+          "name": "body_zone_anchor_1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003EB8",
+            "function:0x004EC1A0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004D68A0",
+        "function:0x004D6AE0",
+        "function:0x004E0800",
+        "function:0x004E09E0",
+        "function:0x004E23D0",
+        "function:0x004E24A0",
+        "function:0x004E3360",
+        "function:0x004E4570",
+        "function:0x004E45B0",
+        "function:0x004E4910",
+        "function:0x004E49B0",
+        "function:0x004E5470",
+        "function:0x004E9BD0",
+        "function:0x004EC1A0",
+        "function:0x004EF6C0",
+        "global:0x007C8A18",
+        "global:0x007C7428",
+        "global:0x008AC394",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "VehiclePhysicsMode",
+      "owner": "VehiclePhysicsObject",
+      "states": [
+        "InitializationMode",
+        "StepMode",
+        "InvalidOrIdle"
+      ],
+      "transitions": [
+        "mode flag this+0x32BC == 0 -> one-time TireModelInit into dbl_7C7428 then step path",
+        "mode flag this+0x32BC in [1,3] -> step path (HDV parse, substep clamp, force solving)",
+        "mode flag this+0x32BC outside [0,3] -> early return without stepping"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:this:0x000032BC",
+        "function:0x004E45B0",
+        "global:0x007C7428",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionFeedbackGating",
+      "owner": "VehiclePhysicsObject",
+      "states": [
+        "PlayerIdentityPath",
+        "AlternateIdentityPath",
+        "RestrictedModePath",
+        "Suppressed"
+      ],
+      "transitions": [
+        "this[0] == dword_7C54E8 and gate bytes clear -> primary (player) feedback path",
+        "identity differs and restricted-mode flag != 1 -> main body runs",
+        "identity differs and race phase not in {1,3} -> main body runs",
+        "identity differs, restricted-mode flag == 1 and race phase in {1,3} -> suppressed"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "global:0x007C54E8",
+        "field:this:0x000032BC",
+        "global:0x007C56A8",
+        "function:0x004EC1A0",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "TireBrushModelService",
+      "purpose": "Tire-brush force model: per-frame force/torque solving with a lock protocol (1 = acquire, 0 = release) and per-wheel contact/spring-damper helpers.",
+      "functions": [
+        "0x004E8010",
+        "0x004E3AA0",
+        "0x004E3D00",
+        "0x004E5F60"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004E8010",
+        "callee:0x004E3AA0",
+        "callee:0x004E3D00",
+        "callee:0x004E5F60",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleHdvParser",
+      "purpose": "Vehicle .hdv file parsing and session/tire-model scratch initializers shared by config and audio loading.",
+      "functions": [
+        "0x004F4270",
+        "0x004F34E0",
+        "0x0042E320",
+        "0x0043E050"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004F4270",
+        "callee:0x004F34E0",
+        "callee:0x0042E320",
+        "callee:0x0043E050",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AudioStreamRecordParser",
+      "purpose": "Conditional audio-stream record iteration: open/dispatch/close primitives and restriction/force-field sphere token readers used by vehicle audio config.",
+      "functions": [
+        "0x00566B20",
+        "0x00566CC0",
+        "0x005651B0",
+        "0x00565870",
+        "0x00566D30",
+        "0x00566B90",
+        "0x005668D0",
+        "0x005668B0"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566B20",
+        "callee:0x00566CC0",
+        "callee:0x005651B0",
+        "callee:0x00565870",
+        "callee:0x00566D30",
+        "callee:0x00566B90",
+        "callee:0x005668D0",
+        "callee:0x005668B0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TransformMathService",
+      "purpose": "Rotation/transform math helpers: 3x3 matrix construction, Euler extraction, ride-height delta and coordinate transforms.",
+      "functions": [
+        "0x0043AEE0",
+        "0x00566E40",
+        "0x004EF680",
+        "0x005670D0",
+        "0x00567340",
+        "0x00588570"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0043AEE0",
+        "callee:0x00566E40",
+        "callee:0x004EF680",
+        "callee:0x005670D0",
+        "callee:0x00567340",
+        "callee:0x00588570",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionDamageFeedbackService",
+      "purpose": "Collision damage/spark event services: ring-buffer event encoding, state transitions, per-zone repair-service dispatch and steering-geometry deformation.",
+      "functions": [
+        "0x004ED250",
+        "0x004ED1C0",
+        "0x004ED1F0",
+        "0x004ED220",
+        "0x00411330",
+        "0x00411570",
+        "0x004EFAE0",
+        "0x004A56B0",
+        "0x004B33B0",
+        "0x00442060"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004ED250",
+        "callee:0x004ED1C0",
+        "callee:0x004ED1F0",
+        "callee:0x004ED220",
+        "callee:0x00411330",
+        "callee:0x00411570",
+        "callee:0x004EFAE0",
+        "callee:0x004A56B0",
+        "callee:0x004B33B0",
+        "callee:0x00442060",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "LifecycleResetService",
+      "purpose": "Vehicle substructure lifecycle: multi-system state init/reset, array and dual-array destructors, timer clamp, scale propagation and audio sub-slot initialization.",
+      "functions": [
+        "0x004E0DB0",
+        "0x004E3890",
+        "0x004E38D0",
+        "0x004E3050",
+        "0x004E2CA0",
+        "0x004E4790",
+        "0x004E0ED0",
+        "0x004DFCA0",
+        "0x004DED20",
+        "0x004DFA50",
+        "0x004DFB60",
+        "0x004DFB90",
+        "0x004DE610"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004E0DB0",
+        "callee:0x004E3890",
+        "callee:0x004E38D0",
+        "callee:0x004E3050",
+        "callee:0x004E2CA0",
+        "callee:0x004E4790",
+        "callee:0x004E0ED0",
+        "callee:0x004DFCA0",
+        "callee:0x004DED20",
+        "callee:0x004DFA50",
+        "callee:0x004DFB60",
+        "callee:0x004DFB90",
+        "callee:0x004DE610",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionSystemService",
+      "purpose": "Global collision system hooks: conditional resets, contact-zone dispatch, 3D sound-source destruction and string-buffer reallocation.",
+      "functions": [
+        "0x005506A0",
+        "0x00551810",
+        "0x00545150",
+        "0x00566650"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005506A0",
+        "callee:0x00551810",
+        "callee:0x00545150",
+        "callee:0x00566650",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MemoryService",
+      "purpose": "Heap scratch allocation/free primitives and stack-buffer cleanup helpers used across physics and audio config paths.",
+      "functions": [
+        "0x00587BCF",
+        "0x00587C03",
+        "0x0042DDD0",
+        "0x004DD450",
+        "0x004DD470",
+        "0x005881C0"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "callee:0x0042DDD0",
+        "callee:0x004DD450",
+        "callee:0x004DD470",
+        "callee:0x005881C0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PhysicsNodePropagationService",
+      "purpose": "Physics-node propagation with distance falloff over the global node set.",
+      "functions": [
+        "0x00401C90"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00401C90",
+        "global:0x005EA2C0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FlagGatedStubService",
+      "purpose": "Compiler/feature-flag stub gates invoked around the tire-contact pass.",
+      "functions": [
+        "0x0053AC70"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0053AC70",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x004E0800",
+      "to": "0x005506A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "callee:0x005506A0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x004E0DB0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "callee:0x004E0DB0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x004E3890",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "callee:0x004E3890",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x004B33B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "callee:0x004B33B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x004E0ED0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "callee:0x004E0ED0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x004E2CA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "callee:0x004E2CA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x00551810",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "callee:0x00551810",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x004E0DB0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x004E0DB0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x00545150",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x00545150",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x00411570",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x00411570",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x004E38D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x004E38D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x004E3050",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x004E3050",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x004DFA50",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x004DFA50",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x00566650",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x00566650",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x004DFB60",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x004DFB60",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x004DED20",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x004DED20",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x004DFB90",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x004DFB90",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E24A0",
+      "to": "0x005670D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E24A0",
+        "callee:0x005670D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E24A0",
+      "to": "0x00567340",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E24A0",
+        "callee:0x00567340",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x0042E320",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x0042E320",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x004F34E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x004F34E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x004F4270",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x004F4270",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x004DD450",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x004DD450",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x005668B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x005668B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x00566B20",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x00566B20",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x00566CC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x00566CC0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x005651B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x005651B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x00565870",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x00565870",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x00587C03",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x00587C03",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x00566D30",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x00566D30",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x00566B90",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x00566B90",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x004DE610",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x004DE610",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x005668D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x005668D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x004DD470",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x004DD470",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x0042DDD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "callee:0x0042DDD0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E4570",
+      "to": "0x004E4790",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E4570",
+        "callee:0x004E4790",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E4570",
+      "to": "0x004DFCA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E4570",
+        "callee:0x004DFCA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x004E4790",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x004E4790",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x0043E050",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x0043E050",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x0042E320",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x0042E320",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x004F34E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x004F34E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x004F4270",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x004F4270",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x004E5F60",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x004E5F60",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x004E8010",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x004E8010",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x0042DDD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x0042DDD0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x005881C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "callee:0x005881C0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E4910",
+      "to": "0x004E8010",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E4910",
+        "callee:0x004E8010",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E4910",
+      "to": "0x00401C90",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E4910",
+        "callee:0x00401C90",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x0043AEE0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "callee:0x0043AEE0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x00588570",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "callee:0x00588570",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E5470",
+      "to": "0x0053AC70",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E5470",
+        "callee:0x0053AC70",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E5470",
+      "to": "0x004E3AA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E5470",
+        "callee:0x004E3AA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E5470",
+      "to": "0x004E3D00",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E5470",
+        "callee:0x004E3D00",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x004EFAE0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "callee:0x004EFAE0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x004ED1C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "callee:0x004ED1C0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x004ED1F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "callee:0x004ED1F0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x004ED220",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "callee:0x004ED220",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x004B33B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "callee:0x004B33B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x004A56B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "callee:0x004A56B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x004ED250",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "callee:0x004ED250",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x00411330",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "callee:0x00411330",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x00442060",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "callee:0x00442060",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EF6C0",
+      "to": "0x00566E40",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EF6C0",
+        "callee:0x00566E40",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EF6C0",
+      "to": "0x004EF680",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EF6C0",
+        "callee:0x004EF680",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004D7150",
+      "to": "0x004D68A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004D7150",
+        "function:0x004D68A0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004C6D90",
+      "to": "0x004E0800",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C6D90",
+        "function:0x004E0800",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "0x004E09E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C6E80",
+        "function:0x004E09E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004DFBB0",
+      "to": "0x004E09E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004DFBB0",
+        "function:0x004E09E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004C73F0",
+      "to": "0x004E24A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C73F0",
+        "function:0x004E24A0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004F0430",
+      "to": "0x004E24A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004F0430",
+        "function:0x004E24A0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004DFCE0",
+      "to": "0x004E3360",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004DFCE0",
+        "function:0x004E3360",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E4930",
+      "to": "0x004E49B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004E4930",
+        "function:0x004E49B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E4E60",
+      "to": "0x004E5470",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004E4E60",
+        "function:0x004E5470",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E5F60",
+      "to": "0x004E9BD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004E5F60",
+        "function:0x004E9BD0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E9CA0",
+      "to": "0x004E9BD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004E9CA0",
+        "function:0x004E9BD0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EBC60",
+      "to": "0x004EC1A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004EBC60",
+        "function:0x004EC1A0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004441F0",
+      "to": "0x004EF6C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004441F0",
+        "function:0x004EF6C0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E9CA0",
+      "to": "0x004EF6C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004E9CA0",
+        "function:0x004EF6C0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004A00A0",
+      "to": "0x004E4910",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004A00A0",
+        "function:0x004E4910",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004C6D90",
+      "to": "0x004E4910",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C6D90",
+        "function:0x004E4910",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x008AAE74",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "global:0x008AAE74",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x008AAE70",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "global:0x008AAE70",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x0083EE60",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "global:0x0083EE60",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x008AAE64",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "global:0x008AAE64",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x008AFEA0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E0800",
+      "to": "0x007CF740",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E0800",
+        "global:0x007CF740",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x008AFE88",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "global:0x008AFE88",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x005EA560",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "global:0x005EA560",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E09E0",
+      "to": "0x005EA438",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E09E0",
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x008AC394",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "global:0x008AC394",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x005EA438",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x005D4E44",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "global:0x005D4E44",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x005D4E58",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "global:0x005D4E58",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x005D4E68",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "global:0x005D4E68",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E3360",
+      "to": "0x005D4E7C",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E3360",
+        "global:0x005D4E7C",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x007C7428",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "global:0x007C7428",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x008AC394",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "global:0x008AC394",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x005EA438",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "global:0x005EA438",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E45B0",
+      "to": "0x008AFEA0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E45B0",
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E4910",
+      "to": "0x005EA2C0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E4910",
+        "global:0x005EA2C0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C8A18",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C8A18",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C8A24",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C8A24",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C7918",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C7918",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C9318",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C9318",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C9084",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C9084",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C911C",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C911C",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C91DC",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C91DC",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C920C",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C920C",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C9214",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C9214",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C921C",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C921C",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C75C4",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C75C4",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C7430",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C7430",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C74AC",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C74AC",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C7428",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C7428",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004E49B0",
+      "to": "0x007C7438",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004E49B0",
+        "global:0x007C7438",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x007C54E8",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x007C54E8",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x007C56A8",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x007C56A8",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x007C749F",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x007C749F",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x007C74A4",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x007C74A4",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x007D0014",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x007D0014",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x0083EE60",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x0083EE60",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x008AAE64",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x008AAE64",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x008AFEA0",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x008AAE74",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x008AAE74",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x008AAE70",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x008AAE70",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x005EA560",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x005EA560",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x008AB274",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x008AB274",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004EC1A0",
+      "to": "0x007C7428",
+      "kind": "data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004EC1A0",
+        "global:0x007C7428",
+        "source:raw"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "VehiclePhysicsObjectLayout",
+      "category": "memory_layout",
+      "description": "A replacement executable must preserve the vehicle physics-state layout: wheel-state block with 74-float (296-byte) stride based at this+0xD4, 3x3 orientation matrix at 0x34B0..0x34D0, world position at 0x34D4..0x34DC, integration fields at 0x3498..0x34AC, and the 0x3D48..0x3EB8 collision feedback threshold block.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x000000D4",
+        "field:this:0x000034B0",
+        "field:this:0x000034D4",
+        "field:this:0x00003498",
+        "field:this:0x00003D48",
+        "function:0x004E24A0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TireBrushModelLockProtocol",
+      "category": "call_protocol",
+      "description": "Callers of the tire-brush solver must bracket work with TireBrushModelForceSolver(1) to acquire and TireBrushModelForceSolver(0) to release; the physics step and the collision wrapper both follow this protocol.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004E8010",
+        "function:0x004E4910",
+        "function:0x004E45B0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IntegrationSubstepClamp",
+      "category": "config_contract",
+      "description": "The integration sub-step count stored at this+0x3498 must be clamped to [1,64]; step-size fields derive as 1.0/(40*v6) and 1.0/(8*(5*v6+5)) and this+0x34AC mirrors the global race-time double.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00003498",
+        "field:this:0x000034A0",
+        "field:this:0x000034A4",
+        "field:this:0x000034AC",
+        "global:0x008AFEA0",
+        "function:0x004E45B0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PhysicsGlobalStateBlocks",
+      "category": "global_state",
+      "description": "Per-frame setup reads global physics state: dword_7C8A18 (physics base; +28 orientation, +100 world position), dword_7C7918 (per-corner camera copy source), dbl_7C7428 (shared tire-model buffer), dword_5EA2C0 (physics node set), and the rotating noise table dword_8AAE70/flt_8AAE74 for randomized delays and damage draws.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C8A18",
+        "global:0x007C7918",
+        "global:0x007C7428",
+        "global:0x005EA2C0",
+        "global:0x008AAE70",
+        "global:0x008AAE74",
+        "function:0x004E49B0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SuspensionForceFormula",
+      "category": "math_formula",
+      "description": "The temperature-scaled suspension force is computed as (temperature_term + 273.16) * input_factor * 0.002778858444950814 * scale + addend; a replacement must reproduce this arithmetic.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004D6AE0",
+        "field:this:0x00000118",
+        "field:this:0x00000038",
+        "field:this:0x00000040",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionFeedbackRingBuffer",
+      "category": "event_queue",
+      "description": "Collision spark/damage events are encoded into a 432-byte-strided ring buffer: dword_83EE60 counts live slots (cap 1023), dword_8AAE64 is the advancing slot base, ProgressBarEventEncode writes the slot header and direction bytes at slot+8..+14.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x0083EE60",
+        "global:0x008AAE64",
+        "callee:0x004B33B0",
+        "function:0x004EC1A0",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "Owner identity of the 'this' base across all 15 functions is inferred to be a single VehiclePhysicsObject from overlapping field evidence (orientation/world block 0x34B0..0x34DC shared by 0x4E49B0/0x4E5470/0x4E9BD0/0x4EC1A0/0x4EF6C0; wheel-state 74-float stride base 0xD4 shared by 0x4E24A0 and the 0x4E09E0 InitWithDualCall loop; init/reset overlap at 0x48..0x8C). The packet does not prove common ownership; audio config (0x5E4..0x6AD + 0xBA8), body collision zones (0xCC8..0xD90) and the camera snapshot block (0x3510..0x39F0) may be separate sub-objects.",
+    "The 82 DWORD literals written by the initializer (0x0..0x144) are not individually interpreted; the float meanings (contact/geometry, suspension/strut constants, scalar/vector defaults) are DERIVED prose, not packet evidence. Only the sentinel slots and transform-related early fields are modeled as named fields.",
+    "Per-wheel relative offsets inside the 74-float stride block (slots +53/+83/+100/+103/+104/+115/+116/+128/+140/+208) and the per-wheel bases in 0x4E5470 (float indices 3424/3429/3458/3480) are not packet fields; they are inferred from the raw source and preserved only as prose.",
+    "The 'obj'-base fields (0x32C8, 0x4894, 0x4898) belong to a caller-side base-object view (base-object counter, collision status, vehicle database slot). Identity of that base with the 'this' base is not established; they are not merged into VehiclePhysicsObject.",
+    "Read-only constant globals in the 0x59E4xx/0x5AD1xx ranges have no visible use in the decompiled bodies; they are likely tuning constants consumed by the called force/math routines, or .rdata slots backing double literals (e.g. 273.16, 0.002778858444950814). They are preserved in unresolved_evidence_refs.",
+    "Several per-frame setup fields (camera transform 0x3534..0x3548, dot rows 0x34F8..0x3500, 0x3D48..0x3D64) have no semantic names in the packet and are left as offsets with GUESS names.",
+    "unresolved_evidence_refs below preserves every required material ref not otherwise modeled in the architecture (remaining per-offset fields of the 0x0..0x144 initializer block and other field zones, globals without a data dependency, and the two annotative refs the packet listed verbatim)."
+  ],
+  "unresolved_evidence_refs": [
+    "field:obj:0x000032C8",
+    "field:obj:0x00004894",
+    "field:obj:0x00004898",
+    "field:obj:0x00004898 is listed in the packet field table but no obj-based access appears in the raw source; the base may belong to a caller-side object view.",
+    "field:this:0x00000004",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x0000002C",
+    "field:this:0x00000030",
+    "field:this:0x00000034",
+    "field:this:0x0000003C",
+    "field:this:0x00000044",
+    "field:this:0x00000050",
+    "field:this:0x00000058",
+    "field:this:0x0000005C",
+    "field:this:0x00000060",
+    "field:this:0x00000064",
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x00000074",
+    "field:this:0x00000078",
+    "field:this:0x0000007C",
+    "field:this:0x00000080",
+    "field:this:0x00000084",
+    "field:this:0x00000088",
+    "field:this:0x0000008C",
+    "field:this:0x00000090",
+    "field:this:0x00000094",
+    "field:this:0x00000098",
+    "field:this:0x0000009C",
+    "field:this:0x000000A0",
+    "field:this:0x000000A4",
+    "field:this:0x000000A8",
+    "field:this:0x000000AC",
+    "field:this:0x000000B0",
+    "field:this:0x000000B4",
+    "field:this:0x000000B8",
+    "field:this:0x000000BC",
+    "field:this:0x000000C0",
+    "field:this:0x000000C4",
+    "field:this:0x000000C8",
+    "field:this:0x000000CC",
+    "field:this:0x000000D0",
+    "field:this:0x000000D8",
+    "field:this:0x000000DC",
+    "field:this:0x000000E0",
+    "field:this:0x000000E4",
+    "field:this:0x000000E8",
+    "field:this:0x000000EC",
+    "field:this:0x000000F0",
+    "field:this:0x000000F4",
+    "field:this:0x000000F8",
+    "field:this:0x000000FC",
+    "field:this:0x00000100",
+    "field:this:0x00000104",
+    "field:this:0x00000108",
+    "field:this:0x0000010C",
+    "field:this:0x00000110",
+    "field:this:0x00000114",
+    "field:this:0x0000011C",
+    "field:this:0x00000120",
+    "field:this:0x00000124",
+    "field:this:0x00000128",
+    "field:this:0x0000012C",
+    "field:this:0x0000088C",
+    "field:this:0x00000890",
+    "field:this:0x00000894",
+    "field:this:0x0000089C",
+    "field:this:0x000008A0",
+    "field:this:0x000008A8",
+    "field:this:0x000008AC",
+    "field:this:0x000008B0",
+    "field:this:0x000008C0",
+    "field:this:0x000008C8",
+    "field:this:0x000008CC",
+    "field:this:0x000008D0",
+    "field:this:0x000008E4",
+    "field:this:0x000008F4",
+    "field:this:0x000008F8",
+    "field:this:0x000008FC",
+    "field:this:0x00000900",
+    "field:this:0x00000904",
+    "field:this:0x00000908",
+    "field:this:0x0000090C",
+    "field:this:0x00000910",
+    "field:this:0x00000914",
+    "field:this:0x00000950",
+    "field:this:0x00000954",
+    "field:this:0x00000968",
+    "field:this:0x00000970",
+    "field:this:0x00000975",
+    "field:this:0x00000976",
+    "field:this:0x00000977",
+    "field:this:0x00000978",
+    "field:this:0x0000097C",
+    "field:this:0x00000B6C",
+    "field:this:0x000035B4",
+    "field:this:0x000036AC",
+    "field:this:0x000036BC",
+    "field:this:0x000037A4",
+    "field:this:0x000037B4",
+    "field:this:0x0000389C",
+    "field:this:0x000038AC",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E43C is listed in the packet global table but does not appear in the raw source text.",
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E448",
+    "global:0x0059E450",
+    "global:0x0059E664",
+    "global:0x0059E670",
+    "global:0x0059E6E8",
+    "global:0x0059E7E8",
+    "global:0x0059E7EC",
+    "global:0x0059E7F8",
+    "global:0x0059E7FC",
+    "global:0x0059E8B4",
+    "global:0x0059E8EC",
+    "global:0x0059EAC8",
+    "global:0x0059EB40",
+    "global:0x0059EC20",
+    "global:0x005AD150",
+    "global:0x005AD1EC",
+    "global:0x005AD1F0",
+    "global:0x005AD1F4",
+    "global:0x008B8F24"
+  ],
+  "confidence": {
+    "boundaries": "HIGH",
+    "ownership": "LOW",
+    "field_semantics": "LOW",
+    "contracts": "MEDIUM"
+  }
+}

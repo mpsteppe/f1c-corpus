@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "address": "0x0058C9B4",
+  "proposed_name": "FileReadUnderCriticalSection",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0058C9B4"]
+  },
+  "summary": "Critical-section-guarded file read wrapper. Validates the slot index a1 against the global open-file count uNumber and checks the per-slot active flag bit (bit 0 of the byte at slot-table pointer + 36*(a1&0x1F) + 4, where the slot table dword_8D4920 is indexed in 32-slot groups by a1>>5). On success enters the per-slot critical section, performs the read through sub_58CA19, leaves the critical section and returns the bytes read. On invalid/closed slot writes TLS error code 9 through TLSOffsetGetter, clears the TLS value written by TLSOffsetGetter_afd8, and returns -1. Structural twin of sub_58C331 (cluster_copy prelabel, DERIVED).",
+  "local_names": {
+    "a1": "file-slot index being read",
+    "lpBuffer": "destination buffer for the read",
+    "nNumberOfBytesToRead": "maximum number of bytes to read",
+    "v3": "result of sub_58CA19 (bytes actually read)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Slot validity guard: a1 must be less than uNumber (global open-file count at 0x008D4A20)",
+      "evidence_refs": ["global:0x008D4A20", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Slot-active guard: bit 0 of the byte at dword_8D4920[a1>>5] + 36*(a1&0x1F) + 4 must be non-zero; dword_8D4920 is a table of per-32-slot groups and the expression locates the flag byte for slot a1",
+      "evidence_refs": ["global:0x008D4920", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CriticalSectionEnterWithLazyInit(a1) enters the per-slot critical section on the valid-slot path",
+      "evidence_refs": ["callee:0x00595A61", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "v3 = sub_58CA19(a1, lpBuffer, nNumberOfBytesToRead) performs the actual read, forwarding the slot, buffer and byte count unchanged",
+      "evidence_refs": ["callee:0x0058CA19", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FileCriticalSectionLeave(a1) releases the per-slot critical section",
+      "evidence_refs": ["callee:0x00595AC0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v3 (bytes read) on the valid-slot path",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Error path: write TLS error code 9 through the pointer returned by TLSOffsetGetter()",
+      "evidence_refs": ["callee:0x0058AFCF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Error path: clear the TLS value written through the pointer returned by TLSOffsetGetter_afd8() to 0",
+      "evidence_refs": ["callee:0x0058AFD8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return -1 on the invalid/closed-slot error path",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called from sub_58806E, sub_58C255 and sub_59C30E as a shared guarded file-read helper",
+      "evidence_refs": ["caller:0x0058806E", "caller:0x0058C255", "caller:0x0059C30E"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int FileReadUnderCriticalSection(int a1, LPVOID lpBuffer, DWORD nNumberOfBytesToRead) {",
+    "  if (a1 < uNumber && (*(_BYTE*)(dword_8D4920[a1>>5] + 36*(a1&0x1F) + 4) & 1) != 0) {",
+    "    CriticalSectionEnterWithLazyInit(a1);",
+    "    int v3 = sub_58CA19(a1, lpBuffer, nNumberOfBytesToRead);",
+    "    FileCriticalSectionLeave(a1);",
+    "    return v3;",
+    "  }",
+    "  *(_DWORD*)TLSOffsetGetter() = 9;",
+    "  *(_DWORD*)TLSOffsetGetter_afd8() = 0;",
+    "  return -1;",
+    "}"
+  ],
+  "unresolved": [
+    "Meaning of the per-slot active-flag byte layout (36-byte stride, flag at +4) and the exact object held by dword_8D4920 are inferred from the source text only",
+    "Significance of TLS error code 9 and the second TLS write through TLSOffsetGetter_afd8 is not documented",
+    "The cluster_copy relationship to sub_58C331 (0058c331) is DERIVED and not independently verified here",
+    "Owner class identity is not established by the packet"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

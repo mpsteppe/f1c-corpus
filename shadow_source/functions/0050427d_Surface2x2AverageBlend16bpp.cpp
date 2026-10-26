@@ -1,0 +1,39 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0050427D
+// Canonical corpus name: sub_50427D
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_50427D_0050427d.c
+
+void UnknownObject::Surface2x2AverageBlend16bpp()
+{
+    // Surface-to-surface 2x2 pixel averaging blend (structural twin of sub_503920). Iterates a 16-bit source surface (this[0]) in row pairs: for each row it reads a 2x2 neighborhood of 16-bit pixels (source pixel base at obj+0x18, offsets 0x0 and 0x2 for the two column samples plus the next-row pair at the row base + obj+0x1050), computes a box average per byte channel (byte 0 selected with mask 0xFFFF00FF, byte 1 selected with mask 0xFF00) with rounding constants 2 and 512 and right-shift 2, combines the channels with an XOR, and writes the 16-bit result to the destination surface (this[1]). Both surfaces advance row by row by their row strides (obj+0x1050 source, 4176 on the destination) until the row count bound obj+0x105C is exhausted; the per-row width bound comes from obj+0x1058. Returns 0.
+    // ASSIGNMENT: Load the source surface pointer from this[0] and the destination surface pointer from this[1]; read the source pixel base at obj+0x18, the source row stride at obj+0x1050 (4176), and the end bound at obj+0x105C (4188) computed as base + row stride * row count. [field:this:0x00000000, field:this:0x00000004, field:obj:0x00000018, field:obj:0x00001050, field:obj:0x0000105C, source:raw]
+    // LOOP: Outer loop over source row blocks: while the source pixel pointer stays below the end bound (obj+0x105C), process one source row against the destination row, then advance the destination row by its stride (4176 on this[1]) and the source row by the source row stride obj+0x1050. [field:obj:0x00001050, field:this:0x00000004, source:raw]
+    // CALCULATION: Compute the per-row inner bound from the width field: v28 = source row pointer + obj+0x1058 (4184). [field:obj:0x00001058, source:raw]
+    // LOOP: Inner loop reads a 2x2 neighborhood of 16-bit source pixels per output pixel: A at source offset 0x0, B at source offset 0x2, C at the next-row pointer (row base + obj+0x1050) offset 0x0, D at next-row offset 0x2; the loop advances two source bytes per iteration until the inner bound is reached. [field:*(obj+0x18):0x00000000, field:*(obj+0x18):0x00000002, field:obj:0x00001050, source:raw]
+    // CALCULATION: Box average of the four 16-bit pixels with byte-channel separation: byte 0 (low 8 bits, selected via mask 0xFFFF00FF and the byte cast) summed with rounding constant 2 and shifted right 2; byte 1 (mask 0xFF00) summed with rounding constant 512 and shifted right 2; the two channel averages are combined with an XOR into the output 16-bit value. [source:raw]
+    // ASSIGNMENT: Write the computed 16-bit average to the destination row and advance the destination pointer by two bytes. [source:raw]
+    // RETURN: Return 0 after processing all row blocks; there are no failure paths. [source:raw]
+    // CALL: Invoked as the case-51 compositing handler from COMInterfaceVectorProcessingMethod (0x00504B37). [caller:0x00504B37, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_50427D(this) {
+    //     src = (surface*)this[0]; dst = (surface*)this[1];
+    //     srcPixels = (WORD*)*(DWORD*)((char*)src + 0x18);
+    //     dstPixels = (WORD*)*(DWORD*)((char*)dst + 0x18);
+    //     rowEnd = srcPixels + *(DWORD*)((char*)src + 0x1050) * *(DWORD*)((char*)src + 0x105C);
+    //     for (row = srcPixels; row < rowEnd; row = (WORD*)((char*)row + *(DWORD*)((char*)src + 0x1050))) {
+    //       for (p = row; p < row + *(DWORD*)((char*)src + 0x1058); p += 2) {
+    //         // 2x2 16-bit neighborhood, byte channels 0xFFFF00FF and 0xFF00, XOR combine
+    //         *dstPixels++ = blend2x2(p, p + 2, (WORD*)((char*)row + *(DWORD*)((char*)src + 0x1050)));
+    //       }
+    //       dstPixels = (WORD*)((char*)dstPixels + *(DWORD*)((char*)dst + 0x1050));
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: Exact pixel format is unknown: the two independent byte channels (byte 0 vs byte 1 of each 16-bit pixel) are not identified as a specific packed color/alpha layout.
+    // UNRESOLVED: The XOR combine between the byte-channel averages is not independently confirmed as a specific blending operation; the roles of the rounding constants 2 and 512 are inferred from the shifts.
+    // UNRESOLVED: Whether the 2x2 sampling is a true downscale or a sliding blur is ambiguous: the source advances one row stride per outer iteration while each output pixel spans two columns.
+    // UNRESOLVED: Fields this+0x1C and this+0x1054 appear in the packet but are not referenced by the raw source; their roles are unknown.
+    // UNRESOLVED: Owning class of the source and destination surfaces is unknown.
+}

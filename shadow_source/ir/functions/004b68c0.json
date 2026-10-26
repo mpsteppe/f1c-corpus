@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "address": "0x004B68C0",
+  "proposed_name": "CircularBufferCheck",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes the number of active entries in a circular buffer whose data pointer, modulus, write index and read index live at this offsets 0x9B0, 0x9B4, 0x9B8 and 0x9BC. Existing analysis describes the buffer as holding pit stall data with 176-byte entries. Returns 0 when CoordinateBoundCheck reports invalid indices, when the only active entry is empty, or when the count is otherwise zero.",
+  "local_names": {
+    "v2": "write index read from this[622]",
+    "v3": "read index read from this[623]",
+    "result": "computed active-entry count"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Read the write index from this[622] (offset 0x9B8) and the read index from this[623] (offset 0x9BC).",
+      "evidence_refs": ["field:this:0x000009B8", "field:this:0x000009BC"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the write index is at least the read index (no wrap) and CoordinateBoundCheck(this) returns true, return 0 immediately.",
+      "evidence_refs": ["field:this:0x000009B8", "field:this:0x000009BC", "callee:0x004B69F0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Non-wrapped case: active count = write index - read index + 1.",
+      "evidence_refs": ["field:this:0x000009B8", "field:this:0x000009BC"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Wrapped case: active count = modulus from this[621] (offset 0x9B4) - read index + write index + 1.",
+      "evidence_refs": ["field:this:0x000009B4", "field:this:0x000009B8", "field:this:0x000009BC"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the computed count is 1 and the first byte of the entry at buffer base (this[620], offset 0x9B0) plus 176 times the read index is zero, treat the single entry as empty and return 0.",
+      "evidence_refs": ["field:this:0x000009B0", "field:this:0x000009BC"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the computed active-entry count.",
+      "evidence_refs": ["field:this:0x000009B8", "field:this:0x000009BC"]
+    }
+  ],
+  "clean_pseudocode": [
+    "write = this[622]; read = this[623];",
+    "if (write >= read) { if (CoordinateBoundCheck(this)) return 0; count = write - read + 1; }",
+    "else count = this[621] - read + write + 1;",
+    "if (count == 1 && *(char *)(this[620] + 176 * read) == 0) return 0;",
+    "return count;"
+  ],
+  "unresolved": [
+    "The 176-byte entry size and the pit-stall semantics come from existing analysis, not from this packet's raw source; the entry layout is unverified.",
+    "The exact index validation performed by CoordinateBoundCheck (0x004B69F0) is not visible in this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "address": "0x005086DD",
+  "proposed_name": "FindNearestVertexWeight",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x005086DD", "source:raw"]
+  },
+  "summary": "Vertex-buffer weight matcher (__thiscall): for each input vertex, scans a fixed 0x100-entry table of 4-float weights and writes the byte index of the entry with the minimum squared Euclidean distance into an output buffer. If the format-conversion flag this[1042] (byte 0x1048) is set, the input buffer is first remapped through DirectXVertexBufferFormatConversion. The output byte pointer is computed as this[6] (byte 0x18) + a3 * this[1045] (byte 0x1054) + a2 * this[1044] (byte 0x1050); the scan runs over this[1046] (byte 0x1058) vertices and the table base is float this+14 (byte 0x38). Returns the vertex counter.",
+  "local_names": {
+    "this": "weight-lookup object (vertex buffer / DXT encoder)",
+    "a2": "x dimension stride index into the output buffer",
+    "a3": "y dimension stride index into the output buffer",
+    "a4": "input vertex-data pointer (possibly converted)",
+    "result": "input buffer pointer, converted or original a4",
+    "v5": "output byte pointer (advances one byte per vertex)",
+    "v6": "input vertex float pointer (advances 4 floats per vertex)",
+    "v7": "nearest entry index for the current vertex",
+    "v8": "weight-table entry float pointer (advances 4 floats per entry)",
+    "v9": "first component difference (x)",
+    "v10": "second component difference (y)",
+    "v11": "third component difference (z)",
+    "v12": "fourth component difference (w)",
+    "v13": "squared distance for the current entry",
+    "v14": "outer loop counter (vertex index)",
+    "v15": "best (minimum) squared distance so far",
+    "v16": "inner table-entry loop counter"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard on the format-conversion flag this[1042] (byte 0x1048); when non-zero the input vertex buffer is remapped before weight matching.",
+      "evidence_refs": ["field:this:0x00001048", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When the flag is set, result = DirectXVertexBufferFormatConversion(this, a4); when clear, result = a4. The chosen pointer is the source of vertex components.",
+      "evidence_refs": ["callee:0x00506CE2", "field:this:0x00001048", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Compute the output byte pointer v5 = this[6] (byte 0x18) + a3 * this[1045] (byte 0x1054) + a2 * this[1044] (byte 0x1050); initialize the outer counter v14 to zero.",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x00001050", "field:this:0x00001054", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the vertex count this[1046] (byte 0x1058); when zero the entire scan is skipped and the function returns the counter (zero).",
+      "evidence_refs": ["field:this:0x00001058", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer do-while loop over this[1046] (byte 0x1058) input vertices; per vertex, reset the best distance v15 to 3.4028235e38 and the nearest index v7 to zero, then run the inner table scan.",
+      "evidence_refs": ["field:this:0x00001058", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner do-while loop over the 0x100 table entries, advancing v8 by 4 floats per entry; the input vertex start is at result+8, with the four components read from byte offsets +0, +4, +8, +12.",
+      "evidence_refs": ["field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per entry, compute the squared distance v13 as the sum of squares of the four component differences (the fourth component difference v12 is computed first in the raw source). Each table entry is the 4-float row beginning at float this+14 (byte 0x38), so entry fields include byte 0x3C and the following floats.",
+      "evidence_refs": ["field:this:0x00000038", "field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "If the entry's squared distance v13 is below the current best v15, record the entry counter v16 into the nearest-index v7 and update the best distance.",
+      "evidence_refs": ["field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "After the 0x100-entry scan, write the nearest entry index v7 as one byte to the output pointer v5, advance v5, advance the input pointer v6 by 4 floats, and increment the outer counter v14 (also stored back to result).",
+      "evidence_refs": ["field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the outer counter (last value of v14).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_5086DD(float* this, int a2, int a3, int a4) {",
+    "  int result = this[1042] ? DirectXVertexBufferFormatConversion(this, a4) : a4;",
+    "  char* out = (char*)(this[6] + a3 * this[1045] + a2 * this[1044]);",
+    "  unsigned int outer = 0;",
+    "  if (this[1046]) {",
+    "    float* vin = (float*)(result + 8);",
+    "    do {",
+    "      char bestIdx = 0; float best = 3.4028235e38; unsigned int i = 0;",
+    "      float* table = (float*)(this + 14);",
+    "      do {",
+    "        double dx3 = vin[0] - table[0];",
+    "        double dx2 = vin[1] - table[1];",
+    "        double dx0 = vin[2] - table[2];",
+    "        double dx1 = vin[3] - table[3];",
+    "        double dist = dx0 * dx0 + dx1 * dx1 + dx2 * dx2 + dx3 * dx3;",
+    "        if (dist < best) { bestIdx = (char)i; best = dist; }",
+    "        i++; table += 4;",
+    "      } while (i < 0x100);",
+    "      *out++ = bestIdx;",
+    "      result = ++outer;",
+    "      vin += 4;",
+    "    } while (outer < this[1046]);",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Purpose and side effects of DirectXVertexBufferFormatConversion (0x00506CE2) are unknown beyond remapping the input buffer.",
+    "The owning object type and the exact meaning of the 4-component weight table (float this+14, byte 0x38) are unknown; the scan is always over 0x100 entries regardless of this[1046].",
+    "The roles of the a2/a3 stride fields (bytes 0x1050 and 0x1054) relative to the output buffer layout are not established by the packet.",
+    "Field this+0x3C is flagged read and is interpreted here as the second float of the first weight-table entry; this association is DERIVED, not stated by the packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

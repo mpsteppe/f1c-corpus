@@ -1,0 +1,50 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00583430
+// Canonical corpus name: sub_583430
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_583430_00583430.c
+
+void UnknownObject::RemoveLinkedListNode()
+{
+    // Removes the first node whose data pointer matches the key a2 from a singly-linked list. Fixes up the iterator, tail and head/previous links, decrements the node count, optionally clears the node's flag byte, and if the flag is set runs SEHGuardedFunctionWithExceptionHandling on the node's data before freeing it and the node. Returns 1 on removal, 0 when the key is null, the list is empty, or no match is found. Called from NetworkPacketQueueReader.
+    // GUARD: Guard on the key a2; a null key returns 0 immediately without searching. [source:raw]
+    // GUARD: Guard on the head pointer at this+0x0; an empty list returns 0. [field:this:0x00000000, source:raw]
+    // LOOP: Walk the list from the head, comparing each node's data pointer (offset 0x0) against the key a2 and tracking the previous node. [source:raw]
+    // GUARD: When the walk reaches a null next pointer without a match, return 0. [source:raw]
+    // GUARD: If the removed node is the current iterator at this+0x8, advance the iterator to the removed node's successor. [field:this:0x00000008, source:raw]
+    // ASSIGNMENT: Unlink the node: the previous node's next field (offset 0x4) is rewritten to the removed node's successor, or the head (this+0x0) when there is no previous node. [field:obj:0x00000004, field:this:0x00000000, source:raw]
+    // GUARD: If the removed node is the tail at this+0x4, set the tail to the previous node. [field:this:0x00000004, source:raw]
+    // CALCULATION: Decrement the node count stored at this+0xC. [field:this:0x0000000C, source:raw]
+    // GUARD: When the removal flag a3 is zero, clear the node's flag byte at offset 0x8 before release. [field:obj:0x00000008, source:raw]
+    // GUARD: Test the node's flag byte at offset 0x8; a non-zero flag marks the node's data as SEH-managed. [field:obj:0x00000008, source:raw]
+    // GUARD: Test the node's data pointer (offset 0x0); the data is freed only when it is non-null. [source:raw]
+    // CALL: Run SEHGuardedFunctionWithExceptionHandling on the node's data pointer, invoking its registered cleanup under exception protection. [callee:0x005867B0, source:raw]
+    // CALL: FreeWrapper_7bcf releases the node's data memory. [callee:0x00587BCF, source:raw]
+    // CALL: FreeWrapper_7bcf releases the removed node. [callee:0x00587BCF, source:raw]
+    // RETURN: Return 1 to signal a successful removal. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   // Remove the first node whose data matches key a2; flag a3 controls whether SEH cleanup is kept.
+    //   // this = { head, tail, iterator, count }
+    //   if (!a2 || !head) return 0;
+    //   prev = 0;
+    //   node = head;
+    //   while (node->data != a2) {        // data at node+0
+    //     prev = node;
+    //     node = node->next;              // next at node+4
+    //     if (!node) return 0;
+    //   }
+    //   if (node == iterator) iterator = node->next;   // this+0x8
+    //   if (prev) prev->next = node->next; else head = node->next;
+    //   if (tail == node) tail = prev;                 // this+0x4
+    //   --count;                                       // this+0xC
+    //   if (!a3) node->flag = 0;                       // flag byte at node+8
+    //   if (node->flag) {
+    //     if (node->data) { SEHGuardedFunctionWithExceptionHandling(node->data); FreeWrapper_7bcf(node->data); }
+    //   }
+    //   FreeWrapper_7bcf(node);
+    //   return 1;
+    // UNRESOLVED: The node data comparison key a2 and the removal flag a3 semantics are defined by the caller (NetworkPacketQueueReader).
+    // UNRESOLVED: Exact node layout beyond data (offset 0x0), next (offset 0x4) and flag (offset 0x8) is not established.
+    // UNRESOLVED: The corpus-declared node field at offset 0xC has no direct access in this raw source; it may belong to a shared node layout.
+}

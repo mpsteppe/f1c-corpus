@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "address": "0x00594AB4",
+  "proposed_name": "TrimAllocatorFreePages",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00594AB4"]
+  },
+  "summary": "Walks the allocator-context linked list and decommits free pages (page-table entries holding 240) via VirtualFree(MEM_DECOMMIT), up to a remaining page budget a1. Each successful decommit marks the page-table entry -1, decrements the live page counter dword_8D41B8, and optionally lowers the context's lowest-free pointer v1[3]. If one context's entire page table becomes -1 (all 1024 pages free), the context itself is destroyed via sub_594A5E. Called per frame by CounterThreshold (00594bcd).",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "v1 = off_5E796C: start the walk at the allocator-context list head.",
+      "evidence_refs": ["global:0x005E796C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer do-while walks the context linked list through the next pointer v1[1] until it wraps back to the head off_5E796C or the page budget a1 is exhausted.",
+      "evidence_refs": ["global:0x005E796C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Per-context guard: skip any context whose arena base v1[4] equals -1 (no valid arena).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Reset the per-context freed-page counter v8 = 0 and point v2 at the first page-table entry: v2 = v1 + 2052.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-context page loop: i runs 4190208 down to 0 in 4096-byte steps, visiting each 4KB page of the arena; each page-table entry is two DWORDs wide (v2 -= 2 per iteration).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Free-page guard: only pages whose entry *v2 equals 240 (free state) are eligible for decommit.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "VirtualFree((LPVOID)(v1[4] + i), 0x1000, 0x4000): decommit the 4KB page with MEM_DECOMMIT (0x4000); the page is only freed when the call succeeds.",
+      "evidence_refs": ["global:0x0059E0A4", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On successful decommit: mark the page-table entry *v2 = -1 and decrement the live page counter dword_8D41B8.",
+      "evidence_refs": ["global:0x008D41B8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Lowest-free pointer update: if v1[3] is unset or still above the newly freed entry, set v1[3] = v2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Increment the freed-page counter v8 and decrement the remaining page budget a1; break out of the page loop when the budget reaches zero.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "After each context: if at least one page was freed (v8) and the context's page-count entry v5[6] is -1, run the all-free confirmation scan.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan v6 = v5 + 8 across entries 1..1023, stepping v6 += 2, to confirm every remaining page-table entry is -1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_594A5E(v5): destroy the entire allocator context when all 1024 page entries are free.",
+      "evidence_refs": ["callee:0x00594A5E", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Void function; nothing is returned.",
+      "evidence_refs": ["function:0x00594AB4", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void TrimAllocatorFreePages(int budget) {",
+    "  ctx = off_5E796C;",
+    "  do {",
+    "    if (ctx[4] != -1) {",
+    "      freed = 0;",
+    "      entry = ctx + 2052;",
+    "      for (i = 4190208; i >= 0; i -= 4096) {",
+    "        if (*entry == 240 && VirtualFree((void*)(ctx[4] + i), 0x1000, 0x4000)) {",
+    "          *entry = -1;",
+    "          --dword_8D41B8;",
+    "          if (!ctx[3] || ctx[3] > entry) ctx[3] = entry;",
+    "          ++freed;",
+    "          if (!--budget) break;",
+    "        }",
+    "        entry -= 2;",
+    "      }",
+    "      next = ctx;",
+    "      ctx = next[1];",
+    "      if (freed && next[6] == -1) {",
+    "        scan = next + 8;",
+    "        for (j = 1; j < 1024; ++j) {",
+    "          if (*scan != -1) break;",
+    "          scan += 2;",
+    "        }",
+    "        if (j == 1024) sub_594A5E(next);",
+    "      }",
+    "    }",
+    "  } while (ctx != off_5E796C && budget > 0);",
+    "}"
+  ],
+  "unresolved": [
+    "Meaning of the page-table state marker 240 as 'free' is inferred; raw source only compares the entry against 240.",
+    "Allocator-context layout (arena base v1[4], list-next v1[1], lowest-free v1[3], page-count v1[6], 2-DWORD page entries) is DERIVED from existing analysis and not independently evidenced by this packet.",
+    "sub_594A5E's destruction semantics beyond 'destroy entire context' are not visible in this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,47 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00408520
+// Canonical corpus name: VtableEntryNotifyCleanup
+// Owner: ChildContainer [DERIVED]
+// Raw source: functions/VtableEntryNotifyCleanup_00408520.c
+
+void ChildContainer::NotifyChildrenTeardown()
+{
+    // Container notify-and-teardown sequence. Switches the container vtable to off_59E60C, then walks the nine child pointers at this+0x10..0x30; for each non-null child it dispatches the child's virtual method with argument 1 (argument 3 for the child at this+0x20). Finally switches the container vtable to off_59E634 and returns the last dispatch result. Called by ConditionalFreeByFlag (00408500).
+    // ASSIGNMENT: Switch container vtable to &off_59E60C before the child notify pass. [field:this:0x00000000, global:0x0059E60C, source:raw]
+    // GUARD: Guard child pointer at this+0x10: virtual dispatch runs only when it is non-null. [field:this:0x00000010, source:raw]
+    // CALL: Dispatch virtual method on the child at this+0x10 (vtable slot 0 of *(this+0x10)) with argument 1. [field:*(this+0x10):0x00000000, source:raw]
+    // GUARD: Guard child pointer at this+0x14: virtual dispatch runs only when it is non-null. [field:this:0x00000014, source:raw]
+    // CALL: Dispatch virtual method on the child at this+0x14 (vtable slot 0 of *(this+0x14)) with argument 1. [field:*(this+0x14):0x00000000, source:raw]
+    // GUARD: Guard child pointer at this+0x18: virtual dispatch runs only when it is non-null. [field:this:0x00000018, source:raw]
+    // CALL: Dispatch virtual method on the child at this+0x18 (vtable slot 0 of *(this+0x18)) with argument 1. [field:*(this+0x18):0x00000000, source:raw]
+    // GUARD: Guard child pointer at this+0x1C: virtual dispatch runs only when it is non-null. [field:this:0x0000001C, source:raw]
+    // CALL: Dispatch virtual method on the child at this+0x1C (vtable slot 0 of *(this+0x1C)) with argument 1. [field:*(this+0x1C):0x00000000, source:raw]
+    // GUARD: Guard child pointer at this+0x20: virtual dispatch runs only when it is non-null. [field:this:0x00000020, source:raw]
+    // CALL: Dispatch virtual method on the child at this+0x20 (vtable slot 0 of *(this+0x20)) with argument 3, unlike the other children which receive argument 1. [field:*(this+0x20):0x00000000, source:raw]
+    // GUARD: Guard child pointer at this+0x24: virtual dispatch runs only when it is non-null. [field:this:0x00000024, source:raw]
+    // CALL: Dispatch virtual method on the child at this+0x24 (vtable slot 0 of *(this+0x24)) with argument 1. [field:*(this+0x24):0x00000000, source:raw]
+    // GUARD: Guard child pointer at this+0x28: virtual dispatch runs only when it is non-null. [field:this:0x00000028, source:raw]
+    // CALL: Dispatch virtual method on the child at this+0x28 (vtable slot 0 of *(this+0x28)) with argument 1. [field:*(this+0x28):0x00000000, source:raw]
+    // GUARD: Guard child pointer at this+0x2C: virtual dispatch runs only when it is non-null. [field:this:0x0000002C, source:raw]
+    // CALL: Dispatch virtual method on the child at this+0x2C (vtable slot 0 of *(this+0x2C)) with argument 1. [field:*(this+0x2C):0x00000000, source:raw]
+    // GUARD: Guard child pointer at this+0x30: virtual dispatch runs only when it is non-null. [field:this:0x00000030, source:raw]
+    // CALL: Dispatch virtual method on the child at this+0x30 (vtable slot 0 of *(this+0x30)) with argument 1. [field:*(this+0x30):0x00000000, source:raw]
+    // ASSIGNMENT: Switch container vtable to &off_59E634 after the child notify pass. [field:this:0x00000000, global:0x0059E634, source:raw]
+    // RETURN: Return the last virtual dispatch result; undefined when no child pointer is non-null. [source:raw]
+    // CALL: Invoked by ConditionalFreeByFlag (00408500) to notify and tear down the child set before disposal. [caller:0x00408500, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_408520(_DWORD* this) {
+    //     *this = &off_59E60C;
+    //     int result;
+    //     for (int i = 4; i <= 12; ++i) {
+    //       _DWORD* child = this[i];
+    //       if (child) result = (**(int (__thiscall***)(_DWORD, int))child)(child, i == 8 ? 3 : 1);
+    //     }
+    //     *this = &off_59E634;
+    //     return result;
+    //   }
+    // UNRESOLVED: The dispatched virtual method is identified only through vtable slot 0 of each child; the concrete methods behind the child vtables and the semantics of arguments 1 and 3 are not resolvable from this packet.
+    // UNRESOLVED: The two container vtable objects off_59E60C and off_59E634 are referenced but their contents are not available here.
+    // UNRESOLVED: The return value is undefined when every child pointer is null, because result is never assigned.
+}

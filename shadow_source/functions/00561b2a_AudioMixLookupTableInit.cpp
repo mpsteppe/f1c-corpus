@@ -1,0 +1,43 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00561B2A
+// Canonical corpus name: AudioMixLookupTableInit
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AudioMixLookupTableInit_00561b2a.c
+
+void UnknownObject::AudioMixLookupTableInit()
+{
+    // Builds four fixed lookup tables used by audio mixing / pixel processing: a 256x32 multiply table byte_5DECCC of (i*j)>>8, a 256x64 multiply table byte_5E0CCC of (k*m)>>8, a 32x32 sum-clip table byte_5DD8CC clamped to 31, and a 64x64 sum-clip table byte_5DDCCC clamped to 63. A __usercall prologue corrupts the frame: the first statements fold register bytes and indirectly call a function pointer read at a1+0x53, and the final return reads an uninitialized stack slot.
+    // CALCULATION: Fold the high byte of a2 into the low byte of the object pointer a1 (LOBYTE(a1) = BYTE1(a2) + a1). [source:raw]
+    // CALCULATION: Decrement the dword at a3 - 22 by a2 (scratch adjustment from the register-based prologue). [source:raw]
+    // CALL: Indirectly call a function pointer read at offset 0x53 (a1 + 83) of the object passed in a1. [field:this:0x00000053, source:raw]
+    // LOOP: Nested 256 x 32 loop filling byte_5DECCC with (unsigned byte i * unsigned byte j) >> 8. [global:0x005DECCC, source:raw]
+    // LOOP: Nested 256 x 64 loop filling byte_5E0CCC with (unsigned byte k * unsigned byte m) >> 8. [global:0x005E0CCC, source:raw]
+    // LOOP: Nested 32 x 32 loop filling byte_5DD8CC with n + ii, clamped to 31 when the sum reaches 32. [global:0x005DD8CC, source:raw]
+    // LOOP: Nested 64 x 64 loop filling byte_5DDCCC with jj + kk, clamped to 63 when the sum reaches 64. [global:0x005DDCCC, source:raw]
+    // RETURN: Return v18, an uninitialized [esp-4]/[ebp-4] slot read out of the corrupted frame; the value is not meaningfully defined. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   void AudioMixLookupTableInit() {
+    //     int idx;
+    //     idx = 0;
+    //     for (int i = 0; i < 256; ++i)
+    //       for (int j = 0; j < 32; ++j)
+    //         byte_5DECCC[idx++] = (unsigned __int8)((i * j) >> 8);
+    //     idx = 0;
+    //     for (int k = 0; k < 256; ++k)
+    //       for (int m = 0; m < 64; ++m)
+    //         byte_5E0CCC[idx++] = (unsigned __int8)((k * m) >> 8);
+    //     idx = 0;
+    //     for (int n = 0; n < 32; ++n)
+    //       for (int ii = 0; ii < 32; ++ii)
+    //         byte_5DD8CC[idx++] = (unsigned __int8)min(n + ii, 31);
+    //     idx = 0;
+    //     for (int jj = 0; jj < 64; ++jj)
+    //       for (int kk = 0; kk < 64; ++kk)
+    //         byte_5DDCCC[idx++] = (unsigned __int8)min(jj + kk, 63);
+    //   }
+    // UNRESOLVED: The first three statements are artifacts of the __usercall register allocation (a1/a2/a3 used as scratch); the indirect call through the function pointer at a1 + 0x53 is a callback whose target and purpose are unknown.
+    // UNRESOLVED: byte_5DD8CC / byte_5DDCCC / byte_5DECCC / byte_5E0CCC are byte-array globals; their exact sizes and owning objects are not in the packet (analysis prose names SoundMixClipTable / AlphaBlendSumTable / MultiplyLUT_8x32 / MulLookupTable, all DERIVED).
+    // UNRESOLVED: The stack-math on a3 - 22 and the return of the uninitialized v18 slot are decompiler artifacts of the register calling convention; real prologue/epilogue semantics are unclear.
+    // UNRESOLVED: No callers are recorded in the packet, so the invocation context of this initialization is unknown.
+}

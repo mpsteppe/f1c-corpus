@@ -1,0 +1,69 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004F8F50
+// Canonical corpus name: sub_4F8F50
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4F8F50_004f8f50.c
+
+void UnknownObject::FrameRateMonitorAndOverlayRenderer()
+{
+    // Frame-rate/performance monitor and overlay renderer. When the mode field at this+0 is non-zero, increments a frame counter and dispatches on a sub-mode at this+4 through a jump table: case 0 tracks elapsed-time min/max, case 1 computes instantaneous rate and formats it as "Ins: %3.2f", case 2 formats the frame count or clamps it into an output value and sets the display duration to 992, case 3 computes an override ratio and formats "Ovr: %d" or clamps it. Each case then drives a shared text-overlay renderer through sub_53D2E0 using the buffer at this+44 and the duration/value fields.
+    // GUARD: Early-out when the mode field at this+0 is zero; all tracking and rendering is skipped when the monitor is disabled. [field:this:0x00000000, source:raw]
+    // CALCULATION: Increment the frame counter stored at this+12 and write the new value back. [field:this:0x0000000C, source:raw]
+    // STATE_TRANSITION: Dispatch on the sub-mode at this+4 through the jump table at jpt_4F8F73 (case 0 elapsed-time tracking, case 1 instantaneous rate, case 2 frame-count output, case 3 override ratio). [field:this:0x00000004, global:0x004F9124, source:raw]
+    // GUARD: In cases 0 and 2, proceed only when the high-precision timer (handle at this+24) reports at least one second elapsed, via HighPrecisionTimerCounterArithmetic. [callee:0x005565B0, field:this:0x00000018, source:raw]
+    // ASSIGNMENT: Case 0: fold the promoted frame counter into the tracked minimum (this+16) and maximum (this+20) values, reset the high-resolution timer, and clear the frame counter. [callee:0x00556440, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, source:raw]
+    // CALCULATION: Case 1: on even invocations, compute the instantaneous rate as 2.0 divided by the scaled performance counter of the timer at this+24 via PerformanceCounterTimerWithScaling. [callee:0x00556510, field:this:0x00000018, source:raw]
+    // GUARD: Case 1: when the display mode at this+0 equals 2, take the string-format path; otherwise fall through to the clamped-output path at LABEL_27. [guard:0, guard:1, field:this:0x00000000, source:raw]
+    // CALL: Case 1 (mode 2): format the rate into the buffer at this+44 as "Ins: %3.2f" through StringFormatWithBufferOverflowCheck, then set the display duration to 900 at this+28. [callee:0x0058815F, global:0x005D6DA8, field:this:0x0000001C, source:raw]
+    // ASSIGNMENT: Case 2: fold the counter into min/max, and when the mode is not 2 clamp the counter to 999 and store it into the output value at this+8; then set the display duration to 992 at this+28. [field:this:0x00000008, field:this:0x00000010, field:this:0x00000014, field:this:0x0000001C, source:raw]
+    // CALCULATION: Case 3: compute the override ratio as dword_8AFE84 divided by dbl_8AFEA8. [global:0x008AFE84, global:0x008AFEA8, source:raw]
+    // CALL: Case 3: when the mode equals 2, truncate the ratio with CRTFtol and format it into the buffer at this+44 as "Ovr: %d"; otherwise clamp the truncated ratio to 999 into the output value at this+8, then set the display duration to 900 at this+28. [callee:0x00587BDC, callee:0x0058815F, global:0x005D6DA0, field:this:0x00000008, field:this:0x0000001C, source:raw]
+    // CALL: All cases: initialize shared overlay state via ConditionalInit on unk_8AFE18, render the overlay through sub_53D2E0 using the frame-rate label, the buffer at this+44, the display duration at this+28, the extra parameter at this+32 and global dword_8B8DC8, then reset shared state via ConditionalStateReset. [callee:0x004F9F00, callee:0x004F9F30, callee:0x0053D2E0, global:0x008AFE18, global:0x008B8DC8, global:0x005D6D78, field:this:0x0000001C, field:this:0x00000020, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (!*(int*)this) return;
+    //   ++*(int*)(this + 12);
+    //   switch (*(int*)(this + 4)) {
+    //   case 0:
+    //       if (HighPrecisionTimerCounterArithmetic(*(int*)(this + 24)) >= 1.0) {
+    //           f = (double)*(int*)(this + 12);
+    //           if (f < this[4]) this[4] = f;
+    //           if (f <= this[5]) HighResolutionTimerReset(*(int*)(this + 24));
+    //           else { this[5] = f; HighResolutionTimerReset(*(int*)(this + 24)); }
+    //           this[3] = 0.0;
+    //       }
+    //       return;
+    //   case 1:
+    //       if (frameCount % 2) break;
+    //       rate = 2.0 / PerformanceCounterTimerWithScaling(*(int*)(this + 24));
+    //       if (*(int*)this != 2) break; // LABEL_27
+    //       StringFormatWithBufferOverflowCheck(this + 11, "Ins: %3.2f", rate);
+    //       *(int*)(this + 28) = 900;
+    //       break;
+    //   case 2:
+    //       if (HighPrecisionTimerCounterArithmetic(*(int*)(this + 24)) >= 1.0) {
+    //           count = *(int*)(this + 12);
+    //           if (count < this[4]) this[4] = count;
+    //           if (count > this[5]) this[5] = count;
+    //           if (*(int*)this == 2) StringFormatWithBufferOverflowCheck(this + 11, "%d", count);
+    //           else *(int*)(this + 8) = min(count, 999);
+    //           HighResolutionTimerReset(*(int*)(this + 24));
+    //           this[3] = 0.0;
+    //       }
+    //       *(int*)(this + 28) = 992;
+    //       break;
+    //   case 3:
+    //       ratio = (double)dword_8AFE84 / dbl_8AFEA8;
+    //       if (*(int*)this == 2) StringFormatWithBufferOverflowCheck(this + 11, "Ovr: %d", CRTFtol(ratio));
+    //       else { v = CRTFtol(ratio); *(int*)(this + 8) = min(v, 999); }
+    //       *(int*)(this + 28) = 900;
+    //       break;
+    //   }
+    //   ConditionalInit(&unk_8AFE18);
+    //   sub_53D2E0(label, this + 11, *(int*)(this + 28), *(int*)(this + 32), dword_8B8DC8);
+    //   ConditionalStateReset(&unk_8AFE18);
+    // UNRESOLVED: The exact rendering role of sub_53D2E0 is inferred from the existing analysis (text overlay renderer); its body is not in this packet.
+    // UNRESOLVED: The display-duration values 900 and 992 and the clamp at 999 are raw literals whose game semantics are not independently evidenced.
+    // UNRESOLVED: The string contents behind aD_1, dbl_59E420 and flt_59E800 are not visible in the decompiled body.
+    // UNRESOLVED: The owner object is an UnknownObject; no class or subsystem name is evidenced.
+}

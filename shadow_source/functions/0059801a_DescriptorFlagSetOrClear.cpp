@@ -1,0 +1,39 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0059801A
+// Canonical corpus name: BitfieldManager
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/BitfieldManager_0059801a.c
+
+void UnknownObject::DescriptorFlagSetOrClear()
+{
+    // Per-descriptor flag-byte bitfield update. Resolves the flag byte for descriptor index a1 as dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 4, reads the current byte, then on command a2 == 0x8000 clears bit 0x80 (v3 & 0x7F) or on command a2 == 0x4000 sets bit 0x80 (v3 | 0x80). Before storing the updated byte it captures the prior bit-0x80 state as 0 or -1 and returns a status of 0x8000 when the bit was clear or 0x8000 + 0xC000 when it was set. Any other command stores error code 22 in the TLS error slot via TLSOffsetGetter and returns -1.
+    // ASSIGNMENT: v2 = (char*)dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 4: computes the flag-byte address for descriptor index a1 inside the dword_8D4920 file/descriptor state array (36-byte stride, flag byte at +4). [global:0x008D4920, source:raw]
+    // ASSIGNMENT: v3 = *v2: reads the current flag byte before any modification. [global:0x008D4920, source:raw]
+    // GUARD: When a2 == 0x8000 the clear path is taken: v4 = v3 & 0x7F (mask off bit 0x80). [source:raw]
+    // GUARD: When a2 == 0x4000 the set path is taken: v4 = v3 | 0x80 (raise bit 0x80). [source:raw]
+    // CALCULATION: v5 = -(*v2 < 0) captures the prior bit-0x80 state of the byte as 0 (clear) or -1 (set) before the write. [source:raw]
+    // ASSIGNMENT: *v2 = v4: stores the updated flag byte back into the descriptor. [source:raw]
+    // CALCULATION: LOWORD(v5) = v5 & 0xC000: masks the prior-state indicator into the low word, so the status is 0x8000 when the bit was clear or 0x8000 + 0xC000 when it was set. [source:raw]
+    // RETURN: For recognized commands returns v5 + 0x8000 (status carries base 0x8000 plus the prior bit-0x80 state). [source:raw]
+    // STATE_TRANSITION: Unrecognized command falls to the error path: *(_DWORD*)TLSOffsetGetter() = 22 stores error code 22 in the TLS error slot and the function returns -1. [callee:0x0058AFCF, source:raw]
+
+    // Conservative worker pseudocode:
+    //   v2 = (char*)dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 4;
+    //   v3 = *v2;
+    //   if (a2 == 0x8000) {
+    //       v4 = v3 & 0x7F;
+    //   } else if (a2 == 0x4000) {
+    //       v4 = v3 | 0x80;
+    //   } else {
+    //       *(_DWORD*)TLSOffsetGetter() = 22;
+    //       return -1;
+    //   }
+    //   v5 = -(*v2 < 0);
+    //   *v2 = v4;
+    //   LOWORD(v5) = v5 & 0xC000;
+    //   return v5 + 0x8000;
+    // UNRESOLVED: The dword_8D4920 array (36-byte stride, flag byte at +4) is the per-handle descriptor/file-state array also indexed by other stream code; the concrete struct it indexes is DERIVED from this packet's index arithmetic, not confirmed.
+    // UNRESOLVED: The domain meaning of the flag bit 0x80 and of the status encoding (base 0x8000 plus prior-bit 0xC000) is inferred; only the set/clear mapping of the 0x4000/0x8000 commands is grounded in the source.
+    // UNRESOLVED: The maximum return value is the derived sum of the packet constants 0xC000 and 0x8000; it is not a packet literal.
+    // UNRESOLVED: The single caller sub_59797B (0x0059797B) is not analyzed.
+}

@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "address": "0x004080F0",
+  "proposed_name": "StreamReadToAllocatedBuffer",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004080F0"]
+  },
+  "summary": "Stream-to-buffer loader. Guards on a live stream handle at this+0xC and an unallocated buffer at this+0x18, seeks the stream, reads a 4-byte element count from this+0x14, allocates a count*4-byte buffer, zero-initializes it, then reads one 4-byte element at a time into the buffer. Returns 0 only when every element is read; on partial/failed reads it cancels the stream handle via pfnAPC, frees the buffer and returns non-zero.",
+  "local_names": {
+    "this": "I/O node holding the stream handle (this+0xC), the element count (this+0x14) and the allocated buffer pointer (this+0x18)",
+    "a1": "this node passed as the sole stdcall argument",
+    "v6": "element index counter, returned compared against the element count"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If the stream handle at this+0xC is null the function returns 1 immediately (no stream to read)",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the buffer pointer at this+0x18 is already non-zero the function returns 1 immediately (already allocated)",
+      "evidence_refs": ["field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_587F64(stream, 0, 0) seeks the stream to offset 0 before reading",
+      "evidence_refs": ["callee:0x00587F64", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ThreadSafeReadWrapper_803f(this+0x14, 4, 1, stream) reads the 4-byte element count into this+0x14; a failed read returns 1 immediately",
+      "evidence_refs": ["callee:0x0058803F", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "OperatorNewNhMallocWrapper(4 * count) allocates a 4-byte-per-element buffer sized from the element count",
+      "evidence_refs": ["callee:0x00587C03", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the allocated buffer pointer into this+0x18",
+      "evidence_refs": ["field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Zero-initialize the allocated buffer, writing 0 to every dword while the index is below the element count",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Read the elements: ThreadSafeReadWrapper_803f(buffer + 4*v6, 4, 1, stream) per element; once all count elements are read the function returns whether the count was fully reached",
+      "evidence_refs": ["callee:0x0058803F", "field:this:0x00000018", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On an element read failure: pfnAPC(stream) cancels/closes the stream handle and FreeWrapper_7bcf(buffer) frees the allocated buffer, then this+0x18 is reset to 0",
+      "evidence_refs": ["callee:0x0041A160", "callee:0x00587BCF", "field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns (v6 != count): 0 on a fully successful read, non-zero on failure, partial read or the early-exit guards; invoked from LinkedListNodeInsert (00407520)",
+      "evidence_refs": ["function:0x004080F0", "caller:0x00407520", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (*(this + 0xC) == 0) return 1;",
+    "if (*(this + 0x18) != 0) return 1;",
+    "sub_587F64(*(this + 0xC), 0, 0);",
+    "if (!ThreadSafeReadWrapper_803f(this + 0x14, 4, 1, *(this + 0xC))) return 1;",
+    "count = *(unsigned int*)(this + 0x14);",
+    "*(this + 0x18) = OperatorNewNhMallocWrapper(4 * count);",
+    "for (i = 0; i < count; ++i) *((unsigned int*)*(this + 0x18) + i) = 0;",
+    "i = 0;",
+    "while (count != 0) {",
+    "  if (!ThreadSafeReadWrapper_803f(*(this + 0x18) + 4*i, 4, 1, *(this + 0xC))) break;",
+    "  if (++i >= count) return i != count;",
+    "}",
+    "pfnAPC(*(this + 0xC));",
+    "FreeWrapper_7bcf(*(this + 0x18));",
+    "*(this + 0x18) = 0;",
+    "return i != count;"
+  ],
+  "unresolved": [],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

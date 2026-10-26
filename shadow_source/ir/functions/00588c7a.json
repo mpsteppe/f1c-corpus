@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "address": "0x00588C7A",
+  "proposed_name": "SessionParameterSetter",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["source:raw"]
+  },
+  "summary": "Sets a network session parameter at index a1 from the string value lpMem. Parses the input into components, allocates a copy, swaps the session table slot (dword_5E64F4 + 3 * a1) and an associated 6-byte config entry, then dispatches a per-index validation callback. On validation failure the previous slot value, config entry and CodePage are restored and the copy is freed. Special index 2 updates the global CodePage and index 1 updates dword_8D3F4C. Returns the new session table slot on success, 0 on parse/allocation/validation failure.",
+  "local_names": {
+    "a1": "session parameter index",
+    "lpMem": "input string to parse",
+    "v5": "parsed string component buffer (132 bytes)",
+    "v9": "parsed 6-byte config component",
+    "v7": "parsed code-page component",
+    "v6": "stack backup of the old 6-byte config entry",
+    "v10": "address of the 6-byte config entry for index a1",
+    "v11": "backup of the global CodePage",
+    "v12": "previous session table slot value (rollback copy)"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard on sub_588E4E(lpMem, v5, v9, &v7): if the parse returns 0 the function returns 0 immediately.",
+      "evidence_refs": ["callee:0x00588E4E", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v3 = Strlen(v5), the byte length of the parsed string component.",
+      "evidence_refs": ["callee:0x0058E1B0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the value copy: lpMema = MallocWrapperForNhMalloc(v3 + 1).",
+      "evidence_refs": ["callee:0x0058A935", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the allocation result: a NULL lpMema makes the function return 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Save the current session table entry v12 = *(&dword_5E64F4 + 3 * a1) for rollback.",
+      "evidence_refs": ["global:0x005E64F4", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Save v8 = dword_8D3F30[a1], the previous code-page table value for this index.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v10 = 6 * a1 + 9256820, the address of the 6-byte config entry for index a1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Back up the old 6-byte config entry with MemoryCopy_cc00(v6, v10, 6).",
+      "evidence_refs": ["callee:0x0058CC00", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Save v11 = CodePage so it can be restored if validation fails.",
+      "evidence_refs": ["global:0x008D3F48", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Normalize the allocated string with sub_58FCA0(lpMema) and store it into the session table slot *(&dword_5E64F4 + 3 * a1).",
+      "evidence_refs": ["callee:0x0058FCA0", "global:0x005E64F4", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store dword_8D3F30[a1] = v9[0] from the parsed config component.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Write the new 6-byte config entry with MemoryCopy_cc00(v10, v9, 6).",
+      "evidence_refs": ["callee:0x0058CC00", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard a1 == 2: update the global CodePage = v7.",
+      "evidence_refs": ["global:0x008D3F48", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard a1 == 1: update dword_8D3F4C = v7.",
+      "evidence_refs": ["global:0x008D3F4C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Dispatch the per-index validation callback (*(&funcs_588D4B + 3 * a1))(); a non-zero result triggers rollback.",
+      "evidence_refs": ["global:0x005E64F8", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Rollback on validation failure: restore v12 into the session table slot, free lpMema via sub_58AA6F, restore dword_8D3F30[a1] = v8 and CodePage = v11, then return 0.",
+      "evidence_refs": ["callee:0x0058AA6F", "global:0x005E64F4", "global:0x008D3F48", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Free the previously stored session table pointer: if v12 != &unk_5E63E0 then sub_58AA6F(v12).",
+      "evidence_refs": ["global:0x005E63E0", "callee:0x0058AA6F", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the new session table entry *(&dword_5E64F4 + 3 * a1) on success.",
+      "evidence_refs": ["global:0x005E64F4", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_588C7A(int idx, char* text) {",
+    "  if (!sub_588E4E(text, v5, v9, &v7)) return 0;",
+    "  len = Strlen(v5);",
+    "  buf = MallocWrapperForNhMalloc(len + 1);",
+    "  if (!buf) return 0;",
+    "  slot = &dword_5E64F4 + 3 * idx;",
+    "  old = *slot; old_code = dword_8D3F30[idx]; base = 6 * idx + 9256820;",
+    "  MemoryCopy_cc00(backup, base, 6); old_cp = CodePage;",
+    "  *slot = sub_58FCA0(buf); dword_8D3F30[idx] = v9[0]; MemoryCopy_cc00(base, v9, 6);",
+    "  if (idx == 2) CodePage = v7;",
+    "  if (idx == 1) dword_8D3F4C = v7;",
+    "  if (validate[idx]()) { *slot = old; sub_58AA6F(buf); dword_8D3F30[idx] = old_code; CodePage = old_cp; return 0; }",
+    "  if (old != &unk_5E63E0) sub_58AA6F(old);",
+    "  return *slot;",
+    "}"
+  ],
+  "unresolved": [
+    "StubReturning0 (0x0058FB7E) is listed as a callee but never appears in the raw source; its connection to this path is unknown.",
+    "The parallel arrays dword_8D3F30 and the 6-byte config region at 9256820 are named only in the raw source; their structure and role are not independently evidenced.",
+    "The semantics of the parsed components v9[0] and v7 (index-specific code-page data) are not established.",
+    "The meaning of the sentinel unk_5E63E0 compared against the old slot pointer is not evidenced."
+  ],
+  "unresolved_evidence_refs": ["callee:0x0058FB7E"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

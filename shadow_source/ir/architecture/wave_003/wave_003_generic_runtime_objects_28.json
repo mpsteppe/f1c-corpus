@@ -1,0 +1,3402 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_003_generic_runtime_objects_28",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Lifecycle and per-frame management of heterogeneous runtime object families: video-manager post/exit teardown and scene-directory registration (0x004FAC00/0x004FAD00), weather/environment parameter and race-state initialization (0x004FCAA0/0x004FCC30), cloud/skybox scene-graph setup (0x004FBA10), cloud texture/object registry (0x004FC2F0/0x004FC550), camera viewport render configuration (0x004FBD70), HUD scoring/progress-bar updates (0x004FCEE0), and audio ADSR envelope processing (0x004FDEB0/0x004FE350/0x004FE7C0).",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x004FAC00",
+      "function:0x004FAD00",
+      "function:0x004FB910",
+      "function:0x004FBA10",
+      "function:0x004FBD70",
+      "function:0x004FC2F0",
+      "function:0x004FC550",
+      "function:0x004FCAA0",
+      "function:0x004FCC30",
+      "function:0x004FCEE0",
+      "function:0x004FDEB0",
+      "function:0x004FE350",
+      "function:0x004FE7C0"
+    ]
+  },
+  "summary": "Architecture proposal for a cluster of runtime object handlers. Weather/environment state is split between a parameter block (0x004FCAA0, built at Game_Init, writes color/blend/range constants) and a race-state block (0x004FCC30, rebuilt at Game_Restart with teardown-first semantics, allocates a 4-float parameter array, processes an audio ring buffer and seeds per-race words). Cloud/skybox rendering is owned by a CloudSkyboxState object (0x004FBA10, resolves scene nodes, allocates cloud/rain handle arrays, computes opacities/speeds and a bounding box) plus a CloudSceneObjectRegistry (0x004FC550 loads the logomap.mas resource and registers wcclouds/wccloudr texture variants; 0x004FC2F0 randomly selects 31-byte cloud object templates into this+80/this+132). The video-manager pair (0x004FAC00/0x004FAD00) performs post/exit teardown and active-scene directory registration. CameraViewportRenderer (0x004FBD70) re-centers viewports, scales pit-crew animation offsets, and packs per-element alpha from a gradient. HudScoringElement (0x004FCEE0) encodes progress events into a 432-byte ring buffer and blends alpha/color. AudioADSREnvelope (0x004FDEB0) advances a keyframe-node envelope; SessionWeatherData (0x004FE350) builds a time-keyed weather snapshot linked list; WeatherAudioChannelLoader (0x004FE7C0) loads/stops the weather audio channel and drives 0x004FE350. Ownership of most objects is UNKNOWN in the packet; classes here are DERIVED groupings from call relationships and shared this-slots.",
+  "function_roles": [
+    {
+      "address": "0x004FAC00",
+      "role": "VidMan post-processing entry: optional entry log, frame-rate counter reset, mutex/semaphore handle release and clear, SingleGlobalSetter(0), then active-scene path extraction (scene table base dword_8AC490 indexed by dword_8AC48C at stride 396, path string at +4) and directory registration via StringMatchWithFlagSet.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x004FAC00",
+        "callee:0x004D7A50",
+        "global:0x008AD25C",
+        "global:0x005D6DC4",
+        "source:raw",
+        "callee:0x004D7AA0",
+        "global:0x005D6ED0",
+        "callee:0x004F8EA0",
+        "global:0x008AFCA8",
+        "callee:0x005461B0",
+        "global:0x008AFE88",
+        "callee:0x0053D400",
+        "global:0x008AC48C",
+        "global:0x008AC490",
+        "callee:0x0053C900",
+        "caller:0x0042DA30",
+        "global:0x008AFE64"
+      ]
+    },
+    {
+      "address": "0x004FAD00",
+      "role": "VidMan exit handler: optional exit log, collision system shutdown, race-time-delta handle dispatch, two unnamed cleanup subroutines (sub_4A1830 before and after sub_4A14E0), and TestAndFreeWrapper free of dword_8AFE64 with clear to 0.",
+      "owner": "VideoManager",
+      "evidence_refs": [
+        "function:0x004FAD00",
+        "callee:0x004D7A50",
+        "global:0x008AD25C",
+        "global:0x005D6DC4",
+        "source:raw",
+        "callee:0x004D7AA0",
+        "global:0x005D6EE8",
+        "callee:0x00494900",
+        "callee:0x0055C040",
+        "global:0x008AFE64",
+        "callee:0x004A1830",
+        "callee:0x004A14E0",
+        "callee:0x0053D4C0",
+        "caller:0x0042DB20",
+        "global:0x007CDE00",
+        "global:0x007CE2A4"
+      ]
+    },
+    {
+      "address": "0x004FB910",
+      "role": "Session duration computation: jump-table dispatch (jpt_4FB921) maps the session index to a (days, hours) pair, a Monaco track-path match (against aMonaco via sub_566810) on session types 1/2 decrements the day count, and the result is days*86400 + hours*3600 seconds.",
+      "owner": "SessionWeatherSchedule",
+      "evidence_refs": [
+        "function:0x004FB910",
+        "global:0x004FB9F0",
+        "source:raw",
+        "global:0x007C56A4",
+        "global:0x007CE5D0",
+        "global:0x005EA438",
+        "callee:0x00566810",
+        "global:0x005D6F00",
+        "global:0x0059FB48",
+        "global:0x005AD28C"
+      ]
+    },
+    {
+      "address": "0x004FBA10",
+      "role": "CloudSkyboxState initializer: resolves the SkyboxI scene node and three cloud-layer nodes (Clouds/Cloudsny/Cloudrny), scans the audio network for snowy/rainy node handles, allocates the cloud and rain handle arrays, computes layer opacity (sub_548890) and noise-driven animation speeds scaled by flt_7CF914, and computes the skybox bounding box.",
+      "owner": "CloudSkyboxState",
+      "evidence_refs": [
+        "function:0x004FBA10",
+        "callee:0x005453A0",
+        "global:0x005D6F28",
+        "field:this:0x00000000",
+        "source:raw",
+        "callee:0x0054B420",
+        "callee:0x0054BDC0",
+        "field:this:0x00000040",
+        "global:0x005D6F08",
+        "global:0x005D6F1C",
+        "global:0x005D6F10",
+        "field:this:0x00000020",
+        "field:this:0x00000030",
+        "field:this:0x00000048",
+        "field:this:0x0000007C",
+        "global:0x008AFE88",
+        "callee:0x005452F0",
+        "callee:0x00545340",
+        "callee:0x0054BDA0",
+        "callee:0x00588640",
+        "callee:0x00587C03",
+        "field:this:0x0000004C",
+        "field:this:0x00000080",
+        "callee:0x00545F40",
+        "callee:0x00548890",
+        "field:this:0x00000070",
+        "global:0x008AAE70",
+        "global:0x008AAE74",
+        "global:0x007CF914",
+        "field:this:0x00000074",
+        "field:this:0x00000078",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000AC",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "field:this:0x000000B8",
+        "callee:0x004DD550",
+        "global:0x0059E450"
+      ]
+    },
+    {
+      "address": "0x004FBD70",
+      "role": "Camera viewport render setup: session-type change detection and handler sub_4FC550, per-frame global refresh plus three camera field pulls, primary and sub-viewport re-centering, fade-state change tracking, pit-crew animation offset scaling by dbl_8AFE98, and per-element alpha packing from the gradient range with OffsetDispatch flush.",
+      "owner": "CameraViewportRenderer",
+      "evidence_refs": [
+        "function:0x004FBD70",
+        "field:this:0x00000044",
+        "global:0x007C56A4",
+        "callee:0x004FC550",
+        "source:raw",
+        "callee:0x0040C910",
+        "callee:0x00542460",
+        "global:0x005EA510",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "global:0x007CF950",
+        "callee:0x0054B3B0",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x000000B8",
+        "global:0x008AFEC8",
+        "field:this:0x00000048",
+        "field:this:0x00000070",
+        "field:this:0x00000074",
+        "field:this:0x00000078",
+        "global:0x008AFE98",
+        "callee:0x0054BF60",
+        "callee:0x0054C230",
+        "callee:0x00587BDC",
+        "callee:0x0054C030",
+        "callee:0x0054E100",
+        "callee:0x0054E120",
+        "callee:0x0054B3F0",
+        "field:this:0x0000007C",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000AC",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "global:0x007CF938",
+        "caller:0x004B40A0",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E450",
+        "global:0x005ACEC4"
+      ]
+    },
+    {
+      "address": "0x004FC2F0",
+      "role": "Random cloud scene object selection: iterates a2's object list (256-byte stride), partitions candidates by 6-character name match against aClouds/aCloudr, randomly selects one from each non-empty group via the LCG, and copies 31 bytes (from +20 of the pick) into this+80 and this+132, clearing the 0x6F/0xA3 flag bytes after each copy.",
+      "owner": "CloudSceneObjectRegistry",
+      "evidence_refs": [
+        "function:0x004FC2F0",
+        "source:raw",
+        "callee:0x00588640",
+        "global:0x005D6F08",
+        "global:0x005D6F30",
+        "callee:0x005884ED",
+        "callee:0x00587DD0",
+        "field:this:0x0000006F",
+        "field:this:0x000000A3",
+        "caller:0x004FC550"
+      ]
+    },
+    {
+      "address": "0x004FC550",
+      "role": "Logo-map resource load plus cloud texture setup: builds the season/track/common/logomap.mas path (season dword_5EC3D8, track dword_5EC420, fallback byte_5EA438), loads it via sub_53CBC0, optionally randomizes cloud scene objects through 0x004FC2F0, registers wcclouds/wccloudr texture variants at this+80/this+132 via sub_4FC400, removes the resource from the physics linked list, and frees the path buffer.",
+      "owner": "CloudSceneObjectRegistry",
+      "evidence_refs": [
+        "function:0x004FC550",
+        "callee:0x00587C03",
+        "source:raw",
+        "global:0x005EC3D8",
+        "global:0x005EA438",
+        "callee:0x00566650",
+        "global:0x005EC420",
+        "callee:0x005665B0",
+        "global:0x005D3C34",
+        "global:0x005D3C3C",
+        "callee:0x0053CBC0",
+        "callee:0x004FC2F0",
+        "callee:0x004FC400",
+        "global:0x005D6F5C",
+        "global:0x005D6F50",
+        "callee:0x0053CE40",
+        "callee:0x00587BCF",
+        "global:0x008AFE64"
+      ]
+    },
+    {
+      "address": "0x004FCAA0",
+      "role": "Weather parameter block initializer: optional weather.txt generation (guarded on dword_7CF080), sentinel resets, packed-short color scaling (/255), weather timing factor from field +224, blend/half factors, range/default constants, and cloud/skybox setup delegation to sub_4FBA10 on the block at this+264.",
+      "owner": "WeatherParameterState",
+      "evidence_refs": [
+        "function:0x004FCAA0",
+        "callee:0x004FD840",
+        "global:0x007CF080",
+        "callee:0x004FD8B0",
+        "global:0x0059E444",
+        "global:0x0059E460",
+        "global:0x005EC438",
+        "global:0x005EA438",
+        "callee:0x0058815F",
+        "global:0x005D6F68",
+        "callee:0x004FE820",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:this:0x000000A4",
+        "callee:0x005439F0",
+        "field:this:0x000000B4",
+        "field:this:0x000000B8",
+        "field:this:0x000000BC",
+        "callee:0x00543A30",
+        "callee:0x00543A60",
+        "callee:0x004FEFC0",
+        "field:this:0x000000E0",
+        "field:this:0x000000C0",
+        "field:this:0x000000C4",
+        "field:this:0x000000C8",
+        "field:this:0x000000A8",
+        "field:this:0x000000EC",
+        "field:this:0x000000CC",
+        "field:this:0x000000D0",
+        "field:this:0x000000D4",
+        "field:this:0x000000F0",
+        "field:this:0x000000F4",
+        "field:this:0x000000F8",
+        "field:this:0x000000E4",
+        "field:this:0x000000E8",
+        "callee:0x004FF040",
+        "callee:0x004FBA10",
+        "field:this:0x000001C4",
+        "source:raw",
+        "global:0x008AFE88"
+      ]
+    },
+    {
+      "address": "0x004FCC30",
+      "role": "Weather race-state re-initializer on game restart: tears down prior list state, early-outs when the display-mode guard is unset or dword_8AB6E4 is 2, selects a weather parameter mode (season entry, weather.txt parse, or built-in switch on dword_7CF080), allocates the 4-float parameter array, processes the audio ring buffer, initializes per-race flags/words, seeds this+0x104 from the rotation table, and conditionally resets the name at this+0x1C4 and calls sub_4FC550.",
+      "owner": "WeatherRaceState",
+      "evidence_refs": [
+        "function:0x004FCC30",
+        "callee:0x004FD840",
+        "source:raw",
+        "field:this:0x0000001C",
+        "global:0x007C56A0",
+        "global:0x008AB6E4",
+        "callee:0x00543960",
+        "field:this:0x00000014",
+        "global:0x007CF17C",
+        "field:this:0x00000000",
+        "global:0x008ACF9C",
+        "global:0x007CF080",
+        "callee:0x004C5840",
+        "callee:0x005679C0",
+        "global:0x005D173C",
+        "callee:0x00587C03",
+        "callee:0x004FC9A0",
+        "field:this:0x0000003C",
+        "callee:0x004FDE00",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000024",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "callee:0x004FE350",
+        "global:0x005EC438",
+        "global:0x005EA438",
+        "callee:0x0058815F",
+        "callee:0x004FE7C0",
+        "field:this:0x00000020",
+        "callee:0x004FEAF0",
+        "field:this:0x00000008",
+        "field:this:0x00000038",
+        "field:this:0x00000040",
+        "field:this:0x00000044",
+        "field:this:0x00000004",
+        "field:this:0x00000048",
+        "field:this:0x0000004A",
+        "field:this:0x0000004C",
+        "field:this:0x0000004E",
+        "field:this:0x00000050",
+        "field:this:0x00000052",
+        "global:0x008AB274",
+        "global:0x008AAE70",
+        "field:this:0x00000104",
+        "callee:0x004FD6F0",
+        "global:0x008ACFA3",
+        "callee:0x00587DD0",
+        "field:this:0x000001CF",
+        "callee:0x004FC550",
+        "global:0x0059E440",
+        "global:0x0059E448",
+        "global:0x005D6F68",
+        "global:0x008AC368",
+        "global:0x008AFE88"
+      ]
+    },
+    {
+      "address": "0x004FCEE0",
+      "role": "Per-frame HUD scoring/progress-bar update: decrements the countdown timer, encodes expired scoring events into the 432-byte ring buffer at dword_8AAE64, advances a linked event list, interpolates display alpha toward its target, applies time-of-day dimming and the nightlight toggle, computes an interpolated RGB color ramp, updates audio pan / bounded float setter / UI position, and swaps idle/active state ids (6<->7, 21<->22) in the global element array.",
+      "owner": "HudScoringElement",
+      "evidence_refs": [
+        "function:0x004FCEE0",
+        "field:this:0x00000004",
+        "global:0x008AFE98",
+        "source:raw",
+        "global:0x007C56A0",
+        "global:0x008AB6E4",
+        "field:this:0x00000040",
+        "field:this:0x00000100",
+        "field:this:0x00000044",
+        "callee:0x004FC650",
+        "callee:0x004FDEB0",
+        "global:0x008AFEA0",
+        "global:0x005C329C",
+        "field:this:0x00000000",
+        "callee:0x004FC870",
+        "field:this:0x00000020",
+        "field:this:0x00000048",
+        "callee:0x004B33B0",
+        "global:0x008AAE64",
+        "global:0x0083EE60",
+        "field:this:0x0000004C",
+        "field:this:0x00000050",
+        "field:this:0x0000005C",
+        "field:*(this+0x5C):0x00000000",
+        "field:*(this+0x5C):0x00000004",
+        "field:*(*(this+0x5C)+0x0):0x00000000",
+        "field:*(*(this+0x5C)+0x0):0x00000004",
+        "field:*(*(this+0x5C)+0x0):0x00000008",
+        "callee:0x00587BDC",
+        "guard:0",
+        "field:this:0x00000008",
+        "field:this:0x00000024",
+        "field:this:0x000000FC",
+        "callee:0x0058957A",
+        "callee:0x004FC170",
+        "callee:0x00545670",
+        "callee:0x005457F0",
+        "callee:0x00545820",
+        "callee:0x00588640",
+        "callee:0x0055D2F0",
+        "global:0x007CFEC4",
+        "global:0x008ACFB0",
+        "global:0x005D6F78",
+        "field:this:0x00000010",
+        "field:this:0x0000001C",
+        "global:0x007CF8A8",
+        "callee:0x005457C0",
+        "callee:0x0055D410",
+        "field:this:0x0000000C",
+        "callee:0x004CEFE0",
+        "global:0x008ACEA0",
+        "field:this:0x0000002C",
+        "field:this:0x00000028",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000AC",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "field:this:0x000000B8",
+        "field:this:0x000000BC",
+        "field:this:0x000000C0",
+        "field:this:0x000000C4",
+        "field:this:0x000000C8",
+        "field:this:0x000000CC",
+        "field:this:0x000000D0",
+        "field:this:0x000000D4",
+        "field:this:0x000000D8",
+        "field:this:0x000000DC",
+        "field:this:0x000000E0",
+        "field:this:0x000000E4",
+        "field:this:0x000000E8",
+        "field:this:0x000000EC",
+        "field:this:0x000000F0",
+        "field:this:0x000000F4",
+        "field:this:0x000000F8",
+        "callee:0x005438B0",
+        "callee:0x00543920",
+        "callee:0x00543870",
+        "field:this:0x00000014",
+        "global:0x008ACEA8",
+        "global:0x008ACEAC",
+        "field:this:0x00000018",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E444",
+        "global:0x0059E450",
+        "global:0x0059E46C",
+        "global:0x0059E8E4",
+        "global:0x0059E8FC",
+        "global:0x0059E97C",
+        "global:0x0059EF78",
+        "global:0x0059FEC8",
+        "global:0x005ACD48",
+        "global:0x005AD294",
+        "global:0x005AD298",
+        "global:0x005AD29C",
+        "global:0x005AD2A0",
+        "global:0x005AD2A4",
+        "global:0x005AD2A8",
+        "global:0x005AD2AC",
+        "global:0x005AD2B0",
+        "global:0x005AD2B4",
+        "global:0x005AD2B8",
+        "global:0x008AFE88"
+      ]
+    },
+    {
+      "address": "0x004FDEB0",
+      "role": "Audio ADSR envelope advance: walks the keyframe-node chain from this+0x38, interpolates the two node parameters (table base this+0x44) for the phase input, applies per-sample decay with floor clamp to the two internal envelope states, calls RangeInterpolationTable, and writes a sample-rate-smoothed output at this+0x34.",
+      "owner": "AudioADSREnvelope",
+      "evidence_refs": [
+        "function:0x004FDEB0",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000040",
+        "field:this:0x00000044",
+        "field:*(this+0x44):0x00000000",
+        "field:*(this+0x44):0x00000004",
+        "field:*(this+0x44):0x00000008",
+        "source:raw",
+        "callee:0x004FDE00",
+        "callee:0x004FD6F0",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E450",
+        "global:0x0059E800",
+        "global:0x0059E84C",
+        "global:0x0059E864",
+        "global:0x005ACCB0",
+        "global:0x005AD30C",
+        "global:0x005AD310",
+        "global:0x005AD314",
+        "global:0x005AD318"
+      ]
+    },
+    {
+      "address": "0x004FE350",
+      "role": "Per-session weather data initializer: resolves session-name candidates via SessionTypeNameLookup on dword_7C56A4, finds the best data entry by minutes/tick count, reads conditions / on-path and off-path wetness / ambient and track temperature entries, clamps off-path wetness to at least on-path, and builds a time-keyed linked list of weather snapshots (timestamp, ambient temp, wetness multiplier) from the minute entries. Returns -1 when no entry matches, 0 on success.",
+      "owner": "SessionWeatherData",
+      "evidence_refs": [
+        "function:0x004FE350",
+        "source:raw",
+        "callee:0x0042CE30",
+        "global:0x007C56A4",
+        "global:0x004FE7A0",
+        "callee:0x005679C0",
+        "callee:0x00587BDC",
+        "global:0x008ACF9C",
+        "callee:0x00567970",
+        "callee:0x00587ECE",
+        "callee:0x0049ADB0",
+        "callee:0x00499E20",
+        "callee:0x00588410",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "global:0x005D7028",
+        "callee:0x004FE0D0",
+        "callee:0x004FDE00",
+        "global:0x005D7018",
+        "callee:0x004FE1E0",
+        "global:0x005D7008",
+        "global:0x005D6FF8",
+        "global:0x005D6FEC",
+        "callee:0x004FE2B0",
+        "global:0x005D6FE0",
+        "callee:0x00587C03",
+        "callee:0x004FC9A0",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:*(this+0x38):0x0000000C",
+        "field:*(*(this+0x38)+0xC):0x00000000",
+        "field:*(*(this+0x38)+0xC):0x00000004",
+        "field:*(*(this+0x38)+0xC):0x00000008",
+        "global:0x005EA408",
+        "global:0x005D6FD8",
+        "global:0x005C330C",
+        "callee:0x0058850F",
+        "field:*(this+0x38):0x00000004",
+        "field:*(this+0x38):0x00000008",
+        "caller:0x004FCC30",
+        "caller:0x004FE7C0",
+        "global:0x0059E450",
+        "global:0x0059E6F8",
+        "global:0x0059E800",
+        "global:0x0059EED0",
+        "global:0x0059F118",
+        "global:0x005ACEE4",
+        "field:*(this+0x3C):0x00000004",
+        "field:*(this+0x3C):0x00000008"
+      ]
+    },
+    {
+      "address": "0x004FE7C0",
+      "role": "Weather audio load and channel stop: zero-initializes a 56-byte local struct, decodes the audio file for resource id a2, stops the weather audio channel referenced by aWeather_1, processes the stopped channel handle through sub_4FE350 into the caller's buffer, frees the local linked-list buffer on every path, and returns the sub_4FE350 result (or -1 when the channel stop returned NULL).",
+      "owner": "WeatherAudioChannelLoader",
+      "evidence_refs": [
+        "function:0x004FE7C0",
+        "callee:0x00567A00",
+        "source:raw",
+        "callee:0x00567F40",
+        "callee:0x00568210",
+        "global:0x005D173C",
+        "callee:0x004FE350",
+        "callee:0x00567A30",
+        "caller:0x004FCC30"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "VideoManager",
+      "responsibility": "Video-manager lifecycle teardown and scene-path registration: post-processing entry (0x004FAC00) resets frame-rate state, releases the global mutex/semaphore handle, clears a global flag, and registers the active scene directory path; exit handler (0x004FAD00) shuts down the collision system, dispatches and frees the race-time-delta global.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004FAC00",
+        "0x004FAD00"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004FAC00",
+        "callee:0x004D7A50",
+        "global:0x008AD25C",
+        "global:0x005D6DC4",
+        "source:raw",
+        "callee:0x004D7AA0",
+        "global:0x005D6ED0",
+        "callee:0x004F8EA0",
+        "global:0x008AFCA8",
+        "callee:0x005461B0",
+        "global:0x008AFE88",
+        "callee:0x0053D400",
+        "global:0x008AC48C",
+        "global:0x008AC490",
+        "callee:0x0053C900",
+        "caller:0x0042DA30",
+        "global:0x008AFE64",
+        "function:0x004FAD00",
+        "global:0x005D6EE8",
+        "callee:0x00494900",
+        "callee:0x0055C040",
+        "callee:0x004A1830",
+        "callee:0x004A14E0",
+        "callee:0x0053D4C0",
+        "caller:0x0042DB20",
+        "global:0x007CDE00",
+        "global:0x007CE2A4"
+      ]
+    },
+    {
+      "name": "CloudSkyboxState",
+      "responsibility": "Cloud/skybox rendering state: resolves the skybox and three cloud-layer scene nodes, builds cloud and rain node-handle arrays from the audio network, holds per-layer opacity and animation speeds, and keeps the skybox bounding box.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004FBA10"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "skyboxNodeHandle",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "normalCloudLayerHandle",
+          "type_guess": "ptr",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "snowyCloudLayerHandle",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "rainyCloudLayerHandle",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "cloudLayerArraySentinel",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "cloudNodeCount",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "cloudHandleArray",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000070",
+          "name": "cloudLayerOpacity",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000074",
+          "name": "cloudSpeedA",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000074",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000078",
+          "name": "cloudSpeedB",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000078",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000007C",
+          "name": "rainNodeCount",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "rainHandleArray",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000080",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A4",
+          "name": "rainLayerOpacity",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000A4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A8",
+          "name": "rainSpeedA",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000AC",
+          "name": "rainSpeedB",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B0",
+          "name": "boundingBoxMin",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B4",
+          "name": "boundingBoxMax",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000B4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B8",
+          "name": "boundingBoxSentinel",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000B8",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004FBA10",
+        "callee:0x005453A0",
+        "global:0x005D6F28",
+        "field:this:0x00000000",
+        "source:raw",
+        "callee:0x0054B420",
+        "callee:0x0054BDC0",
+        "field:this:0x00000040",
+        "global:0x005D6F08",
+        "global:0x005D6F1C",
+        "global:0x005D6F10",
+        "field:this:0x00000020",
+        "field:this:0x00000030",
+        "field:this:0x00000048",
+        "field:this:0x0000007C",
+        "global:0x008AFE88",
+        "callee:0x005452F0",
+        "callee:0x00545340",
+        "callee:0x0054BDA0",
+        "callee:0x00588640",
+        "callee:0x00587C03",
+        "field:this:0x0000004C",
+        "field:this:0x00000080",
+        "callee:0x00545F40",
+        "callee:0x00548890",
+        "field:this:0x00000070",
+        "global:0x008AAE70",
+        "global:0x008AAE74",
+        "global:0x007CF914",
+        "field:this:0x00000074",
+        "field:this:0x00000078",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000AC",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "field:this:0x000000B8",
+        "callee:0x004DD550",
+        "global:0x0059E450"
+      ]
+    },
+    {
+      "name": "CameraViewportRenderer",
+      "responsibility": "Camera viewport render configuration: detects session-type changes, re-centers the primary and three sub-viewports, tracks fade-state changes, scales pit-crew animation offsets, and packs per-element alpha into the render-state list from a gradient range.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004FBD70"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "primaryViewportActive",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "primaryPositionX",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "primaryPositionY",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "primaryPositionZ",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "subViewportOffset",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "subViewportNeighbor",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "cachedSessionId",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "primaryViewportCount",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000070",
+          "name": "pitCrewAnimationHandlePrimary",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000070",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000074",
+          "name": "pitCrewOffsetXPrimary",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000074",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000078",
+          "name": "pitCrewOffsetZPrimary",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000078",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000007C",
+          "name": "secondaryViewportCount",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A4",
+          "name": "pitCrewAnimationHandleSecondary",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000A4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A8",
+          "name": "pitCrewOffsetXSecondary",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000A8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000AC",
+          "name": "pitCrewOffsetZSecondary",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B0",
+          "name": "gradientUpperBound",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B4",
+          "name": "gradientLowerBound",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000B4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B8",
+          "name": "cachedFadeValue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000B8",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004FBD70",
+        "field:this:0x00000044",
+        "global:0x007C56A4",
+        "callee:0x004FC550",
+        "source:raw",
+        "callee:0x0040C910",
+        "callee:0x00542460",
+        "global:0x005EA510",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "global:0x007CF950",
+        "callee:0x0054B3B0",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x000000B8",
+        "global:0x008AFEC8",
+        "field:this:0x00000048",
+        "field:this:0x00000070",
+        "field:this:0x00000074",
+        "field:this:0x00000078",
+        "global:0x008AFE98",
+        "callee:0x0054BF60",
+        "callee:0x0054C230",
+        "callee:0x00587BDC",
+        "callee:0x0054C030",
+        "callee:0x0054E100",
+        "callee:0x0054E120",
+        "callee:0x0054B3F0",
+        "field:this:0x0000007C",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000AC",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "global:0x007CF938",
+        "caller:0x004B40A0",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E450",
+        "global:0x005ACEC4"
+      ]
+    },
+    {
+      "name": "CloudSceneObjectRegistry",
+      "responsibility": "Cloud texture/object registry: loads the common logo-map resource and registers the wcclouds/wccloudr cloud texture variants at this+80/this+132 (0x004FC550), and randomly selects 31-byte cloud object templates into the same slots from the scene object list (0x004FC2F0). Common ownership of the this object between the two methods is evidenced by 0x004FC550 calling 0x004FC2F0 with its own this.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004FC2F0",
+        "0x004FC550"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000006F",
+          "name": "firstCloudSelectionFlag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000006F",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "firstCloudTextureVariant",
+          "type_guess": "byte[31]",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000080",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A3",
+          "name": "secondCloudSelectionFlag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A3",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004FC2F0",
+        "source:raw",
+        "callee:0x00588640",
+        "global:0x005D6F08",
+        "global:0x005D6F30",
+        "callee:0x005884ED",
+        "callee:0x00587DD0",
+        "field:this:0x0000006F",
+        "field:this:0x000000A3",
+        "caller:0x004FC550",
+        "function:0x004FC550",
+        "callee:0x00587C03",
+        "global:0x005EC3D8",
+        "global:0x005EA438",
+        "callee:0x00566650",
+        "global:0x005EC420",
+        "callee:0x005665B0",
+        "global:0x005D3C34",
+        "global:0x005D3C3C",
+        "callee:0x0053CBC0",
+        "callee:0x004FC2F0",
+        "callee:0x004FC400",
+        "global:0x005D6F5C",
+        "global:0x005D6F50",
+        "callee:0x0053CE40",
+        "callee:0x00587BCF",
+        "global:0x008AFE64"
+      ]
+    },
+    {
+      "name": "WeatherParameterState",
+      "responsibility": "Weather parameter block: holds the color scaling, blend/half factors, range and default constants, and the weather timing factor used by the environment; initialized at Game_Init and embeds a cloud/skybox block at this+264.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004FCAA0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "timeOfDayStart",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "dayOfYearSentinel",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "invalidFloatSentinel",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A4",
+          "name": "secondInvalidSentinel",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B4",
+          "name": "skyColorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000B4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B8",
+          "name": "skyColorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000B8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000BC",
+          "name": "skyColorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000BC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C0",
+          "name": "blendFactorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C4",
+          "name": "blendFactorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000C4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C8",
+          "name": "blendFactorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000C8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000CC",
+          "name": "halfFactorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000CC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D0",
+          "name": "halfFactorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "halfFactorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E0",
+          "name": "weatherTimingInput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E4",
+          "name": "rangeDefaultA",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000E4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E8",
+          "name": "rangeDefaultB",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000E8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000EC",
+          "name": "weatherTimingFactor",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F0",
+          "name": "rangeLimitLower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000F0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F4",
+          "name": "rangeLimitUpper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000F4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F8",
+          "name": "rangeStep",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000F8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001C4",
+          "name": "initStatusByte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000001C4",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004FCAA0",
+        "callee:0x004FD840",
+        "global:0x007CF080",
+        "callee:0x004FD8B0",
+        "global:0x0059E444",
+        "global:0x0059E460",
+        "global:0x005EC438",
+        "global:0x005EA438",
+        "callee:0x0058815F",
+        "global:0x005D6F68",
+        "callee:0x004FE820",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:this:0x000000A4",
+        "callee:0x005439F0",
+        "field:this:0x000000B4",
+        "field:this:0x000000B8",
+        "field:this:0x000000BC",
+        "callee:0x00543A30",
+        "callee:0x00543A60",
+        "callee:0x004FEFC0",
+        "field:this:0x000000E0",
+        "field:this:0x000000C0",
+        "field:this:0x000000C4",
+        "field:this:0x000000C8",
+        "field:this:0x000000A8",
+        "field:this:0x000000EC",
+        "field:this:0x000000CC",
+        "field:this:0x000000D0",
+        "field:this:0x000000D4",
+        "field:this:0x000000F0",
+        "field:this:0x000000F4",
+        "field:this:0x000000F8",
+        "field:this:0x000000E4",
+        "field:this:0x000000E8",
+        "callee:0x004FF040",
+        "callee:0x004FBA10",
+        "field:this:0x000001C4",
+        "source:raw",
+        "global:0x008AFE88"
+      ]
+    },
+    {
+      "name": "WeatherRaceState",
+      "responsibility": "Per-race weather state: holds the initial weather float, the 4-float parameter array pointer, wetness/temperature slots, per-race flags/words, an audio ring-buffer region, the rotation-table seed at +0x104, and the weather name at +0x1C4; rebuilt with teardown-first semantics at game restart.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004FCC30"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "initialWeatherFloat",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "resetDword",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "audioBackupFloat",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "weatherEnabledFlag",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "stateFlagDword",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "audioRingBufferRegion",
+          "type_guess": "byte[24]",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "conditionsFloat",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "trackWetnessA",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "trackWetnessB",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "parameterArrayValueA",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "parameterArrayValueB",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "parameterArrayPtrBackup",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "parameterArrayPtr",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "initCompleteFlag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "eventMaskDword",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "wordBlock0",
+          "type_guess": "word",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004A",
+          "name": "wordBlock1",
+          "type_guess": "word",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000004A",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "wordBlock2",
+          "type_guess": "word",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004E",
+          "name": "wordBlock3",
+          "type_guess": "word",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000004E",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "wordBlock4",
+          "type_guess": "word",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000052",
+          "name": "wordBlock5",
+          "type_guess": "word",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000052",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000104",
+          "name": "rotationScaledValue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000104",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001C4",
+          "name": "weatherName",
+          "type_guess": "char[11]",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001C4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001CF",
+          "name": "weatherNameTerminator",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000001CF",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004FCC30",
+        "callee:0x004FD840",
+        "source:raw",
+        "field:this:0x0000001C",
+        "global:0x007C56A0",
+        "global:0x008AB6E4",
+        "callee:0x00543960",
+        "field:this:0x00000014",
+        "global:0x007CF17C",
+        "field:this:0x00000000",
+        "global:0x008ACF9C",
+        "global:0x007CF080",
+        "callee:0x004C5840",
+        "callee:0x005679C0",
+        "global:0x005D173C",
+        "callee:0x00587C03",
+        "callee:0x004FC9A0",
+        "field:this:0x0000003C",
+        "callee:0x004FDE00",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000024",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "callee:0x004FE350",
+        "global:0x005EC438",
+        "global:0x005EA438",
+        "callee:0x0058815F",
+        "callee:0x004FE7C0",
+        "field:this:0x00000020",
+        "callee:0x004FEAF0",
+        "field:this:0x00000008",
+        "field:this:0x00000038",
+        "field:this:0x00000040",
+        "field:this:0x00000044",
+        "field:this:0x00000004",
+        "field:this:0x00000048",
+        "field:this:0x0000004A",
+        "field:this:0x0000004C",
+        "field:this:0x0000004E",
+        "field:this:0x00000050",
+        "field:this:0x00000052",
+        "global:0x008AB274",
+        "global:0x008AAE70",
+        "field:this:0x00000104",
+        "callee:0x004FD6F0",
+        "global:0x008ACFA3",
+        "callee:0x00587DD0",
+        "field:this:0x000001CF",
+        "callee:0x004FC550",
+        "global:0x0059E440",
+        "global:0x0059E448",
+        "global:0x005D6F68",
+        "global:0x008AC368",
+        "global:0x008AFE88"
+      ]
+    },
+    {
+      "name": "HudScoringElement",
+      "responsibility": "Per-frame HUD scoring/progress-bar element: countdown, event ring-buffer encoding, alpha smoothing, time-of-day dimming, nightlight toggle, color-ramp interpolation, and audio/position/UI output, plus idle/active state-id swapping in the global element array.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004FCEE0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "valueSource",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "countdownTimer",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "smoothedAlpha",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "displayedAlpha",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "nightlightFlag",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "activeFlag",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "smoothedPositionState",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "oneShotBlendFactor",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "targetAlpha",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "scoreBlendWeight",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "scoreLower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "scoreUpper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "oneShotByte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "cachedEmitValue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "cachedColorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000048",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "cachedColorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "cachedColorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000050",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "eventListHead",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x5C)",
+          "offset": "0x00000000",
+          "name": "headEventTimestamp",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x5C):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x5C)",
+          "offset": "0x00000004",
+          "name": "headEventNext",
+          "type_guess": "ptr",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x5C):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(this+0x5C)+0x0)",
+          "offset": "0x00000000",
+          "name": "eventNodeTimestamp",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x5C)+0x0):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(this+0x5C)+0x0)",
+          "offset": "0x00000004",
+          "name": "eventNodeSelector",
+          "type_guess": "int32",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x5C)+0x0):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(this+0x5C)+0x0)",
+          "offset": "0x00000008",
+          "name": "eventNodeValue",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x5C)+0x0):0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A4",
+          "name": "smoothedPositionOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000A4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A8",
+          "name": "colorRampSwitch",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000A8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000AC",
+          "name": "lowGradientScale",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B0",
+          "name": "highGradientScale",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B4",
+          "name": "lowColorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000B4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000B8",
+          "name": "lowColorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000B8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000BC",
+          "name": "lowColorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000BC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C0",
+          "name": "baseColorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C4",
+          "name": "baseColorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C8",
+          "name": "baseColorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000CC",
+          "name": "highColorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000CC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D0",
+          "name": "highColorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "highColorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D8",
+          "name": "midLowColorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000D8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000DC",
+          "name": "midLowColorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000DC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E0",
+          "name": "midLowColorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E4",
+          "name": "midColorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000E4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E8",
+          "name": "midColorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000E8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000EC",
+          "name": "midColorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F0",
+          "name": "topColorRed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F4",
+          "name": "topColorGreen",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F8",
+          "name": "topColorBlue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000FC",
+          "name": "dimFactorLow",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000FC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000100",
+          "name": "dimFactorHigh",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000100",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004FCEE0",
+        "field:this:0x00000004",
+        "global:0x008AFE98",
+        "source:raw",
+        "global:0x007C56A0",
+        "global:0x008AB6E4",
+        "field:this:0x00000040",
+        "field:this:0x00000100",
+        "field:this:0x00000044",
+        "callee:0x004FC650",
+        "callee:0x004FDEB0",
+        "global:0x008AFEA0",
+        "global:0x005C329C",
+        "field:this:0x00000000",
+        "callee:0x004FC870",
+        "field:this:0x00000020",
+        "field:this:0x00000048",
+        "callee:0x004B33B0",
+        "global:0x008AAE64",
+        "global:0x0083EE60",
+        "field:this:0x0000004C",
+        "field:this:0x00000050",
+        "field:this:0x0000005C",
+        "field:*(this+0x5C):0x00000000",
+        "field:*(this+0x5C):0x00000004",
+        "field:*(*(this+0x5C)+0x0):0x00000000",
+        "field:*(*(this+0x5C)+0x0):0x00000004",
+        "field:*(*(this+0x5C)+0x0):0x00000008",
+        "callee:0x00587BDC",
+        "guard:0",
+        "field:this:0x00000008",
+        "field:this:0x00000024",
+        "field:this:0x000000FC",
+        "callee:0x0058957A",
+        "callee:0x004FC170",
+        "callee:0x00545670",
+        "callee:0x005457F0",
+        "callee:0x00545820",
+        "callee:0x00588640",
+        "callee:0x0055D2F0",
+        "global:0x007CFEC4",
+        "global:0x008ACFB0",
+        "global:0x005D6F78",
+        "field:this:0x00000010",
+        "field:this:0x0000001C",
+        "global:0x007CF8A8",
+        "callee:0x005457C0",
+        "callee:0x0055D410",
+        "field:this:0x0000000C",
+        "callee:0x004CEFE0",
+        "global:0x008ACEA0",
+        "field:this:0x0000002C",
+        "field:this:0x00000028",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000AC",
+        "field:this:0x000000B0",
+        "field:this:0x000000B4",
+        "field:this:0x000000B8",
+        "field:this:0x000000BC",
+        "field:this:0x000000C0",
+        "field:this:0x000000C4",
+        "field:this:0x000000C8",
+        "field:this:0x000000CC",
+        "field:this:0x000000D0",
+        "field:this:0x000000D4",
+        "field:this:0x000000D8",
+        "field:this:0x000000DC",
+        "field:this:0x000000E0",
+        "field:this:0x000000E4",
+        "field:this:0x000000E8",
+        "field:this:0x000000EC",
+        "field:this:0x000000F0",
+        "field:this:0x000000F4",
+        "field:this:0x000000F8",
+        "callee:0x005438B0",
+        "callee:0x00543920",
+        "callee:0x00543870",
+        "field:this:0x00000014",
+        "global:0x008ACEA8",
+        "global:0x008ACEAC",
+        "field:this:0x00000018",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E444",
+        "global:0x0059E450",
+        "global:0x0059E46C",
+        "global:0x0059E8E4",
+        "global:0x0059E8FC",
+        "global:0x0059E97C",
+        "global:0x0059EF78",
+        "global:0x0059FEC8",
+        "global:0x005ACD48",
+        "global:0x005AD294",
+        "global:0x005AD298",
+        "global:0x005AD29C",
+        "global:0x005AD2A0",
+        "global:0x005AD2A4",
+        "global:0x005AD2A8",
+        "global:0x005AD2AC",
+        "global:0x005AD2B0",
+        "global:0x005AD2B4",
+        "global:0x005AD2B8",
+        "global:0x008AFE88"
+      ]
+    },
+    {
+      "name": "AudioADSREnvelope",
+      "responsibility": "Audio ADSR envelope: walks a keyframe-node chain, interpolates node parameters, applies per-sample decay with a floor clamp, and produces a sample-rate-smoothed output value.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004FDEB0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "floorValue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "envelopeStateA",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "envelopeStateB",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "parameterSlot",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "outputValue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "currentNodePtr",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "currentNodeThreshold",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "nextNodeThreshold",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "keyframeTableBase",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x44)",
+          "offset": "0x00000000",
+          "name": "keyframeThreshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x44):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x44)",
+          "offset": "0x00000004",
+          "name": "keyframeParameterA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x44):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x44)",
+          "offset": "0x00000008",
+          "name": "keyframeParameterB",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x44):0x00000008",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004FDEB0",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000040",
+        "field:this:0x00000044",
+        "field:*(this+0x44):0x00000000",
+        "field:*(this+0x44):0x00000004",
+        "field:*(this+0x44):0x00000008",
+        "source:raw",
+        "callee:0x004FDE00",
+        "callee:0x004FD6F0",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E450",
+        "global:0x0059E800",
+        "global:0x0059E84C",
+        "global:0x0059E864",
+        "global:0x005ACCB0",
+        "global:0x005AD30C",
+        "global:0x005AD310",
+        "global:0x005AD314",
+        "global:0x005AD318"
+      ]
+    },
+    {
+      "name": "SessionWeatherData",
+      "responsibility": "Per-session weather data: holds on-path/off-path wetness, ambient and track temperature, and a time-keyed linked list of weather snapshots (head at this+0x38, first node at this+0x3C); built from session data-entry lists at race start.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004FE350"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "wetnessSlotA",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "wetnessSlotB",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "onPathWetness",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "offPathWetness",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "ambientTemperature",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "trackTemperature",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "snapshotHeadPtr",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "snapshotFirstPtr",
+          "type_guess": "ptr",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x38)",
+          "offset": "0x00000004",
+          "name": "headNodeAmbient",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x38):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x38)",
+          "offset": "0x00000008",
+          "name": "headNodeWetness",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x38):0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x38)",
+          "offset": "0x0000000C",
+          "name": "headNodeNext",
+          "type_guess": "ptr",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x38):0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x3C)",
+          "offset": "0x00000004",
+          "name": "firstNodeAmbient",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x3C):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x3C)",
+          "offset": "0x00000008",
+          "name": "firstNodeWetness",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x3C):0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(this+0x38)+0xC)",
+          "offset": "0x00000000",
+          "name": "snapshotNodeTime",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x38)+0xC):0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(this+0x38)+0xC)",
+          "offset": "0x00000004",
+          "name": "snapshotNodeAmbient",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x38)+0xC):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(*(this+0x38)+0xC)",
+          "offset": "0x00000008",
+          "name": "snapshotNodeWetness",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x38)+0xC):0x00000008",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004FE350",
+        "source:raw",
+        "callee:0x0042CE30",
+        "global:0x007C56A4",
+        "global:0x004FE7A0",
+        "callee:0x005679C0",
+        "callee:0x00587BDC",
+        "global:0x008ACF9C",
+        "callee:0x00567970",
+        "callee:0x00587ECE",
+        "callee:0x0049ADB0",
+        "callee:0x00499E20",
+        "callee:0x00588410",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "global:0x005D7028",
+        "callee:0x004FE0D0",
+        "callee:0x004FDE00",
+        "global:0x005D7018",
+        "callee:0x004FE1E0",
+        "global:0x005D7008",
+        "global:0x005D6FF8",
+        "global:0x005D6FEC",
+        "callee:0x004FE2B0",
+        "global:0x005D6FE0",
+        "callee:0x00587C03",
+        "callee:0x004FC9A0",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:*(this+0x38):0x0000000C",
+        "field:*(*(this+0x38)+0xC):0x00000000",
+        "field:*(*(this+0x38)+0xC):0x00000004",
+        "field:*(*(this+0x38)+0xC):0x00000008",
+        "global:0x005EA408",
+        "global:0x005D6FD8",
+        "global:0x005C330C",
+        "callee:0x0058850F",
+        "field:*(this+0x38):0x00000004",
+        "field:*(this+0x38):0x00000008",
+        "caller:0x004FCC30",
+        "caller:0x004FE7C0",
+        "global:0x0059E450",
+        "global:0x0059E6F8",
+        "global:0x0059E800",
+        "global:0x0059EED0",
+        "global:0x0059F118",
+        "global:0x005ACEE4",
+        "field:*(this+0x3C):0x00000004",
+        "field:*(this+0x3C):0x00000008"
+      ]
+    },
+    {
+      "name": "SessionWeatherSchedule",
+      "responsibility": "Session-to-duration mapping helper: converts a session index and the current track path into a session length in seconds (days and hours). No object state; grouped as a helper of the weather/environment subsystem.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004FB910"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004FB910",
+        "global:0x004FB9F0",
+        "source:raw",
+        "global:0x007C56A4",
+        "global:0x007CE5D0",
+        "global:0x005EA438",
+        "callee:0x00566810",
+        "global:0x005D6F00",
+        "global:0x0059FB48",
+        "global:0x005AD28C"
+      ]
+    },
+    {
+      "name": "WeatherAudioChannelLoader",
+      "responsibility": "Weather audio channel loader: decodes the weather audio resource, stops the weather channel, and feeds the stopped channel data through the session-weather initializer. No object state in the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004FE7C0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004FE7C0",
+        "callee:0x00567A00",
+        "source:raw",
+        "callee:0x00567F40",
+        "callee:0x00568210",
+        "global:0x005D173C",
+        "callee:0x004FE350",
+        "callee:0x00567A30",
+        "caller:0x004FCC30"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "ViewportSessionTypeCache",
+      "owner": "0x004FBD70",
+      "states": [
+        "cached_session",
+        "current_session"
+      ],
+      "transitions": [
+        {
+          "from": "cached_session",
+          "to": "current_session",
+          "trigger": "cached session id this+0x44 equals the current global dword_7C56A4; cache is reset to -1 and change handler sub_4FC550(0) runs"
+        }
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004FBD70",
+        "field:this:0x00000044",
+        "global:0x007C56A4",
+        "callee:0x004FC550"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "WeatherEnvironmentManager",
+      "purpose": "Lifecycle entry points that initialize or re-initialize weather/environment state across the game lifecycle: parameter block at Game_Init, race-state at Game_Restart, per-session data build, and weather audio channel setup.",
+      "functions": [
+        "0x004FCAA0",
+        "0x004FCC30",
+        "0x004FE350",
+        "0x004FE7C0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004FCAA0",
+        "function:0x004FCC30",
+        "function:0x004FE350",
+        "function:0x004FE7C0",
+        "caller:0x0042D7A0"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x004FCAA0",
+      "to": "0x004FBA10",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FBA10",
+        "function:0x004FCAA0",
+        "function:0x004FBA10"
+      ]
+    },
+    {
+      "from": "0x004FC550",
+      "to": "0x004FC2F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FC2F0",
+        "caller:0x004FC550"
+      ]
+    },
+    {
+      "from": "0x004FC550",
+      "to": "0x004FC400",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FC400",
+        "function:0x004FC550"
+      ]
+    },
+    {
+      "from": "0x004FCC30",
+      "to": "0x004FE7C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FE7C0",
+        "caller:0x004FCC30"
+      ]
+    },
+    {
+      "from": "0x004FCC30",
+      "to": "0x004FC550",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FC550",
+        "function:0x004FCC30"
+      ]
+    },
+    {
+      "from": "0x004FE7C0",
+      "to": "0x004FE350",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FE350",
+        "caller:0x004FE7C0"
+      ]
+    },
+    {
+      "from": "0x004FCEE0",
+      "to": "0x004FDEB0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FDEB0",
+        "function:0x004FCEE0"
+      ]
+    },
+    {
+      "from": "0x004FCEE0",
+      "to": "0x004FC870",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FC870",
+        "function:0x004FCEE0"
+      ]
+    },
+    {
+      "from": "0x004FCEE0",
+      "to": "0x004B33B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B33B0",
+        "function:0x004FCEE0"
+      ]
+    },
+    {
+      "from": "0x004FDEB0",
+      "to": "0x004FD6F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FD6F0",
+        "function:0x004FDEB0"
+      ]
+    },
+    {
+      "from": "0x004FE350",
+      "to": "0x004FDE00",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FDE00",
+        "function:0x004FE350"
+      ]
+    },
+    {
+      "from": "0x004FAC00",
+      "to": "0x0053C900",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0053C900",
+        "function:0x004FAC00"
+      ]
+    },
+    {
+      "from": "0x004FAD00",
+      "to": "0x00494900",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00494900",
+        "function:0x004FAD00"
+      ]
+    },
+    {
+      "from": "0x004FBA10",
+      "to": "0x005453A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005453A0",
+        "function:0x004FBA10"
+      ]
+    },
+    {
+      "from": "0x004FBD70",
+      "to": "0x004FC550",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FC550",
+        "function:0x004FBD70"
+      ]
+    },
+    {
+      "from": "0x004FCC30",
+      "to": "global:0x007C56A0",
+      "kind": "data_read",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C56A0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004FCEE0",
+      "to": "global:0x008AFEA0",
+      "kind": "data_read",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004FAC00",
+      "to": "global:0x008AFE88",
+      "kind": "data_write",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFE88",
+        "source:raw"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "WeatherRestartReinitialization",
+      "category": "lifecycle",
+      "description": "Weather race-state re-initialization must fully tear down prior list state (DualLinkedListDestruction at entry) before rebuilding: allocate a 4-float parameter array [0, 1101004800, modeValue, 0], restore this+0x20 from its saved copy, and seed per-race words (0, -1, -1, 0, 0x7FFF, 0x8000) at +0x48..+0x52.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004FCC30",
+        "callee:0x004FD840",
+        "callee:0x00587C03",
+        "callee:0x004FC9A0",
+        "field:this:0x0000003C",
+        "field:this:0x00000048",
+        "field:this:0x0000004A",
+        "field:this:0x0000004C",
+        "field:this:0x0000004E",
+        "field:this:0x00000050",
+        "field:this:0x00000052"
+      ]
+    },
+    {
+      "name": "VidManExitTeardown",
+      "category": "teardown",
+      "description": "VidMan exit must shut down the collision system (CollisionSystemShutdownCleanup), dispatch the race-time-delta handle (GlobalDispatch), run sub_4A1830 before and after sub_4A14E0, and free dword_8AFE64 via TestAndFreeWrapper when non-null, clearing the global to 0.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004FAD00",
+        "callee:0x00494900",
+        "callee:0x0055C040",
+        "callee:0x004A14E0",
+        "callee:0x004A1830",
+        "callee:0x0053D4C0",
+        "global:0x008AFE64"
+      ]
+    },
+    {
+      "name": "SceneDirectoryRegistration",
+      "category": "resource_path",
+      "description": "VidMan post-processing must resolve the active scene struct (base dword_8AC490 indexed by dword_8AC48C at stride 396), copy its path string from scene+4, trim trailing backslash segments (value 92), and register the resulting directory via StringMatchWithFlagSet; the null-scene path must return 0.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004FAC00",
+        "global:0x008AC48C",
+        "global:0x008AC490",
+        "callee:0x0053C900"
+      ]
+    },
+    {
+      "name": "CloudLayerArrayOwnership",
+      "category": "memory_ownership",
+      "description": "CloudSkyboxState allocates the cloud and rain handle arrays via nhMalloc with sizes 4*count and keeps count/pointer pairs in sync (+0x48 count with +0x4C pointer, +0x7C count with +0x80 pointer); a replacement must preserve the pairs for later free/iteration.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004FBA10",
+        "callee:0x00587C03",
+        "field:this:0x00000048",
+        "field:this:0x0000004C",
+        "field:this:0x0000007C",
+        "field:this:0x00000080"
+      ]
+    },
+    {
+      "name": "WeatherSnapshotChainLayout",
+      "category": "data_layout",
+      "description": "SessionWeatherData builds a time-keyed linked list of 16-byte weather snapshot nodes (time, ambient temperature, wetness multiplier, next link); the head/cursor lives at this+0x38 with the first node at this+0x3C, and traversal follows the next link at node+0xC. Consumers of the chain must observe this layout.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004FE350",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:*(this+0x38):0x0000000C"
+      ]
+    }
+  ],
+  "unresolved": [
+    "The two functions named with a VidMan prefix (0x004FAC00, 0x004FAD00) are grouped as VideoManager on naming only; their this-object identity and any shared state are not proven by the packet.",
+    "Grouping 0x004FC2F0 and 0x004FC550 as one CloudSceneObjectRegistry object rests on 0x004FC550 calling 0x004FC2F0 with its own this (caller:0x004FC550); both write the this+80/this+132 texture slots and clear the 0x6F/0xA3 flags.",
+    "0x004FCAA0 (WeatherParameterState) and 0x004FCC30 (WeatherRaceState) both act on 'weather' objects but are kept as separate classes; both reach object state near offset 0x108 (sub_4FBA10 on this+264 in 0x004FCAA0, sub_4FC550 on this+264 in 0x004FCC30), so the two object types may overlap at runtime.",
+    "The float-constant clusters 0x0059E43C..0x0059FEC8 and 0x005ACCB0..0x005AD318 are packet-flagged as read xrefs of many functions but never appear in the raw bodies; they are presumed consumed inside callees.",
+    "The sub-viewport entry walk in 0x004FBD70 reads enable and argument words adjacent to the recorded fields this+0x18/0x1C; those neighbor offsets are not in the packet field set.",
+    "The 0x6F/0xA3 flag bytes on the cloud texture registry have no established meaning beyond 'cleared after selection'.",
+    "The LCG (0x005884ED) in 0x004FC2F0 is invoked with an uninitialized-looking argument register; its exact signature is unproven.",
+    "The a2 container identity and the 256-byte child-object stride in 0x004FC2F0 are unknown.",
+    "sub_4A1830 and sub_4A14E0 (VidMan exit) are unnamed; their exact cleanup roles are unknown.",
+    "off_5C330C is the weather snapshot-chain terminator string; its exact semantics are unknown.",
+    "sub_4FDE00's transformation of the base wetness value is not documented in the packet.",
+    "The weather-name field at this+0x1C4 (compared against byte_8ACFA3) records a weather/season identifier string; its meaning is UNKNOWN.",
+    "Branch polarity of sub_53CBC0 in 0x004FC550 (zero selects the cloud setup body) is unresolved.",
+    "dword_8AFE88 is a shared global with conflicting roles (mutex/semaphore handle in 0x004FAC00, audio-network pointer in 0x004FBA10, read-only xref elsewhere); the dual use is not reconciled.",
+    "The 0x10000000 bit at packed list +20 and the (1,1,1,0)/(0,0,1,0) flag calls in 0x004FBD70 are only resolved at the callee level.",
+    "AudioADSREnvelope fields this+0x3C/0x40 are read but their relationship to the current-node pointer at this+0x38 and the table base at this+0x44 is ambiguous against the raw node-walk code.",
+    "The event object behind HudScoringElement this+0x5C is unknown; node fields +0/+4/+8 are timestamp/selector/value only by inference.",
+    "Day/night time boundaries (14400/19800/64800/66600/72000) and the nightlight-group iteration semantics in 0x004FCEE0 are inferred from branch constants."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x0042DA30",
+    "global:0x008AFE64",
+    "global:0x007CDE00",
+    "global:0x007CE2A4",
+    "global:0x0059FB48",
+    "global:0x005AD28C",
+    "global:0x0059E450",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x005ACEC4",
+    "caller:0x004FC550",
+    "global:0x008AFE88",
+    "global:0x0059E448",
+    "global:0x005D6F68",
+    "global:0x008AC368",
+    "global:0x0059E444",
+    "global:0x0059E46C",
+    "global:0x0059E8E4",
+    "global:0x0059E8FC",
+    "global:0x0059E97C",
+    "global:0x0059EF78",
+    "global:0x0059FEC8",
+    "global:0x005ACD48",
+    "global:0x005AD294",
+    "global:0x005AD298",
+    "global:0x005AD29C",
+    "global:0x005AD2A0",
+    "global:0x005AD2A4",
+    "global:0x005AD2A8",
+    "global:0x005AD2AC",
+    "global:0x005AD2B0",
+    "global:0x005AD2B4",
+    "global:0x005AD2B8",
+    "global:0x0059E800",
+    "global:0x0059E84C",
+    "global:0x0059E864",
+    "global:0x005ACCB0",
+    "global:0x005AD30C",
+    "global:0x005AD310",
+    "global:0x005AD314",
+    "global:0x005AD318",
+    "global:0x0059E6F8",
+    "global:0x0059EED0",
+    "global:0x0059F118",
+    "global:0x005ACEE4",
+    "field:*(this+0x3C):0x00000004",
+    "field:*(this+0x3C):0x00000008",
+    "caller:0x004FCC30"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

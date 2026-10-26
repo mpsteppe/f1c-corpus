@@ -1,0 +1,42 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00508F3D
+// Canonical corpus name: TextureEncoderRGB565
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TextureEncoderRGB565_00508f3d.c
+
+void UnknownObject::TextureEncoderRGB565()
+{
+    // Converts floating-point vertex colors to a packed 32-bit format under a texture/vertex encoder object. Optionally reformats the input vertex buffer via DirectXVertexBufferFormatConversion when a format flag is set, then addresses a block of vertex data from field +0x2C using two 2-bit block coordinates. Each vertex's R/G/B channels are scaled (512.0 for the red quant scale, 1024.0 for green/blue) and packed into one word as R=10 bits, G=11 bits, B=11 bits. The do-while packing loop runs over the vertex count in field +0x1058, and the function returns the conversion-state global dword_8B009C.
+    // ASSIGNMENT: Seed the iteration counter v4 to 0 and save the object pointer into v16 before the guards are evaluated. [source:raw]
+    // GUARD: Guard on this[1042] (field +0x1048): when non-zero the input vertex buffer format is converted first. [field:this:0x00001048, source:raw]
+    // CALL: Call DirectXVertexBufferFormatConversion(this, a4); its result replaces the input buffer pointer a4. [callee:0x00506CE2, field:this:0x00001048, source:raw]
+    // CALCULATION: Compute the vertex data pointer v14 = this[11] (field +0x2C) + 4 * ((a3 & 3) + 8 * (a2 & 3)), selecting a 4-float block by the 2-bit coordinates a2/a3. [field:this:0x0000002C, source:raw]
+    // CALL: Call UtilityFunction_7473() unconditionally before the packing loop; its purpose is unknown. [callee:0x00507473, source:raw]
+    // GUARD: Guard on v16[1046] (field +0x1058, the vertex count): when zero the entire packing do-while is skipped. [field:this:0x00001058, source:raw]
+    // LOOP: do-while loop over v4 from 0 to v16[1046], consuming 16 input bytes per vertex. [field:this:0x00001058, source:raw]
+    // CALCULATION: Read the channel sample v15 from the vertex block and scale the red channel by 512.0, the packet-listed quant-scale global flt_5ACCB4 folded to a literal. [global:0x005ACCB4, source:raw]
+    // CALCULATION: Scale the green and blue channels by 1024.0, the packet-listed scale global flt_5ACEE4 folded to a literal. [global:0x005ACEE4, source:raw]
+    // CALCULATION: Pack red (mask 0x3FF, 10 bits), green (mask 0x7FF, 11 bits) and blue (shifted by 11 then 10) into a single 32-bit word stored through the output pointer v6. [source:raw]
+    // RETURN: Return the conversion-state global dword_8B009C. [global:0x008B009C, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_508F3D(void *this, char a2, char a3, int a4) {
+    //     if (this[1042]) a4 = DirectXVertexBufferFormatConversion(this, a4);
+    //     int v14 = this[11] + 4 * ((a3 & 3) + 8 * (a2 & 3));
+    //     UtilityFunction_7473();
+    //     if (this[1046]) {
+    //       for (unsigned v4 = 0; v4 < this[1046]; ++v4) {
+    //         float v15 = *(float*)(v14 + 4 * (v4 & 3));
+    //         __int16 v8 = (int)(*(float*)(v4 * 16 + a4) * 512.0 + v15);
+    //         __int16 v9 = (int)(*(float*)(v4 * 16 + a4 + 4) * 1024.0 + v15);
+    //         __int16 v13 = (int)(*(float*)(v4 * 16 + a4 + 8) * 1024.0 + v15);
+    //         *v6++ = v8 & 0x3FF | ((((int)v13 << 11) | v9 & 0x7FF) << 10);
+    //       }
+    //     }
+    //     return dword_8B009C;
+    //   }
+    // UNRESOLVED: The output write pointer v6 is never initialized before its first store; the destination buffer must be established by an undiscovered caller or state.
+    // UNRESOLVED: The purpose of UtilityFunction_7473 (0x00507473) is unknown.
+    // UNRESOLVED: The semantics of dword_8B009C (returned value) are labeled conversion state but unproven.
+    // UNRESOLVED: The block coordinates a2/a3 (2 bits each) select a tile/block, but the full addressing scheme is not derived here.
+}

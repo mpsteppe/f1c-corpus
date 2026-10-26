@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "address": "0x00518D29",
+  "proposed_name": "parseSrgbChunk",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Parses and validates a PNG sRGB chunk against the parser flags register at this+0x58: enforces chunk ordering (IHDR must have been seen, sRGB invalid after IDAT, out-of-place / duplicate sRGB reported), validates the required 1-byte chunk length and the rendering-intent value, optionally warns when a stored gamma at this+0x130 is inconsistent with sRGB, and stores the rendering intent via sub_513B51. Errors are reported through CallbackDispatch; ordering/length failures abort through a shared consume-and-return path.",
+  "local_names": {
+    "a1": "parser",
+    "a2": "chunkData",
+    "a3": "chunkLength",
+    "v3": "parserAlias",
+    "v4": "flags",
+    "v5": "renderingIntent"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Read PNG flags register at this+0x58 (a1+88). If IHDR-seen bit (bit 0) is clear, call GuardedCallWithLongjmp(a1, \"Missing IHDR before sRGB\") which longjmps/aborts the chunk parse.",
+      "evidence_refs": [
+        "field:this:0x00000058",
+        "callee:0x00511869",
+        "global:0x005AFE74",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If IDAT-seen bit (bit 2) of the flags register is set, call CallbackDispatch(a1, \"Invalid sRGB after IDAT\") and jump to the shared error path (consume chunk then return).",
+      "evidence_refs": [
+        "field:this:0x00000058",
+        "callee:0x00511887",
+        "global:0x005AFE40"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Else if PLTE-seen bit (bit 1) of the flags register is set, call CallbackDispatch(a1, \"Out of place sRGB chunk\"); parsing continues past this check.",
+      "evidence_refs": [
+        "field:this:0x00000058",
+        "callee:0x00511887",
+        "global:0x005AFE28"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Else if chunk data pointer a2 is non-null and byte a2[9] has bit 3 set (duplicate sRGB already recorded in the chunk data), call CallbackDispatch(a1, \"Duplicate sRGB chunk\") and jump to the shared error path.",
+      "evidence_refs": [
+        "callee:0x00511887",
+        "global:0x005AFE10"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If chunk length a3 != 1, call CallbackDispatch(v3, \"Incorrect sRGB chunk length\") and fall into the shared error path.",
+      "evidence_refs": [
+        "callee:0x00511887",
+        "global:0x005AFE58"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Shared error path: call sub_518828(v3, a3) to consume/skip the malformed sRGB chunk with the reported length, then return.",
+      "evidence_refs": [
+        "callee:0x00518828"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Feed the sRGB data byte into the CRC accumulator: call sub_517F58(v3, &a1 + 3, 1). The decompiler expression &a1+3 resolves to the low byte of a1, i.e. the rendering-intent byte read from the chunk.",
+      "evidence_refs": [
+        "callee:0x00517F58"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Call sub_518828(v3, 0) to finalize consumption of the chunk; a non-zero return value causes early return without storing the sRGB intent.",
+      "evidence_refs": [
+        "callee:0x00518828"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Read rendering intent v5 = HIBYTE(a1) (decompiler artifact for the intent byte). If v5 >= 4, call CallbackDispatch(v3, \"Unknown sRGB intent\").",
+      "evidence_refs": [
+        "callee:0x00511887",
+        "global:0x005AFDFC"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If byte a2[8] has bit 0 set (gAMA present) and fabs(gamma at this+0x130 * 100000.0 + 0.5 - 45455.0) > 500.0, call CallbackDispatch(v3, \"Ignoring incorrect gAMA value when sRGB is also present\"). Floating literals 100000.0, 45455.0, 500.0 load from globals 0x0059E880, 0x005AFD68, 0x005AFD70, 0x005AFDF8; packet evidence does not disambiguate which global holds which literal.",
+      "evidence_refs": [
+        "field:this:0x00000130",
+        "global:0x005AFD30",
+        "global:0x0059E880",
+        "global:0x005AFD68",
+        "global:0x005AFD70",
+        "global:0x005AFDF8"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Store the sRGB chunk data: call sub_513B51(v3, __SPAIR64__(v5, a2)), recording rendering intent v5 and chunk pointer a2 on the parser object.",
+      "evidence_refs": [
+        "callee:0x00513B51"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "Normal return after storing the sRGB intent; the function is void. This terminates sub_518D29.",
+      "evidence_refs": [
+        "function:0x00518D29"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "flags = read_dword(parser + 0x58)",
+    "if (flags & 1) == 0: GuardedCallWithLongjmp(parser, \"Missing IHDR before sRGB\")",
+    "if (flags & 4) != 0: CallbackDispatch(parser, \"Invalid sRGB after IDAT\"); goto error_path",
+    "else if (flags & 2) != 0: CallbackDispatch(parser, \"Out of place sRGB chunk\")",
+    "else if (chunkData && (byte(chunkData + 9) & 8) != 0): CallbackDispatch(parser, \"Duplicate sRGB chunk\"); goto error_path",
+    "if (chunkLength != 1): CallbackDispatch(parser, \"Incorrect sRGB chunk length\"); error_path: consume_chunk(parser, chunkLength); return",
+    "crc_feed(parser, intent_byte, 1)",
+    "if consume_chunk(parser, 0) == 0:",
+    "    intent = intent_byte",
+    "    if intent < 4:",
+    "        if (byte(chunkData + 8) & 1) != 0 and fabs(gamma(parser + 0x130) * 100000.0 + 0.5 - 45455.0) > 500.0:",
+    "            CallbackDispatch(parser, \"Ignoring incorrect gAMA value when sRGB is also present\")",
+    "        store_srgb_intent(parser, intent, chunkData)",
+    "    else:",
+    "        CallbackDispatch(parser, \"Unknown sRGB intent\")"
+  ],
+  "unresolved": [
+    "Mapping of literal constants 100000.0 / 45455.0 / 500.0 to globals 0x0059E880, 0x005AFD68, 0x005AFD70, 0x005AFDF8 is not determinable from packet evidence; the per-global literal split is unknown.",
+    "Flags-register bit meanings (bit 0 = IHDR seen, bit 1 = PLTE seen, bit 2 = IDAT seen) are DERIVED from existing analysis prose, not independently confirmed by this packet.",
+    "Sub-byte checks on the chunk buffer (byte a2[8] bit 0 as gAMA-present, byte a2[9] bit 3 as duplicate-sRGB flag) dereference chunk data, not the 'this' object; the packet supplies no field evidence refs for them.",
+    "Decompiler expressions &a1 + 3 and HIBYTE(a1) are artifacts used to extract the rendering-intent byte from a1; the actual chunk payload layout is not confirmed.",
+    "sub_518828 return semantics (non-zero meaning CRC failure vs other error) are inferred from the branch; exact meaning not confirmed.",
+    "Caller context: sub_5119E9 (0x005119E9) invokes this parser; its chunk-dispatch framing is not analyzed here."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x005119E9"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

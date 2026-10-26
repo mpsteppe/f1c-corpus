@@ -1,0 +1,46 @@
+## StateMachineDispatcher_0050f904 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Frame-path:** NOT_FOUND  
+**Call frequency:** UNKNOWN (no static path from tick root)
+
+**Called by:** ImageTextureDecompressor (00501722)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(this+0x14) | 0x18 | R | — | [LLM] |
+| *(this+0x17C) | 0x4 | R | — | [LLM] |
+| *(this+0x18C) | 0x0 | R | — | [LLM] |
+| *(this+0x18C) | 0x11 | R | — | [LLM] |
+| obj | 0x0 | R | — | [LLM] |
+| obj | 0x14 | RW | 18 | [LLM] |
+| obj | 0x18 | RW | — | [LLM] |
+| this | 0x0 | R | — | [LLM] |
+| this | 0x10 | RW | 210 | [LLM] |
+| this | 0x14 | R | — | [LLM] |
+| this | 0x40 | R | — | [LLM] |
+| this | 0x60 | R | — | [LLM] |
+| this | 0x78 | R | — | [LLM] |
+| this | 0x17C | R | — | [LLM] |
+| this | 0x18C | R | — | [LLM] |
+
+**Written-by note (persistence):**
+- obj 0x14: [LLM: once/conditional? does external poke survive?]
+- obj 0x18: [LLM: once/conditional? does external poke survive?]
+- this 0x10: [LLM: once/conditional? does external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 00516937 | VirtualDispatchConditionalValue | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

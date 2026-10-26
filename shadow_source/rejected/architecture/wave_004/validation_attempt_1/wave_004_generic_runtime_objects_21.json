@@ -1,0 +1,1456 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_generic_runtime_objects_21",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "RuntimeObjectSupport",
+    "responsibility": "Generic runtime object helpers shared across subsystems: zlib-style compression stream contexts and inflate decoding, codec pipeline state and sub-object teardown, quaternion/matrix math helpers, transform/float-struct initializers, global string-table registration and pruning, wide-string name lookup dispatch shims, and buffer/resource teardown helpers.",
+    "trust": "GUESS",
+    "evidence_refs": [
+      "function:0x005356A0",
+      "function:0x005357E0",
+      "function:0x00535E80",
+      "function:0x005361D0",
+      "function:0x0053B5B0",
+      "function:0x0053C6F0",
+      "function:0x0053CA00",
+      "function:0x0053D1F0",
+      "source:raw"
+    ]
+  },
+  "summary": "This scope groups 26 generic runtime-object functions into defensible clusters. The largest cluster is a zlib-style compression subsystem: CompressionStreamContext (initialize, cleanup, guarded deferred-call teardown, compression-context init) plus the InflateStateMachineDecoder that drives a 14-state inflate wire decoder through a jump table. A codec pipeline cluster (CodecPipelineObject frame encoder + CodecSubObject teardown) shares a cleanup-callback layout with the compression context at this+0x1C/0x24/0x28, suggesting the compression context and codec sub-object may be the same runtime object (unconfirmed). A string-table cluster registers and prunes a 32-entry/132-byte global table. The renderer/font name-lookup family shares a conditional lookup-then-delegate shape over a wide-string linked list. The remaining functions are small math helpers (SLERP, QR decomposition, float-struct/transform setters), resource free helpers, an audio-emitter allocator, and an MAS-loader wrapper. Most owners are UNKNOWN; only the inflate decoder, codec sub-object and quaternion math library have DERIVED owner labels from the packet.",
+  "function_roles": [
+    {
+      "address": "0x00535660",
+      "role": "Teardown of a guarded deferred-call record: runs a guarded triple-slot vtable dispatch (TripleVTableCall on handler+20) and the stored fastcall callback with (this+0x28, this+0x1C), then clears the handler pointer this+0x1C; returns -2 when this or the stored handler/callback pointer is null, 0 on success. Invoked from file-handle teardown and two other sites.",
+      "owner": "CompressionStreamContext",
+      "evidence_refs": [
+        "function:0x00535660",
+        "callee:0x00537CE0",
+        "field:this:0x0000001C",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "caller:0x00534EE0",
+        "caller:0x005356A0",
+        "caller:0x0059B260",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005356A0",
+      "role": "Stream-context initializer: validates version magic (a113_0[0] at global 0x5DA7A0, a4 == 56), resets the context flag this+0x18, installs default allocator/deallocator callbacks (this+0x20/0x24), allocates the 24-byte work block via the allocator, normalizes/validates the block-size exponent (8..15), allocates the 1<<a2 multi-block buffer, and finalizes via ArithmeticComparison_5620; returns -6/-4/-2 on validation or allocation failure.",
+      "owner": "CompressionStreamContext",
+      "evidence_refs": [
+        "function:0x005356A0",
+        "global:0x005DA7A0",
+        "global:0x00536FD0",
+        "global:0x00536FF0",
+        "global:0x00537D10",
+        "callee:0x00537070",
+        "callee:0x00535620",
+        "callee:0x00535660",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005357E0",
+      "role": "zlib-style inflate state-machine driver: dispatches over the per-stream state block through jump table 0x535BCC; validates compression header (method 8, window bound), header checksum (mod 0x1F), optional dictionary-size field and trailer checksum, drives the inflate core sub_537110, and resets the sub-block state via StateResetWithCallback on stream end. Returns inflate status codes (-5/-3/-2/1).",
+      "owner": "InflateStateMachineDecoder",
+      "evidence_refs": [
+        "function:0x005357E0",
+        "global:0x00535BCC",
+        "global:0x005DA7FC",
+        "global:0x005DA7E8",
+        "global:0x005DA7D0",
+        "global:0x005DA7A8",
+        "global:0x005DA7B8",
+        "callee:0x00537110",
+        "callee:0x00537000",
+        "caller:0x00534F90",
+        "caller:0x0059B260",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00535C10",
+      "role": "Compression-stream context initializer (zlib-style deflate/inflate): validates version string (off_5DA818, size 56), installs default allocator/deallocator callbacks, normalizes a2 == -1 to level 6 and takes the absolute window-bits value, validates parameters (mem level 1..9, method 8, window bits 8..15, level <= 9, strategy <= 2), allocates the 5809-byte state block and three work buffers via the allocator callback, and finalizes via ConditionalMultiFieldReset; on failure stores the off_5DA834 error token and returns -4.",
+      "owner": "CompressionStreamContext",
+      "evidence_refs": [
+        "function:0x00535C10",
+        "global:0x005DA818",
+        "global:0x00536FD0",
+        "global:0x00536FF0",
+        "global:0x005DA834",
+        "callee:0x00535E10",
+        "callee:0x005361D0",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00535E80",
+      "role": "Frame/chunk encoder: validates the encoder object, operation type (0..4) and buffers; writes big-endian audio header words for codec type 42 and sets codec type 113; copies compressed buffers via BufferCopyWithSizeTracking; dispatches to the codec handler selected from funcs_536014 by 3*(codec+122); completes frames via BitstreamEncoder/BitstreamWriteBits. Returns 0 on success, -2/-5 on validation failure with an error pointer stored at a1+24.",
+      "owner": "CodecPipelineObject",
+      "evidence_refs": [
+        "function:0x00535E80",
+        "global:0x005B77F0",
+        "global:0x005DA82C",
+        "global:0x005DA838",
+        "callee:0x00536130",
+        "callee:0x00536160",
+        "callee:0x00537FE0",
+        "callee:0x00537F30",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005361D0",
+      "role": "Codec sub-object teardown: validates this and the sub-object pointer at this+0x1C, requires the mode tag at *(this+0x1C)+0x4 to be 42/113/666, conditionally invokes the cleanup callback at this+0x24 (with this+0x28) for each non-zero flag at *(this+0x1C)+0x8/+0x2E/+0x36/+0x3A, makes one unconditional final cleanup call, zeroes this+0x1C, and returns 0xFD (253) for mode 113 else 0.",
+      "owner": "CodecSubObject",
+      "evidence_refs": [
+        "function:0x005361D0",
+        "abi:lead",
+        "field:this:0x0000001C",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:*(this+0x1C):0x00000004",
+        "field:*(this+0x1C):0x00000008",
+        "field:*(this+0x1C):0x0000002E",
+        "field:*(this+0x1C):0x00000036",
+        "field:*(this+0x1C):0x0000003A",
+        "caller:0x00534EE0",
+        "caller:0x00535C10",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00536E90",
+      "role": "CRC-32 computation over a byte buffer using the dword_5B7860 256-entry lookup table; unrolled 8-byte main loop plus byte tail loop, returns the bitwise complement of the final state; null data pointer returns 0.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x00536E90",
+        "abi:lead",
+        "global:0x005B7860",
+        "field:this:0x00000000",
+        "field:this:0x00000002",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053AB70",
+      "role": "Single-field free helper: reads the buffer pointer at this+0xC (this[3]), frees it through FreeWrapper_7bcf and returns that call's result unchanged; unconditional, no branches; called by TwoListCleanup during two-list teardown.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053AB70",
+        "abi:lead",
+        "field:this:0x0000000C",
+        "callee:0x00587BCF",
+        "caller:0x00547420",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053AD50",
+      "role": "Multi-field destructor cleanup: restores the destructed-state vtable pointer at this+0x0 to off_5B8910, frees the three heap buffers at this+0x10/0x20/0x30 via FreeWrapper_7bcf, then invokes EmptyStub_0170; called by GlobalResourceCleanup.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053AD50",
+        "global:0x005B8910",
+        "field:this:0x00000000",
+        "field:this:0x00000010",
+        "field:this:0x00000020",
+        "field:this:0x00000030",
+        "callee:0x00587BCF",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053B130",
+      "role": "Constructor/initializer for a 40-byte float-bearing structure: zeroes the first seven dword fields, sets the last three dword fields to 1.0f, calls Identity44MatrixInit for the embedded 4x4 matrix, and returns the object; called from seven sites including matrix/vertex transform helpers.",
+      "owner": "FloatTransformStruct",
+      "evidence_refs": [
+        "function:0x0053B130",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "callee:0x0053B3B0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053B200",
+      "role": "Per-frame transform setter (thiscall): copies three inputs into primary fields 0x4/0x8/0xC, mirrors them into 0x58/0x5C/0x60, sets 0x64 to 1.0f (bit pattern 1065353216), and returns the middle input; interpreted as position/scale component initialization for a 3D transformation object.",
+      "owner": "Transform3D",
+      "evidence_refs": [
+        "function:0x0053B200",
+        "abi:lead",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000058",
+        "field:this:0x0000005C",
+        "field:this:0x00000060",
+        "field:this:0x00000064",
+        "caller:0x0054B570",
+        "caller:0x0054C6C0",
+        "caller:0x00558C60",
+        "caller:0x00558E70",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053B490",
+      "role": "Identity transform (__thiscall): returns the this pointer unchanged with no other effect; no fields, globals, guards or callees of its own; likely a vtable placeholder, no-op hook or deliberately trivial override.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053B490",
+        "abi:lead",
+        "caller:0x005507A0",
+        "caller:0x00551210",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053B4A0",
+      "role": "Empty void stub (nullsub): no instructions beyond the implicit return; placeholder body for a virtual-table entry or an unimplemented hook point.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053B4A0",
+        "abi:lead",
+        "caller:0x00551210",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053B5B0",
+      "role": "Quaternion spherical linear interpolation (SLERP): 4-component dot product, shortest-path negation when dot is negative, sin-based blend above the 0.02 epsilon (via FloatFunctionPassThrough) else linear blend; writes the interpolated quaternion to this[0..3].",
+      "owner": "QuaternionMathLibrary",
+      "evidence_refs": [
+        "function:0x0053B5B0",
+        "abi:lead",
+        "callee:0x005894A0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "caller:0x00551210",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053B6F0",
+      "role": "QR decomposition of a 3x3 double matrix a1 via Givens rotations over at most 50 iterations: initializes a3 to a 3x3 identity, copies a1 into working buffers and a2, sums off-diagonal magnitudes for early exit, applies rotation tolerances and Givens coefficients, accumulates eigenvector/sum contributions back through a2; used by sub_549470 and BoundingBoxComputationFromVertexData on the per-frame path.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053B6F0",
+        "abi:lead",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053C680",
+      "role": "Trivial setter: copies three __stdcall arguments into three consecutive writable globals dword_8B8F08/0C/10 and returns the first argument unchanged; no guards, calls or field access; called by VidMan_Enter.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053C680",
+        "global:0x008B8F08",
+        "global:0x008B8F0C",
+        "global:0x008B8F10",
+        "caller:0x004FA000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053C6F0",
+      "role": "String-table registration: guards on empty input and table capacity (32 entries), copies and transforms the input via sub_589901, dedupes by strcmp over 132-byte entry stride, inserts at the front (shifting entries via ArithmeticComparison_c6b0 when needed), sets flag bit 0x4000 on dword_8B5A38 and increments the count dword_8B8E30; called from SceneFileTopLevelParser.",
+      "owner": "StringTableRegistry",
+      "evidence_refs": [
+        "function:0x0053C6F0",
+        "abi:lead",
+        "callee:0x00589901",
+        "callee:0x0053C6B0",
+        "global:0x008B5A38",
+        "global:0x008B5A3C",
+        "global:0x008B8E30",
+        "field:this:0x00000000",
+        "caller:0x0055B200",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053CA00",
+      "role": "String-table pruning: stages up to 32 entries into a 4224-byte local buffer, compacts surviving entries (flag bit 0x400 clear) back to the front of the global table at dword_8B5A38, zeroes trailing slots up to the boundary dword_8B6AB8, and stores the surviving count into dword_8B8E30; called by StringMatchWithFlagSet.",
+      "owner": "StringTableRegistry",
+      "evidence_refs": [
+        "function:0x0053CA00",
+        "callee:0x0053C6A0",
+        "callee:0x0053C6B0",
+        "callee:0x005881C0",
+        "global:0x008B5A38",
+        "global:0x008B6AB8",
+        "global:0x008B8E30",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053CAF0",
+      "role": "Conditional resource cleanup: runs TwoListCleanup(a1), and when a1 is non-null runs EmptyStub_7470(a1) then FreeWrapper_7bcf(a1); always returns 0; caller ReleaseSceneNode suggests scene-node resource teardown (not established).",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053CAF0",
+        "callee:0x00547420",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "caller:0x005437E0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053CB20",
+      "role": "Audio-emitter allocate-and-register: allocates a 60-byte object via OperatorNewNhMallocWrapper, creates an audio emitter via AudioEmitterCreate, stores it at the caller output slot this+0x0, then attempts registration through sub_5429B0(a2,0,0,a3,a4); on registration success (non-zero) discards the emitter (EmptyStub_7470 + FreeWrapper_7bcf) and returns -1, otherwise returns 0 leaving the emitter intact.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053CB20",
+        "abi:lead",
+        "callee:0x00587C03",
+        "callee:0x005426A0",
+        "callee:0x005429B0",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "field:this:0x00000000",
+        "caller:0x00494FB0",
+        "caller:0x0049CA00",
+        "caller:0x004F9480",
+        "caller:0x00552470",
+        "caller:0x0055A060",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053CE10",
+      "role": "MAS-file loader wrapper: calls sub_53CBC0(a1, a2) and returns its result; on success (result == 0) and a1 non-null, dereferences a1 and sets bit 3 (0x8) in the flags dword at obj+0x114 of the loaded object, marking error-handling state.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053CE10",
+        "callee:0x0053CBC0",
+        "field:this:0x00000000",
+        "field:obj:0x00000114",
+        "caller:0x0055B200",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D1F0",
+      "role": "Wide-string linked-list name lookup: loads the global head pointer dword_8B8E20 and walks nodes via the next pointer at node+2160, comparing each node name at node+20 against the input string (strcmp); returns the first match or 0 when the list is empty, the name is absent, or the chain ends; used by ten renderer/font callers.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053D1F0",
+        "abi:lead",
+        "global:0x008B8E20",
+        "caller:0x0053D260",
+        "caller:0x004DC600",
+        "caller:0x004DC660",
+        "caller:0x004F8EA0",
+        "caller:0x004F8F10",
+        "caller:0x0053D2B0",
+        "caller:0x0053D2E0",
+        "caller:0x0053D310",
+        "caller:0x004989E0",
+        "caller:0x0049F870",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D260",
+      "role": "Font/surface dispatch: looks up a font surface handle by name via WideStringLinkedListSearch(a1); when non-null applies three setter calls (FieldSetterAt0x48, MaskedFieldSetter, SwitchBasedParameterFieldSetWithFlags whose result is returned); when the lookup fails returns the null lookup result without applying any setter.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053D260",
+        "abi:lead",
+        "callee:0x0053D1F0",
+        "callee:0x00552FC0",
+        "callee:0x00552FD0",
+        "callee:0x00552FF0",
+        "caller:0x004F8D70",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D2B0",
+      "role": "Guarded delegation: searches the wide-string linked list with WideStringLinkedListSearch(a1); when the search yields non-zero, delegates a2/a3 to TwoFieldSetter_3050 and returns that result, otherwise returns the zero search result; used by sub_4F8D70.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053D2B0",
+        "abi:lead",
+        "callee:0x0053D1F0",
+        "callee:0x00553050",
+        "caller:0x004F8D70",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D2E0",
+      "role": "Conditional delegate: searches the wide-string linked list for a1; on a match forwards a2..a5 to sub_553070 and returns its result, otherwise returns the search result unchanged; appears to be a UI message/event dispatch shim.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053D2E0",
+        "abi:lead",
+        "callee:0x0053D1F0",
+        "callee:0x00553070",
+        "caller:0x00494F10",
+        "caller:0x004F8F50",
+        "caller:0x004F9480",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0053D310",
+      "role": "Conditional dispatcher: searches the wide-string linked list with WideStringLinkedListSearch(a1); on success calls sub_5531F0(a2, a3, a4, 0) and returns its result, otherwise returns the zero search result; caller is sub_4F9480.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x0053D310",
+        "callee:0x0053D1F0",
+        "callee:0x005531F0",
+        "caller:0x004F9480",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "CompressionStreamContext",
+      "responsibility": "zlib-style deflate/inflate stream context: holds allocator/deallocator callbacks, the current block pointer and work/state-block fields; provides stream initialization (decompression and compression variants), a guarded deferred-call cleanup, and a block-size exponent gate.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00535660",
+        "0x005356A0",
+        "0x00535C10"
+      ],
+      "fields": [
+        {
+          "base": "CompressionStreamContext::this",
+          "offset": "0x00000018",
+          "name": "ContextFlag",
+          "type_guess": "uint32",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "CompressionStreamContext::this",
+          "offset": "0x0000001C",
+          "name": "BlockPointer",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "CompressionStreamContext::this",
+          "offset": "0x00000020",
+          "name": "AllocatorCallback",
+          "type_guess": "void*(*)(void*,uint32,uint32)",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "CompressionStreamContext::this",
+          "offset": "0x00000024",
+          "name": "DeallocatorCallback",
+          "type_guess": "void(*)(void*,void*)",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "CompressionStreamContext::this",
+          "offset": "0x00000028",
+          "name": "AllocatorContext",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "CompressionStreamContext::this",
+          "offset": "0x0000002C",
+          "name": "BlockSizeExponent",
+          "type_guess": "int32",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "CompressionStreamContext::this",
+          "offset": "0x00000030",
+          "name": "WorkBufferPointer",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00535660",
+        "function:0x005356A0",
+        "function:0x00535C10",
+        "global:0x005DA7A0",
+        "global:0x005DA818",
+        "global:0x005DA834",
+        "global:0x00536FD0",
+        "global:0x00536FF0",
+        "global:0x00537D10",
+        "callee:0x00535620",
+        "callee:0x00535660",
+        "callee:0x00535E10",
+        "callee:0x005361D0",
+        "callee:0x00537070",
+        "callee:0x00537CE0",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "InflateStateMachineDecoder",
+      "responsibility": "Per-stream inflate state machine (zlib-style): validates the compression header, header checksum, optional dictionary size, drives the inflate core sub_537110, resets the sub-block state on stream end, and checks the trailer checksum; error paths arm one of five message strings.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x005357E0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x005357E0",
+        "global:0x00535BCC",
+        "global:0x005DA7A8",
+        "global:0x005DA7B8",
+        "global:0x005DA7D0",
+        "global:0x005DA7E8",
+        "global:0x005DA7FC",
+        "callee:0x00537110",
+        "callee:0x00537000",
+        "caller:0x00534F90",
+        "caller:0x0059B260",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CodecPipelineObject",
+      "responsibility": "Frame encoding pipeline state: binds the caller object and operation type, writes big-endian audio header words, copies compressed buffers with size tracking, dispatches to per-codec handlers via funcs_536014, and finalizes frames through the bitstream encoder; final-state marker 666.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00535E80"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x00535E80",
+        "global:0x005B77F0",
+        "global:0x005DA82C",
+        "global:0x005DA838",
+        "callee:0x00536130",
+        "callee:0x00536160",
+        "callee:0x00537FE0",
+        "callee:0x00537F30",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CodecSubObject",
+      "responsibility": "Per-codec sub-object with a mode tag (42/113/666) and flagged resource holders; teardown conditionally releases each flagged resource through the owning cleanup callback and makes one unconditional final release of the sub-object itself.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x005361D0"
+      ],
+      "fields": [
+        {
+          "base": "CodecSubObject::this",
+          "offset": "0x0000001C",
+          "name": "SubObjectPointer",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "CodecSubObject::this",
+          "offset": "0x00000024",
+          "name": "CleanupCallback",
+          "type_guess": "void(*)(...)",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "CodecSubObject::this",
+          "offset": "0x00000028",
+          "name": "CleanupContext",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1C)",
+          "offset": "0x00000004",
+          "name": "CodecModeTag",
+          "type_guess": "uint32",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1C):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1C)",
+          "offset": "0x00000008",
+          "name": "FlaggedParameter",
+          "type_guess": "uint32",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1C):0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1C)",
+          "offset": "0x0000002E",
+          "name": "CleanupFlag0x2E",
+          "type_guess": "uint16",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1C):0x0000002E",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1C)",
+          "offset": "0x00000036",
+          "name": "CleanupFlag0x36",
+          "type_guess": "uint16",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1C):0x00000036",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1C)",
+          "offset": "0x0000003A",
+          "name": "CleanupFlag0x3A",
+          "type_guess": "uint16",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1C):0x0000003A",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005361D0",
+        "abi:lead",
+        "caller:0x00534EE0",
+        "caller:0x00535C10",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "QuaternionMathLibrary",
+      "responsibility": "Quaternion math helpers: spherical linear interpolation with shortest-path handling and small-angle linearization.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0053B5B0"
+      ],
+      "fields": [
+        {
+          "base": "QuaternionMathLibrary::result",
+          "offset": "0x00000000",
+          "name": "ResultQuaternionW",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "QuaternionMathLibrary::result",
+          "offset": "0x00000004",
+          "name": "ResultQuaternionX",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "QuaternionMathLibrary::result",
+          "offset": "0x00000008",
+          "name": "ResultQuaternionY",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "QuaternionMathLibrary::result",
+          "offset": "0x0000000C",
+          "name": "ResultQuaternionZ",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0053B5B0",
+        "abi:lead",
+        "callee:0x005894A0",
+        "caller:0x00551210",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "StringTableRegistry",
+      "responsibility": "Global 32-entry string table with 132-byte entries: registration with empty/full guards, sub_589901 transform, strcmp dedup and front insertion with 0x4000 flag, and pruning of flag-0x400 entries with tail clearing to the table boundary.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0053C6F0",
+        "0x0053CA00"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0053C6F0",
+        "function:0x0053CA00",
+        "global:0x008B5A38",
+        "global:0x008B5A3C",
+        "global:0x008B6AB8",
+        "global:0x008B8E30",
+        "callee:0x0053C6A0",
+        "callee:0x0053C6B0",
+        "callee:0x00589901",
+        "callee:0x005881C0",
+        "caller:0x0055B200",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "Transform3D",
+      "responsibility": "3D transformation object: per-frame setter writes position/scale components into primary fields and mirrored reference fields with an identity-scale (1.0f) default; role of the mirrored pair is inferred from caller context.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0053B200"
+      ],
+      "fields": [
+        {
+          "base": "Transform3D::this",
+          "offset": "0x00000004",
+          "name": "PrimaryX",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "Transform3D::this",
+          "offset": "0x00000008",
+          "name": "PrimaryY",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "Transform3D::this",
+          "offset": "0x0000000C",
+          "name": "PrimaryZ",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "Transform3D::this",
+          "offset": "0x00000058",
+          "name": "MirroredX",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000058",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "Transform3D::this",
+          "offset": "0x0000005C",
+          "name": "MirroredY",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "Transform3D::this",
+          "offset": "0x00000060",
+          "name": "MirroredZ",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000060",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "Transform3D::this",
+          "offset": "0x00000064",
+          "name": "ScaleOrW",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000064",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0053B200",
+        "abi:lead",
+        "caller:0x0054B570",
+        "caller:0x0054C6C0",
+        "caller:0x00558C60",
+        "caller:0x00558E70",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FloatTransformStruct",
+      "responsibility": "40-byte float-bearing structure with an embedded identity 4x4 matrix: initialization zeroes the leading seven dwords and sets the trailing three to 1.0f; the concrete placement of the matrix is not evidenced by this function.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0053B130"
+      ],
+      "fields": [
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x00000000",
+          "name": "ZeroedField0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x00000004",
+          "name": "ZeroedField1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x00000008",
+          "name": "ZeroedField2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x0000000C",
+          "name": "ZeroedField3",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x00000010",
+          "name": "ZeroedField4",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x00000014",
+          "name": "ZeroedField5",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x00000018",
+          "name": "ZeroedField6",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x0000001C",
+          "name": "IdentityFieldA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x00000020",
+          "name": "IdentityFieldB",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "FloatTransformStruct::this",
+          "offset": "0x00000024",
+          "name": "IdentityFieldC",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0053B130",
+        "callee:0x0053B3B0",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "InflateStream",
+      "owner": "InflateStateMachineDecoder",
+      "states": [
+        {
+          "id": 0,
+          "label": "read compression header byte (CMF); validate method == 8 and window-size bound"
+        },
+        {
+          "id": 1,
+          "label": "read FLG byte, fold header checksum (mod 0x1F); branch on FDICT flag"
+        },
+        {
+          "id": 2,
+          "label": "accumulate dictionary-size byte 1 (big-endian)"
+        },
+        {
+          "id": 3,
+          "label": "accumulate dictionary-size byte 2"
+        },
+        {
+          "id": 4,
+          "label": "accumulate dictionary-size byte 3"
+        },
+        {
+          "id": 5,
+          "label": "accumulate dictionary-size byte 4; publish to a1[12], advance to 6, return 2"
+        },
+        {
+          "id": 6,
+          "label": "dictionary required; arm 'need dictionary' string, return -2"
+        },
+        {
+          "id": 7,
+          "label": "inflate core via sub_537110; on stream end reset sub-state via StateResetWithCallback"
+        },
+        {
+          "id": 8,
+          "label": "accumulate trailer checksum byte 1"
+        },
+        {
+          "id": 9,
+          "label": "accumulate trailer checksum byte 2"
+        },
+        {
+          "id": 10,
+          "label": "accumulate trailer checksum byte 3"
+        },
+        {
+          "id": 11,
+          "label": "accumulate trailer checksum byte 4; compare with computed checksum"
+        },
+        {
+          "id": 12,
+          "label": "stream end; return 1"
+        },
+        {
+          "id": 13,
+          "label": "error terminal state; return -3"
+        }
+      ],
+      "transitions": [
+        "0 -> 1 after header byte consumed and validated; failure sets state 13 and arms the method/window-size error strings",
+        "1 -> 7 when the FDICT flag is clear; 1 -> 2 when the FDICT flag is set",
+        "2 -> 3 -> 4 -> 5 one byte per state; 5 -> 6 after publishing the dictionary size",
+        "7 -> 12 when state+12 is set after stream end; otherwise 7 -> 8",
+        "8 -> 9 -> 10 -> 11 one byte per state; 11 -> 12 on checksum match (return 1); 11 -> 13 on mismatch",
+        "0, 1 and 6 error paths set state 13 and return -2; state 13 returns -3; any other state returns -2"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005357E0",
+        "global:0x00535BCC",
+        "global:0x005DA7FC",
+        "global:0x005DA7E8",
+        "global:0x005DA7D0",
+        "global:0x005DA7A8",
+        "global:0x005DA7B8",
+        "callee:0x00537110",
+        "callee:0x00537000",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CodecOperation",
+      "owner": "CodecPipelineObject",
+      "states": [
+        {
+          "id": 0,
+          "label": "operation type 0 (reserved/flush-triggering path)"
+        },
+        {
+          "id": 1,
+          "label": "operation type 1 (frame completion via BitstreamEncoder)"
+        },
+        {
+          "id": 2,
+          "label": "operation type 2 (handler-driven; codec type may reach final state 666)"
+        },
+        {
+          "id": 3,
+          "label": "operation type 3 (end bits written, bitstream buffer zeroed)"
+        },
+        {
+          "id": 4,
+          "label": "operation type 4 (finalize: trailing header words, flush, return codec+20 == 0)"
+        },
+        {
+          "id": 666,
+          "label": "codec final state; further encode operations rejected while input present"
+        }
+      ],
+      "transitions": [
+        "operation type bound to codec state v4+30; prior type saved before dispatch",
+        "codec handler returning 2 or 3 marks codec type v4+4 as 666 (final state)",
+        "handler returning 1 for a2 == 1 runs BitstreamEncoder; otherwise writes end bits via BitstreamWriteBits",
+        "a2 == 4 finalize path writes trailing 16-bit header words, flushes, stores -1 at codec+24"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00535E80",
+        "global:0x005B77F0",
+        "callee:0x00536130",
+        "callee:0x00536160",
+        "callee:0x00537FE0",
+        "callee:0x00537F30",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "LookupThenDelegate",
+      "purpose": "Conditional lookup-then-set dispatch shims over the wide-string linked list: each function searches by name, and only on a non-null match forwards caller arguments to a setter/delegate callee; a failed lookup short-circuits to the zero result. Used by renderer/font and UI callers.",
+      "functions": [
+        "0x0053D260",
+        "0x0053D2B0",
+        "0x0053D2E0",
+        "0x0053D310"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0053D1F0",
+        "caller:0x004F8D70",
+        "caller:0x004F9480",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "CompressionStreamContext",
+      "to": "InflateStateMachineDecoder",
+      "kind": "uses",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x005356A0",
+        "function:0x00535C10",
+        "function:0x005357E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "CompressionStreamContext",
+      "to": "CodecSubObject",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "caller:0x00535C10",
+        "callee:0x005361D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "InflateStateMachineDecoder",
+      "to": "callee:0x00537110",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005357E0",
+        "callee:0x00537110",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "InflateStateMachineDecoder",
+      "to": "callee:0x00537000",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005357E0",
+        "callee:0x00537000",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "CodecPipelineObject",
+      "to": "CodecSubObject",
+      "kind": "owns",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00535E80",
+        "function:0x005361D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "StringTableRegistry",
+      "to": "callee:0x0053C6B0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0053C6F0",
+        "function:0x0053CA00",
+        "callee:0x0053C6B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "LookupThenDelegate",
+      "to": "callee:0x0053D1F0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0053D1F0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "UnknownObject (AudioEmitterAllocTryRegister 0x0053CB20)",
+      "to": "callee:0x005426A0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0053CB20",
+        "callee:0x005426A0",
+        "callee:0x005429B0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "QuaternionMathLibrary",
+      "to": "callee:0x005894A0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053B5B0",
+        "callee:0x005894A0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "FloatTransformStruct",
+      "to": "callee:0x0053B3B0",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0053B130",
+        "callee:0x0053B3B0",
+        "source:raw"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "StreamInitVersionGate",
+      "category": "stream-compression",
+      "description": "Stream context initialization validates a version string whose first byte equals global 0x5DA7A0[0] ('1.13') and requires version size 56; failures return -6. Default allocator (0x536FD0) and deallocator (0x536FF0) callbacks are installed when absent. The block-size exponent must be in 8..15; a 24-byte work block and a 1<<a2 multi-block buffer are allocated through the allocator callback. Compression init uses the off_5DA818 magic and stores the off_5DA834 error token on allocation failure.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x005356A0",
+        "function:0x00535C10",
+        "global:0x005DA7A0",
+        "global:0x005DA818",
+        "global:0x005DA834",
+        "global:0x00536FD0",
+        "global:0x00536FF0",
+        "global:0x00537D10",
+        "callee:0x00537070",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "InflateWireProtocol",
+      "category": "stream-compression",
+      "description": "The inflate decoder speaks a zlib-style wire format: CM/FLG header with compression method 8 and a window-size bound, header checksum modulo 0x1F, optional FDICT flag with a 4-byte big-endian dictionary-size field, and a 4-byte stream trailer that must equal the computed checksum. Dispatch is driven by the jump table at 0x535BCC; error strings are armed from globals 0x5DA7A8/0x5DA7B8/0x5DA7D0/0x5DA7E8/0x5DA7FC. Return codes: -5 intermediate, -3 stream error, -2 need dictionary/null handle, 1 stream end.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x005357E0",
+        "global:0x00535BCC",
+        "global:0x005DA7A8",
+        "global:0x005DA7B8",
+        "global:0x005DA7D0",
+        "global:0x005DA7E8",
+        "global:0x005DA7FC",
+        "callee:0x00537110",
+        "callee:0x00537000",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CodecOperationDispatch",
+      "category": "codec",
+      "description": "EncodeFrame accepts operation types 0..4. Codec type 42 emits big-endian audio header words (composed from codec+122/38/98, aligned to 0x1F) and sets codec type 113. The handler table funcs_536014 at 0x5B77F0 is indexed by 3*(codec+122); handlers returning 2 or 3 mark codec type as 666 (final state). Validation failures store an error pointer (from globals 0x5DA82C/0x5DA838) at a1+24 and return -2/-5.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00535E80",
+        "global:0x005B77F0",
+        "global:0x005DA82C",
+        "global:0x005DA838",
+        "callee:0x00536130",
+        "callee:0x00536160",
+        "callee:0x00537FE0",
+        "callee:0x00537F30",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "GlobalStringTableLayout",
+      "category": "string-table",
+      "description": "Global string table at 0x8B5A38/0x8B5A3C holds up to 32 entries of 132 bytes; the live count is dword_8B8E30 and the flag word dword_8B5A38 bit 0x4000 is set on every insertion. Entries are compared with strcmp at the 132-byte stride. Pruning compacts entries with flag bit 0x400 clear to the front and zeroes the tail up to the table boundary 0x8B6AB8, updating the count.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0053C6F0",
+        "function:0x0053CA00",
+        "global:0x008B5A38",
+        "global:0x008B5A3C",
+        "global:0x008B6AB8",
+        "global:0x008B8E30",
+        "callee:0x0053C6B0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FontSurfaceNameList",
+      "category": "renderer-lookup",
+      "description": "Renderer/font name lookup walks a singly-linked list whose head is global dword_8B8E20; each node carries its name string at +20 and its next-node link at +2160. Lookup failure returns 0 and short-circuits the setter chain. The four LookupThenDelegate shims all consume this list and forward caller arguments to per-name setters on success.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0053D1F0",
+        "function:0x0053D260",
+        "global:0x008B8E20",
+        "callee:0x0053D1F0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "HeapReleaseContract",
+      "category": "memory",
+      "description": "All heap object/buffer teardown funnels through FreeWrapper_7bcf (0x587BCF); heap allocation uses OperatorNewNhMallocWrapper (0x587C03). Destructors follow a vtable-swap pattern: restore the destructed-state vtable (off_5B8910) before freeing owned buffers. Single/multi-buffer free helpers and the audio-emitter allocator all conform to this contract.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "global:0x005B8910",
+        "function:0x0053AB70",
+        "function:0x0053AD50",
+        "function:0x0053CAF0",
+        "function:0x0053CB20",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CRC32Table",
+      "category": "checksum",
+      "description": "CRC-32 computed over a byte buffer using the dword_5B7860 256-entry lookup table, seeded from the initial value argument; the result is the bitwise complement of the final state and a null data pointer returns 0.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00536E90",
+        "global:0x005B7860",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "GuardedFunctionCallCleanup record semantics are DERIVED: this+0x1C is read as a handler/context pointer, this+0x24 as a stored callback and this+0x28 as its first argument; the packet flags it as a structural twin of sub_5179A2, consistent but not confirmed. On the stream context this+0x1C/0x24/0x28 double as block pointer / deallocator / allocator context.",
+    "The field this+0x30 is read by GuardedFunctionCallCleanup per the packet but does not appear in its raw body; the purpose is unknown. Work-block sub-offsets are flattened by the pipeline as this+0x28/0x2C/0x30, overlapping the allocator-context field at this+0x28; the concrete work-block layout is unknown.",
+    "CompressionStreamContext and CodecSubObject share the this+0x1C/0x24/0x28 field layout, and CompressionStreamInitializer's failure path calls CodecSubObjectTeardown on the same receiver; the compression context and codec sub-object may be the same runtime object, but common ownership is not proven.",
+    "The InflateStream role of the state+12 flag consumed after StateResetWithCallback versus the window-size field at state+16 is not fully determined; the a2 flush-mode contract is under-specified (only value 4 is evidenced).",
+    "The semantic roles of ArithmeticComparison_5620 (reset after allocation) and GuardedFunctionCallCleanup (teardown) are inferred from position in this flow; callers sub_534B10 and ArgumentReorderWrapper frame 0x5356A0 as a stream initializer but their usage is outside this function.",
+    "EncodeFrame codec field layout (codec+4/20/24/30/38/58/66/98/106/122), the a1 caller-buffer offsets (12/16/24/48/50), the funcs_536014 handler-slot layout, and codec constants 42/113/666 are named by role only; no owner or field evidence is available. Callee 0x536300 (DecompressionBufferFlush) is recorded but does not appear as an explicit call in the body.",
+    "The content of the off_5DA834 error pointer and of off_5DA82C/off_5DA838 is not established.",
+    "QRDecompose3x3 read-only globals (0x59E420/0x59E430/0x59E880/0x59EA20/0x5B8970) have no visible direct use in the body; the exact meaning of each output matrix (eigenvalues vs eigenvectors) and the convergence-tolerance constants are not independently grounded.",
+    "QuaternionSphericalInterpolation read-only globals (0x59E43C/0x59E440/0x59E6EC) are flagged by packet facts but appear nowhere in the raw body; the 0.02 epsilon and 1.0 constants match the small-angle cut-off but are not evidenced.",
+    "The mirrored field pair of SetPositionScaleAndOne (0x4/0x58, 0x8/0x5C, 0xC/0x60) and whether the 1.0f at 0x64 is a scale or a homogeneous w component cannot be decided from this packet.",
+    "FloatStructInitializer's embedded 4x4 matrix placement is not shown; Identity44MatrixInit is called with no visible argument. The F_10 prefix suggests a class-scoped identifier, unconfirmed.",
+    "String-table entry internal layout (132 bytes) is inferred from the strcmp stride and the 33-DWORD copy step; whether dword_8B5A38 and byte_8B5A3C alias the same allocation is not confirmed. The 0x400/0x4000 flag meanings and the differing return-value contract by path are unresolved.",
+    "cleanupResourceWithConditionalFree: why a null a1 still receives TwoListCleanup while the free path is null-guarded is unexplained; TwoListCleanup (0x547420) and EmptyStub_7470 (0x557470) semantics and the a1 object type are unknown.",
+    "AudioEmitterAllocTryRegister frees the freshly created emitter on registration success and keeps it on failure, the inverse of a typical init-on-failure pattern; the intended lifecycle and the meaning of the two zero literals passed to sub_5429B0 are unverifiable.",
+    "ErrorHandlerSet: the object sub_53CBC0 allocates into *a1 and the meaning of the bit-3 flag at obj+0x114 (error-handling state) are inferred from prior analysis.",
+    "WideStringLinkedListSearch node layout is unknown beyond the name at +20 and the next link at +2160; the 'WideString' canonical label conflicts with the raw char* strcmp, so the actual string encoding is unverifiable.",
+    "IdentityThis (0x53B490) and EmptyStub (0x53B4A0) have unknown purposes: vtable placeholders, intentionally empty callbacks, or stripped bodies.",
+    "GuardedDelegation/ConditionalStringDelegate/FontSurfaceLookupDispatch setter target objects and the parameter semantics of the setter callees (0x552FC0/0x552FD0/0x552FF0/0x553050/0x553070/0x5531F0) are not evidenced in this packet; the UI message-delegate role of 0x53D2E0 is inferred from its callers.",
+    "CRC-32 generator polynomial for the dword_5B7860 table is not evidenced; QR decomposition relies on FPU/runtime helpers only.",
+    "ThreeGlobalSetter: purpose and consumers of the consecutive globals 0x8B8F08/0C/10 and the return-value semantics are caller-defined."
+  ],
+  "unresolved_evidence_refs": [
+    "callee:0x00536300",
+    "caller:0x00534B10",
+    "caller:0x005357C0",
+    "field:this:0x00000030",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E6EC",
+    "global:0x0059E880",
+    "global:0x0059EA20",
+    "global:0x005B8970"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

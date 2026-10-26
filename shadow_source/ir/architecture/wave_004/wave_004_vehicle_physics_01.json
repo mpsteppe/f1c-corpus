@@ -1,0 +1,3036 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_vehicle_physics_01",
+  "scope": "vehicle_physics",
+  "subsystem": {
+    "name": "VehiclePhysics",
+    "responsibility": "Per-vehicle physics simulation state: tire-force and suspension/wheel dynamics solve, collision-damage accumulation with DNF detection, engine durability and thermal simulation, collision-shape initialization, wheel-group state dispatch and repair, and the vehicle selection/camera-tracking glue that routes game-state changes.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x0043F7F0",
+      "function:0x0043EF20",
+      "function:0x00430750",
+      "function:0x00410BC0",
+      "global:0x007C54F0",
+      "source:raw"
+    ]
+  },
+  "summary": "Sixteen validated vehicle-physics functions reconstructed as ten worker-proposed classes. The dominant object is VehiclePhysicsSimulation, a single large per-vehicle state carrying engine durability/thermal data, collision-damage accumulation, suspension/wheel solver state, tire-force inputs, the physics-body name mapping and the active/contact/vibration flags. Two collision-shape initializers share a discriminator + data-pointer layout; a wheel-group dispatcher owns six-group slot decoding and the typed 3/4/5 state update, both resolving sentinel slots through the repair-state owner arrays. Audio and selection helpers are thin wrappers over scene and game-state dispatch helpers. All IR owners are UNKNOWN; the proposed owners are DERIVED/GUESS and several offset conflicts are recorded in unresolved rather than forced into a clean design.",
+  "function_roles": [
+    {
+      "address": "0x0040D2CA",
+      "role": "Cyclically shifts the player selection index (dword_7C54DC +/- 1, wrapped against the vehicle count dword_5C329C), dispatches game state for the newly selected vehicle via GameStateDispatchChain, refreshes every vehicle visual entry via sub_4F0D20, and returns the count.",
+      "owner": "VehicleSelectionController",
+      "evidence_refs": [
+        "function:0x0040D2CA",
+        "source:raw",
+        "global:0x007C54DC",
+        "global:0x005C329C",
+        "global:0x007C54F0",
+        "callee:0x0040D240",
+        "callee:0x004F0D20"
+      ]
+    },
+    {
+      "address": "0x0040D340",
+      "role": "Thin camera/game-state wrapper: reads the tracked-vehicle index dword_7C54E4, indexes the vehicle pointer array dword_7C54F0, and dispatches a game-state change for the tracked vehicle via GameStateDispatchChain.",
+      "owner": "VehicleSelectionController",
+      "evidence_refs": [
+        "function:0x0040D340",
+        "source:raw",
+        "global:0x007C54E4",
+        "global:0x007C54F0",
+        "callee:0x0040D240"
+      ]
+    },
+    {
+      "address": "0x0040E2B0",
+      "role": "Computes the averaged position of a packed array, lerps it with the bounding-box center using a mode-selected blend factor (0.35 for mode 2, else 0.70), adds a queried three-field offset, writes it back, and applies the offset vector to the object via GlobalVectorOffsetUpdate.",
+      "owner": "AudioPhysicsMixer",
+      "evidence_refs": [
+        "function:0x0040E2B0",
+        "source:raw",
+        "callee:0x004DD550",
+        "callee:0x0054C230",
+        "callee:0x0054E100",
+        "callee:0x0054E120",
+        "callee:0x0054B420",
+        "callee:0x0054B3B0",
+        "callee:0x0040E1F0",
+        "caller:0x0040E770",
+        "caller:0x004DFA60"
+      ]
+    },
+    {
+      "address": "0x0040EA30",
+      "role": "Initializes a physics collision shape: writes discriminator this+8, subtype constant 2 at this+1C and the data pointer at this+20, derives scaled distance-squared values from the bounding box, stores them via CollisionInvMassStore, bulk-writes six constant fields, writes four shape constants into the sub-struct at this+20, and honors an a4 override through ShortComputation_e770.",
+      "owner": "PhysicsCollisionShape",
+      "evidence_refs": [
+        "function:0x0040EA30",
+        "source:raw",
+        "callee:0x004DD550",
+        "global:0x0059E6F0",
+        "callee:0x00459950",
+        "callee:0x00459990",
+        "callee:0x0040E770"
+      ]
+    },
+    {
+      "address": "0x0040EBD0",
+      "role": "Initializes a physics collision shape: writes discriminator this+8, subtype constant 4 at this+1C and the external data pointer at this+20, stores inverse-mass 10.0 and six float constants via CollisionInvMassStore/F_6FieldBulkSetter, and honors an a4 override through ShortComputation_e770. Invoked by sub_40FE50.",
+      "owner": "PhysicsCollisionShape",
+      "evidence_refs": [
+        "function:0x0040EBD0",
+        "source:raw",
+        "callee:0x00459950",
+        "callee:0x00459990",
+        "callee:0x0040E770",
+        "caller:0x0040FE50"
+      ]
+    },
+    {
+      "address": "0x00410BC0",
+      "role": "Decodes a packed 36-byte wheel input record into 13 scaled floats and a 6-bit group selector, dispatches on the selector (jump table) into six wheel groups, validates each wheel index against a per-group count, resolves sentinel (-1) slots in groups 3-5 via the 4656-stride repair-state owner arrays through ShortComputation_e770 and RepairServiceStateDispatcher, and converts the slot physics state via PhysicsStateVectorConversion.",
+      "owner": "WheelGroupDispatcher",
+      "evidence_refs": [
+        "function:0x00410BC0",
+        "source:raw",
+        "global:0x0059E774",
+        "global:0x0059E778",
+        "global:0x0059E77C",
+        "global:0x0059E780",
+        "global:0x00410F44",
+        "global:0x005ECF0C",
+        "callee:0x0040E770",
+        "callee:0x004ED250",
+        "global:0x005ED3AC",
+        "global:0x005ED3F0",
+        "global:0x005ED434",
+        "callee:0x0040EF70",
+        "caller:0x004B3400"
+      ]
+    },
+    {
+      "address": "0x00411330",
+      "role": "Dispatches a physics state update on operation type 3/4/5, each mapping to a distinct per-type array base (this+4C/+58/+64) and per-type global owner table; writes a float slot, runs ShortComputation_e770, SwitchBasedFloatProcessing and PhysicsStateVectorConversion, marks the element active at +10, and returns the conversion result.",
+      "owner": "WheelGroupDispatcher",
+      "evidence_refs": [
+        "function:0x00411330",
+        "source:raw",
+        "global:0x005ECF0C",
+        "global:0x005ED3F0",
+        "global:0x005ED3AC",
+        "global:0x005ED434",
+        "global:0x007D0AD4",
+        "callee:0x0040E770",
+        "callee:0x0040EEC0",
+        "callee:0x0040EF70"
+      ]
+    },
+    {
+      "address": "0x00430750",
+      "role": "Per-wheel tire contact-patch force computation: guards on tire-brand and compound lookups, combines two suspension/load force terms, aggregates wheel forces, applies a tire-model polynomial over clamped deflection inputs, runs quaternion transforms on compound data, and returns the summed force normalized by the total load term.",
+      "owner": "VehiclePhysicsSimulation",
+      "evidence_refs": [
+        "function:0x00430750",
+        "source:raw",
+        "callee:0x004D7880",
+        "global:0x008ADB88",
+        "callee:0x004D7570",
+        "callee:0x00430600",
+        "global:0x008ADB00",
+        "global:0x008ADB40",
+        "global:0x008ADB60",
+        "callee:0x004D5C70",
+        "caller:0x00430F00"
+      ]
+    },
+    {
+      "address": "0x00438690",
+      "role": "Per-frame collision damage accumulation with DNF detection: integrates impact-energy and thermal damage terms into the accumulator; on overflow marks the first non-DNF grid vehicle as DNF (state 5) and resets the damage state; otherwise applies a cosine-modulated damage response and writes a reciprocal damage output.",
+      "owner": "VehiclePhysicsSimulation",
+      "evidence_refs": [
+        "function:0x00438690",
+        "source:raw",
+        "callee:0x004388D0",
+        "global:0x008AFEF0",
+        "global:0x008AFEF4",
+        "global:0x007C54F0",
+        "global:0x005C329C",
+        "callee:0x0041B200",
+        "callee:0x005697A0",
+        "abi:lead",
+        "caller:0x00441650"
+      ]
+    },
+    {
+      "address": "0x00438DA0",
+      "role": "Initializes the vehicle physics body name-to-index mapping: loads the joint system, allocates a per-body joint data array (48 bytes per body), and resolves named physics bodies (body, steering arms, wheels, spindles, rear axle, fuel tank, driver head) via linear search. Called from TireModelInit.",
+      "owner": "VehiclePhysicsSimulation",
+      "evidence_refs": [
+        "function:0x00438DA0",
+        "source:raw",
+        "callee:0x0056D930",
+        "callee:0x00587C03",
+        "global:0x005C41D4",
+        "callee:0x0056EAD0",
+        "global:0x005C41C8",
+        "callee:0x0056EB30",
+        "global:0x005C41BC",
+        "global:0x005C41B0",
+        "global:0x005C41A4",
+        "global:0x005C4198",
+        "global:0x005C418C",
+        "global:0x005C4180",
+        "global:0x005C4174",
+        "global:0x005C4168",
+        "global:0x005C415C",
+        "global:0x005C4150",
+        "global:0x005C4144",
+        "global:0x005C4138"
+      ]
+    },
+    {
+      "address": "0x0043E770",
+      "role": "Sets collision contact flags for one wheel (281-DWORD per-wheel stride): always marks the per-wheel contact flag; when in contact ORs flag bit 1 into matching body-pair contact entries; otherwise scans the two wheel-body contact lists and ORs flag bit 1 into matching entries. Invoked by RepairServiceStateDispatcher.",
+      "owner": "VehiclePhysicsSimulation",
+      "evidence_refs": [
+        "function:0x0043E770",
+        "source:raw",
+        "guard:0",
+        "caller:0x004ED250"
+      ]
+    },
+    {
+      "address": "0x0043EF20",
+      "role": "Per-frame engine durability, thermal and component-failure simulation: applies RPM/load durability damage and flags durability-exhausted state (code 9), runs coupled coolant and oil temperature dynamics, and drives a random component-failure/repair state machine over the component health block. Called per frame from VehiclePhysicsIntegrationStep.",
+      "owner": "VehiclePhysicsSimulation",
+      "evidence_refs": [
+        "function:0x0043EF20",
+        "source:raw",
+        "global:0x008AFEF0",
+        "callee:0x005881F0",
+        "global:0x008AAE70",
+        "global:0x008AAE74",
+        "global:0x008AB274",
+        "callee:0x0041AC50",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "global:0x0059E7D8",
+        "global:0x0059E880",
+        "global:0x0059E890",
+        "global:0x0059E8B4",
+        "global:0x0059E900",
+        "global:0x0059EA60",
+        "global:0x0059EA68",
+        "global:0x0059EAC8",
+        "global:0x0059EB28",
+        "global:0x0059EB30",
+        "global:0x0059EB38",
+        "global:0x0059EB48",
+        "global:0x0059EBA0",
+        "global:0x0059EC60",
+        "global:0x0059EC70",
+        "global:0x0059EC80",
+        "global:0x0059EC98",
+        "global:0x0059ECA0",
+        "global:0x0059ECA8",
+        "global:0x0059ECB0",
+        "global:0x0059ECB8",
+        "global:0x0059ECC0",
+        "global:0x0059ECC8",
+        "global:0x0059ECD0",
+        "global:0x0059ECD8",
+        "global:0x0059ECE0",
+        "global:0x0059ECE8",
+        "global:0x0059ECF0",
+        "global:0x0059ECF8",
+        "global:0x0059ED00",
+        "global:0x005EB978"
+      ]
+    },
+    {
+      "address": "0x0043F7F0",
+      "role": "Core per-frame suspension and wheel dynamics solver: per-wheel constraint projection, tire spring/damper curves, slip-force target, then a time-stepped LCP solve over a 6x7 constraint matrix; applies resolved impulses to the chassis and wheel body force accumulators. Called from WheelDataCopy and PhysicsStepFrame.",
+      "owner": "VehiclePhysicsSimulation",
+      "evidence_refs": [
+        "function:0x0043F7F0",
+        "source:raw",
+        "callee:0x00438930",
+        "callee:0x005895A2",
+        "callee:0x00435290",
+        "callee:0x005677B0",
+        "caller:0x004414D0",
+        "caller:0x00441600"
+      ]
+    },
+    {
+      "address": "0x00447160",
+      "role": "Boolean vehicle-active check: returns 0 when the thresholds at this+1DB4 or this+19C are <= 0.0 or the active flag at this+1C59 is zero; returns 1 when the override flag at this+1D0C is set; otherwise combines the secondary-state byte at *(this+1F00)+344C with prior condition-code flags.",
+      "owner": "VehiclePhysicsSimulation",
+      "evidence_refs": [
+        "function:0x00447160",
+        "source:raw",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "caller:0x0042C440",
+        "caller:0x00443B70"
+      ]
+    },
+    {
+      "address": "0x004471F0",
+      "role": "Updates suspension-vibration state: always sets the active flag this+1C59; when the accumulator is below the threshold, either copies source values into accumulator/rate (trigger mode) or computes a noise-based vibration output from the flt_8AB274 table.",
+      "owner": "VehiclePhysicsSimulation",
+      "evidence_refs": [
+        "function:0x004471F0",
+        "source:raw",
+        "global:0x008AB274",
+        "global:0x008AAE70"
+      ]
+    },
+    {
+      "address": "0x00448570",
+      "role": "Destroys and frees up to five physics sub-component pointers (four-slot loop at this+4C, tail at this+5C), recursively destroying non-null sub-components, freeing them via FreeWrapper_7bcf and clearing the slots.",
+      "owner": "PhysicsSubComponentOwner",
+      "evidence_refs": [
+        "function:0x00448570",
+        "source:raw",
+        "callee:0x00448570",
+        "callee:0x00587BCF",
+        "caller:0x00449340"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "VehiclePhysicsSimulation",
+      "responsibility": "Per-vehicle physics simulation state: tire-force computation, collision-damage accumulation with DNF detection, physics-body name-to-index mapping, wheel collision contact flagging, engine durability/thermal and component-failure simulation, the suspension/wheel LCP solver, the vehicle-active gate, and suspension-vibration state. The dominant object of the packet; 8 of the 16 functions operate on it.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00430750",
+        "0x00438690",
+        "0x00438DA0",
+        "0x0043E770",
+        "0x0043EF20",
+        "0x0043F7F0",
+        "0x00447160",
+        "0x004471F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "brakeScaleTermA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "brakeScaleTermB",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000BC",
+          "name": "impactMagnitude",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000BC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000CC",
+          "name": "damageSourceA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000CC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "reciprocalDamageOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000D4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000015C",
+          "name": "damageSourceBlockPtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000015C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000019C",
+          "name": "engineDurability",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000019C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001A0",
+          "name": "engineDurabilityAccumulator",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000001A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001AC",
+          "name": "engineDamageExcitationScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B4",
+          "name": "engineDurabilityLossScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001D4",
+          "name": "enginePowerSubStructPtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001D4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001E8",
+          "name": "driverHeadIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000001E8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000348",
+          "name": "wheelVelocityLow",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000348"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000034C",
+          "name": "wheelVelocityHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000034C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000360",
+          "name": "wheelSpringConstantLow",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000360"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000364",
+          "name": "wheelSpringConstantHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000364"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000368",
+          "name": "wheelVelocitySourceLow",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000368"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003D4",
+          "name": "impactScaleA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003D4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003E4",
+          "name": "damageOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000003E4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003E8",
+          "name": "flWheelIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000003E8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003EC",
+          "name": "flSpindleIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000003EC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003F4",
+          "name": "thermalTolerance",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003F4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003FC",
+          "name": "cosineFrequency",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003FC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000404",
+          "name": "thermalTemperatureLow",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000404"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000040C",
+          "name": "thermalReference",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000040C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000414",
+          "name": "impactScaleB",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000414"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000041C",
+          "name": "thermalConductance",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000041C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000424",
+          "name": "thermalConductanceZ",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000424"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000042C",
+          "name": "damageAccumulator",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000042C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000430",
+          "name": "damageAccumulatorReset",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000430"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000434",
+          "name": "damageMultiplier",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000434"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000043C",
+          "name": "damageDecayScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000043C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000444",
+          "name": "damageThreshold",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000444"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000660",
+          "name": "wheelSlipLow",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000660"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000664",
+          "name": "wheelSlipHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000664"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000668",
+          "name": "wheelFrictionLimitLow",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000668"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000007AC",
+          "name": "wheelVelocitySumA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000007AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000007C4",
+          "name": "springConstantWheel",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000007C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000084C",
+          "name": "frWheelIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000084C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000850",
+          "name": "frSpindleIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000850"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000BC4",
+          "name": "tireCompoundIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000BC4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000C10",
+          "name": "wheelVelocitySumB",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000C10"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000C28",
+          "name": "wheel2SpringConstant",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000C28"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000C2C",
+          "name": "wheel2SpringConstantHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000C2C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000C30",
+          "name": "tireLoadBiasA",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000C30"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000C38",
+          "name": "tireLoadScaleA",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000C38"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000C44",
+          "name": "tireLoadGain",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000C44"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000CB0",
+          "name": "rlWheelIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000CB0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000CB4",
+          "name": "rlSpindleIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000CB4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000CB8",
+          "name": "tireLoadScaleB",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000CB8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000CC4",
+          "name": "tireLoadGainB",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000CC4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001074",
+          "name": "wheelVelocitySumC",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001074"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000108C",
+          "name": "wheel3SpringConstant",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000108C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001114",
+          "name": "rrWheelIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001114"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001118",
+          "name": "rrSpindleIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001118"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000141C",
+          "name": "rearAxleIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000141C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015AC",
+          "name": "bodyCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015B4",
+          "name": "wheelBodyContactCount1",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015B8",
+          "name": "wheelBodyContactList1Ptr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015BC",
+          "name": "wheelBodyContactCount2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015BC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015C0",
+          "name": "wheelBodyContactList2Ptr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015C0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015C4",
+          "name": "bodyPairContactCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015C8",
+          "name": "bodyPairContactListPtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015C8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015F0",
+          "name": "mainBodyIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000015F0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000162C",
+          "name": "jointDataArrayPtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000162C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001630",
+          "name": "flSteeringIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001630"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001644",
+          "name": "frSteeringIndex",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001644"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C59",
+          "name": "activeFlag",
+          "type_guess": "uint8",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001C59"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C5C",
+          "name": "vibrationAccumulator",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001C5C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C60",
+          "name": "vibrationRate",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001C60"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C74",
+          "name": "forceOutputScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001C74"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C84",
+          "name": "vibrationThreshold",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001C84"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C88",
+          "name": "vibrationSourceValue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001C88"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001CF4",
+          "name": "curveThreshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001CF4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001CFC",
+          "name": "tireCurveTablePtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001CFC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D00",
+          "name": "tireCurveForceA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001D00"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D04",
+          "name": "tireCurveForceB",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001D04"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D08",
+          "name": "componentTimeArrayCount",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D08"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D0C",
+          "name": "activeOverrideFlag",
+          "type_guess": "uint8",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D0C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D10",
+          "name": "vibrationOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001D10"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D18",
+          "name": "vibrationOffsetA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D18"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D20",
+          "name": "vibrationNoiseGain",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D20"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D28",
+          "name": "vibrationOffsetB",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D28"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D4C",
+          "name": "coolantTemperatureLow",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001D4C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D50",
+          "name": "coolantTemperatureHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001D50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D54",
+          "name": "coolantTemperatureCap",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D54"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D5C",
+          "name": "coolantRateDamageTerm",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D5C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D64",
+          "name": "coolantRateExcitationTerm",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D64"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D6C",
+          "name": "coolantRateAmbientTerm",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D6C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D74",
+          "name": "smoothedCoolantOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001D74"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D7C",
+          "name": "heatSinkBase",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D7C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D84",
+          "name": "heatSinkBoost",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D84"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D8C",
+          "name": "oilTemperatureLow",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001D8C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D94",
+          "name": "oilHeatSource",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D94"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D9C",
+          "name": "oilHeatGain",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D9C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DA4",
+          "name": "oilOverheatDamping",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DA4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DAC",
+          "name": "componentTimeAccumulatorLow",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DAC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DB0",
+          "name": "componentTimeAccumulatorHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DB0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DB4",
+          "name": "failureCountdownLow",
+          "type_guess": "uint32_t",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DB4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DB8",
+          "name": "failureCountdownHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DB8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DE4",
+          "name": "componentHealthA",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DE4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DE8",
+          "name": "componentHealthAHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DE8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DEC",
+          "name": "componentHealthB",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DEC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DF0",
+          "name": "componentHealthBHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DF0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DF4",
+          "name": "componentHealthC",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DF4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001DF8",
+          "name": "componentHealthCHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001DF8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E14",
+          "name": "brakeMode",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E14"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E18",
+          "name": "dampingOffsetA",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E18"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E20",
+          "name": "dampingOffsetB",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E20"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E28",
+          "name": "dampingOffsetC",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E28"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E30",
+          "name": "dampingOffsetD",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E30"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E38",
+          "name": "slipVelocityLow",
+          "type_guess": "uint32_t",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001E38"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E3C",
+          "name": "slipVelocityHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001E3C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E50",
+          "name": "brakeJacobianCoeff",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E54",
+          "name": "brakeJacobianOffset",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E54"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E58",
+          "name": "brakeScaleCoefficient",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E58"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E68",
+          "name": "slipCoefficientLow",
+          "type_guess": "uint32_t",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E68"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E6C",
+          "name": "slipCoefficientHigh",
+          "type_guess": "uint32_t",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E6C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001E70",
+          "name": "brakeThreshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001E70"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001EA4",
+          "name": "torqueFactor",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001EA4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001EF0",
+          "name": "velocityTableIndex",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001EF0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001F00",
+          "name": "failureStatePtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001F00"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0043F7F0",
+        "function:0x0043EF20",
+        "function:0x00430750",
+        "global:0x008AFEF0",
+        "global:0x007C54F0",
+        "global:0x005C329C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PhysicsCollisionShape",
+      "responsibility": "Physics collision-shape initializer: writes the discriminator word at this+8, the subtype constant at this+1C (2 or 4), and the external data pointer at this+20, stores inverse mass and six constant fields via CollisionInvMassStore/F_6FieldBulkSetter, and for type 2 writes four shape constants into the sub-struct at this+20. Honors an a4 override through ShortComputation_e770.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0040EA30",
+        "0x0040EBD0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "typeDiscriminator",
+          "type_guess": "uint16",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "subtypeConstant",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "shapeDataPtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "*(this+0x20)",
+          "offset": "0x00000040",
+          "name": "shapeConstantA",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x20):0x00000040"
+          ]
+        },
+        {
+          "base": "*(this+0x20)",
+          "offset": "0x00000044",
+          "name": "shapeConstantB",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x20):0x00000044"
+          ]
+        },
+        {
+          "base": "*(this+0x20)",
+          "offset": "0x00000048",
+          "name": "shapeConstantC",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x20):0x00000048"
+          ]
+        },
+        {
+          "base": "*(this+0x20)",
+          "offset": "0x0000004C",
+          "name": "shapeConstantD",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x20):0x0000004C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0040EA30",
+        "function:0x0040EBD0",
+        "callee:0x00459950",
+        "callee:0x00459990",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "WheelGroupDispatcher",
+      "responsibility": "Wheel input record dispatch and typed physics-state update. Decodes a packed 36-byte wheel record into a 6-bit group selector and 13 scaled floats, validates per-group wheel indices against the count/base pointer pairs (this+24/28, +30/34, +3C/40, +48/4C, +54/58, +60/64), resolves sentinel (-1) slots through the 4656-stride repair-state owner arrays (dword_5ECF0C / dword_5ED3AC / dword_5ED3F0 / dword_5ED434) via ShortComputation_e770 and RepairServiceStateDispatcher, and converts the slot physics state. The typed update (types 3/4/5) reuses the same group-3/4/5 bases and owner arrays.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00410BC0",
+        "0x00411330"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "group0Count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "group0BasePtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "group1Count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "group1BasePtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000034"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "group2Count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000003C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "group2BasePtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000040"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "group3Count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000048"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "group3BasePtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000004C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "group4Count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000054"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "group4BasePtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000058"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000060",
+          "name": "group5Count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000060"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "group5BasePtr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000064"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00410BC0",
+        "function:0x00411330",
+        "global:0x005ECF0C",
+        "global:0x005ED3AC",
+        "global:0x005ED3F0",
+        "global:0x005ED434",
+        "callee:0x004ED250",
+        "callee:0x0040EF70",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleSelectionController",
+      "responsibility": "Vehicle selection and camera-target glue over the global vehicle pointer array (dword_7C54F0) and the player/tracked indices (dword_7C54DC / dword_7C54E4). Routes game-state changes through GameStateDispatchChain and refreshes vehicle visual entries.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040D2CA",
+        "0x0040D340"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0040D2CA",
+        "function:0x0040D340",
+        "global:0x007C54F0",
+        "global:0x007C54DC",
+        "global:0x007C54E4",
+        "global:0x005C329C",
+        "callee:0x0040D240",
+        "callee:0x004F0D20",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AudioPhysicsMixer",
+      "responsibility": "Averages a packed array of elements, lerps the average with the object bounding-box center using a mode-selected blend factor, combines a queried three-field offset, writes it back, and applies the offset vector to the object. Used on the frame path by audio and vehicle subsystems.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0040E2B0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0040E2B0",
+        "callee:0x004DD550",
+        "callee:0x0054C230",
+        "callee:0x0054E100",
+        "callee:0x0054E120",
+        "callee:0x0054B420",
+        "callee:0x0054B3B0",
+        "callee:0x0040E1F0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ChassisBodyObject",
+      "responsibility": "Layout-only GUESS type for the physics body objects reached through this+0x15F0 and this+0x141C: three read axes, three torque-moment reads (body A), and a three-component force accumulator written by the suspension solver. No member function in this packet; identity unproven.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x0000002C",
+          "name": "bodyAaxisX",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x0000002C"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x00000044",
+          "name": "bodyAaxisY",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x00000044"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x0000005C",
+          "name": "bodyAaxisZ",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x0000005C"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x0000014C",
+          "name": "bodyAforceAccumX",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x0000014C"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x00000154",
+          "name": "bodyAforceAccumY",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x00000154"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x0000015C",
+          "name": "bodyAforceAccumZ",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x0000015C"
+          ]
+        },
+        {
+          "base": "*(this+0x141C)",
+          "offset": "0x0000002C",
+          "name": "bodyBaxisX",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x141C):0x0000002C"
+          ]
+        },
+        {
+          "base": "*(this+0x141C)",
+          "offset": "0x00000044",
+          "name": "bodyBaxisY",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x141C):0x00000044"
+          ]
+        },
+        {
+          "base": "*(this+0x141C)",
+          "offset": "0x0000005C",
+          "name": "bodyBaxisZ",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x141C):0x0000005C"
+          ]
+        },
+        {
+          "base": "*(this+0x141C)",
+          "offset": "0x0000014C",
+          "name": "bodyBforceAccumX",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x141C):0x0000014C"
+          ]
+        },
+        {
+          "base": "*(this+0x141C)",
+          "offset": "0x00000154",
+          "name": "bodyBforceAccumY",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x141C):0x00000154"
+          ]
+        },
+        {
+          "base": "*(this+0x141C)",
+          "offset": "0x0000015C",
+          "name": "bodyBforceAccumZ",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x141C):0x0000015C"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x00000064",
+          "name": "bodyAmomentX",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x00000064"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x0000006C",
+          "name": "bodyAmomentY",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x0000006C"
+          ]
+        },
+        {
+          "base": "*(this+0x15F0)",
+          "offset": "0x00000074",
+          "name": "bodyAmomentZ",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x15F0):0x00000074"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0043F7F0",
+        "field:*(this+0x15F0):0x0000002C",
+        "field:*(this+0x141C):0x0000014C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "WheelBodyObject",
+      "responsibility": "Layout-only GUESS type for the four chassis-body pointer objects at this+0x3E8, this+0x84C, this+0xCB0 and this+0x1114, each exposing three body rows at +0x1C/+0x34/+0x4C read by the suspension solver. No member function in this packet; identity unproven.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x3E8)",
+          "offset": "0x0000001C",
+          "name": "wheelrowA",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x3E8):0x0000001C"
+          ]
+        },
+        {
+          "base": "*(this+0x3E8)",
+          "offset": "0x00000034",
+          "name": "wheelrowB",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x3E8):0x00000034"
+          ]
+        },
+        {
+          "base": "*(this+0x3E8)",
+          "offset": "0x0000004C",
+          "name": "wheelrowC",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x3E8):0x0000004C"
+          ]
+        },
+        {
+          "base": "*(this+0x84C)",
+          "offset": "0x0000001C",
+          "name": "wheelrowA",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x84C):0x0000001C"
+          ]
+        },
+        {
+          "base": "*(this+0x84C)",
+          "offset": "0x00000034",
+          "name": "wheelrowB",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x84C):0x00000034"
+          ]
+        },
+        {
+          "base": "*(this+0x84C)",
+          "offset": "0x0000004C",
+          "name": "wheelrowC",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x84C):0x0000004C"
+          ]
+        },
+        {
+          "base": "*(this+0xCB0)",
+          "offset": "0x0000001C",
+          "name": "wheelrowA",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xCB0):0x0000001C"
+          ]
+        },
+        {
+          "base": "*(this+0xCB0)",
+          "offset": "0x00000034",
+          "name": "wheelrowB",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xCB0):0x00000034"
+          ]
+        },
+        {
+          "base": "*(this+0xCB0)",
+          "offset": "0x0000004C",
+          "name": "wheelrowC",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xCB0):0x0000004C"
+          ]
+        },
+        {
+          "base": "*(this+0x1114)",
+          "offset": "0x0000001C",
+          "name": "wheelrowA",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1114):0x0000001C"
+          ]
+        },
+        {
+          "base": "*(this+0x1114)",
+          "offset": "0x00000034",
+          "name": "wheelrowB",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1114):0x00000034"
+          ]
+        },
+        {
+          "base": "*(this+0x1114)",
+          "offset": "0x0000004C",
+          "name": "wheelrowC",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1114):0x0000004C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0043F7F0",
+        "field:*(this+0x3E8):0x0000001C",
+        "field:*(this+0x84C):0x00000034",
+        "field:*(this+0xCB0):0x0000004C",
+        "field:*(this+0x1114):0x0000001C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PhysicsSubComponentOwner",
+      "responsibility": "Container of up to five physics sub-component pointers: a four-slot loop over dwords at this+4C and a tail pointer at this+5C, each recursively destroyed, freed via FreeWrapper_7bcf and cleared. Owner class of the recursive destroyer at 0x00448570; identity unproven.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00448570"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "subComponentA",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000004C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "subComponentB",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000054"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "subComponentC",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000058"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "tailSubComponent",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000005C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00448570",
+        "callee:0x00587BCF",
+        "caller:0x00449340",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "EnginePowerSubStruct",
+      "responsibility": "Layout-only GUESS type for the engine-power sub-struct reached through this+0x1D4: a power scale factor and its reciprocal written on the surviving durability path. No member function in this packet.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x1D4)",
+          "offset": "0x000000AC",
+          "name": "powerScaleFactor",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x1D4):0x000000AC"
+          ]
+        },
+        {
+          "base": "*(this+0x1D4)",
+          "offset": "0x000000B4",
+          "name": "powerReciprocal",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x1D4):0x000000B4"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0043EF20",
+        "field:*(this+0x1D4):0x000000AC",
+        "field:*(this+0x1D4):0x000000B4",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SecondaryStateObject",
+      "responsibility": "Layout-only GUESS type for the secondary/failure state object reached through this+0x1F00: a secondary-state byte at +0x344C consumed by the vehicle-active gate and the failure-state slot at +0x4068 written by engine durability (code 9) and component-failure (code 1) paths.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x1F00)",
+          "offset": "0x0000344C",
+          "name": "secondaryStateByte",
+          "type_guess": "uint8",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1F00):0x0000344C"
+          ]
+        },
+        {
+          "base": "*(this+0x1F00)",
+          "offset": "0x00004068",
+          "name": "failureStateSlot",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1F00):0x00004068"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00447160",
+        "function:0x0043EF20",
+        "field:*(this+0x1F00):0x0000344C",
+        "field:*(this+0x1F00):0x00004068",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "EngineComponentFailureRepairStateMachine",
+      "owner": "VehiclePhysicsSimulation",
+      "states": [
+        "countdown_active",
+        "failure_triggered",
+        "component_selected",
+        "component_reset",
+        "repair_drift"
+      ],
+      "transitions": "countdown_active -> failure_triggered when this+1DB4 (countdown) reaches zero, writing failure code 1 into the failure-state slot at *(this+1F00)+4068; failure_triggered -> component_selected when a random sample (flt_8AAE74/dword_8AAE70) below 0.5 picks one of the three component health fields; failure_triggered -> component_reset when the sample is >= 0.5 and resets a component pair to 1.0; both converge on repair_drift, where zero components drift back toward 1.0 while the time array is cleared.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0043EF20",
+        "global:0x008AAE70",
+        "global:0x008AAE74",
+        "global:0x008AB274",
+        "field:this:0x00001DB4",
+        "field:this:0x00001DE4",
+        "field:*(this+0x1F00):0x00004068"
+      ]
+    },
+    {
+      "name": "CollisionDnfDetectionStateMachine",
+      "owner": "VehiclePhysicsSimulation",
+      "states": [
+        "accumulating",
+        "overflow",
+        "dnf_marked",
+        "damage_reset"
+      ],
+      "transitions": "accumulating -> overflow when the damage accumulator update raises FPU overflow flags; overflow -> dnf_marked scans dword_7C54F0[0..dword_5C329C) for the first vehicle with its DNF flag unset and writes state 5 at veh+16436+52; dnf_marked -> damage_reset zeroes this+42C/430/3E4/3E8.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00438690",
+        "global:0x007C54F0",
+        "global:0x005C329C",
+        "field:this:0x0000042C",
+        "field:this:0x00000444"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "GameStateDispatch",
+      "purpose": "Routes a game-state change for a selected or tracked vehicle; called by the vehicle selection cycle and the camera-target wrapper.",
+      "functions": [
+        "0x0040D240"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040D240",
+        "function:0x0040D2CA",
+        "function:0x0040D340"
+      ]
+    },
+    {
+      "name": "PhysicsElementInitWithOverride",
+      "purpose": "Initializes a physics element (wheel slot, engine element, collision shape) and optionally overrides the returned value through a continuation argument; shared by the wheel dispatcher, the typed state update and both shape initializers.",
+      "functions": [
+        "0x0040E770"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040E770",
+        "function:0x00410BC0",
+        "function:0x00411330",
+        "function:0x0040EA30",
+        "function:0x0040EBD0"
+      ]
+    },
+    {
+      "name": "PackedArrayAccess",
+      "purpose": "Reads a packed array of elements: obtains the linked-list node, the element count and each element pointer. Used by the audio physics mixer to average all elements.",
+      "functions": [
+        "0x0054C230",
+        "0x0054E100",
+        "0x0054E120"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0054C230",
+        "callee:0x0054E100",
+        "callee:0x0054E120",
+        "function:0x0040E2B0"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "VehicleSelectionController",
+      "to": "0x0040D240",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040D240",
+        "function:0x0040D2CA"
+      ]
+    },
+    {
+      "from": "VehicleSelectionController",
+      "to": "0x004F0D20",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004F0D20",
+        "function:0x0040D2CA"
+      ]
+    },
+    {
+      "from": "VehicleSelectionController",
+      "to": "0x0040D240",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040D240",
+        "function:0x0040D340"
+      ]
+    },
+    {
+      "from": "AudioPhysicsMixer",
+      "to": "0x004DD550",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004DD550",
+        "function:0x0040E2B0"
+      ]
+    },
+    {
+      "from": "AudioPhysicsMixer",
+      "to": "0x0054C230",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054C230",
+        "function:0x0040E2B0"
+      ]
+    },
+    {
+      "from": "AudioPhysicsMixer",
+      "to": "0x0054E100",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054E100",
+        "function:0x0040E2B0"
+      ]
+    },
+    {
+      "from": "AudioPhysicsMixer",
+      "to": "0x0054E120",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054E120",
+        "function:0x0040E2B0"
+      ]
+    },
+    {
+      "from": "AudioPhysicsMixer",
+      "to": "0x0054B420",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054B420",
+        "function:0x0040E2B0"
+      ]
+    },
+    {
+      "from": "AudioPhysicsMixer",
+      "to": "0x0054B3B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054B3B0",
+        "function:0x0040E2B0"
+      ]
+    },
+    {
+      "from": "AudioPhysicsMixer",
+      "to": "0x0040E1F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040E1F0",
+        "function:0x0040E2B0"
+      ]
+    },
+    {
+      "from": "PhysicsCollisionShape",
+      "to": "0x004DD550",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004DD550",
+        "function:0x0040EA30"
+      ]
+    },
+    {
+      "from": "PhysicsCollisionShape",
+      "to": "0x00459950",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00459950",
+        "function:0x0040EA30"
+      ]
+    },
+    {
+      "from": "PhysicsCollisionShape",
+      "to": "0x00459990",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00459990",
+        "function:0x0040EA30"
+      ]
+    },
+    {
+      "from": "PhysicsCollisionShape",
+      "to": "0x0040E770",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040E770",
+        "function:0x0040EA30"
+      ]
+    },
+    {
+      "from": "PhysicsCollisionShape",
+      "to": "0x00459950",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00459950",
+        "function:0x0040EBD0"
+      ]
+    },
+    {
+      "from": "PhysicsCollisionShape",
+      "to": "0x00459990",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00459990",
+        "function:0x0040EBD0"
+      ]
+    },
+    {
+      "from": "PhysicsCollisionShape",
+      "to": "0x0040E770",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040E770",
+        "function:0x0040EBD0"
+      ]
+    },
+    {
+      "from": "WheelGroupDispatcher",
+      "to": "0x0040E770",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040E770",
+        "function:0x00410BC0"
+      ]
+    },
+    {
+      "from": "WheelGroupDispatcher",
+      "to": "0x004ED250",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004ED250",
+        "function:0x00410BC0"
+      ]
+    },
+    {
+      "from": "WheelGroupDispatcher",
+      "to": "0x0040EF70",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040EF70",
+        "function:0x00410BC0"
+      ]
+    },
+    {
+      "from": "WheelGroupDispatcher",
+      "to": "0x0040E770",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040E770",
+        "function:0x00411330"
+      ]
+    },
+    {
+      "from": "WheelGroupDispatcher",
+      "to": "0x0040EEC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040EEC0",
+        "function:0x00411330"
+      ]
+    },
+    {
+      "from": "WheelGroupDispatcher",
+      "to": "0x0040EF70",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0040EF70",
+        "function:0x00411330"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x004D7880",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004D7880",
+        "function:0x00430750"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x004D7570",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004D7570",
+        "function:0x00430750"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x00430600",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00430600",
+        "function:0x00430750"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x004D5C70",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004D5C70",
+        "function:0x00430750"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x004388D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004388D0",
+        "function:0x00438690"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x0041B200",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0041B200",
+        "function:0x00438690"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x005697A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005697A0",
+        "function:0x00438690"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x0056D930",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0056D930",
+        "function:0x00438DA0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x00587C03",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03",
+        "function:0x00438DA0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x0056EAD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0056EAD0",
+        "function:0x00438DA0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x0056EB30",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0056EB30",
+        "function:0x00438DA0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x005881F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005881F0",
+        "function:0x0043EF20"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x0041AC50",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0041AC50",
+        "function:0x0043EF20"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x00438930",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00438930",
+        "function:0x0043F7F0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x005895A2",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005895A2",
+        "function:0x0043F7F0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x00435290",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00435290",
+        "function:0x0043F7F0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsSimulation",
+      "to": "0x005677B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005677B0",
+        "function:0x0043F7F0"
+      ]
+    },
+    {
+      "from": "PhysicsSubComponentOwner",
+      "to": "0x00448570",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00448570",
+        "function:0x00448570"
+      ]
+    },
+    {
+      "from": "PhysicsSubComponentOwner",
+      "to": "0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF",
+        "function:0x00448570"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "VehicleActiveGateContract",
+      "category": "behavior",
+      "description": "A replacement executable must reproduce the vehicle-active gate: the vehicle is inactive when the doubles at this+1DB4 or this+19C are <= 0.0 or the byte at this+1C59 is zero; it is active when the byte at this+1D0C is non-zero; otherwise the result combines the secondary-state byte at *(this+1F00)+344C with the preceding comparison flags.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00447160",
+        "field:this:0x00001DB4",
+        "field:this:0x0000019C",
+        "field:this:0x00001C59",
+        "field:this:0x00001D0C",
+        "field:*(this+0x1F00):0x0000344C"
+      ]
+    },
+    {
+      "name": "DnfMarkingContract",
+      "category": "behavior",
+      "description": "When the collision damage accumulator overflows, the first grid vehicle (dword_7C54F0 over dword_5C329C entries) whose DNF flag is unset must be marked DNF (state 5) and the damage state reset.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00438690",
+        "global:0x007C54F0",
+        "global:0x005C329C",
+        "field:this:0x0000042C",
+        "field:this:0x00000430"
+      ]
+    },
+    {
+      "name": "EngineFailureStateContract",
+      "category": "behavior",
+      "description": "Exhausting engine durability writes failure code 9 and a component failure writes code 1 into the failure-state slot at *(this+1F00)+4068 when that slot is clear.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0043EF20",
+        "field:*(this+0x1F00):0x00004068"
+      ]
+    },
+    {
+      "name": "RepairSlotOwnershipContract",
+      "category": "behavior",
+      "description": "Wheel slots holding the sentinel -1 must be resolved through the 4656-stride repair-state owner arrays (dword_5ECF0C / dword_5ED3AC / dword_5ED3F0 / dword_5ED434) and initialized via ShortComputation_e770 and RepairServiceStateDispatcher before physics-state conversion.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00410BC0",
+        "callee:0x004ED250",
+        "callee:0x0040E770",
+        "global:0x005ECF0C",
+        "global:0x005ED3AC",
+        "global:0x005ED3F0",
+        "global:0x005ED434"
+      ]
+    },
+    {
+      "name": "WheelContactFlagContract",
+      "category": "behavior",
+      "description": "Per-wheel contact flags (this[281*a2+276] and this[281*a2+291]) and the flag-bit-1 ORs into body-pair and wheel-body contact entries must be reproduced for collision-driven behavior.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0043E770",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "Contradiction: this+3E8 is written as the front-left wheel index by VehiclePhysicsBodyNameMapping, is zeroed in the collision-damage DNF reset, and is dereferenced as a chassis-body pointer by SolveSuspensionWheelDynamics; the packet does not reconcile these three uses.",
+    "Contradiction: this+15B4 is read as a wheel-body contact-list count by WheelCollisionContactFlagSetter, but the analysis fill labels it the wheel contact state; the raw source reads the contact state from the per-wheel offset this[281*a2+251].",
+    "Contradiction: this+8 is read as an RPM-like excitation term by EngineStressSimulation and as the timestep by SolveSuspensionWheelDynamics; same offset, two semantic roles within the same proposed owner object.",
+    "Offset reuse across proposed owner types with no proven common ownership: this+4C and this+58 are wheel-group slot bases in WheelGroupDispatcher and also sub-component pointers in PhysicsSubComponentOwner; this+1CFC is both the tire-curve table pointer and the component-time array pointer; this+C30 is both a tire load bias and an LCP coefficient.",
+    "The object identities behind this+15F0, this+141C, this+1D4, this+1F00 and the four wheel bodies (this+3E8/84C/CB0/1114) are unknown; ChassisBodyObject, WheelBodyObject, EnginePowerSubStruct and SecondaryStateObject are layout-only GUESS types with no member functions in this packet.",
+    "The per-wheel 281-DWORD stride and the contact-record entry offsets (+4 body A id, +12 body B id, +44 wheel-contact flag, +68 body-pair contact flag) are decompiler-derived and have no field evidence refs.",
+    "The read-only global float pool (0x0059E420..0x0059ED20 plus 0x005EB978) is rendered as immediates in the raw source; the mapping between globals and constants is not independently established.",
+    "The a4 continuation argument of the shape initializers, the a2 blend-mode of AudioPhysicsMixWithLerp, and the tracked-vehicle index dword_7C54E4 are caller-defined and not grounded in this packet.",
+    "The repair-state owner arrays (dword_5ECF0C / dword_5ED3AC / dword_5ED3F0 / dword_5ED434) use a 4656-byte stride with 74*v30 / 17*v35 sub-indexing; the meaning of the sub-indexing is not decoded.",
+    "sub_5677B0 (6x6 LCP solve), ConstraintProjectGramSchmidt, sub_5881F0 and sub_41AC50 are opaque callees whose bodies fall outside this packet's evidence."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000068",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E450",
+    "global:0x0059E458",
+    "global:0x0059E6E8",
+    "global:0x0059EA48",
+    "global:0x0059EA50",
+    "global:0x0059EA58",
+    "global:0x0059EB50",
+    "global:0x0059EC10",
+    "global:0x0059ED08",
+    "global:0x0059ED10",
+    "global:0x0059ED18",
+    "global:0x0059ED20",
+    "global:0x005EC6E4",
+    "global:0x008AD254"
+  ],
+  "confidence": {
+    "boundaries": "HIGH",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

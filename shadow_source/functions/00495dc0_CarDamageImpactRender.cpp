@@ -1,0 +1,70 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00495DC0
+// Canonical corpus name: sub_495DC0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_495DC0_00495dc0.c
+
+void UnknownObject::CarDamageImpactRender()
+{
+    // Renders car crash damage impact rectangles in 800x600 screen space. Two modes keyed by the state flag at this+0x1578: animated mode (flag == 1) draws 80 stepping damage rectangles as a crack-spread effect with per-frame CollisionNoiseGenerator noise; static mode (flag == 0) draws a single damage rectangle. Rectangle width and height are read through a pointer chain rooted at the damage struct, positions come from the base coordinates at this+0x1580 / this+0x1584 combined with blended CRTFtol offsets, and both modes emit the rectangle through F_10ParamForwarder with an 800x600 clamp.
+    // GUARD: Read the state flag at this+0x1578; when nonzero take the animated branch, otherwise the static single-rectangle branch. [field:this:0x00001578, source:raw]
+    // GUARD: Within the nonzero path, the animated branch requires the flag minus 1 to be zero (flag exactly 1); otherwise the function exits early. [field:this:0x00001578, source:raw]
+    // LOOP: Animated mode: for loop over 80 iterations drawing one stepped damage rectangle per iteration. [source:raw]
+    // CALCULATION: Compute the animated blend factor v6 = i * 0.05 + 1.0 and its complement v7 = 1.0 - v6, backed by the 1.0 and 0.05 step constants. [global:0x0059E420, global:0x0059E43C, source:raw]
+    // CALL: Invoke CollisionNoiseGenerator(a3, v33) each iteration to drive per-frame crack-spread noise. [callee:0x004962C0, source:raw]
+    // ASSIGNMENT: Follow the damage-struct pointer chain rooted at this+0x157C (and the packet-listed this+0x15C8 base) through the geometry pointer at +0xC to read the rectangle width and height fields at +0x1C and +0x20. [field:this:0x0000157C, field:this:0x000015C8, field:*(this+0x15C8):0x0000000C, field:*(*(this+0x15C8)+0xC):0x0000001C, field:*(*(this+0x15C8)+0xC):0x00000020, source:raw]
+    // CALCULATION: Floor the complement with CRTFtol, then accumulate the per-step X position as CRTFtol(v7) + base X (this+0x1580) + i * tile_width, and per-step Y as base Y (this+0x1584) + CRTFtol(v7). [callee:0x00587BDC, field:this:0x00001580, field:this:0x00001584, global:0x0059E448, source:raw]
+    // CALCULATION: Clamp the stepped X and Y positions to the [0,800] and [0,600] screen bounds and shrink the rectangle width/height accordingly. [source:raw]
+    // CALL: Retrieve a global context handle via GlobalAccessor_5150() to pass to the rectangle forwarder. [callee:0x00495150, source:raw]
+    // CALL: Draw one stepped damage rectangle via F_10ParamForwarder(geometry, positions, global handle, clamped position and size, 0, 0). [callee:0x00494A30, source:raw]
+    // RETURN: Animated path returns the loop counter value i + 1 as its result. [source:raw]
+    // CALL: Static mode: drive CollisionNoiseGenerator once with factor -1.0 to seed the single-damage render. [callee:0x004962C0, source:raw]
+    // CALCULATION: Static mode: compute offset v20 = 1.0 - a2, floor it with CRTFtol, add to the base X (this+0x1580) and base Y (this+0x1584) coordinates, and read the rectangle width/height through the damage-struct chain. [callee:0x00587BDC, field:this:0x00001580, field:this:0x00001584, field:*(this+0x15C8):0x0000000C, field:*(*(this+0x15C8)+0xC):0x0000001C, field:*(*(this+0x15C8)+0xC):0x00000020, source:raw]
+    // CALCULATION: Static mode: clamp the single rectangle position to the 800x600 bounds and adjust its size. [source:raw]
+    // CALL: Static mode: fetch the global context via GlobalAccessor_5150() and emit the single damage rectangle through F_10ParamForwarder, returning its result. [callee:0x00495150, callee:0x00494A30, source:raw]
+    // RETURN: Static path returns the F_10ParamForwarder call result directly. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   v4 = a1[1374];
+    //   if (v4) {
+    //     if (v4 - 1 == 0) {
+    //       for (i = 0; i < 80; ++i) {
+    //         v6 = i * 0.05 + 1.0;
+    //         CollisionNoiseGenerator(a3, v6);
+    //         v7 = 1.0 - v6;
+    //         v8 = *(*(a1[1375] + 76) + 12);
+    //         v10 = *(v8 + 28) / 80;
+    //         v35 = *(v8 + 32);
+    //         v11 = CRTFtol(v7);
+    //         v13 = v11 + a1[1376] + i * v10;
+    //         v14 = a1[1377] + CRTFtol(v7);
+    //         v15 = v13 < 0 ? 0 : v13;
+    //         v16 = v14 < 0 ? 0 : v14;
+    //         v17 = (v15 + v10 >= 800) ? 800 - v15 : v10;
+    //         v18 = (v16 + v35 >= 600) ? 600 - v16 : v35;
+    //         v19 = GlobalAccessor_5150();
+    //         F_10ParamForwarder(v8, v13, v16 - v14, v19, v15, v16, v17, v18, 0, 0);
+    //       }
+    //       return i + 1;
+    //     }
+    //   } else {
+    //     CollisionNoiseGenerator(a3, -1.0);
+    //     v20 = 1.0 - a2;
+    //     v21 = *(*(a1[1375] + 76) + 12);
+    //     v36 = *(v21 + 28);
+    //     v38 = *(v21 + 32);
+    //     v22 = a1[1376] + CRTFtol(v20);
+    //     v23 = a1[1377] + CRTFtol(v20);
+    //     v24 = v36;
+    //     v25 = v22 < 0 ? 0 : v22;
+    //     v26 = v23 < 0 ? 0 : v23;
+    //     if (v25 + v36 >= 800) v24 = 800 - v25;
+    //     v27 = (v26 + v38 >= 600) ? 600 - v26 : v38;
+    //     v28 = GlobalAccessor_5150();
+    //     return F_10ParamForwarder(v21, v25 - v22, v26 - v23, v28, v25, v26, v24, v27, 0, 0);
+    //   }
+    //   return result;
+    // UNRESOLVED: Global 0x007CDE00 (unk_7CDE00) is flagged as read by packet facts but does not appear in the raw decompiled source; its role is not verifiable here.
+    // UNRESOLVED: Exact parameter contract of F_10ParamForwarder (0x00494A30) is not documented in this function.
+    // UNRESOLVED: The packet-listed field base *(this+0x15C8) does not map cleanly onto the source chain a1[1375]+76 then +12; fields are recorded verbatim as packet facts without re-deriving the offset path.
+}

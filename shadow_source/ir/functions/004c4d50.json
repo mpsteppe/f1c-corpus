@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "address": "0x004C4D50",
+  "proposed_name": "ParseDriverListString",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004C4D50"]
+  },
+  "summary": "Clears the existing vehicle list, then either repopulates it with one node per grid slot (full-list fallback) or parses a driver/filter string into up to three token groups (default, explicit AND group, NOT exclusion group) and applies them via VehicleFilteringSelection, VehicleGridSelection and LinkedListSearchRemoval. Resets iterator to head, clears an auxiliary field, and returns the NOT-group exclusion count (zero on the fallback path).",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "SceneListCleanup resets the existing vehicle linked list owned by 'this' before any rebuilding.",
+      "evidence_refs": ["callee:0x004C4CF0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the filter string a2 is null, equals the stored default string byte_5EA438, or a session guard is active (dword_7D0398 set while dword_7D0410 differs from 5), take the full-list fallback path instead of token parsing.",
+      "evidence_refs": ["source:raw", "global:0x005EA438", "global:0x007D0398", "global:0x007D0410"]
+    },
+    {
+      "kind": "call",
+      "description": "StringCopyWithBufferRealloc stores the chosen filter string (the default byte_5EA438 on the fallback path, the caller-provided a2 on the parse path) into the persistent buffer.",
+      "evidence_refs": ["callee:0x00566650", "global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Fallback path: repeat dword_8AC390 times, once per grid slot, allocating one integer slot-index and one 12-byte list node per slot.",
+      "evidence_refs": ["callee:0x00587C03", "global:0x008AC390", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "OperatorNewNhMallocWrapper(4) allocates an integer holding the slot index; OperatorNewNhMallocWrapper(12) allocates a node whose dword 0 points to the slot index, dword 4 is zeroed and byte 8 is set to 1 (linked marker).",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Append the new node: if head this+0x8 is already set, link it through the tail node's next pointer (this+0xC); otherwise initialize head this+0x8 and iterator this+0x10 with the node. Update tail this+0xC and increment the list count this+0x14 on every append.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Parse path: initialize the marker strings for the AND group, the delimiter set and the NOT group; seed a second marker from dword_5D30C0 and zero the three group counters and the per-group array index.",
+      "evidence_refs": ["source:raw", "global:0x005D30C0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Copy the filter string into a 256-byte local buffer and clear the three 50-entry token arrays with memset before tokenizing.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Tokenize the copied string with sub_5897CA using the delimiter set, re-invoking sub_5897CA with a null buffer until no further tokens are produced.",
+      "evidence_refs": ["callee:0x005897CA", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Classify each token with sub_588410 against the AND literal, then the marker held in dword_5D30C0, then the NOT literal; set the group selector v14 to 0 (default), 1 (AND group) or 2 (NOT group) accordingly.",
+      "evidence_refs": ["callee:0x00588410", "global:0x005D30C0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store each accepted token's index into the 50-entry array chosen by the group selector, capped at 49 entries per group.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "VehicleFilteringSelection(this, default-group array, count) builds the base list; VehicleGridSelection(this, AND-group array, count) intersects the explicit AND matches; LinkedListSearchRemoval(this, NOT-group array, count) removes NOT matches and returns the exclusion count.",
+      "evidence_refs": ["callee:0x004C4990", "callee:0x004C4AA0", "callee:0x004C4BB0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Finalize: reset iterator this+0x10 to head this+0x8 and clear the auxiliary field this+0x18 to 0.",
+      "evidence_refs": ["field:this:0x00000010", "field:this:0x00000008", "field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the NOT-group exclusion count from LinkedListSearchRemoval (zero on the fallback path).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "SceneListCleanup(this);",
+    "if (a2 == null || a2 equals byte_5EA438 || (dword_7D0398 && dword_7D0410 != 5)) {",
+    "    StringCopyWithBufferRealloc(byte_5EA438);",
+    "    for slot in 0..dword_8AC390: append node{slotIndex, next=0, linked=1} to this list;",
+    "} else {",
+    "    StringCopyWithBufferRealloc(a2);",
+    "    for each token of a2 split on delimiters:",
+    "        classify token against AND / <dword_5D30C0> / NOT into group 0/1/2 (cap 49 each);",
+    "    VehicleFilteringSelection(this, group0, n0);",
+    "    VehicleGridSelection(this, group1, n1);",
+    "    v13 = LinkedListSearchRemoval(this, group2, n2);",
+    "}",
+    "this[0x10] = this[0x8];",
+    "this[0x18] = 0;",
+    "return v13;"
+  ],
+  "unresolved": [
+    "Adjacent config-block globals dword_5D30C4, byte_5D30C8, dword_5D30CC, byte_5D30D0, dword_5D30D4 and byte_5D30D8 are listed in the packet but never referenced by the raw decompilation; their role is unknown.",
+    "The second marker string (dword_5D30C0) and the meaning of the 4-byte slot-index / 12-byte node allocations are grounded in the raw source but their wider contract is not evidenced."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005D30C4",
+    "global:0x005D30C8",
+    "global:0x005D30CC",
+    "global:0x005D30D0",
+    "global:0x005D30D4",
+    "global:0x005D30D8"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

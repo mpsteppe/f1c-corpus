@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005116A3
+// Canonical corpus name: ReferenceCountedResourceAccessRelease
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ReferenceCountedResourceAccessRelease_005116a3.c
+
+void UnknownObject::ReferenceCountedResourceAccessRelease()
+{
+    // Access/release of a tracked resource through a callback pointer. Reads the tracking struct via *a1; on the indexed path (a2 >= 0) calls the release callback at obj+0x8 only when the limit at obj+0x68 is >= a2; on the unconditional path (a2 < 0) calls it when the concurrent count at obj+0x6C is zero or the limit at obj+0x68 is >= 3, then increments the concurrent count at obj+0x6C.
+    // CALCULATION: Read the tracking-struct pointer: v3 = *a1 (field this+0x0); all limit, counter and callback reads go through it. [field:this:0x00000000, source:raw]
+    // GUARD: Guard: branch on the sign of a2; a2 >= 0 selects the indexed access path, a2 < 0 the unconditional release path. [source:raw]
+    // GUARD: Indexed path guard: the limit at obj+0x68 (0x68) must be >= a2 for the release to be allowed. [field:obj:0x00000068, guard:0, source:raw]
+    // CALL: Indexed path: call the release callback at obj+0x8 (vtable-style callback slot) and return its result. [field:obj:0x00000008, source:raw]
+    // GUARD: Unconditional path guard: call the release callback when the concurrent count at obj+0x6C is zero, or the limit at obj+0x68 is >= 3. [field:obj:0x0000006C, field:obj:0x00000068, guard:0, source:raw]
+    // CALL: Unconditional path: call the release callback at obj+0x8; its result becomes the function result. [field:obj:0x00000008, source:raw]
+    // CALCULATION: Increment the concurrent reference count at obj+0x6C (runs when the unconditional release path was taken, regardless of whether the callback fired). [field:obj:0x0000006C, source:raw]
+    // RETURN: Return the last computed result (release callback result, or the original a1 pointer value when no callback ran on the unconditional path). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int ReferenceCountedResourceAccessRelease(int* a1, int a2) {
+    //     int* obj = *a1;
+    //     if (a2 >= 0) {
+    //       if (*(DWORD*)(obj + 104) >= (DWORD)a2)
+    //         return (*(int (__cdecl**)(int*))(obj + 8))(a1);
+    //     } else {
+    //       if (*(DWORD*)(obj + 108) == 0 || *(int*)(obj + 104) >= 3)
+    //         return (*(int (__cdecl**)(int*))(obj + 8))(a1);
+    //       ++*(DWORD*)(obj + 108);
+    //     }
+    //     return (int)a1;
+    //   }
+    // UNRESOLVED: The resource object type and the meaning of the limit at obj+0x68 (max index vs. max concurrent holders) are not evidenced.
+    // UNRESOLVED: The release callback at obj+0x8 has no statically resolved target.
+    // UNRESOLVED: The counter at obj+0x6C increments but never decrements within this function; the decrement path is not evidenced here.
+    // UNRESOLVED: No static callers are recorded for this function.
+}

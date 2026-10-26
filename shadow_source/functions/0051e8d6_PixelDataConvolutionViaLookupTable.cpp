@@ -1,0 +1,67 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051E8D6
+// Canonical corpus name: PixelDataConvolutionViaLookupTable
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/PixelDataConvolutionViaLookupTable_0051e8d6.c
+
+void UnknownObject::PixelDataConvolutionViaLookupTable()
+{
+    // Performs lookup-table-based convolution with error diffusion over a row of pixel data. For each of a4 output rows: zero-fills the destination buffer, then per channel reads a source pointer and convolves each byte through index tables on the context object (context +16/+24/+68), accumulating scaled error into a diffusion row buffer and writing the weighted error (3/5/7 factors) back into the table. Scan direction alternates per row based on a direction byte on the context, producing serpentine scanning. Calls MemoryZeroFill to clear each row. Returns the last direction-flag value. ABI lead names this Pixel_Data_Convolution_via_Lookup_Table (LEGACY).
+    // ASSIGNMENT: Read per-row state from the object: v30 = a1[25] (this+0x64, channel count per row), v4 = a1[105] (this+0x1A4, context pointer), v5 = a1[71] (this+0x11C, byte stride added in the inner lookup), v28 = a1[23] (this+0x5C, row byte count). [field:this:0x00000064, field:this:0x000001A4, field:this:0x0000011C, field:this:0x0000005C, abi:lead, source:raw]
+    // GUARD: Process rows only when the row count a4 is greater than 0. [source:raw]
+    // LOOP: Outer loop over a4 output rows, advancing the row-pointer array v32 by one pointer per iteration. [function:0x0051E8D6, source:raw]
+    // CALL: Call MemoryZeroFill(*v32, v28) to clear the current output row buffer before convolution. [callee:0x005159A8, source:raw]
+    // GUARD: Per-channel scan direction: when the context byte at +84 is nonzero, set up reverse scanning (direction -1, destination and source pointers offset to row end, stride negated, table pointer advanced by 2*v28 + 2); otherwise forward scanning (direction +1, table at base). [source:raw]
+    // CALCULATION: Per channel, load the two convolution tables: v19 = value at 4*v31 past context +24 and v18 = value at 4*v31 past context +16. [source:raw]
+    // LOOP: Inner loop over v28 byte positions: index a source byte through the direction-offset table entry, accumulate the second lookup value into the destination (*v9 += v13), compute the quantization error v17, and distribute it via the 3/5/7 scaled accumulators (v26, v25, v11) written back into the table row. [source:raw]
+    // ASSIGNMENT: After each channel completes, write the trailing accumulator value v26 into the table at the final pointer position. [source:raw]
+    // STATE_TRANSITION: After each row, toggle the scan-direction flag: set context byte +84 to (old flag == 0), giving alternating left-to-right / right-to-left serpentine scanning across rows. [source:raw]
+    // RETURN: Return v5, the last direction-flag value produced by the row loop. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char PixelDataConvolutionViaLookupTable(DWORD* this, int srcBase, void** rowPtrs, int rowCount) {
+    //     int channels = this[25];      // +0x64
+    //     int ctx = this[105];          // +0x1A4
+    //     int off = this[71];           // +0x11C
+    //     unsigned rowBytes = this[23]; // +0x5C
+    //     if (rowCount > 0) {
+    //       int diff = srcBase - (int)rowPtrs;
+    //       do {
+    //         MemoryZeroFill(*rowPtrs, rowBytes);
+    //         if (channels > 0) {
+    //           int rev = *(BYTE*)(ctx + 84);
+    //           for (int ch = 0; ch < channels; ++ch) {
+    //             unsigned char* src = (unsigned char*)(ch + *(int*)((char*)rowPtrs + diff));
+    //             unsigned char* out = (unsigned char*)*rowPtrs;
+    //             int dir = rev ? -1 : 1;
+    //             WORD* lut = *(WORD**)(ctx + 68);
+    //             if (rev) { out += rowBytes - 1; src += channels * (rowBytes - 1); lut += rowBytes + 1; }
+    //             DWORD t1 = *(DWORD*)(4 * ch + *(DWORD*)(ctx + 24));
+    //             DWORD t2 = *(DWORD*)(4 * ch + *(DWORD*)(ctx + 16));
+    //             int carry = 0, acc1 = 0, acc2 = 0;
+    //             for (unsigned b = 0; b < rowBytes; ++b) {
+    //               int v = *(BYTE*)(*src + (((short)lut[dir] + carry + 8) >> 4) + off);
+    //               int v2 = *(BYTE*)(v + t1);
+    //               *out += (BYTE)v2;
+    //               src += rev ? -channels : channels;
+    //               out += dir;
+    //               int err = v - *(BYTE*)(v2 + t2);
+    //               lut[dir] = 3 * err + acc1;
+    //               acc1 = 5 * err + acc2;
+    //               carry = 7 * err;
+    //               acc2 = err;
+    //               lut += dir;
+    //             }
+    //             lut[dir] = acc1;
+    //           }
+    //         }
+    //         *(BYTE*)(ctx + 84) = (*(BYTE*)(ctx + 84) == 0);
+    //         ++rowPtrs;
+    //       } while (--rowCount);
+    //     }
+    //     return *(BYTE*)(ctx + 84);
+    //   }
+    // UNRESOLVED: Packet fields this+0x1B4, this+0x1BC, this+0x1E8, this+0x1F8 and the base field *(this+0x1E8) do not appear verbatim in the raw source; prior analysis names this+0x1E8 the error-diffusion buffer and this+0x1F8 the scan-direction toggle, while the raw source reads and writes the equivalent state on the context object (context +68 table, context +84 direction byte, context +16/+24 index tables).
+    // UNRESOLVED: The raw scan-direction guard is a byte test on context +84, not the packet guard this+0x1F8 == 0; the two encodings are not reconciled here.
+    // UNRESOLVED: The source pointer chain (v8 = v31 + *v21, with v21 derived from srcBase minus the row-pointer array) is only partially understood: the exact source-array layout behind a2 is caller-defined and not recoverable from this function alone.
+}

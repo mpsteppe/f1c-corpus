@@ -1,0 +1,43 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00426CF0
+// Canonical corpus name: AISteeringCorrection
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AISteeringCorrection_00426cf0.c
+
+void UnknownObject::AISteeringCorrection()
+{
+    // Per-frame AI steering blend: when the AI steering-correction flag (this+0x45FC) is set, refresh the difficulty-scaled steering limit this+0x457C as AIDifficultyScalar()*0.75; degrade the steering blend this+0x4434 when the lateral-slip magnitude (fabs of this+0x442C) is large at speed; compute a direction-weighted blend of actual steering (this+0x38C4) against the racing-line target (this+0x37CC) and smooth it against the previous frame target (this+0x4464); under low target speed it is re-blended toward a SuspensionRatioClamp-derived value with an optional byte-flag-gated (this+0x39F9) correction term stored to this+0x4028. Then run racing-line correction when the session mode matches (dword_7C56A8 < 5 and dword_7C56A4 == 7), clamp a track parameter from this+0x4538, apply tire grip degradation/decay logic gated on race-started (dbl_8AFEA0 >= flt_8ACF90 + 2.5), and finally clamp the blend against a track-segment limit (byte_5C3160 path, this+0x44B8) or the difficulty-scaled limit (this+0x457C).
+    // GUARD: If the dword flag at this+0x45FC (17916) is non-zero, write this+0x457C (17788) = AIDifficultyScalar() * 0.75, refreshing the difficulty-scaled steering limit. [field:this:0x000045FC, field:this:0x0000457C, callee:0x00424750, source:raw]
+    // GUARD: Compute v2 = fabs(this+0x442C); if v2 > 0.1 and speed this+0x4440 > 20.0, damp the steering blend: this+0x4434 = (1.0 - 0.7 * v2) * this+0x4434. [field:this:0x0000442C, field:this:0x00004440, field:this:0x00004434, source:raw]
+    // ASSIGNMENT: Initialize the lateral-slip correction output local v17 to 0.0. [source:raw]
+    // CALCULATION: Blend actual steering this+0x38C4 (14532) against racing-line target this+0x37CC (14284) with direction-dependent weights (0.3/0.7): v19 = weighted sum; then smooth against the previous frame target: v20 = (v19 + this+0x4464) * 0.5. [field:this:0x000038C4, field:this:0x000037CC, field:this:0x00004464, source:raw]
+    // GUARD: If smoothed target v20 < 0.9 and (speed this+0x4440 > 4.0 or flag this+0x446C): call SuspensionRatioClamp(this+12) to get v7; compute clamp value v8 = clamp(2 * (1 - v20 * 1.1111112), 0, 1); blend this+0x4434 toward v7: v9 = (v7 - this+0x4434) * v8 + this+0x4434; then if the FPU flag pair v12|v13 holds and byte this+0x39F9 is set, compute the correction v17 = clamp(4 * (this+0x4434 - v9), 0, 1); finally write this+0x4434 = v9. [field:this:0x00004440, field:this:0x0000446C, callee:0x004E8780, field:this:0x000039F9, field:this:0x00004434, source:raw]
+    // ASSIGNMENT: Write the lateral-slip correction output this+0x4028 (16424) = v17. [field:this:0x00004028, source:raw]
+    // ASSIGNMENT: Store the weighted steering target this+0x4464 (17508) = v19 for next-frame smoothing. [field:this:0x00004464, source:raw]
+    // GUARD: Racing-line correction gate: if dword_7C56A8 < 5 and dword_7C56A4 == 7, call AISteeringRacingLineCorrection(this). [global:0x007C56A8, global:0x007C56A4, callee:0x0042B0E0, source:raw]
+    // CALL: Clamp the track parameter read from this+0x4538 (17720) via TrackParameterMinimumClamp. [field:this:0x00004538, callee:0x0042A740, source:raw]
+    // GUARD: Tire grip degradation/decay block gated on race-started (dbl_8AFEA0 >= flt_8ACF90 + 2.5). In-race: compare lap distance this+0x4484 against speed this+0x4440 with +10/+3/+1 thresholds - fully behind the field (no threshold matched) writes this+0x4438 = TireGripCoefficient(this+12) and clears this+0x4434; within +3 (but outside +1) sets this+0x4438 = max(this+0x4438, TireGripCoefficient(this+12)*0.5) and clears this+0x4434; within +1 with speed above this+0x4484 and grip memory this+0x4438 == 0 writes this+0x4434 = BrakeThermalModel(this+12) * 0.8; at +1 threshold crossing with zeroed grip memory clears the grip memory dword and the blend. Not race-started: if grip memory this+0x4438 > 0, zero it. [global:0x008AFEA0, global:0x008ACF90, field:this:0x00004484, field:this:0x00004440, field:this:0x00004438, field:this:0x00004434, callee:0x004E88B0, callee:0x004E87E0, source:raw]
+    // GUARD: Final limit clamp: if byte_5C3160 is set, cap this+0x4434 at min(this+0x44B8, 1.0) when above; otherwise, if this+0x4434 > this+0x457C, set this+0x4434 = this+0x457C (the difficulty-scaled limit). [global:0x005C3160, field:this:0x000044B8, field:this:0x00004434, field:this:0x0000457C, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (this[0x45FC]) this[0x457C] = AIDifficultyScalar() * 0.75;
+    //   if (fabs(this[0x442C]) > 0.1 && this[0x4440] > 20.0) this[0x4434] *= (1.0 - 0.7 * fabs(this[0x442C]));
+    //   target = blend(actual this[0x38C4], racingline this[0x37CC]);
+    //   smooth = (target + this[0x4464]) * 0.5;
+    //   if (smooth < 0.9 && (this[0x4440] > 4.0 || this[0x446C])) {
+    //     s = SuspensionRatioClamp(this+12);
+    //     w = clamp(2 - 2*1.1111112*smooth, 0, 1);
+    //     this[0x4434] = (s - this[0x4434]) * w + this[0x4434];
+    //     if (fpuflags && this[0x39F9]) out = clamp(4*(this[0x4434]-s), 0, 1);
+    //   }
+    //   this[0x4028] = out;
+    //   this[0x4464] = target;
+    //   if (dword_7C56A8 < 5 && dword_7C56A4 == 7) AISteeringRacingLineCorrection(this);
+    //   TrackParameterMinimumClamp(this[0x4538]);
+    //   if (raceStarted) { /* grip degradation by distance-to-speed thresholds * / } else { if (this[0x4438] > 0) this[0x4438] = 0; }
+    //   if (byte_5C3160) this[0x4434] = min(this[0x4434], min(this[0x44B8], 1.0)); else if (this[0x4434] > this[0x457C]) this[0x4434] = this[0x457C];
+    // UNRESOLVED: The 15 float globals in the 0x59E43C..0x59E8EC range are declared as read globals but do not appear as named references in the .c; Hex-Rays folded them into FPU literals used by the steering/suspension math.
+    // UNRESOLVED: FPU flag locals v12/v13 (status bits c0/c2) are read before being written in the decompiler output, making the exact condition of the byte this+0x39F9 gate unreliable.
+    // UNRESOLVED: Field this+0x4438 init_literal 0 conflicts with runtime grip-degradation writes; its exact units (grip memory) are inferred from surrounding math, not proven.
+    // UNRESOLVED: Exact semantics of the +1/+3/+10 lap-distance vs speed thresholds (grip degradation tiers) are inferred.
+}

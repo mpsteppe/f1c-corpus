@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "address": "0x00589901",
+  "proposed_name": "StringToUppercaseWithLocale",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00589901", "source:raw"]
+  },
+  "summary": "Locale-aware uppercase string normalization on a null-terminated ASCII string lpSrcStr, returning the original pointer. When the global locale handle dword_8D3F38 is set: guards via InterlockedIncrement/InterlockedDecrement of the dword_8D5A5C reference counter, enters critical section 19 (CriticalSectionLazyInitEnter) when dword_8D5A58 is set, queries the converted size with sub_591FA1(locale, 0x200, src, -1, 0, 0, 0, 1), allocates a buffer with MallocWrapperForNhMalloc, re-runs sub_591FA1 into that buffer and, on success, stores the result via sub_58FCA0(lpSrcStr); then leaves critical section 19 / decrements the counter and passes the buffer to sub_58AA6F, returning lpSrcStr. When the locale path is not taken, performs a plain in-place ASCII uppercase loop: every char in the range [97, 122] is reduced by 32. A heavily used string-normalization utility with many callers.",
+  "local_names": {
+    "lpSrcStr": "input/output null-terminated string",
+    "lpMem": "allocated conversion buffer",
+    "v10": "1 when critical section 19 was entered, else 0",
+    "v6": "required conversion size from sub_591FA1",
+    "v7": "cached size for the fill call"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "lpMem = 0; if dword_8D3F38 (locale handle) is non-null, take the locale-aware path.",
+      "evidence_refs": ["global:0x008D3F38"]
+    },
+    {
+      "kind": "call",
+      "description": "Enter the guarded region: InterlockedIncrement(&dword_8D5A5C); if dword_8D5A58 is set, InterlockedDecrement(&dword_8D5A5C), CriticalSectionLazyInitEnter(19) and v10 = 1; otherwise v10 = 0.",
+      "evidence_refs": ["global:0x0059E238", "global:0x008D5A5C", "global:0x008D5A58", "global:0x0059E234", "callee:0x0058DFEA"]
+    },
+    {
+      "kind": "call",
+      "description": "If dword_8D3F38 still set: v6 = sub_591FA1(dword_8D3F38, 0x200, lpSrcStr, -1, 0, 0, 0, 1) queries the required converted size.",
+      "evidence_refs": ["callee:0x00591FA1", "global:0x008D3F38"]
+    },
+    {
+      "kind": "call",
+      "description": "If v6 non-zero: v8 = MallocWrapperForNhMalloc(v6), lpMem = v8; if the buffer was allocated and the second sub_591FA1(dword_8D3F38, 0x200, lpSrcStr, -1, v8, v7, 0, 1) fill succeeds, store the conversion via sub_58FCA0(lpSrcStr).",
+      "evidence_refs": ["callee:0x0058A935", "callee:0x00591FA1", "callee:0x0058FCA0"]
+    },
+    {
+      "kind": "call",
+      "description": "Leave the guarded region: if v10, CritSectLeave(19); otherwise InterlockedDecrement(&dword_8D5A5C).",
+      "evidence_refs": ["callee:0x0058E04B", "global:0x0059E234", "global:0x008D5A5C"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_58AA6F(lpMem) consumes the converted buffer, then the function returns lpSrcStr.",
+      "evidence_refs": ["callee:0x0058AA6F"]
+    },
+    {
+      "kind": "loop",
+      "description": "Fallback ASCII uppercase loop (used when the locale path is not taken): for each char, if it is >= 97 and <= 122, subtract 32 to uppercase it in place.",
+      "evidence_refs": ["guard:0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the original lpSrcStr pointer in all paths.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (dword_8D3F38) {",
+    "  InterlockedIncrement(&dword_8D5A5C);",
+    "  if (dword_8D5A58) { InterlockedDecrement(&dword_8D5A5C); CriticalSectionLazyInitEnter(19); inCrit = 1; } else inCrit = 0;",
+    "  if (dword_8D3F38) {",
+    "    n = sub_591FA1(dword_8D3F38, 0x200, lpSrcStr, -1, 0, 0, 0, 1);",
+    "    if (n) { lpMem = MallocWrapperForNhMalloc(n); if (lpMem && sub_591FA1(dword_8D3F38, 0x200, lpSrcStr, -1, lpMem, n, 0, 1)) sub_58FCA0(lpSrcStr); }",
+    "    if (inCrit) CritSectLeave(19); else InterlockedDecrement(&dword_8D5A5C);",
+    "    sub_58AA6F(lpMem);",
+    "    return lpSrcStr;",
+    "  }",
+    "}",
+    "for (p = lpSrcStr; *p; p++) if (*p >= 97 && *p <= 122) *p -= 32;",
+    "return lpSrcStr;"
+  ],
+  "unresolved": [
+    "sub_591FA1 (size query + fill, code page 0x200) and sub_58FCA0/sub_58AA6F (result storage/registry consumption) semantics are not evidenced beyond their signatures here.",
+    "The locale path returns the original lpSrcStr while the uppercased copy is delivered through sub_58AA6F(lpMem); the caller-visible contract of that return is ambiguous without caller context.",
+    "Critical section id 19 and the dword_8D5A58 latch meaning are not evidenced by this packet.",
+    "The this+0x0 field of the packet maps to the loop's per-char guard (guard:0) rather than a struct member; the extracted field reference has no object-level meaning here."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000000"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,28 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0053AC70
+// Canonical corpus name: EmptyStubWithFlagCheck
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/EmptyStubWithFlagCheck_0053ac70.c
+
+void UnknownObject::EmptyStubWithFlagCheck()
+{
+    // Short flag-gated selector over an __int16 input: with flag bit 0x4 set it returns a1 | 0x3F, with flag bit 0x8 set it returns a1 & 0xC0, otherwise returns the flag byte unchanged.
+    // ASSIGNMENT: result = a2 stores the input flag byte as the default return value. [source:raw]
+    // GUARD: if ( (a2 & 4) != 0 ) then bit-0x4 flag path. [source:raw]
+    // RETURN: return a1 | 0x3F when flag bit 0x4 is set (forces low 6 bits). [source:raw]
+    // GUARD: if ( (a2 & 8) != 0 ) then bit-0x8 flag path. [source:raw]
+    // RETURN: return a1 & 0xC0 when flag bit 0x8 is set (masks to high 2 bits). [source:raw]
+    // RETURN: return result (the unmodified flag byte a2) when neither flag bit is set. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char sub_53AC70(__int16 a1, char a2) {
+    //     char result;
+    //     result = a2;
+    //     if ( (a2 & 4) != 0 ) return a1 | 0x3F;
+    //     if ( (a2 & 8) != 0 ) return a1 & 0xC0;
+    //     return result;
+    //   }
+    // UNRESOLVED: Meaning of flag bits 0x4 and 0x8 unknown; the caller list spans AI, scene, wheel, engine, camera and audio subsystems, so the two transform paths likely serve different consumers.
+    // UNRESOLVED: Return-width mismatch in the raw source (char result but __int16-derived returns) is a decompiler artifact; real width unresolved.
+    // UNRESOLVED: Why the default path returns the flag byte rather than a1 is unclear.
+}

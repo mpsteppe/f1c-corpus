@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "address": "0x0057B550",
+  "proposed_name": "RingBufferPushWithWrapCheck",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0057B550"]
+  },
+  "summary": "Pushes a3 bytes from the source buffer a2 into a 4096-byte ring buffer that starts at this. The write position is (head + tail) mod 4096, where head is the signed 16-bit value at this+0x1000 and tail is the unsigned 16-bit value at this+0x1002. Guard: if tail + a3 exceeds 4096 the write is rejected and 0 is returned. Otherwise the bytes are copied one at a time with modulo-4096 wrap, tail at this+0x1002 is incremented by a3, and 1 is returned.",
+  "local_names": {
+    "this": "ring buffer base; storage area is 4096 bytes with head at +0x1000 and tail at +0x1002",
+    "a2": "source byte buffer",
+    "a3": "byte count to push",
+    "v3": "tail offset read from this+0x1002",
+    "v5": "current absolute write position (head + tail, advanced per byte)",
+    "v6": "source base offset (a2 - v5) so v6 + v5 addresses the next source byte",
+    "v7": "remaining byte counter",
+    "v8": "wrapped write index, v5 mod 4096",
+    "v9": "source byte copied into the ring"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Read the tail offset as an unsigned 16-bit value from this+0x1002.",
+      "evidence_refs": ["field:this:0x00001002", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If tail + a3 > 4096 the incoming run does not fit the 4096-byte ring; return 0 immediately without writing.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the absolute write position as head (signed 16-bit at this+0x1000) plus tail.",
+      "evidence_refs": ["field:this:0x00001000", "field:this:0x00001002", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Only when a3 > 0 does the byte-copy loop run; a zero-length push skips straight to the tail update.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "do-while loop copying exactly a3 bytes, counting down v7 from a3 to zero.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per byte: compute the wrapped ring index v8 = v5 mod 4096, read the source byte at v6 + v5, advance v5, and store the byte at this + v8.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On success increment the tail at this+0x1002 by a3 (16-bit write).",
+      "evidence_refs": ["field:this:0x00001002", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 to signal the push succeeded.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by sub_57CB50 (0057CB50) as the ring write path.",
+      "evidence_refs": ["caller:0x0057CB50", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char RingBufferPushWithWrapCheck(int this, char* src, int count) {",
+    "  unsigned short tail = *(unsigned short*)(this + 0x1002);",
+    "  if ((unsigned short)tail + count > 4096)",
+    "    return 0;",
+    "  int pos = tail + *(short*)(this + 0x1000);",
+    "  if (count > 0) {",
+    "    int remaining = count;",
+    "    do {",
+    "      int idx = pos % 4096;",
+    "      *(char*)(this + idx) = *(char*)(src - pos + pos++);",
+    "      --remaining;",
+    "    } while (remaining);",
+    "  }",
+    "  *(unsigned short*)(this + 0x1002) += count;",
+    "  return 1;",
+    "}"
+  ],
+  "unresolved": [
+    "The head at this+0x1000 is read to compute the write position but is never modified here; its update site and the ring's consumer are outside this packet.",
+    "The owning object of the 4096-byte ring buffer is not established by this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

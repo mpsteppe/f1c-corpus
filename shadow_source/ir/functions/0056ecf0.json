@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "address": "0x0056ECF0",
+  "proposed_name": "PhysicsConstraintSolverStep",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0056ECF0", "caller:0x004414D0", "caller:0x00441600"]
+  },
+  "summary": "Executes one physics constraint-solver step for the batch: when no virtual solver object is installed it clears the constraint matrix row/column entries, runs the three-pass batch processing transform, transforms the inertia-tensor vector of every wheel body in the joint array (stride 580), and reinitializes identity matrices for active batch bodies (stride 48, flag bit 0 at +44) and constraints (stride 72, flag bit 0 at +68); it finishes through the vtable solve virtual or, on the non-virtual path, the matrix-solve helper at 0056CD70.",
+  "local_names": {
+    "this[0]": "wheel body count (joint array length)",
+    "this[1]": "wheel body array pointer (stride 580 per body)",
+    "this[2]": "first batch count",
+    "this[3]": "first batch array pointer (stride 48 per body)",
+    "this[4]": "second batch count",
+    "this[5]": "second batch array pointer (stride 48 per body)",
+    "this[6]": "constraint count",
+    "this[7]": "constraint array pointer (stride 72 per constraint)",
+    "this[8]": "matrix dimension / batch size",
+    "this[10]": "column pointer array for the constraint matrix",
+    "this[11]": "row pointer array for the constraint matrix",
+    "this[12]": "optional vtable pointer enabling the virtual solve path",
+    "this[13]": "solver state block passed to the fallback matrix solve"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Solver-path selection: read this[12] (vtable); when non-null use the virtual solve path, otherwise fall back to the direct matrix-clear and linear solve path",
+      "evidence_refs": ["field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Virtual path setup: when this[12] is non-null, call the vtable method at offset 28 of the vtable object to clear the constraint matrix",
+      "evidence_refs": ["field:*(this+0x30):0x0000001C", "field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Direct path matrix clear: for each i in [0, this[8]) read the column pointer at this[10] + 4*i, zero the this[8] consecutive 8-byte column entries (two dwords each), and zero the 8-byte row entry at this[11] + 8*i (two dwords)",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000028", "field:this:0x0000002C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Run the three-pass matrix transform over the batch data via BatchProcessingLoop3Passes(this)",
+      "evidence_refs": ["callee:0x0056EC00", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Wheel-body transform: while this[0] > 0, iterate the wheel bodies and call InertialTensorVectorTransform on each element of the array at this[1] with stride 580",
+      "evidence_refs": ["guard:0", "callee:0x0056A240", "field:this:0x00000000", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "First-batch guard: identity reinitialization for the first batch runs only when this[2] > 0",
+      "evidence_refs": ["guard:1", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "First-batch identity reinit: iterate this[3] entries at stride 48; when flag byte at +44 has bit 0 set, read the body index from the pointer at +8 followed by +48 and call MatrixIdentityInitialization for that index and the following two",
+      "evidence_refs": ["guard:1", "callee:0x0056EC70", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Second-batch guard: identity reinitialization for the second batch runs only when this[4] > 0",
+      "evidence_refs": ["guard:2", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Second-batch identity reinit: iterate this[5] entries at stride 48; when flag byte at +44 has bit 0 set, read the body index from the pointer at +8 followed by +124 and call MatrixIdentityInitialization for that index and the following one",
+      "evidence_refs": ["guard:2", "callee:0x0056EC70", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Constraint guard: constraint identity reinitialization runs only when this[6] > 0",
+      "evidence_refs": ["guard:3", "field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Constraint identity reinit: iterate this[7] entries at stride 72; when flag byte at +68 has bit 0 set, call MatrixIdentityInitialization once with the index read from the pointer at +8 followed by +48",
+      "evidence_refs": ["guard:3", "callee:0x0056EC70", "field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Finish the step: when this[12] is non-null return the result of the vtable method at offset 20, otherwise return the result of sub_56CD70(this + 13, this[10], this[11], this[8]) as the non-virtual matrix solve",
+      "evidence_refs": ["field:*(this+0x30):0x00000014", "field:this:0x00000030", "callee:0x0056CD70", "field:this:0x00000020", "field:this:0x00000028", "field:this:0x0000002C", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (this[12]) {",
+    "    vtable[this[12]].clearMatrix(this[12]);",
+    "} else {",
+    "    for (i = 0; i < this[8]; ++i) {",
+    "        col = *(this[10] + 4*i);",
+    "        for (j = 0; j < this[8]; ++j) { col[2*j] = 0; col[2*j+1] = 0; }",
+    "        row = this[11] + 8*i; row[0] = 0; row[1] = 0;",
+    "    }",
+    "}",
+    "BatchProcessingLoop3Passes(this);",
+    "for (idx = 0; idx < this[0]; ++idx) InertialTensorVectorTransform(this[1] + 580*idx);",
+    "for (idx = 0; idx < this[2]; ++idx) {",
+    "    e = this[3] + 48*idx;",
+    "    if ((*(byte*)(e+44) & 1) != 0) {",
+    "        b = *(*(int*)(e+8) + 48);",
+    "        MatrixIdentityInitialization(this, b); MatrixIdentityInitialization(this, b+1); MatrixIdentityInitialization(this, b+2);",
+    "    }",
+    "}",
+    "for (idx = 0; idx < this[4]; ++idx) {",
+    "    e = this[5] + 48*idx;",
+    "    if ((*(byte*)(e+44) & 1) != 0) {",
+    "        b = *(*(int*)(e+8) + 124);",
+    "        MatrixIdentityInitialization(this, b); MatrixIdentityInitialization(this, b+1);",
+    "    }",
+    "}",
+    "for (idx = 0; idx < this[6]; ++idx) {",
+    "    e = this[7] + 72*idx;",
+    "    if ((*(byte*)(e+68) & 1) != 0) MatrixIdentityInitialization(this, *(*(int*)(e+8) + 48));",
+    "}",
+    "if (this[12]) return vtable[this[12]].solve(this[12]);",
+    "else return sub_56CD70(this+13, this[10], this[11], this[8]);"
+  ],
+  "unresolved": [
+    "The exact meaning of the flag bit 0 at +44 (batch bodies) versus +68 (constraints) is inferred from the identity-reinit pattern only",
+    "The body index indirection (+8 pointer then +48 or +124) is followed mechanically from the decompiled reads; the target object layout is not independently confirmed"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

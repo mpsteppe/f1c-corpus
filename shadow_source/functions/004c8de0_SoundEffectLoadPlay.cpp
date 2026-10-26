@@ -1,0 +1,44 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C8DE0
+// Canonical corpus name: SoundEffectLoadPlay
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SoundEffectLoadPlay_004c8de0.c
+
+void UnknownObject::SoundEffectLoadPlay()
+{
+    // Load and play a sound effect by index a1 (valid when a1 < 8) with parameter a2. Lazily creates the singleton audio manager stored in dword_8AC4D0 from the init-status object dword_8AC4C4 by calling vtable slot +96, retrying until the manager exists. The sound path is composed as "%s%s" from the base directory (dword_5EC3E0, falling back to byte_5EA438) and the per-sound name entry off_5D3234[a1], then handed to the manager vtable slots +28 and +4. Any returned buffer is freed via FreeWrapper_7bcf.
+    // GUARD: Lazy manager init: when dword_8AC4C4 is null, skip straight to the dword_8AC4D0 check and return it early if the manager is also null [global:0x008AC4C4, global:0x008AC4D0, source:raw]
+    // CALL: When dword_8AC4D0 is null it is created by invoking vtable slot +96 of the init-status object dword_8AC4C4, then the manager check is retried [global:0x008AC4C4, global:0x008AC4D0, source:raw]
+    // GUARD: The load/play path is gated on a1 < 8; an out-of-range index returns without loading [source:raw]
+    // CALL: StringCopyWithBufferRealloc(byte_5EA438) initializes the default path buffer [callee:0x00566650, global:0x005EA438, source:raw]
+    // CALCULATION: Select the base directory: v3 = dword_5EC3E0, falling back to byte_5EA438 when dword_5EC3E0 is null [global:0x005EC3E0, global:0x005EA438, source:raw]
+    // CALL: StringFormatWithBufferOverflowCheck(v8, "%s%s", v3, off_5D3234[a1]) composes the sound file path from the base directory and the per-sound name table entry [callee:0x0058815F, global:0x005BE860, global:0x005D3234, source:raw]
+    // CALL: StringCopyWithBufferRealloc(v8) finalizes the composed path buffer [callee:0x00566650, source:raw]
+    // CALL: Invoke manager vtable slot +28 with a2, then vtable slot +4 with the v4 buffer pair, argument 1 and 0 to load/play the sound [global:0x008AC4D0, source:raw]
+    // CALL: If the returned buffer v4[0] is non-null, FreeWrapper_7bcf(v4[0]) frees it [callee:0x00587BCF, source:raw]
+    // RETURN: Return the result buffer; invoked from the net-comm player slot sync, session state dispatch and a local helper [function:0x004C8DE0, caller:0x0045FC50, caller:0x004A0DF0, caller:0x004B3400, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (!dword_8AC4C4) {
+    //     if (!dword_8AC4D0) return result;
+    //     goto manager_ready;
+    //   }
+    //   if (!dword_8AC4D0) {
+    //     dword_8AC4D0 = (vtable+96 of dword_8AC4C4)();
+    //     if (!dword_8AC4D0) return result;
+    //   }
+    //   manager_ready:
+    //   if (a1 < 8) {
+    //     v4[0] = 0; v4[1] = -1;
+    //     StringCopyWithBufferRealloc(byte_5EA438);
+    //     v3 = dword_5EC3E0 ? dword_5EC3E0 : byte_5EA438;
+    //     StringFormatWithBufferOverflowCheck(v8, "%s%s", v3, off_5D3234[a1]);
+    //     StringCopyWithBufferRealloc(v8);
+    //     (vtable+28 of dword_8AC4D0)(dword_8AC4D0, a2);
+    //     (vtable+4 of dword_8AC4D0)(dword_8AC4D0, v4, 1, 0);
+    //     if (v4[0]) FreeWrapper_7bcf(v4[0]);
+    //   }
+    //   return result;
+    // UNRESOLVED: The exact purpose of manager vtable slots +96, +28 and +4 is not determinable from this packet
+    // UNRESOLVED: Whether a1 indexes off_5D3234 as a pointer table or byte offset is not resolved from this packet
+}

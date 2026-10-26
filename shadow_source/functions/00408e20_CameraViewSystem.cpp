@@ -1,0 +1,102 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00408E20
+// Canonical corpus name: CameraViewSystem
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/CameraViewSystem_00408e20.c
+
+void UnknownObject::CameraViewSystem()
+{
+    // Initializes the camera view system: opens an audio stream from the resource handle, parses camera-view definitions from that stream, constructs 3D sound emitters for the named camera views (swingman, cockpit, TV cockpit, nosecam) plus a capped dynamic localcam view array, applies session-manager camera positions to every emitter, then cleans up stack resources. Returns 1 on failure (null handle, stream open failure, invalid stream state) and 0 on success.
+    // GUARD: Entry guard: if the resource handle a2 is null, return 1 (failure) immediately without doing any work. [source:raw, function:0x00408E20]
+    // CALL: Initialize stack locals: ZeroInitSmallStruct(v57) zeroes the audio-stream struct, memset(v69,0,384) zeroes a scratch buffer, the counters v64/v66/v67/v68 are zeroed and the flag v65 is set to 1. [callee:0x005668B0, source:raw]
+    // CALL: Construct four 3D sound emitter objects in the stack slots v62, v61, v59 and v60 via F_3DSoundEmitter (the named camera view slots). [callee:0x00456170, source:raw]
+    // LOOP: Construct 32 additional 3D sound emitter objects in the large v70 buffer, one per 50-dword (200-byte) slot, via F_3DSoundEmitter. [callee:0x00456170, source:raw]
+    // ASSIGNMENT: Seed the dynamic view count v56 to 0.0 and the loop result v5 to 0 before the stream is opened. [source:raw]
+    // CALL: Open the audio stream: AudioStreamOpen(v57, a2, 1) initializes the stream struct from the resource handle. [callee:0x00566B20, source:raw]
+    // GUARD: If AudioStreamOpen fails (returns 0), fall through to the failure cleanup path that destroys the 32 v70 emitter objects plus the four named slots, frees the stream struct and returns 1. [source:raw]
+    // CALL: Failure cleanup: ShortComputation_62a0 walks backwards over the 32 v70 emitter objects, then over v60/v59/v61/v62, then SubCallWithConditionalFieldFree(v57) releases the stream struct; the path returns 1. [callee:0x004562A0, callee:0x005668D0, source:raw]
+    // LOOP: Iterate the audio-stream entries: ConditionalDispatchBasedOnFlag(v57, v69, 384) drives a loop over camera definitions stored in the stream, using the scratch buffer v69. [callee:0x00566CC0, source:raw]
+    // CALL: Per entry: skip when sub_5651B0(v63) signals a non-definition entry; otherwise sub_565520(v63, aLocalcam, v58, 0) reads the camera definition name into the v58 buffer using the aLocalcam string (global 0x005BE910). [callee:0x005651B0, callee:0x00565520, global:0x005BE910, source:raw]
+    // GUARD: Nested string dispatch via sub_588410 against the four named view strings: a 'swingman' match routes to v60, 'cockpit' to v61, 'tvcockpit' to v59, 'nosecam' to v62 (using globals 0x005BE888, 0x005BE894, 0x005BE89C, 0x005BE8A8); a name matching none of them takes the dynamic localcam path. [callee:0x00588410, global:0x005BE888, global:0x005BE894, global:0x005BE89C, global:0x005BE8A8, source:raw]
+    // CALL: sub_4562F0(slot, v57, v58) parses the current camera definition from the stream into the selected emitter slot (one of v60/v61/v59/v62, or the next dynamic slot in v70). [callee:0x004562F0, source:raw]
+    // CALCULATION: Dynamic view bookkeeping: when the name matched no fixed slot and the current count is below 32, the parsed emitter is appended into the v70 array, the count v56 is incremented and the slot pointer advances by 200 bytes. [source:raw]
+    // ASSIGNMENT: After the definition loop, capture the dynamic view count into v5. [source:raw]
+    // GUARD: If the stream struct v57 has no valid first word (v57[0] == 0), run the failure cleanup path and return 1. [source:raw]
+    // CALL: Close the audio stream handle with ConditionalFileHandleCloseWithFlagDispatch(v57) once the definitions have been consumed. [callee:0x00566B90, source:raw]
+    // CALL: Release and rebuild camera view slot this+0x1C: if the existing object pointer is non-null, call its vtable method (**v)(v, 1); then allocate a 200-byte object with OperatorNewNhMallocWrapper, initialize it with F_3DSoundEmitter, and store the result into this+0x1C. [callee:0x00587C03, callee:0x00456170, field:*(*(this+0x1C)+0x0):0x00000000, field:*(this+0x1C):0x00000000, field:this:0x0000001C, source:raw]
+    // CALL: Copy the parsed emitter data into the new this+0x1C object: sub_457000(*(this+0x1C), v60). [callee:0x00457000, source:raw]
+    // CALL: Release and rebuild camera view slot this+0x14: vtable release of the old object (arg 1), allocate 200 bytes via OperatorNewNhMallocWrapper, initialize with F_3DSoundEmitter, store into this+0x14. [callee:0x00587C03, callee:0x00456170, field:*(*(this+0x14)+0x0):0x00000000, field:*(this+0x14):0x00000000, field:this:0x00000014, source:raw]
+    // CALL: Copy the parsed emitter data into the new this+0x14 object: sub_457000(*(this+0x14), v61). [callee:0x00457000, source:raw]
+    // CALL: Release and rebuild camera view slot this+0x18: vtable release of the old object (arg 1), allocate 200 bytes via OperatorNewNhMallocWrapper, initialize with F_3DSoundEmitter, store into this+0x18. [callee:0x00587C03, callee:0x00456170, field:*(*(this+0x18)+0x0):0x00000000, field:*(this+0x18):0x00000000, field:this:0x00000018, source:raw]
+    // CALL: Copy the parsed emitter data into the new this+0x18 object: sub_457000(*(this+0x18), v59). [callee:0x00457000, source:raw]
+    // CALL: Release and rebuild camera view slot this+0x10: vtable release of the old object (arg 1), allocate 200 bytes via OperatorNewNhMallocWrapper, initialize with F_3DSoundEmitter, store into this+0x10. [callee:0x00587C03, callee:0x00456170, field:*(*(this+0x10)+0x0):0x00000000, field:*(this+0x10):0x00000000, field:this:0x00000010, source:raw]
+    // CALL: Copy the parsed emitter data into the new this+0x10 object: sub_457000(*(this+0x10), v62). [callee:0x00457000, source:raw]
+    // CALL: Release the existing dynamic view array at this+0x20: if non-null, call its vtable method (**v)(v, 3) (the release argument differs from the fixed views' 1). [field:*(*(this+0x20)+0x0):0x00000000, field:this:0x00000020, source:raw]
+    // GUARD: If no dynamic views were parsed (count v5 <= 0), set this+0x38 and this+0x3C to 0 and skip the dynamic array allocation entirely. [field:this:0x00000038, field:this:0x0000003C, source:raw]
+    // CALL: Allocate the dynamic view array: OperatorNewNhMallocWrapper(200*count + 4) stores the count as the first dword, then F_3DSoundEmitter constructs one emitter per count slot at a 200-byte stride; the emitter pointer is stored into this+0x20 (or 0 on allocation failure). [callee:0x00587C03, callee:0x00456170, field:this:0x00000020, field:*(this+0x20):0x00000000, source:raw]
+    // LOOP: Copy the parsed dynamic view data into the array: for each of the count entries, sub_457000(array_entry, v70_source) at a 200-byte stride, guarded by count > 0. [callee:0x00457000, field:*(this+0x20):0x00000000, source:raw]
+    // ASSIGNMENT: Store the dynamic view count into this+0x38 and zero this+0x3C when the array was allocated. [field:this:0x00000038, field:this:0x0000003C, source:raw]
+    // CALL: Apply the session-manager camera positions: CameraPositionDefinitions(this) sets up the camera view system from the session manager. [callee:0x00408870, source:raw]
+    // GUARD: If the session-manager global dword_5EA510 is non-null, read the camera position via DoubleFieldGetter(dword_5EA510, 0, &v56). [global:0x005EA510, callee:0x00542520, source:raw]
+    // LOOP: Push the session camera position into every emitter: ShortComputation_6080(emitter, &v55, 0) computes a value into v55, then the emitter's +0x40 field is set to v55 and its +0x44 field to the session position. Applied to the fixed views at this+0x1C/0x18/0x14/0x10, the dynamic array entries at this+0x20, and the additional read-only emitter pointers this+0x24/0x28/0x2C/0x30. The dynamic-array sub-loop is guarded by this+0x38 > 0. [callee:0x00456080, field:*(this+0x10):0x00000040, field:*(this+0x10):0x00000044, field:*(this+0x14):0x00000040, field:*(this+0x14):0x00000044, field:*(this+0x18):0x00000040, field:*(this+0x18):0x00000044, field:*(this+0x1C):0x00000040, field:*(this+0x1C):0x00000044, field:*(this+0x24):0x00000040, field:*(this+0x24):0x00000044, field:*(this+0x28):0x00000040, field:*(this+0x28):0x00000044, field:*(this+0x2C):0x00000040, field:*(this+0x2C):0x00000044, field:*(this+0x30):0x00000040, field:*(this+0x30):0x00000044, field:this:0x00000024, field:this:0x00000028, field:this:0x0000002C, field:this:0x00000030, guard:0, source:raw]
+    // LOOP: Success cleanup: ShortComputation_62a0 walks backwards over the 32 v70 emitter objects, then over v60/v59/v61/v62, then SubCallWithConditionalFieldFree(v57) releases the stream struct. [callee:0x004562A0, callee:0x005668D0, source:raw]
+    // RETURN: Return 0 on the success path; all failure paths return 1. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int CameraViewSystem(CameraViewSystem* this, HANDLE res) {
+    //     if (!res) return 1;
+    //     Stream s; ZeroInit(s);
+    //     Emitter swingman, cockpit, tvcockpit, nosecam;
+    //     Emitter dynbuf[32];
+    //     for (i = 0; i < 32; i++) F_3DSoundEmitter(&dynbuf[i]);
+    //     if (!AudioStreamOpen(&s, res, 1)) { cleanup(); return 1; }
+    //     int n = 0;
+    //     while (ConditionalDispatchBasedOnFlag(&s, scratch, 384)) {
+    //       if (!skip(v63) && readName(&s, aLocalcam, name)) {
+    //         if (match(aSwingman, name)) EmitParse(&swingman, &s, name);
+    //         else if (match(aCockpit_0, name)) EmitParse(&cockpit, &s, name);
+    //         else if (match(aTvcockpit, name)) EmitParse(&tvcockpit, &s, name);
+    //         else if (match(aNosecam, name)) EmitParse(&nosecam, &s, name);
+    //         else if (n < 32) { EmitParse(&dynbuf[n], &s, name); n++; }
+    //       }
+    //     }
+    //     if (!s.done) { cleanup(); return 1; }
+    //     CloseStream(&s);
+    //     rebuildView(this+0x1C, &swingman);
+    //     rebuildView(this+0x14, &cockpit);
+    //     rebuildView(this+0x18, &tvcockpit);
+    //     rebuildView(this+0x10, &nosecam);
+    //     releaseVtable(this+0x20, 3);
+    //     this->dynamicCount = (n > 0) ? n : 0;
+    //     if (n > 0) {
+    //       float* arr = alloc(n * 200 + 4);
+    //       arr[0] = n;
+    //       for (i = 0; i < n; i++) F_3DSoundEmitter(&arr[1 + i*50]);
+    //       this+0x20 = arr + 1;
+    //       for (i = 0; i < n; i++) copyEmitter(this+0x20 + i*200, &dynbuf[i]);
+    //       this->dynamicCount = n; this->currentIndex = 0;
+    //     }
+    //     CameraPositionDefinitions(this);
+    //     if (sessionManager) {
+    //       vec3 pos; DoubleFieldGetter(sessionManager, 0, &pos);
+    //       applyPosition(*(this+0x1C), pos);
+    //       applyPosition(*(this+0x18), pos);
+    //       applyPosition(*(this+0x14), pos);
+    //       applyPosition(*(this+0x10), pos);
+    //       for (i = 0; i < this->dynamicCount; i++) applyPosition(arr[i], pos);
+    //       applyPosition(*(this+0x24), pos);
+    //       applyPosition(*(this+0x28), pos);
+    //       applyPosition(*(this+0x2C), pos);
+    //       applyPosition(*(this+0x30), pos);
+    //     }
+    //     cleanup();
+    //     return 0;
+    //   }
+    // UNRESOLVED: Exact semantics of the callees are assumed from packet analysis, not proven: sub_4562F0 (definition parse), sub_457000 (200-byte emitter copy), ShortComputation_6080 (position transform), sub_588410 (string comparison), sub_5651B0/sub_565520 (definition entry read).
+    // UNRESOLVED: Slot-to-name mapping: the source dispatch places 'swingman' data in this+0x1C, 'cockpit' in this+0x14, 'tvcockpit' in this+0x18 and 'nosecam' in this+0x10 under the packet analysis's 'true if not match' polarity for sub_588410; the existing analysis labels the opposite assignment, so the association is uncertain.
+    // UNRESOLVED: The vtable release calls pass argument 1 for the fixed views and 3 for the dynamic array; the meaning of that argument is unknown.
+    // UNRESOLVED: The emitter pointers at this+0x24/0x28/0x2C/0x30 are read and positioned but are not allocated or owned by this function.
+    // UNRESOLVED: The dynamic view array stores its count at array[-1] (first allocated dword); the slot layout is inferred from the 200-byte stride and is not independently confirmed.
+    // UNRESOLVED: callee:0x005881C0 (__alloca_probe) is compiler-generated stack probing for the large stack frame and has no semantic operation.
+    // UNRESOLVED: Callers are unknown (no static path from the tick root); this function is top-level or reached indirectly.
+}

@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "address": "0x0058E12E",
+  "proposed_name": "EncodingLocaleDetectionFromParseResult",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0058E12E"]
+  },
+  "summary": "Detects a locale/encoding from a parse result. Calls sub_596245 to parse the input string into a format-classification flag byte and an end-of-string pointer; when the classification flag has bit 2 (value 4) set the encoding is the OEM code page (512) and the double parameter is zeroed, otherwise StringParseViaDelegate parses the numeric double and classification bits 1 and 0 (or delegate returns 1 and 2) select the ANSI (128) and Unicode/DBCS (0x100) encodings, which can be OR-ed together. Stores the resulting encoding word at this+0x0, the consumed byte count (end pointer minus input pointer) at this+0x4 and the double at this+0x10, then returns this.",
+  "local_names": {
+    "a1": "output result pointer; receives encoding word, byte count and double",
+    "a2": "input locale/encoding string pointer",
+    "v2": "accumulated encoding word (0, 128, 0x100 or 512)",
+    "v3": "format-classification flag byte produced by sub_596245",
+    "v4": "double-parse return value from StringParseViaDelegate",
+    "v9": "double value parsed from the locale representation",
+    "v10": "end-of-string pointer produced by sub_596245"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Parse the input locale string with sub_596245(v8, &v10, a2, 0, 0, 0, 0), producing the classification flag byte v3 and the end-of-string pointer v10.",
+      "evidence_refs": ["callee:0x00596245", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the classification flag v3 has bit 2 (value 4) set, take the OEM encoding path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "OEM path: set the encoding word v2 = 512 and the double v9 = 0.0.",
+      "evidence_refs": ["source:raw", "function:0x0058E12E"]
+    },
+    {
+      "kind": "call",
+      "description": "Otherwise parse the numeric double via StringParseViaDelegate(v8, &v9), storing the delegate return value in v4.",
+      "evidence_refs": ["callee:0x00595524", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the classification flag has bit 1 (value 2) set or v4 == 1, set the encoding word to 128 (ANSI/SBCS).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the classification flag has bit 0 (value 1) set or v4 == 2, OR 0x100 into the encoding word (Unicode/DBCS).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the encoding word to this+0x0, the double v9 to this+0x10 and the consumed byte count (v10 - a2) to this+0x4.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000010", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the output pointer a1 (this), as the callers chain the result.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked from sub_58850F and sub_58B077 during CRT locale initialization.",
+      "evidence_refs": ["caller:0x0058850F", "caller:0x0058B077", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int EncodingLocaleDetectionFromParseResult(int out, const char *in) {",
+    "  int flags = sub_596245(buf, &end, in, 0, 0, 0, 0);",
+    "  int encoding;",
+    "  if ((flags & 4) != 0) { encoding = 512; dval = 0.0; }",
+    "  else {",
+    "    int ret = StringParseViaDelegate(buf, &dval);",
+    "    if ((flags & 2) != 0 || ret == 1) encoding = 128;",
+    "    if ((flags & 1) != 0 || ret == 2) encoding |= 0x100;",
+    "  }",
+    "  *(int*)out = encoding;",
+    "  *(double*)(out + 16) = dval;",
+    "  *(int*)(out + 4) = end - in;",
+    "  return out;",
+    "}"
+  ],
+  "unresolved": [
+    "The exact meaning of the two StringParseViaDelegate return values (1 and 2) beyond selecting the ANSI/Unicode encodings is established by the CRT layer, not recoverable here.",
+    "The OEM/ANSI/Unicode encoding constants (512, 128, 0x100) are caller-visible; their concrete code-page interpretations live outside this function.",
+    "The zeroing of the double on the OEM path and its numeric meaning on the parse path are both passed through to the caller unchanged."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

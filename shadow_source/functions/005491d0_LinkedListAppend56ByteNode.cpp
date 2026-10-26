@@ -1,0 +1,51 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005491D0
+// Canonical corpus name: sub_5491D0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_5491D0_005491d0.c
+
+void UnknownObject::LinkedListAppend56ByteNode()
+{
+    // Appends a new 56-byte node to a singly-linked list whose next pointers live at node+0x34. Reads the head from this+0xF0; when the head exists, walks the chain following node+0x34 to the tail, otherwise treats this+0xF0 as empty. Allocates 56 bytes via OperatorNewNhMallocWrapper, initializes each node via StructZeroInitWithBaseCall, and links it in (tail+0x34 = new node, or this+0xF0 = new node for the first). Returns the new node pointer, or 0 on allocation failure.
+    // ASSIGNMENT: Read the list head pointer from this+0xF0 (dword index 60). [field:this:0x000000F0, source:raw]
+    // GUARD: Branch on whether the head is non-null: walk the existing chain or allocate the first node. [field:this:0x000000F0, source:raw]
+    // LOOP: Traverse the singly-linked list, following the next pointer at node+0x34 until the tail (node whose next is 0). [field:*(*(this+0x124)+0x34):0x00000034, source:raw]
+    // CALL: OperatorNewNhMallocWrapper(56) allocates the 56-byte node block. [callee:0x00587C03, source:raw]
+    // GUARD: Branch on whether the 56-byte allocation returned non-null. [callee:0x00587C03, source:raw]
+    // CALL: StructZeroInitWithBaseCall(newNode) zero-initializes the allocated node via its base constructor call. [callee:0x0055D200, source:raw]
+    // ASSIGNMENT: Link the previous tail's next pointer at +0x34 to the new node. [field:*(*(this+0x124)+0x34):0x00000034, source:raw]
+    // ASSIGNMENT: On allocation failure, set result to 0 and clear the tail's next pointer at +0x34 to 0. [field:*(*(this+0x124)+0x34):0x00000034, source:raw]
+    // CALL: When the head was empty, OperatorNewNhMallocWrapper(56) allocates the first node block. [callee:0x00587C03, source:raw]
+    // CALL: StructZeroInitWithBaseCall(firstNode) zero-initializes the first allocated node. [callee:0x0055D200, source:raw]
+    // ASSIGNMENT: Set the head pointer this+0xF0 to the newly created first node. [field:this:0x000000F0, source:raw]
+    // ASSIGNMENT: On first-allocation failure, set result to 0 and clear the head this+0xF0 to 0. [field:this:0x000000F0, source:raw]
+    // RETURN: Return the new node pointer, or 0 when either allocation failed. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int LinkedListAppend56ByteNode(void** this_, int a2) {
+    //     int node = this_[0xF0/4];
+    //     if (node) {
+    //       for (int i = *(int*)(node + 52); i; i = *(int*)(i + 52))
+    //         node = i;
+    //       int* v7 = OperatorNewNhMallocWrapper(56);
+    //       if (v7) {
+    //         int result = StructZeroInitWithBaseCall(v7);
+    //         *(int*)(node + 52) = result;
+    //         return result;
+    //       }
+    //       *(int*)(node + 52) = 0;
+    //       return 0;
+    //     }
+    //     int* v4 = OperatorNewNhMallocWrapper(56);
+    //     if (v4) {
+    //       int result = StructZeroInitWithBaseCall(v4);
+    //       this_[0xF0/4] = result;
+    //       return result;
+    //     }
+    //     this_[0xF0/4] = 0;
+    //     return 0;
+    //   }
+    // UNRESOLVED: The container field at this+0x124 does not appear in the raw source; the packet lists it as an intermediate pointer to the container holding the list, so its role here is unconfirmed.
+    // UNRESOLVED: The parameter a2 is unused in the raw body; its purpose is unknown.
+    // UNRESOLVED: Whether the head at this+0xF0 and the node next pointer at +0x34 are separate allocations or part of one object is not established by the packet alone.
+}

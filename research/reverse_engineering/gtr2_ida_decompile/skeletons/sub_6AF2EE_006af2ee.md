@@ -1,0 +1,35 @@
+## sub_6AF2EE_006af2ee — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_6AF40D (006af40d)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(this+0x14) | 0x4 | R | — | [LLM] |
+| *(this+0x14) | 0xC | R | — | [LLM] |
+| this | 0x8 | R | — | [LLM] |
+| this | 0x14 | R | — | [LLM] |
+| this | 0x88 | R | — | [LLM] |
+| this | 0x100 | R | — | [LLM] |
+| this | 0x110 | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 0066238f | sub_66238F | [LLM] |
+| 00680cec | ZeroInit16ElementArray [structural] | [LLM] |
+| 00680d22 | sub_680D22 | [LLM] |
+| 00681186 | sub_681186 | [LLM] |
+| 006811d1 | sub_6811D1 | [LLM] |
+| 00681aaa | sub_681AAA | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

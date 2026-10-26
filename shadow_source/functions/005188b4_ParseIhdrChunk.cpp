@@ -1,0 +1,77 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005188B4
+// Canonical corpus name: sub_5188B4
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_5188B4_005188b4.c
+
+void UnknownObject::ParseIhdrChunk()
+{
+    // PNG IHDR chunk parser: rejects a second IHDR via the flags word at this+0x58 and a wrong chunk length, reads the 13-byte IHDR body through sub_517F58, decodes width/height with ByteArrayToInt plus the bit depth, color type, compression, filter and interlace bytes, validates each field per PNG rules (aborting via GuardedCallWithLongjmp with the matching message global), stores the parsed values at this+0xB8/0xBC/0x113/0x116/0x117, derives channels per pixel at this+0x11A from the color type, computes bits per pixel at this+0x119 and the row stride in bytes at this+0xC8, then forwards the header to sub_513A71.
+    // GUARD: Guard: if the flags word at a1+0x58 (offset 0x58) is non-zero, an IHDR was already parsed - GuardedCallWithLongjmp(a1, "Out of place IHDR") aborts using the global message at 0x005AFC60. [field:this:0x00000058, callee:0x00511869, global:0x005AFC60, source:raw]
+    // GUARD: Guard: if the chunk length a3 != 13, GuardedCallWithLongjmp(a1, "Invalid IHDR chunk") aborts using the global message at 0x005AFC4C. [callee:0x00511869, global:0x005AFC4C, source:raw]
+    // ASSIGNMENT: Set bit 0 of the flags word at a1+0x58 to record that the IHDR has been accepted. [field:this:0x00000058, source:raw]
+    // CALL: sub_517F58(a1, v11, 13) reads the 13-byte IHDR payload into the contiguous v11/v12 stack buffer. [callee:0x00517F58, source:raw]
+    // CALL: sub_518828(a1, 0) advances/validates the chunk cursor by zero (no skip needed for the IHDR). [callee:0x00518828, source:raw]
+    // CALCULATION: ByteArrayToInt(v11) yields the width (v4) and ByteArrayToInt(v12) the height (v5); remaining body bytes decode as bit depth v6 = v12[4], color type v17 = v12[5], compression v13 = v12[6], filter v14 = v12[7], interlace v15 = v12[8]. [callee:0x00517F35, source:raw]
+    // GUARD: Guard: if width or height <= 0, GuardedCallWithLongjmp aborts with the "Invalid image size in IHDR" message at 0x005AFC30. [callee:0x00511869, global:0x005AFC30, source:raw]
+    // GUARD: Guard: bit depth v6 must be one of 1, 2, 4, 8 or 16; otherwise abort with the message at 0x005AFC14. [callee:0x00511869, global:0x005AFC14, source:raw]
+    // GUARD: Guard: color type v17 must not be 1, 5 or greater than 6; otherwise abort with the message at 0x005AFBF8. [callee:0x00511869, global:0x005AFBF8, source:raw]
+    // GUARD: Guard: reject illegal color type/bit depth combinations (v17 == 3 with v6 > 8, or v17 in {2, 4, 6} with v6 < 8) using the message at 0x005AFBC4. [callee:0x00511869, global:0x005AFBC4, source:raw]
+    // GUARD: Guard: interlace v15 >= 2 is unknown; abort with the message at 0x005AFBA0. [callee:0x00511869, global:0x005AFBA0, source:raw]
+    // GUARD: Guard: a non-zero compression method v13 aborts with the message at 0x005AFB7C. [callee:0x00511869, global:0x005AFB7C, source:raw]
+    // GUARD: Guard: a non-zero filter method v14 aborts with the message at 0x005AFB5C. [callee:0x00511869, global:0x005AFB5C, source:raw]
+    // ASSIGNMENT: Store the validated header: interlace to a1+275 (offset 0x113), width to a1+184 (offset 0xB8), height to a1+188 (offset 0xBC), bit depth to a1+279 (offset 0x117), color type to a1+278 (offset 0x116). [field:this:0x00000113, field:this:0x000000B8, field:this:0x000000BC, field:this:0x00000117, field:this:0x00000116, source:raw]
+    // STATE_TRANSITION: Derive channels per pixel at a1+282 (offset 0x11A) from the color type: 1 for types 0 and 3, 3 for type 2, 2 for type 4, 4 for type 6. [field:this:0x0000011A, source:raw]
+    // CALCULATION: Compute bits per pixel at a1+281 (offset 0x119) as bit depth * channels (channels read back from offset 0x11A), and the image row stride in bytes at a1+200 (offset 0xC8) as (width * bpp + 7) >> 3. [field:this:0x00000119, field:this:0x000000C8, field:this:0x00000117, field:this:0x000000B8, field:this:0x0000011A, source:raw]
+    // CALL: sub_513A71(a1, a2, width, height, bit depth, color type, interlace, compression, filter) forwards the validated IHDR fields for further decoder setup. [callee:0x00513A71, source:raw]
+
+    // Conservative worker pseudocode:
+    //   void sub_5188B4(int a1, int a2, int a3) {
+    //     if (*(_DWORD*)(a1 + 88))
+    //       GuardedCallWithLongjmp(a1, "Out of place IHDR");
+    //     if (a3 != 13)
+    //       GuardedCallWithLongjmp(a1, "Invalid IHDR chunk");
+    //     *(_DWORD*)(a1 + 88) |= 1;
+    //     sub_517F58(a1, v11, 13);
+    //     sub_518828(a1, 0);
+    //     width = ByteArrayToInt(v11);
+    //     height = ByteArrayToInt(v12);
+    //     bitDepth = v12[4];
+    //     colorType = v12[5];
+    //     compression = v12[6];
+    //     filter = v12[7];
+    //     interlace = v12[8];
+    //     if (width <= 0 || height <= 0)
+    //       GuardedCallWithLongjmp(a1, "Invalid image size in IHDR");
+    //     if (bitDepth != 1 && bitDepth != 2 && bitDepth != 4 && bitDepth != 8 && bitDepth != 16)
+    //       GuardedCallWithLongjmp(a1, "Invalid bit depth in IHDR");
+    //     if (colorType == 1 || colorType == 5 || colorType > 6)
+    //       GuardedCallWithLongjmp(a1, "Invalid color type in IHDR");
+    //     if ((colorType == 3 && bitDepth > 8) || ((colorType == 2 || colorType == 4 || colorType == 6) && bitDepth < 8))
+    //       GuardedCallWithLongjmp(a1, "Invalid color type/bit depth combination in IHDR");
+    //     if (interlace >= 2)
+    //       GuardedCallWithLongjmp(a1, "Unknown interlace method in IHDR");
+    //     if (compression)
+    //       GuardedCallWithLongjmp(a1, "Unknown compression method in IHDR");
+    //     if (filter)
+    //       GuardedCallWithLongjmp(a1, "Unknown filter method in IHDR");
+    //     *(_BYTE*)(a1 + 275) = interlace;
+    //     *(_DWORD*)(a1 + 184) = width;
+    //     *(_DWORD*)(a1 + 188) = height;
+    //     *(_BYTE*)(a1 + 279) = bitDepth;
+    //     *(_BYTE*)(a1 + 278) = colorType;
+    //     switch (colorType) {
+    //       case 2: *(_BYTE*)(a1 + 282) = 3; break;
+    //       case 4: *(_BYTE*)(a1 + 282) = 2; break;
+    //       case 6: *(_BYTE*)(a1 + 282) = 4; break;
+    //       default: *(_BYTE*)(a1 + 282) = 1; break;
+    //     }
+    //     *(_BYTE*)(a1 + 281) = bitDepth * *(_BYTE*)(a1 + 282);
+    //     *(_DWORD*)(a1 + 200) = (width * (unsigned int)bitsPerPixel + 7) >> 3;
+    //     sub_513A71(a1, a2, width, height, bitDepth, colorType, interlace, compression, filter);
+    //   }
+    // UNRESOLVED: sub_517F58 and sub_518828 form the chunk-stream read/advance pair; their exact contracts (buffer layout, error return) are not established from raw source.
+    // UNRESOLVED: The single caller sub_5119E9 dispatches chunks to this parser; the enclosing PNG decoder object behind a1 is unnamed.
+    // UNRESOLVED: a2 is forwarded to sub_513A71 but its meaning is unknown from raw source.
+    // UNRESOLVED: ByteArrayToInt's byte-order convention is assumed big-endian from the function name and PNG IHDR layout; the helper body was not reviewed.
+}

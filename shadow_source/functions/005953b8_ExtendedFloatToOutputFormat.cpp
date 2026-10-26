@@ -1,0 +1,64 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005953B8
+// Canonical corpus name: sub_5953B8
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_5953B8_005953b8.c
+
+void UnknownObject::ExtendedFloatToOutputFormat()
+{
+    // Converts an internal 80-bit extended-precision float, read from the word array a1 (sign+exponent word at byte 0xA, mantissa DWORDs at bytes 0x6 and 0x2, lowest word at byte 0x0), into a 32-bit or 64-bit IEEE-style output written through a2, returning a status code (0 = normal/zero result, 1 = range-exceeded, 2 = underflow/denormal). The exponent is decoded against a 0x3FFF bias and the sign extracted from the 0x8000 bit; the mantissa is normalized, rounded and shifted with the helper routines F_4IntCopy, BitArrayClearBitAndZeroFillSubsequentWords, sub_595304, ArrayOf3ZeroCheck and BigIntegerRightShift, using format-control parameters from the a3 array. The output width is selected by a3[4]: 64 writes two DWORDs (a2[1] = v14, a2[0] = upper mantissa DWORD), 32 writes a single DWORD a2[0] = v14.
+    // ASSIGNMENT: Load the extended-float payload from the input word array a1: v20 = mantissa DWORD at byte 0x6, v5 = mantissa DWORD at byte 0x2, v6 = lowest mantissa word at byte 0x0; keep v21 = v5 and v22 = v6 << 16 for the final assembly. [field:this:0x00000006, field:this:0x00000002, field:this:0x00000000, source:raw]
+    // CALCULATION: Decode the sign/exponent word at byte 0xA of a1: v23 = v4 & 0x8000 isolates the sign bit and v7 = (v4 & 0x7FFF) - 0x3FFF yields the exponent minus the 0x3FFF bias. [field:this:0x0000000A, source:raw]
+    // GUARD: When v7 == -16383 (the exponent field marks a zero/denormal value) skip the normalization path; otherwise take it. [field:this:0x0000000A, source:raw]
+    // CALL: F_4IntCopy(v19, &v20) saves the working mantissa DWORD into the local array v19 so it can be restored after bit clearing and rounding. [callee:0x005952E9, source:raw]
+    // CALL: BitArrayClearBitAndZeroFillSubsequentWords(&v20, a3[2]) clears the mantissa bit selected by a3[2] and zero-fills the words below it; a non-zero return increments v7 (rounding carry into the exponent). [callee:0x0059525D, source:raw]
+    // GUARD: Compare the exponent v7 against the format thresholds in a3: v10 = a3[1]; when v7 >= v10 - a3[2] the range-handling branch is taken, otherwise the value is treated as subnormal, sub_595304(&v20) is called and the status becomes 2. [callee:0x00595304, source:raw]
+    // GUARD: Within the range branch, when v7 > v10 the overflow side is selected; the complementary side (v10 - a3[2] <= v7 <= v10) restores the saved mantissa with F_4IntCopy(&v20, v19), right-shifts it by v11 = v10 - v7 via BigIntegerRightShift, clears the bit at a3[2], right-shifts again by a3[3] + 1, and lands on the status-2 result. [callee:0x005952E9, callee:0x0059532B, callee:0x0059525D, source:raw]
+    // GUARD: On the overflow side, when v7 >= *a3 (a3[0]) the range-exceeded path is taken: sub_595304(&v20), the top bit of v20 is set, v20 is right-shifted by a3[3], v8 = *a3 + a3[5], and the status becomes 1; when v7 < *a3 the normal-result path is taken: the top bit of v20 is cleared, v8 = v7 + a3[5], v20 is right-shifted by a3[3], and the status becomes 0. [callee:0x00595304, callee:0x0059532B, source:raw]
+    // CALL: ArrayOf3ZeroCheck(&v20) tests whether the mantissa is all zero: a zero mantissa yields status 0 (output zero), a non-zero mantissa is normalized through sub_595304(&v20) and yields status 2. [callee:0x00595310, callee:0x00595304, source:raw]
+    // STATE_TRANSITION: Select the returned status code: 0 for normal/zero output, 1 for range-exceeded (exponent reached *a3), 2 for underflow/denormal. [source:raw]
+    // CALCULATION: Assemble the output DWORD v14 = v20 | (v23 ? 0x80000000 : 0) | (v8 << (31 - *((byte*)a3 + 12))): mantissa from v20, sign bit from v23, exponent shifted into the position given by byte 12 of the a3 array. [source:raw]
+    // GUARD: Write the converted value according to a3[4]: when it is 64, store the 64-bit output as a2[1] = v14 and *a2 = v21; when it is 32, store only *a2 = v14. [source:raw]
+    // RETURN: Return the status code (0, 1 or 2). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int ExtendedFloatToOutputFormat(u16* a1, u32* a2, int* a3) {
+    //       int status = 0;
+    //       v20 = *(DWORD*)(a1 + 3);          // mantissa DWORD, byte 0x6
+    //       v21 = *(DWORD*)(a1 + 1);          // upper mantissa DWORD, byte 0x2
+    //       v22 = *a1 << 16;                  // lowest word, byte 0x0
+    //       v4  = a1[5];                      // sign/exponent word, byte 0xA
+    //       v23 = v4 & 0x8000;                // sign bit
+    //       v7  = (v4 & 0x7FFF) - 0x3FFF;     // unbiased exponent
+    //       if (v7 == -16383) {               // zero/denormal exponent
+    //           if (ArrayOf3ZeroCheck(&v20)) { status = 0; }  // mantissa zero -> zero output
+    //           else { sub_595304(&v20); status = 2; }
+    //       } else {
+    //           F_4IntCopy(v19, &v20);
+    //           if (BitArrayClearBitAndZeroFillSubsequentWords(&v20, a3[2])) ++v7;
+    //           if (v7 >= a3[1] - a3[2]) {
+    //               if (v7 > a3[1]) {
+    //                   if (v7 >= *a3) {      // range-exceeded
+    //                       sub_595304(&v20); HIBYTE(v20) |= 0x80;
+    //                       BigIntegerRightShift(&v20, a3[3]); v8 = *a3 + a3[5]; status = 1;
+    //                   } else {              // normal
+    //                       HIBYTE(v20) &= ~0x80; v8 = v7 + a3[5];
+    //                       BigIntegerRightShift(&v20, a3[3]); status = 0;
+    //                   }
+    //               } else {                  // rounding/alignment
+    //                   v11 = a3[1] - v7; F_4IntCopy(&v20, v19);
+    //                   BigIntegerRightShift(&v20, v11);
+    //                   BitArrayClearBitAndZeroFillSubsequentWords(&v20, a3[2]);
+    //                   BigIntegerRightShift(&v20, a3[3] + 1); status = 2;
+    //               }
+    //           } else { sub_595304(&v20); status = 2; }
+    //       }
+    //       v14 = v20 | (v23 ? 0x80000000 : 0) | (v8 << (31 - *((byte*)a3 + 12)));
+    //       if (a3[4] == 64) { a2[1] = v14; a2[0] = v21; }
+    //       else if (a3[4] == 32) { a2[0] = v14; }
+    //       return status;
+    //   }
+    // UNRESOLVED: The exact semantics of the a3 format-control array (thresholds at a3[0]/a3[1], bit position a3[2], shifts a3[3] and a3[5], width a3[4], byte-12 exponent placement) are only partially derivable from this packet.
+    // UNRESOLVED: sub_595304, ArrayOf3ZeroCheck and the BigIntegerRightShift / BitArrayClearBitAndZeroFillSubsequentWords helpers have no bodies in the packet; their roles are inferred from call sites and names.
+    // UNRESOLVED: The owner is a plain __cdecl helper; no owning class is suggested by the packet.
+}

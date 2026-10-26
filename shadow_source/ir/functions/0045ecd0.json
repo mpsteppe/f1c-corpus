@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "address": "0x0045ECD0",
+  "proposed_name": "AutoChatSpeechDataLoader",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Loads auto-chat speech data from an audio stream file into a manager-held linked list. Frees any existing autochat list, rebuilds the stream file name from the current directory plus a constant suffix, opens the stream, scans its chunks, and for each chunk whose label matches one of the autochat01..autochat10 strings builds a (label buffer, list node) pair appended to the list, stopping once 10 entries are stored. Called by SessionTypeSetter (00463F70).",
+  "local_names": {
+    "this": "manager object that owns the autochat list state at this+0x1B780/0x1B784/0x1B788/0x1B78C",
+    "v2": "current list node pointer during the free walk",
+    "v3": "same node pointer as v2, treated as a LPVOID* to its first dword",
+    "v5": "data pointer stored at node+0 during the free walk",
+    "v6": "write cursor walking the file-path buffer v25",
+    "v14": "audio stream context/handle struct (zero-initialized, conditionally closed and freed)",
+    "v15": "section label buffer filled from byte_5EA438 then zeroed",
+    "v18": "chunk-type inspection buffer passed to sub_5651B0",
+    "v24": "chunk read buffer consumed by ConditionalDispatchBasedOnFlag",
+    "v25": "file-path buffer built from the directory and the autochat suffix globals"
+  },
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Free the existing autochat list: walk nodes from the head this+0x1B780; each node carries a data pointer at node+0 (freed once for the inner allocation and once for the buffer object) and a next pointer at node+4; every node allocation is freed after its payload",
+      "evidence_refs": ["field:*(this+0x1B780):0x00000000", "field:*(this+0x1B784):0x00000004", "callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear list state on the manager: head this+0x1B780, tail this+0x1B784, first-inserted backup this+0x1B788 and entry count this+0x1B78C are all reset to zero",
+      "evidence_refs": ["field:this:0x0001B780", "field:this:0x0001B784", "field:this:0x0001B788", "field:this:0x0001B78C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Initialize the file-path buffer v25: first character copied from byte_5EA438, the remaining 0x1FC bytes zeroed, and the trailing word/byte v26/v27 zeroed",
+      "evidence_refs": ["global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ZeroInitSmallStruct(v14) seeds the stream-context struct; PathTruncationUtility(v25, 511) truncates the current application directory path to its directory portion",
+      "evidence_refs": ["callee:0x005668B0", "callee:0x004B0220"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Append the constant audio file suffix held at dword_5C5E60..dword_5C5E6C and word_5C5E70 to the directory path in v25, composing the full stream file name",
+      "evidence_refs": ["global:0x005C5E60", "global:0x005C5E64", "global:0x005C5E68", "global:0x005C5E6C", "global:0x005C5E70"]
+    },
+    {
+      "kind": "call",
+      "description": "AudioStreamOpen(v25, 1) opens the constructed audio stream file; the entire load proceeds only when it returns non-zero",
+      "evidence_refs": ["callee:0x00566B20"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan loop: while ConditionalDispatchBasedOnFlag(v24, 384) reads the next chunk from the stream into v24, the chunk label is inspected and a matching chunk produces an autochat entry",
+      "evidence_refs": ["callee:0x00566CC0"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_5651B0(v18) inspects the current chunk; a non-zero result marks the chunk as one to skip before any label matching",
+      "evidence_refs": ["callee:0x005651B0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Match the current chunk label with sub_5654A0 against the autochat strings from autochat01 (0x005C5E54) through autochat10 (0x005C5DE8); a match selects this chunk for loading",
+      "evidence_refs": ["callee:0x005654A0", "global:0x005C5E54", "global:0x005C5E48", "global:0x005C5E3C", "global:0x005C5E30", "global:0x005C5E24", "global:0x005C5E18", "global:0x005C5E0C", "global:0x005C5E00", "global:0x005C5DF4", "global:0x005C5DE8"]
+    },
+    {
+      "kind": "call",
+      "description": "Build the string entry: OperatorNewNhMallocWrapper(8) allocates a two-dword object initialized to 0 and -1, then StringCopyWithBufferRealloc(v15) copies the matched label into the managed buffer",
+      "evidence_refs": ["callee:0x00587C03", "callee:0x00566650"]
+    },
+    {
+      "kind": "call",
+      "description": "Build the list node: OperatorNewNhMallocWrapper(12) allocates a node whose dword 0 points to the string entry, dword 1 (next) is 0 and the byte at node+8 is set to 1",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Append the node to the list: when the head this+0x1B780 is non-zero the previous tail this+0x1B784 is linked to the new node, otherwise the node becomes the head and first-inserted backup this+0x1B788; the tail is updated and the entry count this+0x1B78C incremented",
+      "evidence_refs": ["field:this:0x0001B780", "field:this:0x0001B784", "field:this:0x0001B788", "field:this:0x0001B78C"]
+    },
+    {
+      "kind": "guard",
+      "description": "Stop scanning once the entry count this+0x1B78C reaches 10 (0xA), capping the loaded autochat list at ten entries",
+      "evidence_refs": ["guard:0", "field:this:0x0001B78C"]
+    },
+    {
+      "kind": "call",
+      "description": "ConditionalFileHandleCloseWithFlagDispatch(v14) closes the opened audio stream when a handle was acquired",
+      "evidence_refs": ["callee:0x00566B90"]
+    },
+    {
+      "kind": "return",
+      "description": "SubCallWithConditionalFieldFree(v14) conditionally frees a context field and supplies the function's final status value",
+      "evidence_refs": ["callee:0x005668D0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int AutoChatSpeechDataLoader(void* this) {",
+    "  node = this[0x1B780/4];",
+    "  while (node) { nxt = node[1]; if (node[2]) { Free(node[0]); } Free(node); node = nxt; }",
+    "  this[0x1B780/4] = 0; this[0x1B784/4] = 0; this[0x1B788/4] = 0; this[0x1B78C/4] = 0;",
+    "  memset(v25, 0, sizeof(v25)); v25[0] = byte_5EA438[0];",
+    "  ZeroInitSmallStruct(v14); PathTruncationUtility(v25, 511);",
+    "  append dword_5C5E60..dword_5C5E6C, word_5C5E70 to v25;",
+    "  if (AudioStreamOpen(v25, 1)) {",
+    "    while (ConditionalDispatchBasedOnFlag(v24, 384)) {",
+    "      if (!sub_5651B0(v18) && (sub_5654A0(aAutochat01, v15) || ... || sub_5654A0(aAutochat10, v15))) {",
+    "        entry = new 8-byte object; entry[0] = 0; entry[1] = -1; StringCopyWithBufferRealloc(v15);",
+    "        newnode = new 12-byte node; newnode[0] = entry; newnode[1] = 0; newnode[2] = 1;",
+    "        if (this[0x1B780/4]) this[0x1B784/4][1] = newnode;",
+    "        else { this[0x1B780/4] = newnode; this[0x1B788/4] = newnode; }",
+    "        this[0x1B784/4] = newnode; ++this[0x1B78C/4];",
+    "        if (this[0x1B78C/4] >= 10) break;",
+    "      }",
+    "    }",
+    "    ConditionalFileHandleCloseWithFlagDispatch(v14);",
+    "  }",
+    "  return SubCallWithConditionalFieldFree(v14);",
+    "}"
+  ],
+  "unresolved": [
+    "The exact content of the autochat file-name suffix globals dword_5C5E60..dword_5C5E6C and word_5C5E70 is not verifiable from this packet",
+    "The semantics of sub_5651B0's chunk-type skip test and sub_5654A0's label match depend on the audio stream format, which is not defined here",
+    "The meaning of the byte flag set to 1 at node+8 when a node is inserted (active/labeled marker) is inferred, not proven",
+    "byte_7CE498 is flagged by packet globals but appears nowhere in the raw decompiled source; its role here is unknown"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x007CE498"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "address": "0x005855E0",
+  "proposed_name": "SuspendThreadWithRetryAndMutex",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["source:raw"]
+  },
+  "summary": "Suspends a thread (handle at this+0x4) under mutex protection. Waits on mutex this+0x20 with timeout this+0x24; when acquired and the suspend flag at this+0x1C is clear, retries SuspendThread up to 50 times with increasing Sleep delays until the thread's previous suspend count reaches a positive value, then sets the suspend flag. Always releases the mutex. Returns 1 on success, 0 when the retry limit is reached, and 1 immediately when no thread handle exists.",
+  "local_names": {
+    "v2": "retry_count",
+    "v5": "wait_result",
+    "v6": "prev_suspend_count",
+    "v8": "ok",
+    "v9": "suspend_flag_ptr"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If thread handle at this+0x4 is null, return 1 immediately.",
+      "evidence_refs": ["field:this:0x00000004"]
+    },
+    {
+      "kind": "call",
+      "description": "Wait on mutex at this+0x20 with timeout this+0x24 via WaitForSingleObject; success when result is 0 or 128.",
+      "evidence_refs": ["field:this:0x00000032", "field:this:0x00000036", "global:0x0059E1A0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Select suspend-flag pointer only when the mutex exists and the wait succeeded; otherwise no flag access.",
+      "evidence_refs": ["field:this:0x00000032"]
+    },
+    {
+      "kind": "guard",
+      "description": "Skip the suspend retry loop when the suspend flag at this+0x1C is already set.",
+      "evidence_refs": ["field:this:0x00000028"]
+    },
+    {
+      "kind": "loop",
+      "description": "Retry SuspendThread(thread handle at this+0x4) up to 50 times, sleeping with the current retry count as delay, while the thread has no prior suspend count (SuspendThread returns -1 or 0); break when a positive previous suspend count is observed.",
+      "evidence_refs": ["field:this:0x00000004", "global:0x0059E1FC", "global:0x0059E0DC"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Set the suspend flag at this+0x1C to 1 after a successful suspend.",
+      "evidence_refs": ["field:this:0x00000028"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the mutex at this+0x20 via ReleaseMutex when it exists.",
+      "evidence_refs": ["field:this:0x00000032", "global:0x0059E1A4"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v8: 1 on success, 0 when the 50-attempt retry limit is reached.",
+      "evidence_refs": ["function:0x005855E0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (thread_handle == NULL) return 1;",
+    "if (mutex && WaitForSingleObject(mutex, timeout) is 0 or 128)",
+    "    suspend_flag_ptr = &this->suspend_flag;",
+    "else",
+    "    suspend_flag_ptr = NULL;",
+    "if (suspend_flag_ptr && *suspend_flag_ptr == 0) {",
+    "    for (retry = 0; ; retry++) {",
+    "        prev = SuspendThread(thread_handle);",
+    "        if (prev != -1 && prev != 0) break;",
+    "        Sleep(retry);",
+    "        if (retry >= 50) { ok = 0; goto done; }",
+    "    }",
+    "    *suspend_flag_ptr = 1;",
+    "}",
+    "done:",
+    "if (mutex) ReleaseMutex(mutex);",
+    "return ok;"
+  ],
+  "unresolved": [
+    "suspend_flag_ptr would be dereferenced when the mutex wait fails in the raw decompile; presumed a decompiler artifact guarded by the real control flow",
+    "subsystems flagged ai; owning class identity unknown"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

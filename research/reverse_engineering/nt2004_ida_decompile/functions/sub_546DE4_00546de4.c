@@ -1,0 +1,21 @@
+void __thiscall sub_546DE4(_DWORD *this, int a2, int a3, float *a4)
+{
+  unsigned __int8 *v5; // eax
+  unsigned __int8 *i; // edi
+  double v7; // st6
+  int v8; // [esp+18h] [ebp+10h]
+
+  v5 = (unsigned __int8 *)(this[6] + a3 * this[1045] + a2 * this[1044]);
+  for ( i = &v5[2 * this[1046]]; v5 < i; *(a4 - 1) = (double)*(v5 - 1) * 0.0039215689 )
+  {
+    v8 = *v5;
+    v5 += 2;
+    v7 = (double)v8 * 0.0039215689;
+    a4[2] = v7;
+    a4[1] = v7;
+    *a4 = v7;
+    a4 += 4;
+  }
+  if ( this[4] )
+    sub_54464B((int)this, (unsigned int)&a4[-4 * this[1046]]);
+}

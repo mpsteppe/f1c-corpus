@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "address": "0x0050E19E",
+  "proposed_name": "QuaternionSlerp",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0050E19E"]
+  },
+  "summary": "Spherical linear interpolation between quaternions a2 and a3 with factor a4 in [0,1], writing the result to a1 (x,y,z,w). Computes the dot product v7 = a2[0]*a3[0] + a2[2]*a3[2] + a2[1]*a3[1] + a2[3]*a3[3] and flips a3's sign (v14 = -1.0) when the dot is negative to take the shortest path. When 1.0 - |dot| <= 0.00000011920929 the quaternions are nearly parallel and the code falls back to linear interpolation weights v5 = 1 - a4 and v10 = a4; otherwise it computes theta = atan2(sqrt(1 - v8^2), v8) and the trig weights v5 = sin(theta*(1 - a4))/sin(theta), v10 = sin(theta*a4)/sin(theta). The final components are a1[i] = v5 * a2[i] + (v10 * v14) * a3[i]. All four output components are written unconditionally, so an external poke to the output does not persist.",
+  "local_names": {
+    "a1": "output quaternion buffer (x,y,z,w)",
+    "a2": "source quaternion A (x,y,z,w)",
+    "a3": "source quaternion B (x,y,z,w)",
+    "a4": "interpolation factor t in [0,1]",
+    "v5": "weight on quaternion A (1 - t, or trig form)",
+    "v7": "dot product of a2 and a3",
+    "v8": "signed dot product v14 * v7",
+    "v9": "sin(theta) = sqrt(1 - v8^2)",
+    "v10": "weight on quaternion B (t, or trig form)",
+    "v13": "1.0 / sin(theta)",
+    "v14": "sign of the dot product (+1.0 or -1.0) for shortest path",
+    "v11": "v10 * v14, effective weight on quaternion B"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Compute the dot product v7 = a2[0]*a3[0] + a3[2]*a2[2] + a3[1]*a2[1] + a3[3]*a2[3].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Choose the shortest-path sign: v14 = -1.0 when v7 < 0.0, otherwise v14 = 1.0; then v8 = v14 * v7.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When 1.0 - v8 <= 0.00000011920929 the quaternions are nearly parallel: skip the trigonometric branch and use linear-interpolation weights v5 = 1.0 - a4 and v10 = a4 to avoid dividing by near-zero sin(theta).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Otherwise compute v9 = sqrt(1.0 - v8*v8), theta = atan2(v9, v8), v13 = 1.0 / v9, then the trig weights v5 = sin(theta * v5) * v13 and v10 = sin(theta * a4) * v13.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the interpolated components with v11 = v10 * v14: a1[0] = v5 * a2[0] + v11 * a3[0], a1[1] = v11 * a3[1] + v5 * a2[1], a1[2] = v11 * a3[2] + v5 * a2[2], a1[3] = v11 * a3[3] + v5 * a2[3].",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the output quaternion pointer a1.",
+      "evidence_refs": ["function:0x0050E19E", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "float* QuaternionSlerp(float* a1, float* a2, float* a3, float t) {",
+    "  float dot = a2[0]*a3[0] + a2[1]*a3[1] + a2[2]*a3[2] + a2[3]*a3[3];",
+    "  float sign = (dot < 0.0f) ? -1.0f : 1.0f;",
+    "  float d = sign * dot;",
+    "  float wA, wB;",
+    "  if (1.0f - d <= 0.00000011920929f) {",
+    "    wA = 1.0f - t;",
+    "    wB = t;",
+    "  } else {",
+    "    float s = sqrt(1.0f - d*d);",
+    "    float theta = atan2(s, d);",
+    "    float invs = 1.0f / s;",
+    "    wA = sin(theta * (1.0f - t)) * invs;",
+    "    wB = sin(theta * t) * invs;",
+    "  }",
+    "  float wBs = wB * sign;",
+    "  a1[0] = wA*a2[0] + wBs*a3[0];",
+    "  a1[1] = wA*a2[1] + wBs*a3[1];",
+    "  a1[2] = wA*a2[2] + wBs*a3[2];",
+    "  a1[3] = wA*a2[3] + wBs*a3[3];",
+    "  return a1;",
+    "}"
+  ],
+  "unresolved": [
+    "The packet lists read-only globals flt_59E43C (0x0059E43C), flt_59E440 (0x0059E440) and flt_5AC9C0 (0x005AC9C0); the raw source renders their loads as the folded literals 1.0, 0.0 and 0.00000011920929, but the exact global-to-literal mapping is DERIVED and unproven.",
+    "This packet has no callees, so the trigonometric library functions (sin, cos, sqrt, atan2) called by the computation are not evidenced here.",
+    "The shortest-path convention (negating a3 when the dot is negative) is inferred from the sign flip v14, not named by any packet evidence."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x005AC9C0"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

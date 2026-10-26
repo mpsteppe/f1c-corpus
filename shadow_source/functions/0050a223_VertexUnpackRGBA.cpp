@@ -1,0 +1,40 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0050A223
+// Canonical corpus name: VertexUnpackRGBA
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VertexUnpackRGBA_0050a223.c
+
+void UnknownObject::VertexUnpackRGBA()
+{
+    // Decodes a packed 4-byte-per-element vertex/color block to 32-bit float RGBA. Computes the source pointer as this[6] (+0x18) + a3 * this[1045] (+0x1054) + a2 * this[1044] (+0x1050), then loops over this[1046] (+0x1058) elements (4 source bytes each), writing 4 floats per element: first = signed byte 0 * 0.0078125, second = signed byte 1 * 0.0078125, third = 0.0, fourth = unsigned byte 2 * 0.0039215689. If the this[4] (+0x10) flag is set, calls ContactManifoldCleanup on the decoded float buffer before returning.
+    // CALCULATION: Compute the source block base pointer: this[6] (+0x18) + a3 * this[1045] (+0x1054) + a2 * this[1044] (+0x1050), selecting the row (a3) and slice (a2) within the source. [field:this:0x00000018, field:this:0x00001050, field:this:0x00001054, source:raw]
+    // LOOP: Iterate over this[1046] (+0x1058) elements, from v4 to v4 + 4 * this[1046] (4 source bytes per element), writing 4 floats per element; a4 advances by 4 floats per iteration. [field:this:0x00001058, source:raw]
+    // CALCULATION: Write the first float as (double)v7 * 0.0078125, where v7 = *v4 is the first source byte taken as signed char (scaled by ~1/128); scale constant materialized from read global 0x0059E774. [global:0x0059E774, source:raw]
+    // CALCULATION: Write the second float as *(v4 - 3) * 0.0078125, the second source byte taken as signed char (scaled by ~1/128); scale constant materialized from read global 0x0059E774. [global:0x0059E774, source:raw]
+    // ASSIGNMENT: Write the third float as 0.0 for every element. [source:raw]
+    // CALCULATION: Write the fourth float as *(v4 - 2) * 0.0039215689, the third source byte taken as unsigned char (scaled by ~1/255); scale constant materialized from read global 0x0059E460. [global:0x0059E460, source:raw]
+    // GUARD: If this[4] (+0x10 flag) is non-zero, run the post-processing pass on the decoded float buffer. [field:this:0x00000010, source:raw]
+    // CALL: Call ContactManifoldCleanup(this, output buffer base), where the base is a4 - 4 * this[1046] floats after the loop, i.e. the start of the decoded float RGBA buffer. [callee:0x00507845, field:this:0x00001058, source:raw]
+    // RETURN: Return (void); execution ends after the optional post-processing pass. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   float *VertexUnpackRGBA(int a2, int a3, float *a4) {
+    //     char *v4 = (char *)(this[6] + a3 * this[1045] + a2 * this[1044]);
+    //     char *end = v4 + 4 * this[1046];
+    //     for (; v4 < end; v4 += 4) {
+    //       a4[0] = (float)(signed char)v4[0] * 0.0078125f;
+    //       a4[1] = (float)(signed char)v4[1] * 0.0078125f;
+    //       a4[2] = 0.0f;
+    //       a4[3] = (float)(unsigned char)v4[2] * 0.0039215689f;
+    //       a4 += 4;
+    //     }
+    //     if (this[4])
+    //       ContactManifoldCleanup((int)this, (unsigned int)(a4 - 4 * this[1046]));
+    //   }
+    // UNRESOLVED: The two read globals 0x0059E460 and 0x0059E774 carry the scale constants, but the exact pairing to the ~1/128 and ~1/255 multipliers is not proven by the raw source, which shows inline literals.
+    // UNRESOLVED: The first two floats use signed byte casts while the fourth uses an unsigned byte cast; this signed/unsigned asymmetry is present in the raw source but its intent is unexplained.
+    // UNRESOLVED: Only bytes 0, 1 and 2 of each 4-byte element are read; the fourth byte is silently skipped by the loop.
+    // UNRESOLVED: The mapping of the four output floats to specific components (position/color/alpha) is not established beyond the raw arithmetic.
+    // UNRESOLVED: The semantics of the +0x10 post-process flag and the ContactManifoldCleanup pass are inherited from existing analysis (DERIVED), not independently confirmed.
+    // UNRESOLVED: No caller or owner evidence exists; the owning object and invocation context are unknown.
+}

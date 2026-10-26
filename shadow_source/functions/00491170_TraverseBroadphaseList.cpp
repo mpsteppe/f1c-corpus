@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00491170
+// Canonical corpus name: CollisionBroadphaseTraversal
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/CollisionBroadphaseTraversal_00491170.c
+
+void UnknownObject::TraverseBroadphaseList()
+{
+    // Recursive broadphase AABB traversal over a linked list. Copies the list head into the iteration cursor at this+0x8, then walks nodes testing each node's four short AABB coordinates (offsets 0x0/0x2/0x4/0x6) with AABBOverlapTest and returning 1 on the first overlap. When sub_491680 accepts an AABB, RectangleClipping produces a clip-result list that is traversed recursively and then re-linked into the output list with LinkedListNodePrepend. Returns 1 on a hit, 0 when the list is exhausted without overlap.
+    // ASSIGNMENT: Copy the list head pointer at this+0x0 into the iteration cursor at this+0x8. [field:this:0x00000000, field:this:0x00000008]
+    // GUARD: If the list head pointer is null, return 0 (empty list). [field:this:0x00000000]
+    // GUARD: Dereference the head to obtain the current node's value pointer obj; if null, return 0. [field:obj:0x00000000]
+    // LOOP: Walk the node list; for each node read its four short AABB coordinates at *(obj+0x0) offsets 0x0/0x2/0x4/0x6 and the next node's AABB coordinates at the cursor-derived base *(*(*(this+0x8)+0x4)+0x0) offsets 0x0/0x2/0x4/0x6. [field:*(obj+0x0):0x00000000, field:*(obj+0x0):0x00000002, field:*(obj+0x0):0x00000004, field:*(obj+0x0):0x00000006, field:*(*(*(this+0x8)+0x4)+0x0):0x00000000, field:*(*(*(this+0x8)+0x4)+0x0):0x00000002, field:*(*(*(this+0x8)+0x4)+0x0):0x00000004, field:*(*(*(this+0x8)+0x4)+0x0):0x00000006]
+    // CALL: Call AABBOverlapTest with the current node's four AABB shorts; a nonzero result immediately returns 1 (broadphase hit). [callee:0x004915A0]
+    // CALL: Call sub_491680 with the current node's four AABB shorts; a true result breaks the walk and enters the rectangle-clipping path. [callee:0x00491680]
+    // CALCULATION: Advance the iteration cursor: read the next-node pointer at *(this+0x8)+0x4 (yielding the next node's value at *(*(this+0x8)+0x4)+0x0) and store it back into this+0x8; if the new node or its value is null, return 0. [field:*(this+0x8):0x00000004, field:*(*(this+0x8)+0x4):0x00000000, field:this:0x00000008]
+    // CALL: Call RectangleClipping with the current node's four AABB shorts; it produces a clip-result node/list. [callee:0x00491350]
+    // LOOP: Recurse into CollisionBroadphaseTraversal for each clip-result node, advancing via the node's next pointer v9[3]; a null child ends the recursion. [callee:0x00491170]
+    // LOOP: Re-link each clip-result node into the output list via LinkedListNodePrepend, walking the clip list through the next pointer v7[3]. [callee:0x00490AA0]
+    // RETURN: Return v8: 1 when an overlap hit or a completed clip path succeeded, 0 when the list is exhausted without overlap. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char sub_491170(int a1, int a2) {
+    //     *(_DWORD *)(a1 + 8) = *(_DWORD *)a1;
+    //     if (!*(__int16 ***)a1) return 0;
+    //     __int16 *obj = *(*(__int16 ***)a1);
+    //     if (!obj) return 0;
+    //     for (;;) {
+    //       if (AABBOverlapTest(obj[0], obj[1], obj[2], obj[3])) return 1;
+    //       if (sub_491680(obj[0], obj[1], obj[2], obj[3])) break;
+    //       int cur = *(_DWORD *)(a1 + 8);
+    //       if (!cur) return 0;
+    //       __int16 **next = *(__int16 ***)(cur + 4);
+    //       *(_DWORD *)(a1 + 8) = next;
+    //       if (next) { obj = *next; if (obj) continue; }
+    //       return 0;
+    //     }
+    //     _DWORD *v7 = RectangleClipping(obj[0], obj[1], obj[2], obj[3]);
+    //     char v8 = 1;
+    //     if (v7) {
+    //       _DWORD *v9 = v7;
+    //       while (sub_491170(a1, v9)) { v9 = v9[3]; if (!v9) { v8 = 1; goto relink; } }
+    //       v8 = 0;
+    //     relink:
+    //       do { _DWORD *n = v7; v7 = v7[3]; LinkedListNodePrepend(n); } while (v7);
+    //     }
+    //     return v8;
+    //   }
+    // UNRESOLVED: sub_491680 is an unlabeled callee; the exact filter semantics that select an AABB for rectangle clipping are unresolved.
+    // UNRESOLVED: Argument a2 is accepted but never referenced by the decompiled body; its purpose is unresolved.
+    // UNRESOLVED: The recursive call passes the clip node as its second argument, but the meaning of that argument in the recursion is unresolved.
+    // UNRESOLVED: The two pointer chains (obj and the cursor-derived next-node chain) are treated as reading the same node value; that equivalence is DERIVED.
+}

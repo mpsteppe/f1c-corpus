@@ -1,0 +1,49 @@
+void __cdecl _free_lc_time(LPVOID *a1)
+{
+  if ( a1 )
+  {
+    sub_5C1B88(a1[1]);
+    sub_5C1B88(a1[2]);
+    sub_5C1B88(a1[3]);
+    sub_5C1B88(a1[4]);
+    sub_5C1B88(a1[5]);
+    sub_5C1B88(a1[6]);
+    sub_5C1B88(*a1);
+    sub_5C1B88(a1[8]);
+    sub_5C1B88(a1[9]);
+    sub_5C1B88(a1[10]);
+    sub_5C1B88(a1[11]);
+    sub_5C1B88(a1[12]);
+    sub_5C1B88(a1[13]);
+    sub_5C1B88(a1[7]);
+    sub_5C1B88(a1[14]);
+    sub_5C1B88(a1[15]);
+    sub_5C1B88(a1[16]);
+    sub_5C1B88(a1[17]);
+    sub_5C1B88(a1[18]);
+    sub_5C1B88(a1[19]);
+    sub_5C1B88(a1[20]);
+    sub_5C1B88(a1[21]);
+    sub_5C1B88(a1[22]);
+    sub_5C1B88(a1[23]);
+    sub_5C1B88(a1[24]);
+    sub_5C1B88(a1[25]);
+    sub_5C1B88(a1[26]);
+    sub_5C1B88(a1[27]);
+    sub_5C1B88(a1[28]);
+    sub_5C1B88(a1[29]);
+    sub_5C1B88(a1[30]);
+    sub_5C1B88(a1[31]);
+    sub_5C1B88(a1[32]);
+    sub_5C1B88(a1[33]);
+    sub_5C1B88(a1[34]);
+    sub_5C1B88(a1[35]);
+    sub_5C1B88(a1[36]);
+    sub_5C1B88(a1[37]);
+    sub_5C1B88(a1[38]);
+    sub_5C1B88(a1[39]);
+    sub_5C1B88(a1[40]);
+    sub_5C1B88(a1[41]);
+    sub_5C1B88(a1[42]);
+  }
+}

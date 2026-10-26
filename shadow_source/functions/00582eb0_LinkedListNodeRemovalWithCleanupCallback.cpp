@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00582EB0
+// Canonical corpus name: LinkedListNodeRemovalWithCleanupCallback
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LinkedListNodeRemovalWithCleanupCallback_00582eb0.c
+
+void UnknownObject::LinkedListNodeRemovalWithCleanupCallback()
+{
+    // Linked-list head-node removal (__thiscall): reads the head node's data value, clears the head node's cleanup flag at node offset 8, then scans the chain from the head matching a node whose data value equals the head's data value, unlinking the match. Updates head, tail, current-iterator and count bookkeeping on this. Frees the removed node's data via FreeWrapper_7bcf only if the node's cleanup flag is set and its data pointer is non-null, then frees the node itself. Returns the removed data value, or 0 on the empty-list / not-found paths.
+    // ASSIGNMENT: Snapshot head pointer v1 = *this, seed result = 0, compute the null test *this == 0, and set this[2] = *this (current iterator to head). [field:this:0x00000000, field:this:0x00000008, source:raw]
+    // GUARD: Guard on *this == 0: on an empty list skip removal entirely and return result (0). [guard:0, field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Read the head node's data value v4 = *v1 (node offset 0). [field:obj:0x00000000, source:raw]
+    // ASSIGNMENT: Clear the head node's cleanup flag at node offset 8 to suppress a later data free. [field:obj:0x00000008, source:raw]
+    // GUARD: Guard on v4 non-null and v5 = *this non-null; otherwise return 0. [field:obj:0x00000000, field:this:0x00000000, source:raw]
+    // LOOP: Scan the chain from the head while *v5 != v4, tracking the previous node in result and advancing via v5[1]; return 0 if the chain ends before a match. [field:obj:0x00000000, source:raw]
+    // STATE_TRANSITION: If the matched node is the current iterator this[2], advance this[2] to the next node. [field:this:0x00000008, source:raw]
+    // ASSIGNMENT: Unlink the matched node: next = v5[1]; if a previous node exists set its next pointer to next, otherwise update the head *this = next. [field:this:0x00000000, source:raw]
+    // ASSIGNMENT: If the removed node is the tail this[1], set this[1] to the previous node. [field:this:0x00000004, source:raw]
+    // CALCULATION: Decrement the node count this[3] by 1. [field:this:0x0000000C, source:raw]
+    // GUARD: If the removed node's cleanup flag at node offset 8 is set and its data pointer *v5 is non-null, free the data via FreeWrapper_7bcf. [field:obj:0x00000008, field:obj:0x00000000, callee:0x00587BCF, source:raw]
+    // CALL: Free the removed node itself via FreeWrapper_7bcf. [callee:0x00587BCF, source:raw]
+    // RETURN: Return the removed node's data value v4; the not-found path returns 0. [field:obj:0x00000000, source:raw]
+    // CALL: Called by sub_57BF00 (0x0057BF00) and NetworkAccept (0x00580190) to remove and free a node from a list. [caller:0x0057BF00, caller:0x00580190, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int* sub_582EB0(int** this) {
+    //     int* node = *this;
+    //     int* prev = 0;
+    //     this[2] = *this;
+    //     if (!*this) return 0;
+    //     int value = *node;
+    //     *((char*)node + 8) = 0;
+    //     if (!value) return 0;
+    //     int* cur = *this;
+    //     while (*cur != value) {
+    //       prev = cur;
+    //       cur = (int*)cur[1];
+    //       if (!cur) return 0;
+    //     }
+    //     if (cur == this[2]) this[2] = (int*)cur[1];
+    //     int* next = (int*)cur[1];
+    //     if (prev) prev[1] = (int)next;
+    //     else *this = next;
+    //     if (this[1] == cur) this[1] = prev;
+    //     this[3] = (int*)((char*)this[3] - 1);
+    //     if (*((char*)cur + 8) && *cur) FreeWrapper_7bcf((void*)*cur);
+    //     FreeWrapper_7bcf(cur);
+    //     return (int*)value;
+    //   }
+    // UNRESOLVED: Because v5 starts at the head whose data value equals v4, the scan always matches the head node deterministically; the traversal loop is effectively a head-removal path, though the code retains the general scan shape.
+    // UNRESOLVED: The head node's cleanup flag is cleared to 0 before the data-free check, so on the actual head-removal path the conditional data free does not run; the flag's original meaning is unknown.
+    // UNRESOLVED: Node layout is 12 bytes (data at 0, next at 4, flag at 8) matching the sibling list helpers; the list owner object and node type are unknown.
+}

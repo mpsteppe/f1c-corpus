@@ -1,0 +1,54 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0048A240
+// Canonical corpus name: F_2DSurfaceBlitWithViewportClipping
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/F_2DSurfaceBlitWithViewportClipping_0048a240.c
+
+void UnknownObject::F_2DSurfaceBlitWithViewportClipping()
+{
+    // Renders a scrollable list area with viewport clipping. When this+0x160 (content height) is positive and ConditionalDelegation_6460(this, 3) returns a child, it computes the child rect size, derives a vertical offset from this+0x150 plus sub_4870E0 and a horizontal offset from sub_487060, clamps the area, draws the scrollbar via ScrollbarAreaRendering, obtains a surface through Accessor and blits it with RenderSurfaceFillCopy, and writes the clipped rect to a2/a3/a4/a5. Always then dispatches UICustomRenderDispatch with 800/600 viewport defaults and clamps the four outputs, returning 0.
+    // ASSIGNMENT: Snapshot outer bounds: v29 = this[1] (this+4), v30 = this[2] (this+8), and read the guard value v8 = this[88] (this+0x160). [source:raw, field:this:0x00000004, field:this:0x00000008, field:this:0x00000160]
+    // GUARD: Proceed on this+0x160 > 0 and ConditionalDelegation_6460(this, 3) returning non-null (child index 3). [source:raw, callee:0x00486460]
+    // CALCULATION: Compute child area size: width v28 = v9[1]-v9[0], height v11 = v9[3]-v9[2]. [source:raw]
+    // CALL: sub_487060(this, 0) computes the horizontal offset v12. [source:raw, callee:0x00487060]
+    // CALL: sub_4870E0(this, 0) computes an offset that is added to this+0x150 (scroll position) to seed v13. [source:raw, callee:0x004870E0, field:this:0x00000150]
+    // CALCULATION: Clamp v13 into the window [v29, v30 - v11] and recompute v30 = v13 + v11 and v29 = v12 + v28. [source:raw]
+    // CALL: ScrollbarAreaRendering(this, 3, 0, v13, v13+v11, v12, v12+v28) draws the scrollbar for the computed rect. [source:raw, callee:0x004868C0]
+    // CALL: Accessor() obtains the surface handle. [source:raw, callee:0x00490920]
+    // CALL: RenderSurfaceFillCopy(surface, v12, v13, v28, v11) blits the surface into the clipped rect. [source:raw, callee:0x004918D0]
+    // ASSIGNMENT: Write the clipped rect to outputs: *a2 = v13, *a3 = v30, *a4 = v12, *a5 = v12+v28. [source:raw]
+    // CALL: UICustomRenderDispatch(this, a2, &a5, &a3, &a2, &v28) dispatches per-item custom rendering; the locals are reset to 800/600 defaults and 0 before the call. [source:raw, callee:0x00489FD0]
+    // CALCULATION: Clamp each of the four output coordinates against the values written back by the dispatch. [source:raw]
+    // RETURN: Return 0. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int F_2DSurfaceBlitWithViewportClipping(void* this, int* outX, int* outX2, int* outY, int* outY2) {
+    //     int x = this[1], y = this[2];
+    //     int contentH = this[88];
+    //     if (contentH > 0) {
+    //       int* child = (int*)ConditionalDelegation_6460(this, 3);
+    //       if (child) {
+    //         int w = child[1] - child[0], h = child[3] - child[2];
+    //         int ox = sub_487060(this, 0);
+    //         int oy = this[84] + sub_4870E0(this, 0);
+    //         if (oy < x) oy = x;
+    //         if (oy > y - h) oy = y - h;
+    //         ScrollbarAreaRendering(this, 3, 0, oy, oy + h, ox, ox + w);
+    //         int* surf = (int*)Accessor();
+    //         RenderSurfaceFillCopy(surf, ox, oy, w, h);
+    //         *outX = oy; *outX2 = oy + h; *outY = ox; *outY2 = ox + w;
+    //       }
+    //     }
+    //     int defH = 600, defW = 800, zero = 0;
+    //     UICustomRenderDispatch((int)this, outX, &defH, &zero, &defW, &zero);
+    //     if (*outX > defH) *outX = defH;
+    //     if (*outX2 < zero) *outX2 = zero;
+    //     if (*outY > defW) *outY = defW;
+    //     if (*outY2 > zero) *outY2 = *outY2;
+    //     return 0;
+    //   }
+    // UNRESOLVED: Hardcoded 800/600 viewport defaults passed into UICustomRenderDispatch.
+    // UNRESOLVED: Roles of sub_487060 and sub_4870E0 are inferred from names, not confirmed.
+    // UNRESOLVED: Meaning of child index 3 for ConditionalDelegation_6460 is unknown.
+    // UNRESOLVED: On the guard-failure path the four output pointers are left untouched before the clamping pass; the final branch on *outY2 vs zero is a no-op.
+}

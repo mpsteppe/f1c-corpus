@@ -1,0 +1,39 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00498D90
+// Canonical corpus name: DualListDestruction
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/DualListDestruction_00498d90.c
+
+void UnknownObject::DualListDestruction()
+{
+    // Destroys two linked lists of objects rooted in this. First restores the object vtable (this+0x0) to the global off_5AC9E8, then iterates the first list starting from the head stored at this+0x48, calling the virtual destructor (vtable[0] with argument 1) on each node while advancing the head. Then obtains the head of a second list via ShortComputation_8f60 and walks it through StructFieldAccessor, again calling the virtual destructor on each node. Returns the result of a final cleanup computation.
+    // ASSIGNMENT: Restore the object vtable: write the global off_5AC9E8 into this+0x0 before virtual dispatch so destruction is safe. [field:this:0x00000000, global:0x005AC9E8, source:raw]
+    // LOOP: Iterate the first linked list while the head stored at this+0x48 is non-zero; each iteration stores the next node back into this+0x48 until the chain is exhausted. [field:this:0x00000048, source:raw]
+    // CALL: Call the virtual destructor on each first-list node: dispatch vtable[0] with argument 1 through the node vtable pointer read at the node base (this+0x48). [field:*(this+0x48):0x00000000, source:raw]
+    // CALCULATION: Advance the first list: read the next-node pointer stored at the current node plus 72 bytes (node+0x48) and carry it forward through this+0x48. [field:this:0x00000048, source:raw]
+    // CALL: Obtain the head of the second linked list by calling ShortComputation_8f60(this). [callee:0x00498F60, source:raw]
+    // LOOP: Iterate the second linked list while the current node pointer is non-zero, starting from the head returned by ShortComputation_8f60. [source:raw]
+    // CALCULATION: Advance the second list by reading the next-node pointer through the *(this+0x90) base at offset 0x48 via StructFieldAccessor. [callee:0x00486320, field:*(this+0x90):0x00000048, source:raw]
+    // CALL: Call the virtual destructor on each second-list node: dispatch vtable[0] with argument 1. [source:raw]
+    // RETURN: Return the result of the final cleanup computation invoked from the return expression. [function:0x00498D90, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_498D90(DWORD *this) {
+    //     DWORD v2 = this[18];                    // this+0x48 first-list head
+    //     this[0] = &off_5AC9E8;                  // restore vtable
+    //     for (; v2 != 0; this[18] = v2) {
+    //       v3 = (vtable **)this[18];
+    //       v2 = *(DWORD *)(v2 + 72);             // next node at node+0x48
+    //       if (v3) (**v3)(v3, 1);                // virtual destructor
+    //     }
+    //     v4 = ShortComputation_8f60(this);       // second-list head
+    //     while (v4 != 0) {
+    //       v5 = (vtable **)v4;
+    //       v4 = StructFieldAccessor(v4);         // next node
+    //       if (v5) (**v5)(v5, 1);                // virtual destructor
+    //     }
+    //     return cleanup_computation(this);       // identity not in packet facts
+    //   }
+    // UNRESOLVED: The cleanup function named ShortComputation_a990 in the raw return expression is absent from the packet callee facts, so its address and role cannot be confirmed here.
+    // UNRESOLVED: The second-list traversal next pointer (read via *(this+0x90) at 0x48) and the first-list next pointer (node+0x48) share offset 0x48, but the packet does not prove the two list node layouts are identical.
+}

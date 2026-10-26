@@ -1,0 +1,33 @@
+## sub_5FB0E0_005fb0e0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_601C90 (00601c90)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(this+0x128) | 0x4 | R | — | [LLM] |
+| *(this+0x128) | 0x8 | R | — | [LLM] |
+| *(this+0x128) | 0xC | R | — | [LLM] |
+| *(this+0x128) | 0x14 | R | — | [LLM] |
+| *(this+0x128) | 0x18 | R | — | [LLM] |
+| this | 0x120 | R | — | [LLM] |
+| this | 0x128 | RW | — | [LLM] |
+| this | 0x12C | R | — | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x128: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "address": "0x00405160",
+  "proposed_name": "ResourceBackedMemoryAllocation",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Resource-backed allocation/reallocation router. Maps the mode parameter a3 (0, 1, or 2) to an internal flag v4, then looks up the resource node by ID through the resource manager singleton (with linked-list fallbacks) to obtain a base size and offset. Finally calls sub_58C724 with mode-dependent size arguments and normalizes its result: a non-1 return is decremented by the base size before being returned.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Map the mode parameter a3 to internal flag v4: 0 -> 0, 1 -> 1, 2 -> 2; any other value maps to 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Ensure the static resource-manager singleton is initialized via OneTimeInitializationWithAtexitStyleRegistration.",
+      "evidence_refs": ["callee:0x00404FE0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Look up the resource node by string or numeric ID via ResourceNodeLookupByStringOrID(singleton, 0, a1).",
+      "evidence_refs": ["callee:0x00407E40", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On a hit, read the node's size from offset +40 into a3 and its offset from offset +36 into v11.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On a node-lookup miss, search the linked list by ID via LinkedListSearchByID(a1); if not found, fall through to sub_58C724(a1, a2, v4) immediately.",
+      "evidence_refs": ["callee:0x00407FB0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On a linked-list miss, perform the ID operation lookup LinkedListNodeSearchByIDOperation(a1, &a3, &v11) that outputs size and offset; if it fails, return sub_58C724(a1, a2, v4) directly.",
+      "evidence_refs": ["callee:0x00408050", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Mode 2 with a2 == 0 takes a dedicated path: sub_58C724(a1, size + offset, 0).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Perform the allocation with mode-adjusted parameters through sub_58C724: mode 1 uses raw a2; mode 0 adds the node size to a2; mode 2 with a2 == 0 uses size plus offset.",
+      "evidence_refs": ["callee:0x0058C724", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the sub_58C724 result when it is 1; otherwise return the result minus the node base size.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int MemoryAllocation_5160(int a1, LONG a2, int a3) {",
+    "  int v4 = (a3 >= 1 && a3 <= 2) ? a3 : 0;",
+    "  int v11 = 0;",
+    "  int a3 = 0;",
+    "  void *mgr = OneTimeInitializationWithAtexitStyleRegistration();",
+    "  int node = ResourceNodeLookupByStringOrID(mgr, 0, a1);",
+    "  if (node) {",
+    "    a3 = *(int*)(node + 40);",
+    "    v11 = *(int*)(node + 36);",
+    "  } else {",
+    "    OneTimeInitializationWithAtexitStyleRegistration();",
+    "    if (!LinkedListSearchByID(a1)) return sub_58C724(a1, a2, v4);",
+    "    OneTimeInitializationWithAtexitStyleRegistration();",
+    "    if (!LinkedListNodeSearchByIDOperation(a1, &a3, &v11)) return sub_58C724(a1, a2, v4);",
+    "  }",
+    "  int r;",
+    "  if (v4 == 2 && !a2) r = sub_58C724(a1, a3 + v11, 0);",
+    "  else if (v4 == 1) r = sub_58C724(a1, a2, 1);",
+    "  else r = sub_58C724(a1, a2 + a3, 0);",
+    "  return (r == 1) ? r : r - a3;",
+    "}"
+  ],
+  "unresolved": [
+    "Semantics of sub_58C724's return value (1 as the success sentinel, and why the returned value is decremented by the node size) are not grounded by the raw source.",
+    "The meaning of the node fields at offsets +36 and +40 is DERIVED from allocation usage, not proven.",
+    "The special mode-2/a2==0 path and its interaction with the caller's allocation intent are not fully explained.",
+    "The resource manager singleton handle passed to the lookup and the string-vs-ID interpretation of a1 are outside this function's evidence."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

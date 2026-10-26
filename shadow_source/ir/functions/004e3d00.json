@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "address": "0x004E3D00",
+  "proposed_name": "WheelSpringDamperForceAndSteering",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Per-frame spring/damper force and steering computation for one wheel. Builds an orthonormal frame from the suspension axis (with a near-vertical fast path and a 2D fallback when this+0xBC is exactly 1.0), computes contact-frame forces, updates spring stiffness and force magnitude (zeroing all force outputs when the force drops to zero), tracks contact-patch displacement, clamps forces to the friction/grip circle, and writes the resulting force components back along the wheel's local axes.",
+  "local_names": {
+    "v30": "lateral_force",
+    "v29": "longitudinal_force",
+    "v33": "longitudinal_input",
+    "v34": "damper_state",
+    "v35": "frame_axis_x",
+    "v37": "frame_axis_y",
+    "v39": "frame_axis_z",
+    "v41": "frame_axis_xb",
+    "v43": "frame_axis_yb",
+    "v45": "frame_axis_zb",
+    "v47": "contact_dx",
+    "v48": "contact_dy",
+    "v58": "lateral_output",
+    "v15": "longitudinal_output"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Branch on suspension compression: if this+0x3C <= 0.985 (near-vertical), use the full 3D suspension-geometry frame; otherwise take the simplified branch.",
+      "evidence_refs": ["field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "In the near-vertical branch, further branch on |this+0x38| >= 0.7071: if true, build the frame by cross-product of suspension axis this+0x38/0x3C/0x40 with the wheel basis and normalize.",
+      "evidence_refs": ["field:this:0x00000038", "field:this:0x0000003C", "field:this:0x00000040", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "In the |this+0x38| >= 0.7071 sub-branch, compute the normalized frame vectors (v41/v43/v45 and v35/v37/v39) from the suspension axis using cross products and a 1/sqrt normalization.",
+      "evidence_refs": ["field:this:0x00000038", "field:this:0x0000003C", "field:this:0x00000040", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "In the |this+0x38| < 0.7071 sub-branch, build the frame from the negated suspension axis and normalize it.",
+      "evidence_refs": ["field:this:0x00000038", "field:this:0x0000003C", "field:this:0x00000040", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Project the wheel velocity (this+0x18/0x1C/0x20) onto the frame axes to obtain the lateral force v30 and longitudinal force v29.",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x0000001C", "field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "In the simplified branch (this+0x3C > 0.985), if the packed flag this+0xBC equals 1.0, take the direct fallback: v30 = this+0x18, v29 = this+0x20.",
+      "evidence_refs": ["guard:0", "field:this:0x000000BC", "field:this:0x00000018", "field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "In the simplified branch when this+0xBC != 1.0, apply the 2D rotation to the wheel velocity using this+0xBC/0xC0.",
+      "evidence_refs": ["guard:0", "field:this:0x000000BC", "field:this:0x000000C0", "field:this:0x00000018", "field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute longitudinal input v33 = v29 - this+0x90 * this+0x30 and damper state v34 = this+0xB8 * this+0x44 + this+0x58, then store v34 back into this+0x58.",
+      "evidence_refs": ["field:this:0x00000090", "field:this:0x00000030", "field:this:0x000000B8", "field:this:0x00000044", "field:this:0x00000058", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Clamp damper velocity v9 to this+0xAC and scale by this+0xA8 to form the compression term.",
+      "evidence_refs": ["field:this:0x00000044", "field:this:0x000000AC", "field:this:0x000000A8", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set spring stiffness this+0x48 to 5.0.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute spring force magnitude this+0x4C = (compression + 1.0) * this+0x9C * this+0x44.",
+      "evidence_refs": ["field:this:0x0000004C", "field:this:0x0000009C", "field:this:0x00000044", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If this+0x4C <= 0.0, zero out this+0x50, this+0x54, this+0xD8, this+0xDC, this+0xE0 and return immediately.",
+      "evidence_refs": ["field:this:0x0000004C", "field:this:0x00000050", "field:this:0x00000054", "field:this:0x000000D8", "field:this:0x000000DC", "field:this:0x000000E0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set the force-active flag this+0x50 to 1.0.",
+      "evidence_refs": ["field:this:0x00000050", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If this+0x30 != 0.0, skip contact-patch tracking and jump to the grip-clamp block.",
+      "evidence_refs": ["field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute contact displacement v47 = this+0xC4 - this+0x0 and v48 = this+0xC8 - this+0x8.",
+      "evidence_refs": ["field:this:0x000000C4", "field:this:0x00000000", "field:this:0x000000C8", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the squared contact displacement >= 0.005625, skip the slip/skid computation block.",
+      "evidence_refs": ["field:this:0x000000C4", "field:this:0x00000000", "field:this:0x000000C8", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Project the contact-patch relative velocity onto the a2 basis vectors (a2[0..8], the second parameter) to obtain slip components v51/v54/v57.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Rotate the slip components into the suspension frame: if this+0x3C <= 0.985 use the 3D frame; else if this+0xBC == 1.0 take the direct component fallback; else apply the 2D rotation.",
+      "evidence_refs": ["field:this:0x0000003C", "guard:0", "field:this:0x000000BC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute raw force outputs v58 = v13 * 16000.0 - v30 * 1050.0 and v15 = v32 * 16000.0 - v29 * 1050.0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the force magnitude squared exceeds the grip limit (this+0x4C squared), enter the friction-clamp block: update contact position this+0xC4/0xC8, scale forces by -(this+0x4C / speed * this+0x94), and renormalize when the result exceeds the grip circle.",
+      "evidence_refs": ["field:this:0x0000004C", "field:this:0x000000C4", "field:this:0x000000C8", "field:this:0x00000094", "field:this:0x00000050", "field:this:0x00000058", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Combine accumulated slip: v23 = this+0x54 - v15 * this+0x90; add or subtract damper state this+0x58 depending on the preceding comparison flags (v21|v22).",
+      "evidence_refs": ["field:this:0x00000054", "field:this:0x00000090", "field:this:0x00000058", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the spring damping correction v25 = this+0x70 * this+0x6C * this+0x90 * v24 and the doubled term v26 = 2 * v25; form v27 = v33 - v26.",
+      "evidence_refs": ["field:this:0x00000070", "field:this:0x0000006C", "field:this:0x00000090", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v33 * v27 < 0, clamp the longitudinal force v15 to the damper-limited range using v31 = fabs(v27 / (v26 * this+0x90) * v24).",
+      "evidence_refs": ["field:this:0x00000090", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Update the slip accumulator this+0x54 = this+0x54 - v15 * this+0x90.",
+      "evidence_refs": ["field:this:0x00000054", "field:this:0x00000090", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Write the final force components: if this+0x3C <= 0.985 store v35/v37/v39-rotated components into this+0xD8/0xDC/0xE0; else if this+0xBC == 1.0 store this+0xDC=0, this+0xE0=v15, this+0xD8=v58; else store the 2D-mixed components.",
+      "evidence_refs": ["field:this:0x0000003C", "guard:0", "field:this:0x000000BC", "field:this:0x000000D8", "field:this:0x000000DC", "field:this:0x000000E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void WheelSpringDamperForceAndSteering(wheel, contactFrame) {",
+    "  float lateral, longitudinal;",
+    "  if (wheel.compression <= 0.985) {",
+    "    // build orthonormal frame from suspension axis, then project velocity",
+    "    lateral = dot(frame_x, wheel.velocity); longitudinal = dot(frame_z, wheel.velocity);",
+    "  } else {",
+    "    if (wheel.flag == 1.0) { lateral = wheel.velX; longitudinal = wheel.velZ; }",
+    "    else { lateral = rot2D.a * wheel.velX - wheel.velZ * rot2D.b; longitudinal = rot2D.a * wheel.velZ + rot2D.b * wheel.velX; }",
+    "  }",
+    "  float input = longitudinal - wheel.invMass * wheel.rate;",
+    "  float damper = wheel.axisB * wheel.compVel + wheel.damperState; wheel.damperState = damper;",
+    "  float comp = min(wheel.compVel, wheel.maxComp) * wheel.rateFactor;",
+    "  wheel.stiffness = 5.0;",
+    "  wheel.force = (comp + 1.0) * wheel.damperCoef * wheel.compVel;",
+    "  if (wheel.force <= 0.0) { wheel.active = 0; wheel.slip = 0; wheel.fx = wheel.fy = wheel.fz = 0; return; }",
+    "  wheel.active = 1.0;",
+    "  if (wheel.rate == 0.0) {",
+    "    // contact-patch tracking + slip projection + force clamp against grip",
+    "  }",
+    "  wheel.slip -= v15 * wheel.invMass;",
+    "  wheel.fx/fy/fz = frame_rotate(v15, v58);",
+    "}"
+  ],
+  "unresolved": [
+    "Global reads flt_59E43C, flt_59E440, flt_59E7F8, flt_59E7FC, flt_5AD148, flt_5AD168, flt_5AD16C, flt_5AD170 and dbl_5AD178 are reported by the packet but none are visible in the recovered raw source; the scalar literals (0.985, 0.7071, 5.0, 16000.0, 1050.0, 0.005625) are inlined, so the globals are likely consumed by helper or constant-table code not surfaced here.",
+    "The branch at the damper-state combination depends on compiler comparison flags (v21|v22 carry/zero) whose source-level condition is not recoverable from this decompilation.",
+    "The a2 parameter (contact-patch frame, 9 floats) semantics are inferred from usage; its layout is not described by the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E7F8",
+    "global:0x0059E7FC",
+    "global:0x005AD148",
+    "global:0x005AD168",
+    "global:0x005AD16C",
+    "global:0x005AD170",
+    "global:0x005AD178"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

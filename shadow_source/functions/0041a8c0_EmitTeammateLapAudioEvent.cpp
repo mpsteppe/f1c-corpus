@@ -1,0 +1,27 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0041A8C0
+// Canonical corpus name: AISessionEventAudio
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AISessionEventAudio_0041a8c0.c
+
+void UnknownObject::EmitTeammateLapAudioEvent()
+{
+    // On lap completion, fires audio message 55 through the driver data table when the race is active, the track condition state is non-zero, the passed entrant shares the team/constructor ID (field +0x4894) with the player vehicle, and the race phase is not 8.
+    // GUARD: Race-active gate: proceed only when dword_7D0308 (RaceActiveFlag) is non-zero; fired from LapCompletion (caller 0x004BC4E0). [global:0x007D0308, caller:0x004BC4E0, function:0x0041A8C0, source:raw]
+    // GUARD: Track-condition gate: require flt_7CF3C8 != 0.0; the packet lists flt_59E440 as a read global, consistent with a zero-threshold constant feeding this comparison. [global:0x007CF3C8, global:0x0059E440, source:raw]
+    // GUARD: Teammate gate: require the player vehicle's +0x4894 (dword_7C54E8) to equal the passed entrant's +0x4894 — same team/constructor ID. [global:0x007C54E8, field:this:0x00004894, source:raw]
+    // GUARD: Race-phase gate: require dword_7C56A8 != 8 to exclude the phase-8 race state. [global:0x007C56A8, source:raw]
+    // CALL: Populate a driver data entry via DriverDataTableLookupAndTimeConversion (callee 0x004144F0) with message ID 55 and driver/timing parameters. [callee:0x004144F0, source:raw]
+    // CALL: Insert the populated entry into the shared driver data table via InsertDriverTableEntry (callee 0x00418560), passing flt_5EA618 as the table target. [callee:0x00418560, global:0x005EA618, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (dword_7D0308 && flt_7CF3C8 != 0.0 && dword_7C54E8+0x4894 == a1+0x4894 && dword_7C56A8 != 8) {
+    //     DriverDataTableLookupAndTimeConversion(v1, 55, -1, -1, -1, -1, -2.0, -2.0);
+    //     InsertDriverTableEntry(flt_5EA618, v1);
+    //   }
+    // UNRESOLVED: The literal message ID 55 and the -1/-2.0 parameters of the lookup are packet-inline constants; their semantic meaning is not independently established.
+    // UNRESOLVED: The exact meaning of race phase value 8 at dword_7C56A8 is not resolved by this packet.
+    // UNRESOLVED: flt_59E440 appears as a read global in the packet but is not a visible operand in the raw source; its role as a zero threshold is inferred.
+    // UNRESOLVED: Owner of the function and of field +0x4894 (team/constructor ID) is unproven; owner kept UNKNOWN.
+    // UNRESOLVED: ABI lead name AI_Session_Event_Audio offers no class-level owner evidence.
+}

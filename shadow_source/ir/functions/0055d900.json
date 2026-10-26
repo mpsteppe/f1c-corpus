@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "address": "0x0055D900",
+  "proposed_name": "VertexColorPackWithMMX",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Two-path vertex color fill. When bit 0x20 at byte this[1]+156 is set, copies a color dword per vertex directly from the source array (base this[3], stride 48) into the destination array (base this[8], stride 64) at offset +24. Otherwise computes colors through D3D-device vtable methods at offsets +24 and +20 (device at dword_8B8F24, context at dword_8B8F28), scales alpha at this[1]+80 by 255.0, packs RGBA via MMX _m_packuswb against qword_8B6C20, and writes the single packed color to every vertex of the destination array.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Bit 0x20 at byte this[1]+156 selects the direct copy path.",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Vertex count this[2] is greater than zero.",
+      "evidence_refs": ["guard:0", "field:this:0x00000008"]
+    },
+    {
+      "kind": "loop",
+      "description": "Copy the color dword at offset +24 from source vertex i (base this[3], stride 48) to destination vertex i (base this[8], stride 64) for count = this[2].",
+      "evidence_refs": ["field:this:0x0000000C", "field:this:0x00000020", "field:this:0x00000008"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoke D3D-device vtable method at offset +24 on dword_8B8F24 (context dword_8B8F28, node pointer at dword_8B8F28 + 288, render state this[1]), storing result in v15.",
+      "evidence_refs": ["global:0x008B8F24", "global:0x008B8F28", "field:this:0x00000004"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoke D3D-device vtable method at offset +20 on dword_8B8F24 (render state this[1]), storing result in v14.",
+      "evidence_refs": ["global:0x008B8F24", "field:this:0x00000004"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Scale alpha at this[1]+80 by 255.0 (constant flt_59FEC8) and combine with the v14/v15 channel sums.",
+      "evidence_refs": ["global:0x0059FEC8", "field:this:0x00000004"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Pack the combined color components to bytes via MMX _m_packuswb against qword_8B6C20 and extract with _mm_cvtsi64_si32; clear MMX state with _m_empty.",
+      "evidence_refs": ["global:0x008B6C20"]
+    },
+    {
+      "kind": "guard",
+      "description": "Vertex count this[2] is greater than zero (computed-color path).",
+      "evidence_refs": ["guard:0", "field:this:0x00000008"]
+    },
+    {
+      "kind": "loop",
+      "description": "Write the single packed color to offset +24 of every vertex in the destination array (base this[8], stride 64) for count = this[2].",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000008"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the final count / result value.",
+      "evidence_refs": ["function:0x0055D900", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_55D900(_DWORD *this, int a2) {",
+    "  if (*(_BYTE*)(this[1] + 156) & 0x20) {",
+    "    int n = this[2];",
+    "    for (int i = 0; i < n; i++)",
+    "      *(_DWORD*)(this[8] + i*64 + 24) = *(_DWORD*)(this[3] + i*48 + 24);",
+    "    return n;",
+    "  }",
+    "  int ctx = *(_DWORD*)(dword_8B8F28 + 288);",
+    "  (*(void (__thiscall **)(int, int, int, _DWORD, float*))(*(_DWORD*)dword_8B8F24 + 24))(",
+    "      dword_8B8F24, dword_8B8F28, ctx, this[1], v15);",
+    "  (*(void (__thiscall **)(int, int, _DWORD, float*))(*(_DWORD*)dword_8B8F24 + 20))(",
+    "      dword_8B8F24, ctx, this[1], v14);",
+    "  __m64 v13 = pack16s((short)((float)*(float*)(this[1] + 80) * 255.0),",
+    "      (short)(v14[0] + v15[0]), (short)(v14[1] + v15[1]), (short)(v14[2] + v15[2]));",
+    "  int color = _mm_cvtsi64_si32(_m_packuswb(v13, qword_8B6C20));",
+    "  _m_empty();",
+    "  int n = this[2];",
+    "  for (int i = 0; i < n; i++)",
+    "    *(_DWORD*)(this[8] + i*64 + 24) = color;",
+    "  return n;",
+    "}"
+  ],
+  "unresolved": [
+    "Fields this+0x54 and this+0xA0 are listed by static extraction but are not accessed in this function body; their roles are unconfirmed.",
+    "The two indirect D3D vtable calls (offsets +24 and +20) are dispatched through dword_8B8F24 and have no resolved callee address in this packet.",
+    "Exact meaning of the direct-copy path when bit 0x20 is set (same-structure copy vs. lighting bypass) is not proven."
+  ],
+  "unresolved_evidence_refs": ["field:this:0x00000054", "field:this:0x000000A0"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

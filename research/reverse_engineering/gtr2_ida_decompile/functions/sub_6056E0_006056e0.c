@@ -1,0 +1,45 @@
+_DWORD *__thiscall sub_6056E0(_DWORD *this)
+{
+  sub_5D9010(this);
+  *this = 0;
+  this[1] = 0;
+  this[2] = 0;
+  this[3] = 0;
+  this[4] = 0;
+  this[5] = 0;
+  this[6] = 0;
+  this[7] = 0;
+  this[8] = 0;
+  this[65] = 0;
+  this[66] = 0;
+  this[67] = 0;
+  this[68] = 0;
+  this[69] = 0;
+  this[70] = 0;
+  this[71] = 0;
+  this[72] = 0;
+  this[73] = 0;
+  this[74] = 0;
+  this[131] = 0;
+  this[132] = 0;
+  this[133] = 0;
+  this[134] = 0;
+  this[135] = 0;
+  this[136] = 0;
+  this[137] = 0;
+  this[138] = 0;
+  this[139] = 0;
+  this[140] = 0;
+  this[197] = 0;
+  this[198] = 0;
+  this[199] = 0;
+  this[200] = 0;
+  this[201] = 0;
+  this[202] = 0;
+  this[203] = 0;
+  this[204] = 0;
+  this[205] = 0;
+  this[206] = 0;
+  this[207] = 0;
+  return this;
+}

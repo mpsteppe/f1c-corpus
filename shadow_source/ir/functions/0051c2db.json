@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "address": "0x0051C2DB",
+  "proposed_name": "ImageResampleFilter",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Vertical image resampler. Blends each source pixel with a neighboring row using a 3:1 weighted convolution (shifts by 4) to produce output rows. Processes exactly two source-row pairs per output row. When channel count (a2+40) differs from 2, an interior loop blends the remaining channels of each pixel.",
+  "local_names": {
+    "a1": "sourceRows",
+    "a2": "filterContext",
+    "a3": "outputRows",
+    "a4": "indexTablePtr",
+    "v5": "centerPixel",
+    "v6": "neighborPixel",
+    "v7": "destPixel",
+    "v8": "blendCenter",
+    "v11": "blendNext",
+    "v17": "indexTable",
+    "v19": "outputRowPtr",
+    "v21": "rowIndex",
+    "v22": "pairIndex"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load index table base v17 = *a4 (a4 parameter, not a field).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If row count a1[68] (this+0x110) > 0, process output rows; otherwise return early.",
+      "evidence_refs": ["guard:0", "field:this:0x00000110"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner loop processes exactly two source-row pairs (pairIndex < 2) per output row.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read center pixel byte v5 = *result (obj+0x0) and neighbor pixel byte v6 from adjacent row (obj+0x0 of neighbor).",
+      "evidence_refs": ["field:obj:0x00000000"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute first weighted blend v8 = neighborChannel + 3 * centerChannel for channel 0.",
+      "evidence_refs": ["field:obj:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute next-channel weighted blend v11 = nextNeighborChannel + 3 * nextCenterChannel using obj+0x1 channel bytes.",
+      "evidence_refs": ["field:obj:0x00000001", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write blended result bytes to destination pixel v7 = *(indexTable + 4 * rowIndex), including obj+0x2-derived channel outputs.",
+      "evidence_refs": ["field:obj:0x00000002", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If channel count (a2+40) != 2, run the interior blend loop for remaining channels.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Interior loop blends successive channel bytes with (3*prev + cur + offset) >> 4 pattern until channel counter reaches 1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Emit tail pixel bytes *v14 = (v11 + v8 + 2*v11 + 8) >> 4 and v14[1] = (4*v11 + 7) >> 4.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer loop advances output row pointer and rowIndex until rowIndex >= row count a1[68] (this+0x110).",
+      "evidence_refs": ["field:this:0x00000110", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return advanced output row pointer.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "unsigned __int8 **ImageResampleFilter(sourceRows, context, outputRows, indexTable) {",
+    "  tbl = *indexTable;",
+    "  if (sourceRows[68] <= 0) return sourceRows;",
+    "  for (row = 0; row < sourceRows[68]; row++) {",
+    "    for (pair = 0; pair < 2; pair++) {",
+    "      center = outputRows[row][pair];",
+    "      neighbor = pair ? outputRows[row][pair-1] : outputRows[row][1];",
+    "      dest = *(tbl + 4 * row);",
+    "      b0 = neighbor[0] + 3 * center[0];",
+    "      b1 = neighbor[1] + 3 * center[1];",
+    "      dest[0] = (4 * b0 + 8) >> 4;",
+    "      dest[1] = (b0 + b1 + 2 * b0 + 7) >> 4;",
+    "      if (context[40] != 2)",
+    "        for (ch = context[40] - 2; ch != 1; ch--) { blend interior channels; }",
+    "      dest[n] = (b1 + b0 + 2 * b1 + 8) >> 4;",
+    "      dest[n+1] = (4 * b1 + 7) >> 4;",
+    "    }",
+    "  }",
+    "  return outputRows + rows;",
+    "}"
+  ],
+  "unresolved": [
+    "field this+0x0, this+0x4, this+0x5, this+0x6 are listed in evidence but never explicitly dereferenced in the raw source; cannot attribute to an operation.",
+    "Channel byte fields obj+0x0/0x1/0x2 are treated as consecutive pixel channels; exact format (RGB vs RGBA) unproven.",
+    "No callers or callees; owner object and filter context struct (a2) types unknown."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000005",
+    "field:this:0x00000006"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

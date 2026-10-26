@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "address": "0x0059AE24",
+  "proposed_name": "ExceptionDestructorSEHWrapper",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "SEH-guarded destructor wrapper for a std::logic_error exception object. Sets up an SEH handler frame whose landing pad is global 0x0059D574, resets the exception object's vtable to std::logic_error, releases the internal string buffer via a reference-count decrement with conditional free, toggles a frame guard flag from 0 to -1, and chains to the underlying MSVC exception destructor.",
+  "local_names": {
+    "v1": "exception object pointer (arrives via ecx, uninitialized in decompiler view)",
+    "v2": "saved copy of the exception object pointer for the final chain",
+    "a1": "caller frame pointer; frame-relative slots a1-16 and a1-4"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Initialize the SEH handler frame on the stack; the landing pad at global 0x0059D574 is the continuation point.",
+      "evidence_refs": ["callee:0x0058A5D8", "global:0x0059D574"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Save the exception object pointer for the final destructor chain: v2 = v1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the exception object pointer into the stack frame slot (a1 - 16) for the SEH landing pad.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the std::logic_error vtable into the exception object: *v1 = &std::logic_error::`vftable'.",
+      "evidence_refs": ["global:0x005B9D7C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the frame guard flag: *(a1 - 4) = 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the exception's internal string buffer: ReferenceCountDecrementWithConditionalFree(v1 + 3, 1).",
+      "evidence_refs": ["callee:0x005993AF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set the frame guard flag to released: *(a1 - 4) = -1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Chain to the underlying MSVC exception destructor: MSVCExceptionDestructor(v2).",
+      "evidence_refs": ["callee:0x0059BFA0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result of MSVCExceptionDestructor.",
+      "evidence_refs": ["callee:0x0059BFA0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_59AE24(int frame) {",
+    "  SEHHandlerInit();",
+    "  int obj = <exception object pointer in ecx on entry>;",
+    "  _DWORD *saved = obj;",
+    "  *(_DWORD *)(frame - 16) = obj;",
+    "  *obj = &std::logic_error::`vftable';",
+    "  *(_DWORD *)(frame - 4) = 0;",
+    "  ReferenceCountDecrementWithConditionalFree(obj + 3, 1);",
+    "  *(_DWORD *)(frame - 4) = -1;",
+    "  return MSVCExceptionDestructor(saved);",
+    "}"
+  ],
+  "unresolved": [
+    "v1 arrives via ecx and is uninitialized in the decompiled view; the identity of the thrown exception instance is caller-supplied and unknown here.",
+    "The frame slot (a1 - 16) is consumed by the SEH landing pad; its exact unwind-time role is not proven by the packet.",
+    "The frame slot (a1 - 4) is toggled 0 then -1; its guard/release semantics are inferred, not confirmed.",
+    "The second argument 1 to ReferenceCountDecrementWithConditionalFree and the buffer at v1 + 3 are not further described by the packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

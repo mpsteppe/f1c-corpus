@@ -1,0 +1,87 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0056F100
+// Canonical corpus name: sub_56F100
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_56F100_0056f100.c
+
+void UnknownObject::TransformBodiesToLocalReferenceFrame()
+{
+    // Transforms a set of rigid bodies into the local reference frame of a target body. When a5 is nonzero it first marks the active subset: it locates body a2 in the array at this+0x4 (stride 580), then iterates three batch arrays (this+0xC stride 48, this+0x14 stride 48, this+0x1C stride 72) whose bodies carry a flag byte at +44 (first/second batch) or +68 (third batch); active bodies have their two contact partners resolved and flagged, and the walk repeats until a pass adds no new body. When a5 is zero every body is flagged active. The transform then copies the reference position (a2+4) and rotation (a2+28), builds the local rotation via EulerAnglesTo33RotationMatrix and F_33MatrixMultiply, and for each flagged body translates its position relative to the reference and rewrites its orientation matrix plus Euler angles, finishing with FloatConvertWrapper and F_3x3RotationTensorMatrixTransform.
+    // GUARD: Branch on a5: when a5 == 0 skip the body-selection walk and treat every body as active; otherwise clear the active flags first. [source:raw]
+    // CALL: When a5 == 0, fill the 32-byte flag buffer v56 with 1 for all *this bodies via memset (length derived from the count). [source:raw]
+    // CALL: When a5 != 0, zero the flag buffer v56 via memset over the body count. [source:raw]
+    // LOOP: Walk the body array at this+0x4 (element stride 580) to find the index of body a2, guarded by *this > 0, and mark that index active in v56. [source:raw, guard:0, field:this:0x00000000, field:this:0x00000004]
+    // CALCULATION: Compute the total batch size v11 = first-batch count (this+0x8) + third-batch count (this+0x18) + second-batch count (this+0x10). [source:raw, field:this:0x00000008, field:this:0x00000018, field:this:0x00000010]
+    // LOOP: Iterate the three batch arrays (pointers this+0xC, this+0x14, this+0x1C with per-element strides 48, 48, 72); for each entry read the flag byte at element+44 (first/second batch) or element+68 (third batch) and skip the element when (flag & 1) == 0. [source:raw, field:this:0x0000000C, field:this:0x00000014, field:this:0x0000001C]
+    // LOOP: For each still-active batch element, read its two body references at element+4 and element+12, resolve both against the body array (stride 580) and set their flag bytes in v56; set v35 when a previously inactive body became active. [source:raw, field:this:0x00000004]
+    // LOOP: Repeat the batch walk until a full pass adds no new active body (v35 remains clear). [source:raw]
+    // ASSIGNMENT: Copy the reference body's position (a2+4, 3 doubles) into the local buffer v58. [source:raw]
+    // CALL: Call EulerAnglesTo33RotationMatrix(v61, a4) to build the reference-frame rotation matrix from Euler angles. [source:raw, callee:0x0056BD40]
+    // ASSIGNMENT: Copy the reference body's rotation matrix (a2+28, 9 doubles) into v49 and transpose it into v55. [source:raw]
+    // CALL: Call F_33MatrixMultiply(v61, v55, v66) to compose the local-space rotation matrix. [source:raw, callee:0x0056C740]
+    // LOOP: Iterate all bodies while the index < *this; for each body whose flag in v56 is set, translate its position (body+4) by the reference offset v58 and rotate it through the v49/v61 matrices, writing the new position back to body+4. [source:raw, field:this:0x00000000, field:this:0x00000004]
+    // CALL: Call F_33MatrixMultiply(v66, body+28, v62) to compute the body's local orientation matrix. [source:raw, callee:0x0056C740]
+    // CALCULATION: Recover the Euler angles from the local matrix v62 via atan2, comparing fabs(v63) against the constant held at dbl_59E420 (1.0) to select the degenerate axis case. [source:raw, global:0x0059E420]
+    // CALL: Call FloatConvertWrapper(v34) to clamp/convert the recovered angle values. [source:raw, callee:0x00588570]
+    // CALL: Call F_3x3RotationTensorMatrixTransform(body, &v52) to apply the final rotation tensor to the body. [source:raw, callee:0x005691D0]
+    // RETURN: Return the final loop index result. [source:raw, function:0x0056F100]
+
+    // Conservative worker pseudocode:
+    //   int TransformBodiesToLocalReferenceFrame(int *this, int target, double *refPos, long double *euler, char select) {
+    //     byte flags[32]; int count = *this;
+    //     if (!select) {
+    //       memset(flags, 1, (count >> 2) * 4 + (count & 3));
+    //     } else {
+    //       memset(flags, 0, count);
+    //       for (i = 0; i < count; ++i) if (target == this[1] + i * 580) { flags[i] = 1; break; }
+    //       bool changed;
+    //       do {
+    //         changed = false;
+    //         int n1 = this[2], n2 = this[4], n3 = this[6], total = n1 + n2 + n3;
+    //         for (i = 0; i < total; ++i) {
+    //           int e = batchPointerFor(i);
+    //           byte f = i < n1 || i < n1 + n2 ? *(byte*)(e + 44) : *(byte*)(e + 68);
+    //           if ((f & 1) == 0) continue;
+    //           int p1 = *(int*)(e + 4), p2 = *(int*)(e + 12);
+    //           for (b = 0; b < count; ++b) {
+    //             if (!flags[b]) continue;
+    //             int cand = this[1] + b * 580;
+    //             int hit = (p1 == cand) ? p2 : (p2 == cand) ? p1 : 0;
+    //             if (hit) { find index j of hit; if (!flags[j]) changed = true; flags[j] = 1; }
+    //           }
+    //         }
+    //       } while (changed);
+    //     }
+    //     double refPos[3]; memcpy(refPos, target + 4, sizeof(refPos));
+    //     double rM[9]; EulerAnglesTo33RotationMatrix(rM, euler);
+    //     double refRot[9]; memcpy(refRot, target + 28, sizeof(refRot));
+    //     double refRotT[9]; transpose(refRot, refRotT);
+    //     double localRot[9]; F_33MatrixMultiply(rM, refRotT, localRot);
+    //     for (i = 0; i < count; ++i) {
+    //       if (!flags[i]) continue;
+    //       int body = this[1] + i * 580;
+    //       double d = body[4] - refPos[0]; double e = body[5] - refPos[1]; double f = body[6] - refPos[2];
+    //       double x = refRot[0]*d + refRot[3]*e + refRot[6]*f;
+    //       double y = refRot[1]*d + refRot[4]*e + refRot[7]*f;
+    //       double z = refRot[2]*d + refRot[5]*e + refRot[8]*f;
+    //       body[4] = rM[0]*x + rM[1]*y + rM[2]*z + refPos[0];
+    //       body[5] = rM[3]*x + rM[4]*y + rM[5]*z + refPos[1];
+    //       body[6] = rM[6]*x + rM[7]*y + rM[8]*z + refPos[2];
+    //       double m[5]; F_33MatrixMultiply(localRot, body + 28, m);
+    //       double a, b2;
+    //       FloatConvertWrapper(...);
+    //       if (fabs(m[4]) == dbl_59E420) {
+    //         b2 = 0; a = atan2(-m[3], m[0]);
+    //       } else {
+    //         a = atan2(m[2], m[4]); b2 = atan2(m[3], m[5]);
+    //       }
+    //       F_3x3RotationTensorMatrixTransform(body, &angles);
+    //     }
+    //     return i;
+    //   }
+    // UNRESOLVED: The three batch arrays (this+0x8/0xC, this+0x10/0x14, this+0x18/0x1C) and their differing element strides (48, 48, 72) and flag-byte offsets (+44, +68) are only evidenced from inside this function; the concrete batch object types are not established.
+    // UNRESOLVED: The exact semantics of a5 and of the two-body 'partners' resolved during selection are inferred from the flag churn; no packet evidence names the calling system's contract.
+    // UNRESOLVED: Local stack matrices v49/v55/v61/v66/v62 and the v56 flag buffer are decompiler-inferred stack shapes; their in-buffer layout is not independently evidenced.
+    // UNRESOLVED: FloatConvertWrapper's conversion contract is defined by the callee, not resolved here.
+    // UNRESOLVED: The degenerate-axis branch chosen by fabs(v63) == dbl_59E420 is reconstructed from the compare; the naming of v62 elements (m[0..8]) is an approximation of the raw v62[0..4] references.
+}

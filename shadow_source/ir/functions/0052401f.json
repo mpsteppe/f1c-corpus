@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "address": "0x0052401F",
+  "proposed_name": "Matrix4x4TransformationConstructor",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0052401F"]
+  },
+  "summary": "Composes a 4x4 transformation matrix in a1 (8 __m64 slots) from a scale value a2, an optional rotation matrix a4, an optional origin matrix a3 and an optional additive translation a5. First seeds a1 with a diagonal scale matrix (a2 at this+0x0, this+0x10 high cell and this+0x28; this+0x38 homogeneous 1.0/1.0 from a SIMD constant). When a4 is non-null, computes the 3x3 adjugate/inverse of the rotation in stack __m64 locals and multiplies it into the scale-seeded a1 (translating by a3 first when it is non-null, then re-adding it). When a5 is non-null, adds its translation into the last row. Exits 3DNow mode and returns a1.",
+  "local_names": {
+    "a1": "output 4x4 transformation matrix as an array of 8 __m64 values",
+    "a2": "scale value packed into the diagonal of the output matrix",
+    "a3": "optional translation/origin matrix; when non-null it is subtracted, multiplied, then re-added",
+    "a4": "optional rotation matrix whose 3x3 adjugate/inverse is folded into the output",
+    "a5": "optional additive translation matrix applied to the last row",
+    "v6": "a2 promoted to an __m64 for the diagonal seeding",
+    "v118..v124": "stack __m64 locals holding the inverse rotation matrix components used for the multiply"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Seed a1 with a diagonal scale matrix: this+0x0 = a2, this+0x8 = 0, this+0x10 low cell = 0 with high cell = a2, this+0x18 = 0, this+0x20 = 0, this+0x28 = a2, this+0x30 = 0, this+0x38 = 0x3F80000000000000LL (homogeneous 1.0/1.0 from the SIMD constant global)",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "field:this:0x00000010", "field:this:0x00000018", "field:this:0x00000020", "field:this:0x00000028", "field:this:0x00000030", "field:this:0x00000038", "global:0x005AF8E0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When a4 (rotation matrix) is non-null, enter the rotation composition path",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the 3x3 adjugate/inverse of the a4 rotation using 3DNow pfadd/pfmul/pfacc/pfsub and the angle constants from the SIMD constant global, packing the resulting rotation components into the stack __m64 locals (v118..v124)",
+      "evidence_refs": ["global:0x005AF900", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Nested: when a3 (translation/origin matrix) is non-null, subtract a3 from the last row of a1 (this+0x30, this+0x38) before the rotation multiply",
+      "evidence_refs": ["field:this:0x00000030", "field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Multiply the inverse rotation into the scale-seeded matrix, writing the composed 3x3 result back into this+0x0 through this+0x28",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "field:this:0x00000010", "field:this:0x00000018", "field:this:0x00000020", "field:this:0x00000028", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "In the a3 (translation) case, re-add a3 to the last row (this+0x30, this+0x38) so the origin is restored after the rotation",
+      "evidence_refs": ["field:this:0x00000030", "field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When a5 (additive translation) is non-null, add a5's translation into the last row: this+0x30 += a5 low, this+0x38 low cell += a5 high low cell",
+      "evidence_refs": ["field:this:0x00000030", "field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Exit 3DNow mode with _m_femms() before returning",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return a1, the fully composed 4x4 transformation matrix",
+      "evidence_refs": ["function:0x0052401F", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "seed diagonal scale from a2;",
+    "a1[0] = a2; a1[1] = 0; a1[2] = {0, a2}; a1[3] = 0;",
+    "a1[4] = 0; a1[5] = a2; a1[6] = 0; a1[7] = 0x3F80000000000000LL;",
+    "if (a4) {",
+    "  rot = inverse_3x3(a4);",
+    "  if (a3) {",
+    "    a1[6] -= a3[0]; a1[7] -= a3[1];",
+    "    a1 = rot * a1;",
+    "    a1[6] += a3[0]; a1[7] += a3[1];",
+    "  } else {",
+    "    a1 = rot * a1;",
+    "  }",
+    "}",
+    "if (a5) { a1[6] += a5[0]; a1[7] += a5[1]; }",
+    "femms();",
+    "return a1;"
+  ],
+  "unresolved": [
+    "The exact identities of the two SIMD constant globals (qword_5AF8E0 for the identity/homogeneous seeding, qword_5AF900 for the angle pair used in the inverse computation) are DERIVED from prior analysis, not evidenced in the raw source",
+    "The float layout of a3 and a5 as translation matrices (component packed in the low cell of each __m64) is inferred from the last-row arithmetic, not evidenced directly",
+    "The inverse-rotation computation is understood to be an adjugate form, but the precise formula is not recovered"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

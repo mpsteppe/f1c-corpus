@@ -1,0 +1,158 @@
+# OscUiRenderRuntime
+
+Scope: `generic_runtime_objects`  
+Trust: `DERIVED`
+
+Reconstructs the generic runtime object layer from twenty-two validated functions. One GUESS class OscScriptParser groups the OSC script front end (0x004920B0 MAS file loading, 0x00492A40 gizmo definition parsing, 0x00493C80 diagnostic reporter) on shared parse state (+0x18C line number, +0x194 depth, +0x1A4 callback). Three packet-DERIVED classes carry the strongest evidence: FPSOverlayState (0x00495440) for the FPS overlay toggle/accumulate/render state, UIComboBoxObject (0x00495580) for combo-box list-item render state, and SurfaceNodeRegistry (0x00497C40) merged here with 0x00497BA0 on the identical +0x104 list head and node layout (name +0x4, data +0xC, next +0x10). GUESS classes CarDamageOverlayState (0x00495DC0), SurfaceResourceView (0x004973D0) and UIPageLayer (0x00496880) cover the remaining instance-state renderers. Twelve functions stay unowned (list cleanup/traversal helpers, render thunks, resource and title-splash loaders, lookup bridges, and trivial setter 0x004979C0). Two GUESS interfaces (IGizmoTokenHandler, IUiRenderDispatch) and two GUESS state machines (FPSOverlayToggle, CarDamageRenderMode) capture dispatch and mode patterns. Four compatibility contracts record OSC diagnostic reporting, surface-node registry management, FPS overlay update and clipped quad rendering. Several facts-listed globals and fields absent from the raw bodies remain unresolved.
+
+## Function roles
+
+- `0x004920B0` **OscScriptParser** — OSC script/audio entry loader: flushes the audio stream buffer (0x00535390), then reads up to 33 text lines through the line feeder (0x00491FB0), extracts a filename from each with sub_5654A0 against the aSourceMas token (0x005CC524), and loads each file as a bitmap through BitmapLoader (0x004979F0). On load failure formats 'Could Not Load MAS file %s (line %d)' (0x005CC4FC) into byte_7CDCF0 via 0x0058815F using the line number at this+0x18C and reports it via 0x00493C80. Flushes the audio buffer again and always returns 0.
+- `0x00492A40` **OscScriptParser** — Gizmo/widget definition parser: validates and normalizes the definition string (0x00589901), increments the parse depth at this+0x194, creates or looks up the gizmo object via 0x00493FC0, copies parser context (this+0x1A4/+0x1A8/+0x1AC) into it, then tokenizes the definition through the line feeder (0x00491FB0) against 0x00587C20 and dispatches each token (name, position, size, offsets, captions, tooltip, child, actions, attribute set, friend gizmo, variables) to the matching handler. Unknown types format 'undefined gizmo type %s' (0x005CC744) into byte_7CDCF0 via 0x0058815F, report via 0x00493C80, drain remaining tokens (0x00492030) and return 0. Child gizmos recurse into 0x00492A40 and are inserted with 0x00486340. Restores depth on exit and returns the constructed object. Invoked by gizmo parser entries 0x00492160, 0x00492460 and 0x00492710.
+- `0x00493C80` **OscScriptParser** — OSC script parser diagnostic reporter: selects a severity label (Undefined/Warning/Error/CriticalError from 0x005CC960/0x005CC970/0x005CC978/0x005CC980), formats 'OSC %s on line %d : ' (0x005CC948) into the Text buffer via 0x0058815F using the line number at this+0x18C, optionally appends a caller message with the delimiter words (0x005C64D4, 0x005C30B4), lazily opens a log stream (this+0x8, filename at this+67, 'wt' mode 0x005C302C via 0x00587DB0 and 0x00587F64) and writes the header/terminator (0x005887B1). Only severities 2/3 reach the user path: routed to the callback sub_4986D0 when this+0x1A4 is set, else MessageBoxA with the Caption global (0x0059E2A4, 0x005CC938), then UtilityFunction_9ca4 (0x00589CA4) and return through ResourcePathBuilder. Called by five OSC parser functions.
+- `0x00494630` **UnknownObject** — Global-anchored singly linked list teardown: iterates the list rooted at dword_7CDDF0 while the head is non-null, reads the ownership flag byte at node+8, and when set calls EmptyStub_7470 (0x00557470) on the payload at node+0 and frees it (0x00587BCF); frees each node, then zeroes the four list globals dword_7CDDF0 through dword_7CDDFC.
+- `0x00494A70` **UnknownObject** — Clipped 2D textured screen-quad render: clamps the requested width/height to [0,256], sets the clipped region on the destination surface global 0x007CDE08 via ClippedRenderRegion (0x00543250), scales the quad size to UV space by 1/256, configures the four corner UVs via 0x00553650, and draws via 0x00553700 wrapped in ConditionalInit/ConditionalStateReset (0x004F9F00/0x004F9F30) of the conditional state global 0x008AFE18. Returns the clamped height.
+- `0x00494F00` **UnknownObject** — Pure __stdcall forwarder: passes its four integer arguments unchanged to ConditionalFontSurfaceCall and returns that result. Called from media playback, bitmap drawing and text-rendering paths (0x0048D9D0, 0x004980D0, 0x004981F0, 0x004982C0, 0x004983B0).
+- `0x00494FD0` **UnknownObject** — Pure __stdcall thunk: passes its single argument a1 unchanged to sub_53CB90 and returns that result. Called from sub_4963D0, LinkedListNodeRemovalByStringKey (0x00497C40) and ResourceFileLoader (0x004F9D60).
+- `0x00495060` **UnknownObject** — Guarded release of a tracked subsystem/iterator: reads the global handle dword_7CDE1C; when non-null hands it to UICleanupIterator (0x00554D70) and returns the iterator result, when null returns the handle unchanged (zero).
+- `0x00495080` **UnknownObject** — Linear unconditional sequence: initialize conditional state at global unk_8AFE18 (0x004F9F00), run a subsystem step via 0x00553700 passing global dword_8B8DC8, compute state flags via StateFlagComputation (0x004F9B30), then reset the conditional state at unk_8AFE18 and return its result. Existing analysis proposes a render-frame step (duplicate of sub_495020); the LEGACY ABI name suggests audio-system init; both unconfirmed.
+- `0x00495440` **FPSOverlayState** — FPS overlay draw: scans the config WORD array (count this+0x1598, data this+0x159C) for sentinel 4129 (0x1021); on a match toggles the enable flag at this+0xE0 and, when toggled off, clears the counters at +0xE4/+0xE8/+0xEC. While enabled increments the per-frame counter at +0xE8, accumulates frame delta into +0xEC from FloatFieldAccessor (0x00498730), and on threshold stores CRTFtol of the accumulator (0x00587BDC) into +0xE4, resetting +0xEC/+0xE8. Formats +0xE4 via 0x0058815F, renders into the text surface via TextRenderToSurface (0x004983B0), prepares it (0x00498560), draws with BitmapDraw_81f0 (0x004981F0), and copies the region to the display surface (0x00490920, 0x004918D0). Called from UILargeRender (0x00496930).
+- `0x00495580` **UIComboBoxObject** — Combo-box/dropdown list-item render: gated by the enable byte at this+0x1588, the scroll float at this+0xCC being at least the threshold at this+0xD0, and a non-null current-object pointer at this+0x156C. Measures the item label (object +192 string, base *(this+0x156C):0x000000C0) with TextRenderToSurface (0x004983B0), lazily recomputes the centered 800x600-clamped position when the object changes from the cached this+0x1570 (results at this+0x158C/+0x1590), invokes the object's layout virtual at vtable slot 8, then fills the background rect full-size or animated-scaled by the scroll delta at this+0xD4. On guard failure clears the cached pointer. Called by 0x00496E90.
+- `0x00495980` **UnknownObject** — Two-pass linked-list object search: loads two search criteria from this+0x5C and this+0x60, obtains the primary container root via SimpleFieldGetter (0x00495970), walks the primary list starting at 0x00498F60 following next pointers (0x00486320), invoking the virtual match predicate at vtable slot offset 48 on each node with both criteria, and keeps the last matching node. If none matched and sub_498E40(root) is non-null, walks the secondary list rooted at sub_498E40(root)+68 the same way. Returns the last matched node or NULL.
+- `0x00495DC0` **CarDamageOverlayState** — Car crash damage impact rectangle render in 800x600 screen space. Two modes keyed by the state flag at this+0x1578: animated mode (flag 1) draws 80 stepping damage rectangles as a crack-spread effect with per-frame CollisionNoiseGenerator noise (0x004962C0); static mode (flag 0) draws a single rectangle. Rect width/height are read through the damage-struct pointer chain rooted at this+0x157C/this+0x15C8 (geometry +0xC, dims +0x1C/+0x20), positions come from base coordinates this+0x1580/+0x1584 combined with blended CRTFtol offsets (0x00587BDC, 0x0059E420/0x0059E43C/0x0059E448), and both modes emit through F_10ParamForwarder (0x00494A30) with a global context (0x00495150) and an 800x600 clamp.
+- `0x00496380` **UnknownObject** — Title-screen bitmap resource load: when global dword_7D0398 is zero, loads the default title bitmap aGametitleBmp (0x005CC9F0) via ResourceFileLoader (0x004F9D60) and returns that result; otherwise attempts the magazine/promotional splash aPmbeltiteMag (0x005CCA00) and falls back to aGametitleBmp when the magazine load does not return byte value 1.
+- `0x00496880` **UIPageLayer** — UI page/layer render pass: iterates the child linked list from this+0x1C calling each child's virtual render method (child->vtable + 164, child next via *(this+0xA8):0x000000A4). For the active object at this+0x18 calls its virtual position/update method (vtable + 56) with this+0x5C/this+0x60, copies the current page and current layer names into string tables via StringReverseCopyLookup (0x0049A490, keys 0x005CCA20/0x005CCA10, sub-object via 0x00498E40), and calls the active object's virtual finalize method (vtable + 64). Returns 0. Called by sub_46BF10 (0x0046BF10) and UILargeRender (0x00496930).
+- `0x00496E40` **UnknownObject** — Linked-list traversal with virtual call: seeds the traversal cursor this+0x18E4 from the head this+0x18DC; when the head is null the traversal is skipped. Each iteration reads the item pointer at node+0x0, calls its virtual method at vtable offset 0x6C, then advances this+0x18E4 through the next pointer at node+0x4, breaking when a node is null. Returns the final cursor value.
+- `0x004973D0` **SurfaceResourceView** — Gated surface-render helper: when the instance float at this+0xC4 exceeds 0.2 (0x005AC994) and the resource pointer at this+0x1568 is non-null, searches for a named surface resource via ObjectSearchWithDoubleIteration (0x00495980) using the name pointer at this+0x1558 (default byte_5EA438). If a matching object is found its vtable method at +128 confirms the name and the instance resource is reused; otherwise sub_497AD0 supplies the aNodropicon0000 fallback (0x005CCA48). With a resource in hand, reads the sub-resource dimensions (*(this+0x1568):0x0000000C, then +0x1C/+0x20) and renders the region via F_10ParamForwarder (0x00494A30) with geometry from this+0x5C/this+0x60 and a global context (0x00495150), then copies it with RenderSurfaceFillCopy (0x004918D0, 0x00490920).
+- `0x00497940` **UnknownObject** — Generic UI-list lookup dispatch bridge: when the lookup key a2 is non-zero, searches the owning list via UIListSearchByName (0x004976C0) and, when a matching item handle is found, forwards it together with the pass-through argument a3 to UtilityFunction_7890 (0x00497890), returning its result; otherwise returns 0. Used by 16 UI, menu, multiplayer and key-binding handlers as a single lookup-plus-dispatch entry point (0x00404F30, 0x0046B0C0, 0x0046D6D0, 0x0046DE10, 0x0046DD30, 0x004637A0 and others).
+- `0x004979C0` **UnknownObject** — Trivial __thiscall setter: stores the caller-provided integer a2 into the field at this+0x20 and returns the same stored value. No guard, no callee, no global. Called from rendering, data-processing and network paths (0x00496930, 0x004988D0, 0x0049A5D0, 0x00567FB0, 0x0057BF00, 0x00580190).
+- `0x00497BA0` **SurfaceNodeRegistry** — Surface-node lookup by name in the loaded-surface linked list whose head is this+0x104: returns 0 when a2 or the head is null; walks the node chain via next at node+0x10 comparing the node name at node+0x4 (default byte_5EA438) against a2 with sub_588410 (0x00588410, 0 on match). On a match lazily resolves the data slot at node+0xC via HashTableIDResolution (0x00495890); on failure formats 'Unable to load surface "%s"' (0x005CCA5C) into unk_7CDE38 via 0x0058815F and forwards it to sub_4986D0. Returns the matching node pointer. Invoked by 0x00492710 and 0x00497AD0.
+- `0x00497C40` **SurfaceNodeRegistry** — Removes the first node of the named surface registry whose name (node+0x4) equals a2 (0x00588410). Head lives at this+0x104; current node pointer held at this+0x114; nodes store name at +0x4, data at +0xC and next at +0x10. On match the node is unlinked, its data processed through the 0x00494FD0 thunk to sub_53CB90 and cleared, the name and node are freed (0x00587BCF), and 1 is returned (0 when the list is empty or no match). Callers are profile-icon BMP loaders (0x004692B0, 0x0046CD20).
+- `0x004980D0` **UnknownObject** — Centered UI element/bitmap renderer: returns -1 when the element string a2 is null; when the display text at this+0x1518 is non-empty, optionally resolves a2 through the message display buffer (string-table lookup 0x00423A00 into 0x005EC4C0/0x005EC4CC when a7 is set), computes element dimensions (0x00494F00), centers the position within the bounding box a3..a6, dispatches the UI element via UIMessageDispatch (0x00494F10) with the global accessor value (0x00495150), then fills a background surface rectangle behind it (0x00490920, 0x004918D0). Returns 0 on success.
+
+## Proposed classes
+
+### OscScriptParser
+
+OSC script parser front end: reads and tokenizes script lines (line feeder 0x00491FB0), loads MAS-referenced bitmaps, parses gizmo definitions into an object tree, and reports diagnostics. Shared parse state: line number +0x18C, recursive parse depth +0x194, resource-path gating flags +0x19A/+0x19C, and parser context / diagnostic callback +0x1A4/+0x1A8/+0x1AC.
+
+Methods: `0x004920B0`, `0x00492A40`, `0x00493C80`
+
+- `this+0x00000008` `void* log_stream_handle` (read_write, GUESS)
+- `this+0x0000018C` `dword current_line_number` (read_write, GUESS)
+- `this+0x00000194` `dword parse_depth` (read_write, GUESS)
+- `this+0x0000019A` `byte resource_path_flag` (read, GUESS)
+- `this+0x0000019C` `dword resource_path_depth` (read, GUESS)
+- `this+0x000001A4` `dword diagnostic_callback` (read_write, GUESS)
+- `this+0x000001A8` `dword parser_context_b` (read_write, GUESS)
+- `this+0x000001AC` `dword parser_context_c` (read_write, GUESS)
+
+### SurfaceNodeRegistry
+
+Named surface/node registry: singly linked list rooted at this+0x104; nodes store name at +0x4, data at +0xC and next at +0x10; lookup by name with lazy data resolution (0x00497BA0) and string-keyed removal with data teardown (0x00497C40).
+
+Methods: `0x00497C40`, `0x00497BA0`
+
+- `this+0x00000104` `void* list_head` (read_write, DERIVED)
+- `this+0x00000114` `void* current_node_ptr` (read, GUESS)
+- `*(this+0x114)+0x00000004` `char* node_name` (read, GUESS)
+- `*(this+0x114)+0x0000000C` `void* node_data` (read_write, GUESS)
+- `*(this+0x114)+0x00000010` `void* node_next` (read_write, GUESS)
+
+### FPSOverlayState
+
+FPS overlay state object: enable flag +0xE0, integer fps value +0xE4, per-frame counter +0xE8, float time accumulator +0xEC, and the configuration WORD array (count +0x1598, data +0x159C) scanned for sentinel 4129 to toggle the overlay.
+
+Methods: `0x00495440`
+
+- `this+0x000000E0` `byte overlay_enabled` (read_write, DERIVED)
+- `this+0x000000E4` `int fps_value` (read_write, GUESS)
+- `this+0x000000E8` `dword frame_counter` (read_write, GUESS)
+- `this+0x000000EC` `float time_accumulator` (read_write, GUESS)
+- `this+0x00001598` `dword config_word_count` (read, GUESS)
+- `this+0x0000159C` `word* config_word_array` (read, GUESS)
+
+### UIComboBoxObject
+
+Combo-box / dropdown list state object: scroll progress +0xCC, threshold +0xD0, smoothing factor +0xD4, current/cached object pointers +0x156C/+0x1570, enable byte +0x1588, and cached rendered origin +0x158C/+0x1590; renders one list item at a time through the current object's layout virtual.
+
+Methods: `0x00495580`
+
+- `this+0x0000005C` `int anchor_x` (read, GUESS)
+- `this+0x000000CC` `float scroll_progress` (read, GUESS)
+- `this+0x000000D0` `float scroll_threshold` (read, GUESS)
+- `this+0x000000D4` `float scroll_smoothing` (read, GUESS)
+- `this+0x0000156C` `void* current_object` (read_write, DERIVED)
+- `this+0x00001570` `void* cached_object` (read_write, GUESS)
+- `this+0x00001588` `byte enable` (read, GUESS)
+- `this+0x0000158C` `int origin_x` (read_write, GUESS)
+- `this+0x00001590` `int origin_y` (read_write, GUESS)
+- `*(this+0x156C)+0x00000000` `void** item_vtable` (read, GUESS)
+- `*(this+0x156C)+0x000000C0` `char* item_label` (read, GUESS)
+- `*(*(this+0x156C)+0x0)+0x00000008` `function* layout_virtual_slot` (read, GUESS)
+
+### CarDamageOverlayState
+
+Car crash damage impact overlay state: render mode flag +0x1578 (animated/static), damage struct pointers +0x157C/+0x15C8 (geometry +0xC, rect dims +0x1C/+0x20), and base screen coordinates +0x1580/+0x1584; renders damage rectangles in 800x600 space.
+
+Methods: `0x00495DC0`
+
+- `this+0x00001578` `dword render_mode` (read, GUESS)
+- `this+0x0000157C` `void* damage_struct_ptr` (read, GUESS)
+- `this+0x00001580` `int base_x` (read, GUESS)
+- `this+0x00001584` `int base_y` (read, GUESS)
+- `this+0x000015C8` `void* damage_base` (read, GUESS)
+- `*(this+0x15C8)+0x0000000C` `void* geometry_ptr` (read, GUESS)
+- `*(*(this+0x15C8)+0xC)+0x0000001C` `dword rect_width` (read, GUESS)
+- `*(*(this+0x15C8)+0xC)+0x00000020` `dword rect_height` (read, GUESS)
+
+### SurfaceResourceView
+
+Instance-gated surface resource view: render threshold float +0xC4, surface name pointer +0x1558, active resource pointer +0x1568, and instance coordinates +0x5C/+0x60; finds a named surface resource, resolves or falls back, and renders its sub-resource region.
+
+Methods: `0x004973D0`
+
+- `this+0x000000C4` `float render_threshold` (read, GUESS)
+- `this+0x00001558` `char* surface_name_ptr` (read, GUESS)
+- `this+0x00001568` `void* resource_ptr` (read_write, GUESS)
+- `this+0x0000005C` `int instance_x` (read, GUESS)
+- `this+0x00000060` `int instance_y` (read, GUESS)
+- `*(this+0x1568)+0x0000000C` `void* sub_resource_ptr` (read, GUESS)
+- `*(*(this+0x1568)+0xC)+0x0000001C` `dword sub_resource_height` (read, GUESS)
+- `*(*(this+0x1568)+0xC)+0x00000020` `dword sub_resource_width` (read, GUESS)
+
+### UIPageLayer
+
+UI page/layer render container: child linked list head +0x1C, active object +0x18, and the update/finalize arguments +0x5C/+0x60; renders each child via its virtual render method, updates and finalizes the active object, and publishes the current page/layer names.
+
+Methods: `0x00496880`
+
+- `this+0x00000018` `void* active_object` (read, GUESS)
+- `this+0x0000001C` `void* child_list_head` (read, GUESS)
+- `this+0x0000005C` `dword update_arg_x` (read, GUESS)
+- `this+0x00000060` `dword update_arg_y` (read, GUESS)
+- `*(this+0x18)+0x00000038` `function* update_virtual` (read, GUESS)
+- `*(this+0x18)+0x00000040` `function* finalize_virtual` (read, GUESS)
+- `*(this+0xA8)+0x000000A4` `void* child_next_ptr` (read, GUESS)
+
+## Compatibility contracts
+
+- **OscScriptDiagnosticReporting** — OSC parser diagnostics (DisplayOscDiagnostic 0x00493C80) must select a severity label by the severity argument (0 Undefined / 1 Warning / 2 Error / 3 CriticalError), format 'OSC %s on line %d : ' into the message buffer using the line number at this+0x18C, optionally append a caller message, lazily open a log stream (handle at this+0x8, filename built from this+67, 'wt' mode via 0x00587DB0/0x00587F64) and write the header and terminator (0x005887B1). Only severities 2/3 reach the user: routed to the callback at this+0x1A4 when set, otherwise MessageBoxA with the Caption global; the function returns the result of ResourcePathBuilder(a2).
+- **SurfaceNodeRegistryManagement** — The named surface registry must keep its singly linked list rooted at this+0x104 with nodes storing name at +0x4, data at +0xC and next at +0x10. Lookup (0x00497BA0) walks the chain comparing node names (default byte_5EA438 when null) with sub_588410 (0 on match) and lazily resolves the data slot via HashTableIDResolution (0x00495890), reporting 'Unable to load surface' into unk_7CDE38 on failure. Removal (0x00497C40) unlinks the matched node, processes its data through the 0x00494FD0 thunk to sub_53CB90, clears and frees it, and returns 1 on success / 0 when empty or unmatched.
+- **FpsOverlayUpdate** — The FPS overlay (0x00495440) must scan the configuration WORD array (count at this+0x1598, data at this+0x159C) for sentinel 4129 (0x1021) to toggle the enable flag at this+0xE0; while enabled it increments the frame counter at +0xE8, accumulates the frame delta into +0xEC, and when the accumulator passes the FPU threshold stores CRTFtol of +0xEC into +0xE4 and resets +0xE8/+0xEC. When +0xE4 is non-negative the value is formatted and rendered into the text surface via TextRenderToSurface and BitmapDraw_81f0, and the region is copied to the display surface.
+- **ClippedQuadRender** — The 2D screen-quad render (0x00494A70) must clamp the requested width/height to [0,256], set the clipped render region on the destination surface global 0x007CDE08 via ClippedRenderRegion (0x00543250), scale the quad to UV units by 1/256, configure the four corner UV coordinates (0x00553650), and draw the quad (0x00553700) wrapped in ConditionalInit/ConditionalStateReset (0x004F9F00/0x004F9F30) of the conditional state global 0x008AFE18, returning the clamped height.
+
+## Unresolved
+
+- Owner identity remains UNKNOWN for twelve functions: 0x00494630 (global-anchored list teardown), 0x00494A70 (quad render), 0x00494F00/0x00494FD0 (forwarders), 0x00495060 (guarded release), 0x00495080 (state init/step/reset), 0x00495980 (two-pass search), 0x00496380 (title splash load), 0x00496E40 (traversal), 0x00497940 (lookup dispatch), 0x004979C0 (trivial setter) and 0x004980D0 (bitmap draw). Several operate on module globals or on fields too thin to prove a class.
+- OscScriptParser is a GUESS merge of 0x004920B0, 0x00492A40 and 0x00493C80 based on the shared +0x18C line-number field, the +0x1A4 callback/context field, and the common line-feeder (0x00491FB0) and reporter (0x00493C80) relationship; common ownership is not CONFIRMED and DisplayOscDiagnostic could be a separate diagnostic utility consumed by the parsers.
+- SurfaceNodeRegistry merges 0x00497C40 (packet owner DERIVED) with 0x00497BA0 (packet owner UNKNOWN) on the identical this+0x104 list head and the same node layout (name +0x4, data +0xC, next +0x10); the merge is DERIVED from shared offsets, not proven by a named type.
+- The virtual dispatch slots used by these functions (child render vtable+164, active update vtable+56, finalize vtable+64, item vtable+0x6C, match predicate vtable+48, name-compare vtable+128, layout virtual slot 8) point at unknown class hierarchies; none of the concrete classes behind them is named in the packet.
+- The packet-listed base for the car-damage rect chain (this+0x15C8) does not map cleanly onto the raw source chain (a1[1375]+76 then +12); fields are recorded verbatim as packet facts without re-deriving the offset path.
+- For 0x00496880 the child-node next-pointer prose in the packet says node+0x8C while the field evidence ref is field:*(this+0xA8):0x000000A4; both are recorded as-is and the discrepancy is unresolved.
+- FPS semantics of the stored value at this+0xE4: the raw code stores CRTFtol of the accumulated float (seconds), so its exact relationship to frames-per-second is not derivable from the packet alone; the exact FPU threshold comparison (raw !(v7|v8) via c0/c3) is not explicit.
+- F_10ParamForwarder (0x00494A30) parameter contract is not documented by this packet; argument roles including trailing zeros are inferred.
+- Comparison semantics of sub_588410 (string equality vs. prefix) are not established; the dead cleanup branch in 0x00497C40 reads a data field zeroed one statement earlier.
+- Facts-listed globals and fields that do not appear in the raw decompiled bodies cannot be mapped here: unk_7CDE00/unk_7CDE0C/unk_7CDE18/dword_8AFE64/dword_8B78A0/flt_5AC988/flt_5AC9C0/flt_59E450/dword_5C3280/dword_7CD9D8 and fields +0x4C/+0xA8/+0x134 (0x00496880), +0x108/+0x118/+0x120/+0x124 (surface registry), +0x18E8/+0x18EC (0x00496E40). Their reads are attributed to callees or to the static facts only.
+- The conditional state object unk_8AFE18 (used by 0x00494A70 and 0x00495080, and attributed by a fill to 0x00496380's callee) has unknown layout and semantics; whether 0x00495080 is a render-frame step (duplicate of sub_495020) or an audio-system init (LEGACY ABI name) is unconfirmed.
+- SetFieldAtOffset20 (0x004979C0) and BitmapDraw (0x004980D0) have no packet field evidence for class assignment; equal offsets on unrelated 'this' pointers are not proof of identical classes, so both are left unowned.

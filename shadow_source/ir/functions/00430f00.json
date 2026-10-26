@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "address": "0x00430F00",
+  "proposed_name": "VehicleStatsEstimationDisplay",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00430F00"]
+  },
+  "summary": "Computes and formats vehicle performance estimates (acceleration, top speed, cornering G) into the setup display buffers on the this object. Uses a small numeric-integration loop over BrakeTemperatureFadeModel for acceleration and top-speed estimates and sub_430750 for cornering, selecting metric (150 km/h bound, km/h units) or imperial (100 mph bound, mph units) presentation from the byte_7D0474 UI flag. Every label string is resolved through BinarySearchInStringTable into the shared byte_5EC4CC scratch buffer before being copied to a local 64-byte label. Called by ValidateVehicleConfigurationFile (00433ED0), ConfigObjectDestructor (00466A70), ShortComputation_6c40 (00466C40), and SubCallVirtualDispatch (0047D060).",
+  "local_names": {
+    "byte_5EC4CC": "shared string-table lookup scratch buffer",
+    "v47": "64-byte label buffer (EstAccel / EstTopSpeed / EstCornering)",
+    "v48": "64-byte unit string buffer (km/h or mph)",
+    "v49": "64-byte buffer for the base name resolved from byte_5C3F6C",
+    "v50": "64-byte buffer for the second format element from aS_2 / aG",
+    "v45": "speed bound in display units (150 or 100)",
+    "i": "acceleration integration time accumulator (0.04 s steps)",
+    "j": "top-speed convergence iterator (0.135 m/s steps)",
+    "v40": "accumulated velocity for the acceleration estimate",
+    "v44": "cornering force value from sub_430750"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Resolve the vehicle base name: BinarySearchInStringTable(byte_5EC4C0, byte_5C3F6C, byte_5EC4CC); on success copy the byte_5C3F6C string into the shared byte_5EC4CC scratch buffer, then copy it into the local v49 buffer.",
+      "evidence_refs": ["callee:0x00423A00", "global:0x005EC4C0", "global:0x005C3F6C", "global:0x005EC4CC"]
+    },
+    {
+      "kind": "loop",
+      "description": "Clear the three display slots starting at this+6950: StringFormatWithBufferOverflowCheck is applied to this+6950, +6950+128, +6950+256 with the off_5C3810 format (empty format string) to blank the estimation lines.",
+      "evidence_refs": ["callee:0x0058815F", "global:0x005C3810", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Unit-selection guard on byte_7D0474: when set, metric path (bound v8=150, v45=41.6666..., units resolved from off_5C3F68); otherwise imperial path (v8=100, v45=44.704, units from off_5C3F64). Both paths resolve their unit string into byte_5EC4CC via BinarySearchInStringTable and copy it to v48.",
+      "evidence_refs": ["global:0x007D0474", "global:0x005C3F68", "global:0x005C3F64", "callee:0x00423A00", "global:0x005EC4CC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Resolve the aEstAccel label into byte_5EC4CC and copy to v47, then resolve the aS_2 format element into byte_5EC4CC and copy to v50.",
+      "evidence_refs": ["callee:0x00423A00", "global:0x005C3F58", "global:0x005C3758", "global:0x005EC4CC"]
+    },
+    {
+      "kind": "call",
+      "description": "Format the header line into this+6566 as \"%s (0-%d %s)%s\" with v47 (label), v8 (speed bound), v48 (units), v49 (vehicle base name).",
+      "evidence_refs": ["callee:0x0058815F", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Acceleration estimate: iterate velocity v40 in 0.04 m/s steps via BrakeTemperatureFadeModel(this, v40); break when velocity drops to <= 0; use the midpoint value v26 = fade(this, v40 + v25*0.02) to step by v42 = v26*0.04; when v40+v42 exceeds the v45 bound, format this+6950 as \"%.2f %s\" with the interpolated time and break.",
+      "evidence_refs": ["callee:0x00430A50", "callee:0x0058815F", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Resolve the aEstTopSpeed label into byte_5EC4CC and copy to v47, then format this+6694 as \"%s%s\" with v47 and v49.",
+      "evidence_refs": ["callee:0x00423A00", "global:0x005C3F38", "global:0x005EC4CC", "callee:0x0058815F", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Top-speed estimate: advance the iterator j by 0.135 m/s while BrakeTemperatureFadeModel(this, j) stays above 0.0; j converges to the top speed.",
+      "evidence_refs": ["callee:0x00430A50", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Convert top speed to display units: v43 = j * 3.6 (m/s to km/h) when byte_7D0474 is set, otherwise v43 = j * 2.236936292054402 (m/s to mph); format this+7078 as \"%d %s\" with (int)v43 and the v48 units.",
+      "evidence_refs": ["global:0x007D0474", "callee:0x0058815F", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Cornering estimate: v44 = sub_430750(this, 75.0) produces the lateral force value for the cornering display.",
+      "evidence_refs": ["callee:0x00430750", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Resolve the aEstCornering label into byte_5EC4CC and copy to v47, then resolve the aG label into byte_5EC4CC and copy to v50.",
+      "evidence_refs": ["callee:0x00423A00", "global:0x005C3F28", "global:0x005C3F24", "global:0x005EC4CC"]
+    },
+    {
+      "kind": "return",
+      "description": "Format this+6822 as \"%s%s\" (cornering label + base name) and return the result of formatting this+7206 as \"%.2f %s\" with v44 * 0.1019367991845056 (g-force conversion) and the v50 units.",
+      "evidence_refs": ["callee:0x0058815F", "function:0x00430F00", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int VehicleStatsEstimationDisplay(char* this) {",
+    "  resolve(byte_5EC4C0, byte_5C3F6C, byte_5EC4CC); copy(v49, byte_5EC4CC);",
+    "  for (p=this+6950, i=0; i<3; i++, p+=128) StringFormat(p, off_5C3810);",
+    "  if (byte_7D0474) { bound=150; v45=41.6666; units=off_5C3F68; }",
+    "  else              { bound=100; v45=44.704;  units=off_5C3F64; }",
+    "  copy(v48, resolve(units)); copy(v47, resolve(aEstAccel)); copy(v50, resolve(aS_2));",
+    "  StringFormat(this+6566, \"%s (0-%d %s)%s\", v47, bound, v48, v49);",
+    "  for (v40=0, i=0;; i+=0.04) {",
+    "    v25 = BrakeTemperatureFadeModel(this, v40); if (v25<=0) break;",
+    "    v26 = BrakeTemperatureFadeModel(this, v40+v25*0.02); if (v26<=0) break;",
+    "    v42 = v26*0.04; if (v40+v42>v45) { StringFormat(this+6950, \"%.2f %s\", (v45-v40)/v42*0.04+i, v50); break; }",
+    "    v40 += v42;",
+    "  }",
+    "  copy(v47, resolve(aEstTopSpeed)); StringFormat(this+6694, \"%s%s\", v47, v49);",
+    "  for (j=0; BrakeTemperatureFadeModel(this, j)>0; j+=0.135);",
+    "  v43 = byte_7D0474 ? j*3.6 : j*2.236936292054402;",
+    "  StringFormat(this+7078, \"%d %s\", (int)v43, v48);",
+    "  v44 = sub_430750(this, 75.0);",
+    "  copy(v47, resolve(aEstCornering)); copy(v50, resolve(aG));",
+    "  StringFormat(this+6822, \"%s%s\", v47, v49);",
+    "  return StringFormat(this+7206, \"%.2f %s\", v44*0.1019367991845056, v50);",
+    "}"
+  ],
+  "unresolved": [
+    "The read-only globals aSS (0x005BE860), aDS (0x005C3778), a2fS (0x005C3820), aS0DSS (0x005C3F48), and dbl_59E430 / dbl_59EA68 / dbl_59EA88 / dbl_59EA90 / dbl_59EA98 / dbl_59EAA0 / dbl_59EAA8 are recorded as read by this function but do not appear as symbols in the raw decompiled body; they are likely consumed inside the called estimation routines (BrakeTemperatureFadeModel, sub_430750).",
+    "The exact meaning of the bound constant v45 (150 or 100) and the 41.6666/44.704 doubles is DERIVED from the existing analysis (speed bound in display units); the raw source only uses them in the integration comparison.",
+    "The this-relative display offsets (+6566, +6694, +6822, +6950, +7078, +7206) are read from raw source but are not flagged as packet fields; their display roles are DERIVED from the existing analysis."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005BE860",
+    "global:0x005C3778",
+    "global:0x005C3820",
+    "global:0x005C3F48",
+    "global:0x0059E430",
+    "global:0x0059EA68",
+    "global:0x0059EA88",
+    "global:0x0059EA90",
+    "global:0x0059EA98",
+    "global:0x0059EAA0",
+    "global:0x0059EAA8"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

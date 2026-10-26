@@ -1,0 +1,37 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0058E060
+// Canonical corpus name: TLSAllocationThreadIDInit
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TLSAllocationThreadIDInit_0058e060.c
+
+void UnknownObject::TLSAllocationThreadIDInit()
+{
+    // One-time initialization of thread-local storage for allocation tracking. Calls sub_58DFC1 to set up synchronization primitives, allocates a TLS index into global dwTlsIndex via TlsAlloc, allocates a 116-byte per-thread block via sub_58AB58(1, 116), stores it in the TLS slot via TlsSetValue, initializes the block via TwoFieldInitializer_e0b4, records GetCurrentThreadId() into the block's first field and -1 into the second, and returns 1. Any failure (TLS index -1, null block, or failed TlsSetValue) returns 0. Called by sub_58A19E (0x0058A19E).
+    // CALL: Call sub_58DFC1 to initialize the critical sections / synchronization primitives used by the allocation machinery. [callee:0x0058DFC1, source:raw]
+    // CALL: Call TlsAlloc (Win32 import) and store the resulting TLS slot index into global dwTlsIndex. [global:0x0059E154, global:0x005E6D40, source:raw]
+    // GUARD: Guard: if dwTlsIndex equals -1 (TLS_OUT_OF_INDEXES), return 0. [global:0x005E6D40, source:raw]
+    // CALL: Call sub_58AB58(1, 116) to allocate the 116-byte per-thread block (count 1, byte size 116). [callee:0x0058AB58, source:raw]
+    // GUARD: Guard: if the allocated block is null, or TlsSetValue(dwTlsIndex, block) returns 0 (failure), return 0. [global:0x0059E158, global:0x005E6D40, source:raw]
+    // CALL: Call TwoFieldInitializer_e0b4 on the allocated block to initialize its two fields with default values. [callee:0x0058E0B4, source:raw]
+    // CALL: Call GetCurrentThreadId (Win32 import) to obtain the current thread identifier. [global:0x0059E15C, source:raw]
+    // ASSIGNMENT: Store -1 into the block's second field (v1[1]) as a sentinel. [source:raw]
+    // ASSIGNMENT: Store the current thread ID into the block's first field (*v1). [source:raw]
+    // RETURN: Return 1 on success; 0 on any earlier failure. [source:raw]
+    // CALL: Called by sub_58A19E (0x0058A19E) to bootstrap the TLS allocation-tracking state. [caller:0x0058A19E, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_58E060() {
+    //     sub_58DFC1();
+    //     dwTlsIndex = TlsAlloc();
+    //     if (dwTlsIndex == -1) return 0;
+    //     DWORD *v1 = sub_58AB58(1, 116);
+    //     if (!v1 || !TlsSetValue(dwTlsIndex, v1)) return 0;
+    //     TwoFieldInitializer_e0b4(v1);
+    //     v1[1] = -1;
+    //     *v1 = GetCurrentThreadId();
+    //     return 1;
+    //   }
+    // UNRESOLVED: Layout and purpose of the 116-byte per-thread block beyond its first two dword fields (thread ID and -1 sentinel).
+    // UNRESOLVED: Semantics of the -1 sentinel in the second field and who consumes it.
+    // UNRESOLVED: Identity of the owning allocation-tracking subsystem and the meaning of the other 108 bytes of the block.
+}

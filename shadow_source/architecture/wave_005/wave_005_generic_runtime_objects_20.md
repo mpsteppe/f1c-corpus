@@ -1,0 +1,259 @@
+# GenericRuntimeObjects
+
+Scope: `generic_runtime_objects`  
+Trust: `DERIVED`
+
+This scope covers 23 validated functions across loosely coupled runtime object families, all with owner trust UNKNOWN/LOW. One cohesive texture-slot pool (0x00558A30 allocate, 0x00558B30 deallocate) shares an allocation object at this+0x20/0x24/0x2C/0x30/0x34/0x38/0x3C/0x50 with two modes selected by the sign of the flags byte (free-list chain vs compact array). A texture-layer entry manager (0x00558C60, 0x00558CF0) updates 128-byte-stride entries in the array at this+0x34. A scene/render manager (0x00556E70 cull+update dispatch, 0x00557120 per-frame render update) drives visibility tests, spatial-tree queries, dirty-flag clearing and animation-time refresh. A high-resolution timer (0x005563E0 start, 0x005564B0 mode dispatch) selects QueryPerformanceCounter (mode bit 0) or RDTSC (mode bit 1) through the flags at this+0x48, backed by a global timer-delta table accessor (0x00556760). A font texture-sheet analyzer (0x00552D70) rebuilds glyph cell tables from a locked 32-bit surface. Render-parameter setters (0x00552FF0, 0x00553050, 0x00553620, 0x00553630) write small adjacent fields; the alpha-blend switch uses a jump table at 0x0055303C. A line/polygon rasterizer (0x00553AA0) selects 16/32-bit fill pipelines via global function pointers. The remaining functions (0x00554260 enum setter, 0x00554700 device-property binder, 0x00554C30 list flag iterator, 0x00556980 animation dispatch, 0x00556D60 node registration, 0x00558E10 pixel writer, 0x00558E70 geometry renderer, 0x00559390 struct init) are single-function owners with distinct this-layouts. All class groupings are DERIVED/GUESS; no RTTI, vtable-member or runtime ownership evidence exists in this packet.
+
+## Function roles
+
+- `0x00552D70` **FontTextureSheetAnalyzer** — 32-bit RGBA font texture-sheet analyzer: locks the surface at this+0x64 via ThunkWithArgReorder, recovers three key-color sentinels (stored at this+0x28/0x2C/0x30), scans for cell counts (this+0x34/0x38) and pitches (this+0x3C/0x40), builds the 8-byte-per-cell glyph table at this+0x6D, rewrites pixels (key colors to 0xF0F0F0, non-key forced alpha 0xFF000000), stores default key 0xF0F0F0 at this+0x2C and unlocks via ArgumentReorderWrapper_3230.
+- `0x00552FF0` **RenderTextureParamSetter** — SetAlphaBlendParam: writes the texture/scale parameter a2 to this+0x54 and maps a3 in 0-4 to an alpha-blend value at this+0x58 (0->191, 1->127, 2->63, 3->0, 4->255) via the jump table at 0x0055303C; a3 outside 0-4 leaves this+0x58 unchanged; returns a3.
+- `0x00553050` **RenderTextureParamSetter** — TwoFieldSetter: unconditionally writes a2 to this+0x5C and a3 to this+0x60, returns a2. Called by sub_4988D0 and GuardedDelegation.
+- `0x00553620` **RenderTextureParamSetter** — StoreField0x10: writes a2 to this+0x10 and returns 0. Called during construction from ObjectConstructorWithAllocationAndSubInit and sub_4D8CF0.
+- `0x00553630` **RenderTextureParamSetter** — TwoFieldSetter_3630: writes a2 to this+0x8 and a3 to this+0xC, returns a2. Tentatively a position/offset pair setter.
+- `0x00553AA0` **LinePolygonRasterizer** — LinePolygonRasterizer: Bresenham line/polygon fill. Converts the packed color per a6[12] (6 -> RGB555, 5 -> RGB565, else direct), selects a 16-bit or 32-bit fill pipeline by a6[9] via global function pointers (0x00553CD0/0x00553D00/0x00561970/0x005619AF vs 0x00553D40/0x00553D70/0x00561A41/0x00561A86), draws vertical/horizontal spans for zero extents and error-term diagonal fills, locking/unlocking the destination surface through ThunkWithArgReorder / ArgumentReorderWrapper_3230.
+- `0x00554260` **EnumFieldSetter** — EnumToFieldOffsetSetter: dispatches enum a2 through the jump table at 0x005542B0 (cases 1,2,3,4,5,6,13,14) mapping to dword fields of this (1->+0x00, 2->+0x04, 3->+0x08, 4->+0x14, 5->+0x18, 6->+0x1C, 13->+0x0C, 14->+0x10), stores a3 when the field differs; returns 1 on change else 0.
+- `0x00554700` **PropertyRefreshDeviceBinder** — PropertyValueSetterWithRefreshOnChange: applies a2[8] and a2[1] as property values into caches this+0x1398/0x139C only on change; a change dispatches vtable slots 0x14C (a2[8]) and 0x130 (a2[1] when != -1) on the device at this+0x1100, storing results at this+0x0; the null a2 path zeroes this+0x1398 and dispatches slot 0x14C with zeroed arguments.
+- `0x00554C30` **StateFlagListIterator** — StateFlagIterationAcrossEntries: walks the linked list rooted at a2+36 (next at i[48]); for each node with i[41] > 0 entries, walks the entry array (first at i[42]+140, stride 148); when the byte at entry-76 has bit 1 set, dereferences *(entry_ptr+84) and if target+20 is zero clears bit 0 / sets bit 3 of target+24, calls sub_53F720(this, target, 0), then sets bit 0 of target+24. Returns the last node's entry count.
+- `0x005563E0` **HighResolutionTimer** — TimerStartViaQueryPerformanceCounter: one-shot start guard. When initialized (this+0x0 non-zero) and both previous-query fields (this+0x34 high, this+0x30 low) are zero, captures a timestamp: mode flag this+0x48 bit 0 selects QueryPerformanceCounter (import at 0x0059E23C), otherwise RDTSC via RDTSCTimestampRead (0x0055687B). Returns the timer state value.
+- `0x005564B0` **HighResolutionTimer** — QueryPerformanceCounterWrapperWithModeDispatch: always returns 0. On an initialized timer (this+0x0 non-zero) reads the mode flags at this+0x48; bit 0 queries QueryPerformanceCounter and stores HighPart/LowPart into a2/a3, bit 1 fills the same outputs via RDTSCTimestampRead.
+- `0x00556760` **HighResolutionTimerTable** — HighResolutionTimerDeltaAtIndex: guards the slot index against dword_8B8E48, computes the 19-dword entry at dword_8B6C28[19*a1+608], returns HighResolutionTimerDeltaCalculation on it; out-of-range returns 0.0.
+- `0x00556980` **AnimationNodeDispatcher** — AnimationDispatchWithSkipFlag: caches sub_54B570(this, a2, 0); unless the byte at this+0x3C has bit 4 set, walks the animation-node list at *(this+0x204) via the i[4] next pointer; clears node flag bits 0x20000028 when the cache is non-zero, and when the pre-mask flags lack bit 0x200000 dispatches SceneNodeStateUpdateWithTransform (0x005569F0) when node capability i[79] is non-zero else sub_556B10.
+- `0x00556D60` **SceneNodeRegistrationManager** — RegisterNodeReferences: scene-graph reference registration guarded by a2[5] bit 0x2000000. Walks records (head a2[71], counter a2[70], 64-dword stride), dereferences object pointers (record+4), selects a per-type sub-array of the global manager dword_8B8F28 by object type flags 0x120 (32->116, 256->110, 288->114, else 112), indexes by the type index at object+160 with stride 528, appends a 16-byte entry {this,a2,record,object} when used 130 < capacity 129, clears record+56 flags, then sets a2[5] |= 0x1000020.
+- `0x00556E70` **SceneRenderManager** — SceneMultilevelCullAndUpdateDispatch: guarded by the byte at this+0x80 bit 8. Runs the update pass sub_5572B0, an optional vtable callback at this+0x1A4/0x1A8, TransformWheelForcesToChassis (0x00541A70) and CameraProjectionUpdate (0x00541B70); then culls/updates scene nodes by a2[59]&0x3000 mode (0x1000 spatial-tree via SpatialTreeNearestNeighborQuery 0x0054A340, 0x2000 plain a2[64] node chain) running SphereVsFrustumVisibilityTest (0x00549FB0), TestFrustumPlanes (0x0054A0A0) and RecursiveStateTraversalWithFlagCheck (0x00556930); dispatches sound via sub_5550E0(dword_8B78A0,...), an extra pass sub_558E70 when this+0x80 bit 0x20, and recurses into a sub-scene guarded by this+0x1B0.
+- `0x00557120` **SceneRenderManager** — RenderFrameUpdate: per-frame render update. Clears per-sub-node flags through the descriptor array at +0x150 (stride 24, sub_5503A0) and the tree list at +0x15C (clearing bit 8 at node+0x24); when +0xEC bit 0x800 is set runs ClearBuffersLoop (0x00545850) and dirty-mark traversal (0x005570C0), clears bits with 0xFFBFF7FF and resets dword_8CEF70; optionally fetches a vtable (0x005550A0/0x005550C0 on dword_8B78A0); iterates audio nodes (AudioNodeIterator 0x00548DD0) when +0x16C > 0; walks the render list at +0xF8 (next +0x1B8) calling sub_556E70; refreshes animation time at +0xF0 via sub_556730 and feeds D3DAnimationTimeUpdate (0x00550310) and AddFloatToAnimationChannels (0x00556900).
+- `0x00558A30` **TextureSlotPool** — TextureSlotAllocate: allocates a 128-byte-aligned slot (this+0x34 base, a2<<7 stride) validating active count vs capacity (this+0x30/0x2C). Mode selected by the sign of the flags byte at this+0x20: free-list mode links the slot onto the chain headed at this+0x38 (links at slot+120/+124); compact-array mode copies row data into the sub-context buffer (this+0x50 +0x20) and registers the slot in the index array at this+0x3C. Both mark in-use bit 0x40 and increment this+0x30.
+- `0x00558B30` **TextureSlotPool** — TextureSlotDeallocate: removes the 128-byte slot addressed by a2 (this+0x34 base, a2<<7 stride) validating count/capacity (this+0x30/0x2C) and the in-use bit 0x40. Mode by the sign of the flags byte at this+0x20: doubly-linked-list unlink (links at slot+120/+124, head this+0x38) or array path that swaps the last slot's data through the buffer at *(this+0x50)+0x20 with a 16-dword copy and fixes the index array at this+0x3C. Both clear bit 0x40 and decrement this+0x30.
+- `0x00558C60` **TextureLayerEntryManager** — TextureLayerFlagSet: bounds-checked (index a2 < this+0x2C) texture-layer entry updater. MultiFieldSetter (0x0053B200) writes the a3/a4/a5 payload into this+0x34 + (a2<<7) + 16, sets the 0x1000 dirty bit on the entry, clears the 0x10000 parent bit at this+0x20, and returns the entry pointer.
+- `0x00558CF0` **TextureLayerEntryManager** — BoundsCheckedElementFieldWrite: when index a2 < this+0x2C, writes a3 to the dword at (a2<<7) + this+0x34 + 12; returns the shifted index when written, else the raw index. Called by particle and wheel render update paths.
+- `0x00558E10` **TexturePixelWriter** — PixelWriteToTextureBuffer: writes four data words (a4/a5/a6/a7) into a texture buffer slot computed from a2 (128-byte stride, this+0x34) scaled by this+0x24, offset a3, shifted <<6. Gated on the format id at this+0x4C == 1 and the flags byte at this+0x20 bit 7 (triggers TextureAllocationWithFormatSizeFlags 0x00558D10). Reads row data through descriptor[8] (this+0x50 +0x20); writes components at slot+0/+4/+8/+0x18.
+- `0x00558E70` **SceneGraphRenderer** — RenderGeometryToSurfaces: renders a linked list of geometry mesh blocks onto locked texture surfaces. Disabled when the byte at this+0x20 is negative (unlock via 0x00558D80 and submit sub_55CF50); active path builds an Euler rotation matrix (pitch-only bit 0x20 or full 3-axis bit 0x10 via F_3FieldGetter 0x00542490 + EulerAngleToRotationMatrix 0x0053B240), clears per-surface vertex/index counts (this+0x44/0x48), walks mesh blocks (head this+0x38, next +0x7C) copying transform/color state, packs per-vertex colors through the D3D wrapper at *(dword_8B8F24)+4, then unlocks and submits each of the this+0x4C surfaces with its counts.
+- `0x00559390` **StructFieldInit** — StructFieldInit: trivial initializer writing a2 to this+0x14, a3 to this+0x18, literal 0 to this+0x1C, returning a2. Called by LinkedListNodeSearchAllocation.
+
+## Proposed classes
+
+### FontTextureSheetAnalyzer
+
+Analyzes a locked 32-bit RGBA texture surface (at this+0x64) to rebuild a per-cell glyph lookup table: recovers three key-color sentinels, derives horizontal/vertical cell counts and pitches from the surface dimensions, writes an 8-byte metadata record per cell at this+0x6D, and rewrites every pixel (key colors to 0xF0F0F0, non-key alpha forced to 0xFF000000).
+
+Methods: `0x00552D70`
+
+- `this+0x00000028` `uint32 key_color_primary` (write, DERIVED)
+- `this+0x0000002C` `uint32 default_key_color` (read_write, DERIVED)
+- `this+0x00000030` `uint32 key_color_tertiary` (write, DERIVED)
+- `this+0x00000034` `uint32 horizontal_cell_count` (read_write, DERIVED)
+- `this+0x00000038` `uint32 vertical_cell_count` (read_write, DERIVED)
+- `this+0x0000003C` `uint32 horizontal_cell_pitch` (write, DERIVED)
+- `this+0x00000040` `uint32 vertical_cell_pitch` (write, DERIVED)
+- `this+0x00000044` `uint32 cell_count_plus_overhead` (write, DERIVED)
+- `this+0x00000064` `void* surface_ptr` (read, DERIVED)
+- `this+0x0000006D` `byte* glyph_cell_table` (write, DERIVED)
+- `*(this+0x64)+0x00000018` `void* surface_pixel_data_ptr` (read, DERIVED)
+- `*(this+0x64)+0x0000001C` `uint32 surface_width` (read, DERIVED)
+- `*(this+0x64)+0x00000020` `uint32 surface_height` (read, DERIVED)
+- `*(this+0x64)+0x00000028` `uint32 surface_row_pitch` (read, DERIVED)
+
+### RenderTextureParamSetter
+
+Small render/state parameter setters writing adjacent dword fields of an unknown object: texture/scale (this+0x54), alpha blend selected by a jump-table enum (this+0x58), and generic position/offset or scale pairs (this+0x8/0xC, this+0x5C/0x60, this+0x10). Grouping is GUESS: common ownership between the four setters is not proven by this packet.
+
+Methods: `0x00552FF0`, `0x00553050`, `0x00553620`, `0x00553630`
+
+- `this+0x00000008` `uint32 pair_field_a` (write, GUESS)
+- `this+0x0000000C` `uint32 pair_field_b` (write, GUESS)
+- `this+0x00000010` `uint32 single_init_field` (write, GUESS)
+- `this+0x00000054` `uint32 texture_scale_param` (write, DERIVED)
+- `this+0x00000058` `uint32 alpha_blend_param` (read_write, DERIVED)
+- `this+0x0000005C` `uint32 two_field_a` (write, DERIVED)
+- `this+0x00000060` `uint32 two_field_b` (write, DERIVED)
+
+### LinePolygonRasterizer
+
+Software Bresenham line/polygon rasterizer writing to a locked destination surface. Selects a packed-color conversion from a6[12] (6 -> RGB555, 5 -> RGB565, else direct), picks a 16-bit or 32-bit fill pipeline from a6[9] via global function pointers, and draws vertical, horizontal or diagonal spans with a per-row stride derived from a6[10].
+
+Methods: `0x00553AA0`
+
+
+### EnumFieldSetter
+
+Enum-driven conditional setter: maps an accepted enum value (1,2,3,4,5,6,13,14) through the jump table at 0x005542B0 to a dword field of this and stores the incoming value when the field differs; returns 1 on change, 0 otherwise. Field offsets 0x04 (enum 2) are described in the packet prose but are not represented as declared fields because the evidence set does not carry a this+0x04 reference.
+
+Methods: `0x00554260`
+
+- `this+0x00000000` `uint32 enum_field_1` (read_write, DERIVED)
+- `this+0x00000008` `uint32 enum_field_3` (read_write, DERIVED)
+- `this+0x0000000C` `uint32 enum_field_13` (read_write, DERIVED)
+- `this+0x00000010` `uint32 enum_field_14` (read_write, DERIVED)
+- `this+0x00000014` `uint32 enum_field_4` (read_write, DERIVED)
+- `this+0x00000018` `uint32 enum_field_5` (read_write, DERIVED)
+- `this+0x0000001C` `uint32 enum_field_6` (read_write, DERIVED)
+
+### PropertyRefreshDeviceBinder
+
+Binds two property values to a device object and refreshes them on change: caches the values at this+0x1398/0x139C, dispatches vtable slots 0x14C and 0x130 on the device at this+0x1100 when a cached value changes (a2[1] == -1 suppresses its dispatch), and accumulates the dispatch results at this+0x0.
+
+Methods: `0x00554700`
+
+- `this+0x00000000` `uint32 last_dispatch_result` (write, DERIVED)
+- `this+0x00001100` `void* device_ptr` (read, DERIVED)
+- `this+0x00001398` `uint32 cached_property_a` (read_write, DERIVED)
+- `this+0x0000139C` `uint32 cached_property_b` (read_write, DERIVED)
+
+### StateFlagListIterator
+
+Iterates a linked list rooted at a2+36 and its per-node entry arrays (stride 148, first entry at +140), and for entries whose flag byte at -76 has bit 1 set, performs a target state transition: clears bit 0 / sets bit 3 of the dword at target+24 and invokes sub_53F720(this, target, 0).
+
+Methods: `0x00554C30`
+
+
+### HighResolutionTimer
+
+High-resolution timer capture and mode-dispatch. Guards capture on an initialized marker at this+0x0; records a previous-query 64-bit timestamp at this+0x30 (low) / this+0x34 (high) either via QueryPerformanceCounter (import at 0x0059E23C) when mode bit 0 of this+0x48 is set, or via RDTSC (RDTSCTimestampRead 0x0055687B) otherwise; mode bit 1 also selects RDTSC for output-pointer filling.
+
+Methods: `0x005563E0`, `0x005564B0`
+
+- `this+0x00000000` `uint32 initialized_marker` (read, DERIVED)
+- `this+0x00000030` `uint32 prev_query_low` (read_write, DERIVED)
+- `this+0x00000034` `uint32 prev_query_high` (read_write, DERIVED)
+- `this+0x00000048` `uint32 mode_flags` (read, DERIVED)
+
+### HighResolutionTimerTable
+
+Indexed accessor over a global high-resolution timer-delta table: guards the slot index against the count at dword_8B8E48, selects a 19-dword entry at dword_8B6C28[19*a1+608], and returns HighResolutionTimerDeltaCalculation on it.
+
+Methods: `0x00556760`
+
+
+### AnimationNodeDispatcher
+
+Animation-node list dispatch with a skip flag: caches sub_54B570(this, a2, 0), walks the node list rooted at this+0x204 (next at i[4]) unless the byte at this+0x3C has bit 4 set, clears node flag bits 0x20000028 when the cache is non-zero, and dispatches per-node updates through SceneNodeStateUpdateWithTransform (0x005569F0) or sub_556B10 depending on the node capability field.
+
+Methods: `0x00556980`
+
+- `this+0x0000003C` `uint8 skip_byte` (read, DERIVED)
+- `this+0x00000204` `void* node_list_head` (read, DERIVED)
+
+### SceneNodeRegistrationManager
+
+Scene-graph reference registration into per-type sub-arrays of the global manager object dword_8B8F28. Walks a record list (head a2[71], counter a2[70], 64-dword stride), selects a sub-array by the object type flags (0x120 -> elements 116/110/114/112), indexes by the type index (object+160, stride 528), appends a 16-byte {this,a2,record,object} entry when the collection has free capacity, clears record flag bits, and marks registration complete in a2[5].
+
+Methods: `0x00556D60`
+
+
+### SceneRenderManager
+
+Scene culling/update and per-frame render manager. SceneMultilevelCullAndUpdateDispatch (0x00556E70) runs an update pass, visibility tests (SphereVsFrustum 0x00549FB0, TestFrustumPlanes 0x0054A0A0), spatial-tree or plain node-chain traversal with recursive state update (0x00556930), sound dispatch (0x005550E0), an extra pass (0x00558E70) and sub-scene recursion. RenderFrameUpdate (0x00557120) clears per-sub-node flags (descriptor array +0x150, tree list +0x15C), runs buffer present/dirty handling (+0xEC, 0x00545850, 0x005570C0), audio node iteration (+0x16C, 0x00548DD0), render-list walk (+0xF8 -> 0x00556E70) and animation-time refresh (+0xF0 via 0x00556730, 0x00550310, 0x00556900). Grouping is GUESS: the two methods use different this-conventions.
+
+Methods: `0x00556E70`, `0x00557120`
+
+- `this+0x00000080` `uint32 scene_flags` (read, GUESS)
+- `this+0x000000EC` `uint32 render_flags` (read_write, GUESS)
+- `this+0x000000F0` `float animation_time` (read_write, GUESS)
+- `this+0x000000F8` `void* render_node_list` (read, GUESS)
+- `this+0x0000014C` `uint32 descriptor_count` (read, GUESS)
+- `this+0x00000150` `void* descriptor_array` (read, GUESS)
+- `this+0x0000015C` `void* tree_node_list` (read, GUESS)
+- `this+0x0000016C` `uint32 audio_node_count` (read, GUESS)
+- `this+0x000001A4` `void* vtable_callback` (read, GUESS)
+- `this+0x000001A8` `void* vtable_callback_arg` (read, GUESS)
+- `this+0x000001B0` `void* sub_scene_ptr` (read, GUESS)
+
+### TextureSlotPool
+
+Texture/render slot allocation pool. Allocates and removes 128-byte-aligned slots (base this+0x34, stride a2<<7) validating the active count (this+0x30) against capacity (this+0x2C). Two container modes are selected by the sign of the flags byte at this+0x20: a free-list chain (head this+0x38, prev/next links at slot+120/+124) and a compact-array mode that copies row data through the sub-context buffer (this+0x50 +0x20) and maintains the index array at this+0x3C.
+
+Methods: `0x00558A30`, `0x00558B30`
+
+- `this+0x00000020` `int8 flags_byte` (read, DERIVED)
+- `this+0x00000024` `uint32 row_count` (read, DERIVED)
+- `this+0x0000002C` `uint32 capacity` (read, DERIVED)
+- `this+0x00000030` `uint32 active_count` (read_write, DERIVED)
+- `this+0x00000034` `void* slot_base` (read, DERIVED)
+- `this+0x00000038` `void* free_list_head` (read_write, DERIVED)
+- `this+0x0000003C` `void* index_array` (read_write, DERIVED)
+- `this+0x00000050` `void* sub_context` (read, DERIVED)
+
+### TextureLayerEntryManager
+
+Bounds-checked updates to a texture-layer entry array (128-byte-stride entries, element count at this+0x2C, array base this+0x34): writes a multi-field payload into entry+16 and sets the 0x1000 dirty bit (TextureLayerFlagSet), or writes a single dword at entry+12 (BoundsCheckedElementFieldWrite). Clears the parent dirty-tracking bit 0x10000 at this+0x20.
+
+Methods: `0x00558C60`, `0x00558CF0`
+
+- `this+0x00000020` `uint32 parent_flags` (read_write, DERIVED)
+- `this+0x0000002C` `uint32 element_count` (read, DERIVED)
+- `this+0x00000034` `void* element_array` (read, DERIVED)
+
+### TexturePixelWriter
+
+Writes four pixel/vertex data words into a texture buffer slot (this+0x34 table, 128-byte stride scaled by this+0x24, 64-byte pixel entries). Gated on the format id at this+0x4C being 1 and the flags byte at this+0x20 bit 7 (which triggers a (re)allocation via TextureAllocationWithFormatSizeFlags 0x00558D10). Reads row data through the descriptor at this+0x50 (descriptor+0x20).
+
+Methods: `0x00558E10`
+
+- `this+0x00000020` `int8 flags_byte` (read, DERIVED)
+- `this+0x00000024` `uint32 row_scale` (read, DERIVED)
+- `this+0x00000034` `void* slot_table` (read, DERIVED)
+- `this+0x0000004C` `uint32 format_id` (read, DERIVED)
+- `this+0x00000050` `void* descriptor_ptr` (read, DERIVED)
+
+### SceneGraphRenderer
+
+Renders a linked list of geometry mesh blocks onto one or more locked texture surfaces. Builds a pitch-only or full 3-axis Euler rotation matrix from the object transform, clears per-surface vertex/index counters (this+0x44/0x48), walks the mesh list (head this+0x38, next +0x7C) copying transform/color state, packs per-vertex colors through the D3D wrapper at *(dword_8B8F24)+4, then unlocks (0x00558D80) and submits (sub_55CF50) each of the this+0x4C surfaces with its accumulated counts.
+
+Methods: `0x00558E70`
+
+- `this+0x00000020` `uint32 flags` (read, DERIVED)
+- `this+0x00000024` `uint32 stride_x_term` (read, DERIVED)
+- `this+0x00000028` `uint32 stride_y_term` (read, DERIVED)
+- `this+0x00000030` `void* texture_block_ptr` (read, DERIVED)
+- `this+0x00000038` `void* mesh_list_head` (read, DERIVED)
+- `this+0x00000044` `uint32* vertex_count_array` (read_write, DERIVED)
+- `this+0x00000048` `uint32* index_count_array` (read_write, DERIVED)
+- `this+0x0000004C` `uint32 surface_count` (read, DERIVED)
+- `this+0x00000050` `void* descriptor_array` (read, DERIVED)
+
+### StructFieldInit
+
+Trivial struct field initializer writing two arguments and a literal 0 into the +0x14/+0x18/+0x1C slots of an unknown struct; structural twin of StringCopyFieldInit (0x00559350) per existing analysis.
+
+Methods: `0x00559390`
+
+- `this+0x00000014` `uint32 field_a` (write, GUESS)
+- `this+0x00000018` `uint32 field_b` (write, GUESS)
+- `this+0x0000001C` `uint32 field_c_zero` (write, GUESS)
+
+## Compatibility contracts
+
+- **FontTextureSheet32Format** — A replacement executable must reproduce the 32-bit RGBA font texture-sheet protocol: the sheet surface (locked via 0x00543210, unlocked via 0x00543230) stores width at surface+0x1C, height at surface+0x20 and row pitch at surface+0x28; three key-color sentinels are recovered from the buffer tail and cached at this+0x28/0x2C/0x30 (default key 0xF0F0F0 at this+0x2C); cell counts are stored at this+0x34/0x38 and pitches at this+0x3C/0x40; an 8-byte-per-cell glyph record table is written at this+0x6D; pixels equal to a key color are rewritten to 0xF0F0F0 with the surface modification flag (surface+0x18 bit 0x800) set, other pixels get alpha forced to 0xFF000000.
+- **AlphaBlendParamEnum** — SetAlphaBlendParam (0x00552FF0) must keep the enum-to-value mapping for this+0x58: 0->191, 1->127, 2->63, 3->0, 4->255 via the jump table at 0x0055303C, and values outside 0-4 must leave this+0x58 unchanged while the function still returns the input enum.
+- **TextureSlotPoolLayout** — The slot pool (0x00558A30 allocate, 0x00558B30 deallocate) must preserve the 128-byte slot stride (base this+0x34, index a2), the in-use bit 0x40 per slot, the active-count/capacity fields at this+0x30/0x2C, and the two modes selected by the sign of the flags byte at this+0x20: free-list chain (head this+0x38, prev/next links at slot+120/+124) and compact-array mode (index array at this+0x3C, copy buffer at *(this+0x50)+0x20, row count this+0x24). Allocation is rejected when the pool is full, the index is out of range, or the slot is already in use.
+- **TextureLayerEntryLayout** — Texture-layer entry updates (0x00558C60, 0x00558CF0) must preserve the 128-byte entry stride over the array at this+0x34, the element count limit at this+0x2C, the payload at entry+16 (three dwords via 0x0053B200) and entry+12 (single dword), the per-entry dirty bit 0x1000, and the parent dirty-tracking bit 0x10000 at this+0x20; out-of-bounds indexes must return the raw index unchanged.
+- **HighResolutionTimerModeFlags** — The high-resolution timer must preserve the initialized marker at this+0x0, the previous-query 64-bit pair at this+0x30 (low) / this+0x34 (high), and the mode flags at this+0x48: bit 0 selects QueryPerformanceCounter (import 0x0059E23C) and bit 1 selects RDTSC (RDTSCTimestampRead 0x0055687B). TimerStartViaQueryPerformanceCounter (0x005563E0) is a one-shot start guard: it captures only when both previous-query fields are zero.
+- **SceneRenderFrameProtocol** — RenderFrameUpdate (0x00557120) must preserve the per-frame scene-manager protocol: clear sub-node flags through the descriptor array at +0x150 (24-byte stride, sub_5503A0) and the tree list at +0x15C (next +0x34, clearing bit 8 at node+0x24); when the render flags at +0xEC have the 0x800 present bit run ClearBuffersLoop (0x00545850) and dirty-list traversal (0x005570C0) then clear the present/dirty bits; iterate audio nodes when +0x16C > 0 (0x00548DD0); walk the render list at +0xF8 (next +0x1B8) calling 0x00556E70; refresh animation time at +0xF0 via 0x00556730 and feed D3DAnimationTimeUpdate (0x00550310) and AddFloatToAnimationChannels (0x00556900).
+- **LineRasterizerPixelFormats** — The line/polygon rasterizer (0x00553AA0) must keep the packed-color conversions keyed on cfg[12]: 6 converts to RGB555 ((a5>>3)&0x1F + (a5>>5)&0x7E0 + (a5>>8)&0xF800), 5 converts to RGB565 ((a5>>3)&0x1F + (a5>>6)&0x3E0 + (a5>>9)&0x7C00), anything else uses the caller color directly; cfg[9] selects the 16-bit pipeline (0x00553CD0/0x00553D00/0x00561970/0x005619AF, stride cfg[10]>>1) or the 32-bit pipeline (0x00553D40/0x00553D70/0x00561A41/0x00561A86, stride cfg[10]>>2).
+- **GeometrySurfaceSubmission** — RenderGeometryToSurfaces (0x00558E70) must preserve the surface submission protocol: per-surface descriptors are 64-byte-stride entries at this+0x50 with vertex count at descriptor+8 and index count at descriptor+16; per-surface vertex/index counts accumulate into the arrays at this+0x44/0x48; each of the this+0x4C surfaces is unlocked via 0x00558D80 and submitted via sub_55CF50 with its accumulated counts; mesh blocks chain through next at +0x7C from the head at this+0x38; the pass is disabled when the byte at this+0x20 is negative.
+
+## Unresolved
+
+- All 23 owners are UNKNOWN in the packet; every class in this proposal is grouped by shared this-field usage or shared callee, and none is confirmed by RTTI, vtable-member identity or runtime ownership evidence.
+- RenderTextureParamSetter groups four setters (0x00552FF0, 0x00553050, 0x00553620, 0x00553630) with disjoint written fields; common ownership between them is a GUESS, not proven by the packet.
+- SceneRenderManager groups 0x00556E70 and 0x00557120 although the former takes a scene argument a2 and the latter operates purely on this; their shared container is inferred from overlapping scene/render responsibility only.
+- EnumToFieldOffsetSetter (0x00554260) maps enum 2 to a dword field at this+0x04 per the packet prose, but the evidence set carries no field:this:0x00000004 reference; the field is described in prose and cannot be emitted as a declared field.
+- EnumToFieldOffsetSetter: the packet's existing-analysis prose claims enum 5 maps to this[4]; the raw source maps case 5 to this+6 (offset 0x18). Raw source wins; the attested 0x10 field is written by case 14, not case 5.
+- Semantics of the alpha-blend constants (191, 127, 63, 0, 255) and the caller's use of this+0x58 are unconfirmed; the jump-table symbol jpt_553000 is from existing analysis, not the raw source.
+- PropertyRefreshDeviceBinder: identity of the device at this+0x1100, the meaning of vtable slots 0x130/0x14C, the roles of a2[1]/a2[2]/a2[8], the -1 sentinel on a2[1], and the purpose of writing this+0x0 are unconfirmed.
+- StateFlagListIterator: semantics of sub_53F720 and its third argument, the node/list/entry types, the meaning of the target+24 flag bits, and the gating flag at entry-76 are outside this packet.
+- byte_FF00000000005406 is read by both timer functions per deterministic facts but is not visible in the decompiled source; its role is unresolved.
+- dbl_59E430 is listed as a read global of 0x00556760 but does not appear in the raw source body; its role is unresolved.
+- HighResolutionTimerDeltaAtIndex is a structural twin of sub_556730 (0x00556730) per the cluster_copy prelabel; the two slots are presumed parallel but their shared container is not identified.
+- LinePolygonRasterizer: semantics of cfg[9]/cfg[10] beyond the 16/32-bit dispatch and stride, the identity of the wrapped surface, and the pixel-format enums other than 5 and 6 are unresolved.
+- AnimationNodeDispatcher: the IDB-annotated node offsets (*(this+0x204)+0x20/0x24/0x14C) do not match the decompiled source's dword indices for the same node (i[5]->0x14, i[79]->0x13C, i[4]->0x10); the annotation-vs-source mapping is unverified. Caller 0x00556930 is recorded but frame-path membership is NOT_FOUND.
+- RegisterNodeReferences: identity and layout of the global manager at dword_8B8F28 (sub-array elements 110/112/114/116, stride 528), the 16-byte appended entry semantics, the a2[5] bit flags, and the unused parameter a3 are unresolved.
+- SceneMultilevelCullAndUpdateDispatch: identity of the scene manager type, the a2[59] mode bits (0x3000), node flag bits (+60 bit 2, +4 bits 4/5/0x40), the optional vtable callback at this+0x1A4, and the sub-scene recursion guard this+0x1B0 are caller-type dependent.
+- RenderFrameUpdate: owner class is unnamed; fields at +0x14C/+0x150/+0x15C/+0xF8/+0xEC/+0xF0/+0x16C are DERIVED from this function only; the 0x400008-related meaning of the 0xFFBFF7FF mask beyond the 0x800 present bit is not established.
+- TextureSlotPool: whether this+0x20's flags byte selects two genuinely different slot representations (free-list chain vs compact array) or two container modes of one pool is DERIVED from structure, not confirmed; the purpose of the TextureAllocationWithFormatSizeFlags(0) call on the compact path is unresolved.
+- TextureSlotDeallocate's packet field base *(this+0x30) for the slot link at 0x78 does not literally match the raw source's slot pointer derived from this+0x34; the ref is used verbatim as canonicalized evidence.
+- TexturePixelWriter: whether the four written components live in the descriptor (*(this+0x50) offsets 0x0/0x4/0x8/0x18) or in the row-data buffer is not resolvable from this packet; semantics of a2/a3 and bit 7 of this+0x20 are inferred.
+- SceneGraphRenderer: dword_8B78A0 is listed as read evidence but does not appear in the raw decompiled text; the per-vertex color packing formula and the role of v36 and the 48-byte v44 block are only partially recovered.
+- StructFieldInit: the struct owning offsets 0x14/0x18/0x1C and the semantic role of a2/a3 are not determinable from this packet alone.
+- Renderer geometry: whether FontTextureSheetAnalyzer, TextureLayerEntryManager, TexturePixelWriter, SceneGraphRenderer and TextureSlotPool share a common base or surface descriptor type is not evidenced; equal offsets across different bases are not proof of common ownership.

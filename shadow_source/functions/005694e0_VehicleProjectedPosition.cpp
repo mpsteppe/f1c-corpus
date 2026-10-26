@@ -1,0 +1,40 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005694E0
+// Canonical corpus name: VehicleProjectedPosition
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VehicleProjectedPosition_005694e0.c
+
+void UnknownObject::VehicleProjectedPosition()
+{
+    // Computes the collision contact-constraint response for a rigid body (vehicle): takes the contact point a2 relative to the body world position (this+0x4/0xC/0x14), combines it with coefficient terms (this+0x64..0x8C), writes the contact-motion component along the normal a3 to *a4, evaluates an impulse-correction scalar *a5 from the world inertia tensor (this+0xEC..0x12C) plus bias term (this+0xB4), and optionally writes the body-space contact offset a6 when non-null. Returns the contact normal pointer a3.
+    // CALCULATION: Compute contact offset components v6/v7/v9 = a2 - body world position (this+0x4/0xC/0x14). [field:this:0x00000004, field:this:0x0000000C, field:this:0x00000014, function:0x005694E0, source:raw]
+    // CALCULATION: Combine each offset component with a coefficient row and base term: v17 = v6*this+0x7C + this+0x64; v18 = v7*this+0x84 + this+0x6C; v19 = v9*this+0x8C + this+0x74. [field:this:0x00000064, field:this:0x0000006C, field:this:0x00000074, field:this:0x0000007C, field:this:0x00000084, field:this:0x0000008C, source:raw]
+    // ASSIGNMENT: Write scalar contact-motion component along normal: *a4 = v17*a3[0] + v18*a3[1] + v19*a3[2]. [source:raw]
+    // CALCULATION: Cross product of contact offset and normal: v10 = v7*a3[2] - v9*a3[1]; v11 = v9*a3[0] - v6*a3[2]; v12 = v6*a3[1] - v7*a3[0]. [source:raw]
+    // CALCULATION: Apply world inertia tensor row 0 to the cross-product terms: v14 = v12*this+0xEC + v11*this+0xF4 + v10*this+0xFC. [field:this:0x000000EC, field:this:0x000000F4, field:this:0x000000FC, source:raw]
+    // CALCULATION: Apply world inertia tensor row 1: v15 = v12*this+0x104 + v11*this+0x10C + v10*this+0x114. [field:this:0x00000104, field:this:0x0000010C, field:this:0x00000114, source:raw]
+    // CALCULATION: Apply world inertia tensor row 2: v16 = v12*this+0x11C + v11*this+0x124 + v10*this+0x12C. [field:this:0x0000011C, field:this:0x00000124, field:this:0x0000012C, source:raw]
+    // ASSIGNMENT: Write impulse-correction scalar *a5 = (v15*v9 - v16*v7)*a3[0] + (v16*v6 - v9*v14)*a3[1] + (v7*v14 - v15*v6)*a3[2] + this+0xB4 (bias term). [field:this:0x000000B4, source:raw]
+    // GUARD: Guard on optional output a6: body-space contact offset is written only when a6 is non-null. [source:raw]
+    // ASSIGNMENT: Write body-space contact offset: *a6 = v17 - *a4*a3[0]; a6[1] = v18 - *a4*a3[1]; a6[2] = v19 - *a4*a3[2]. [source:raw]
+    // RETURN: Return a3 (the contact normal pointer). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   // this: body with world position (0x4/0xC/0x14), coefficient terms (0x64..0x8C),
+    //   //       world inertia tensor (0xEC..0x12C), bias term (0xB4)
+    //   // a2: contact point; a3: contact normal; a4/a5: scalar outputs; a6: optional 3-vector
+    //   v6 = a2[0] - this[0x4];  v7 = a2[1] - this[0xC];  v9 = a2[2] - this[0x14];
+    //   v17 = v6 * this[0x7C] + this[0x64];
+    //   v18 = v7 * this[0x84] + this[0x6C];
+    //   v19 = v9 * this[0x8C] + this[0x74];
+    //   *a4 = v17 * a3[0] + v18 * a3[1] + v19 * a3[2];
+    //   v10 = v7 * a3[2] - v9 * a3[1];  v11 = v9 * a3[0] - v6 * a3[2];  v12 = v6 * a3[1] - v7 * a3[0];
+    //   v14 = v12 * this[0xEC] + v11 * this[0xF4] + v10 * this[0xFC];
+    //   v15 = v12 * this[0x104] + v11 * this[0x10C] + v10 * this[0x114];
+    //   v16 = v12 * this[0x11C] + v11 * this[0x124] + v10 * this[0x12C];
+    //   *a5 = (v15*v9 - v16*v7)*a3[0] + (v16*v6 - v9*v14)*a3[1] + (v7*v14 - v15*v6)*a3[2] + this[0xB4];
+    //   if (a6) { *a6 = v17 - *a4*a3[0]; a6[1] = v18 - *a4*a3[1]; a6[2] = v19 - *a4*a3[2]; }
+    //   return a3;
+    // UNRESOLVED: The physical meaning of the coefficient row (0x7C/0x84/0x8C), the base terms (0x64/0x6C/0x74) and the bias term (0xB4) is DERIVED from the collision context, not evidenced by the packet.
+    // UNRESOLVED: Whether returning the normal pointer a3 is contract-relevant to the two callers (F_3DCollisionDetectionWithAABBTestAndContactResp 0x004EA040, CollisionDetectionSystem 0x004EA970) is not evidenced here.
+}

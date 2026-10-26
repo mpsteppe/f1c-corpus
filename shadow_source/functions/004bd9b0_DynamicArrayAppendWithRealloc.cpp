@@ -1,0 +1,42 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004BD9B0
+// Canonical corpus name: DynamicArrayAppendWithRealloc
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/DynamicArrayAppendWithRealloc_004bd9b0.c
+
+void UnknownObject::DynamicArrayAppendWithRealloc()
+{
+    // Appends the integer a2 to a dynamic array of 4-byte elements. The array object (this) tracks capacity at this+0x18, element count at this+0x1C, and the element buffer pointer at this+0x20. When count equals capacity, the capacity is increased by 8 elements, a new buffer of 4*capacity bytes is allocated through OperatorNewNhMallocWrapper (0x00587C03), the existing count elements are copied element-by-element, and the old buffer is released through FreeWrapper_7bcf (0x00587BCF) when non-null. The new element is stored at buffer[count] and the count field is incremented; the function returns the index (the previous count value) at which a2 was stored.
+    // GUARD: If the element count (this+0x1C) equals the capacity (this+0x18), reallocation is required before the append. [field:this:0x00000018, field:this:0x0000001C, source:raw]
+    // ASSIGNMENT: Increase the capacity field this+0x18 by 8 elements. [field:this:0x00000018, source:raw]
+    // CALL: Allocate a new buffer of 4*newCapacity bytes through OperatorNewNhMallocWrapper (0x00587C03). [callee:0x00587C03, source:raw]
+    // LOOP: Copy each of the existing count elements (this+0x1C) from the old buffer (this+0x20) into the newly allocated buffer, one 4-byte element per iteration. [field:this:0x0000001C, field:this:0x00000020, source:raw]
+    // CALL: If the old buffer pointer (this+0x20) is non-null, release it through FreeWrapper_7bcf (0x00587BCF). [field:this:0x00000020, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Store the newly allocated buffer pointer into this+0x20. [field:this:0x00000020, source:raw]
+    // ASSIGNMENT: Store a2 into the buffer at element index equal to the current count (this+0x1C). [field:this:0x0000001C, field:this:0x00000020, source:raw]
+    // ASSIGNMENT: Increment the element count field this+0x1C. [field:this:0x0000001C, source:raw]
+    // RETURN: Return the index (the previous count value) at which a2 was stored. [field:this:0x0000001C, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int DynamicArrayAppendWithRealloc(void* this, int value) {
+    //     int count = *(int*)((char*)this + 0x1C);
+    //     if (count == *(int*)((char*)this + 0x18)) {
+    //       int newCapacity = count + 8;
+    //       *(int*)((char*)this + 0x18) = newCapacity;
+    //       int* newBuffer = OperatorNewNhMallocWrapper(4 * newCapacity);
+    //       for (int i = 0; i < count; ++i)
+    //         newBuffer[i] = *(int*)(*(int*)((char*)this + 0x20) + 4 * i);
+    //       if (*(void**)((char*)this + 0x20))
+    //         FreeWrapper_7bcf(*(void**)((char*)this + 0x20));
+    //       *(int**)((char*)this + 0x20) = newBuffer;
+    //     }
+    //     int index = *(int*)((char*)this + 0x1C);
+    //     *(int*)(*(int*)((char*)this + 0x20) + 4 * index) = value;
+    //     ++*(int*)((char*)this + 0x1C);
+    //     return index;
+    //   }
+    // UNRESOLVED: The owning class of this is unknown; no vtable or type evidence is in this packet.
+    // UNRESOLVED: The capacity growth step of exactly 8 elements is a fixed source literal, not a configurable policy.
+    // UNRESOLVED: The semantic role of the appended integers for caller NestedLoopRangeTraversal (0x004BE1D0) is outside this packet.
+    // UNRESOLVED: The 4*capacity allocation size assumes 4-byte elements as written in the raw source.
+}

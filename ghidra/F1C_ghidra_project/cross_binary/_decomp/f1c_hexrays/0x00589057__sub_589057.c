@@ -1,0 +1,13 @@
+// f1c  0x00589057  size=83
+int __cdecl sub_589057(int a1, int a2)
+{
+  int result; // eax
+
+  sub_58FCA0(a1);
+  if ( *(_BYTE *)(a2 + 64) )
+    sub_588F66(a1, 2);
+  result = a2 + 128;
+  if ( *(_BYTE *)(a2 + 128) )
+    return sub_588F66(a1, 2);
+  return result;
+}

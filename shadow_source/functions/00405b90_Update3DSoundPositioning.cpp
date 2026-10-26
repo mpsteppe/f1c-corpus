@@ -1,0 +1,66 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00405B90
+// Canonical corpus name: F_3DSoundPositioningUpdate
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/F_3DSoundPositioningUpdate_00405b90.c
+
+void UnknownObject::Update3DSoundPositioning()
+{
+    // Recomputes 3D positional-audio parameters for one sound source relative to a listener: distance attenuation, stereo pan split and Doppler-influenced playback rate, then pushes them to the Miles audio layer through the AIL sample handle and manages sample start/position/resume state. Sound-source position, listener position and the Doppler reference are read from this and from a listener object reached through this+0x54.
+    // ASSIGNMENT: Read the behavior bitmask at this+0x18 into a working copy and the baseline attenuation float at this+0x40 (the reference level before distance scaling). [field:this:0x00000018, field:this:0x00000040, source:raw]
+    // ASSIGNMENT: Resolve the listener pointer stored at this+0x54 (position/direction source object) and the Miles sample-information pointer at this+0x58; the listener-relative position read window starts at listener offset 0x58. [field:this:0x00000054, field:this:0x00000058, field:*(this+0x54):0x00000058, source:raw]
+    // GUARD: If the state flag at this+0x14 equals 1, consult the virtual state query through the vtable (object base at this+0x0, slot obj+0x1C); a return other than 1 keeps the playback path enabled. [guard:0, field:this:0x00000014, field:this:0x00000000, field:obj:0x0000001C, source:raw]
+    // CALCULATION: Compute the source-to-listener delta vector from source position at this+0x28, this+0x2C, this+0x30 minus listener position at listener offsets 0x58, 0x5C, 0x60, then the Euclidean distance via sqrt of the squared sum. [field:this:0x00000028, field:this:0x0000002C, field:this:0x00000030, field:*(this+0x54):0x00000058, field:*(this+0x54):0x0000005C, field:*(this+0x54):0x00000060, source:raw]
+    // GUARD: If behavior bitmask this+0x18 bit 3 (value 8) is clear, run the distance through SmoothstepInterpolation and adopt the result as the attenuation scale. [field:this:0x00000018, callee:0x00406020, source:raw]
+    // CALCULATION: Normalize the delta vector by the inverse distance (1/dist, guarded against a zero distance) into direction components used by the pan/attenuation helpers. [source:raw]
+    // GUARD: If the playback path is active (state flag this+0x14 not suppressed) and bitmask bit 0 is clear, feed the normalized direction to ScaledDotProductWithClamp. [field:this:0x00000014, field:this:0x00000018, callee:0x00405F80, source:raw]
+    // GUARD: If bitmask bits 2 or 3 are clear, compute the stereo pan factor via DotProductWithScaleOffset on the direction vector. [field:this:0x00000018, callee:0x00406060, source:raw]
+    // CALCULATION: Derive the two channel volume levels: near = pan * attenuation, far = (1 - pan) * attenuation. [source:raw]
+    // CALL: Apply the channel volume levels to the Miles sample handle read at offset 0x10 of the sample-information object (AIL_set_sample_volume_levels). [global:0x0059E3B8, field:*(this+0x58):0x00000010, source:raw]
+    // CALCULATION: Compute the playback rate as the listener Doppler reference at listener offset 0x8C multiplied by the two rate components at this+0x48 and this+0x44. [field:*(this+0x54):0x0000008C, field:this:0x00000048, field:this:0x00000044, source:raw]
+    // CALL: Apply the playback rate to the sample handle (AIL_set_sample_playback_rate). [global:0x0059E3BC, field:*(this+0x58):0x00000010, source:raw]
+    // CALL: Run the follow-up sample-state computation ShortComputation_6100 on this. [callee:0x00406100, source:raw]
+    // GUARD: If the playback path is active and bitmask bit 4 (value 0x10) is set, index the per-step position table flt_8AAE74 with the rolling byte counter dword_8AAE70, convert via CRTFtol, set the sample position, then resume the sample. [field:this:0x00000018, global:0x008AAE70, global:0x008AAE74, callee:0x00587BDC, global:0x0059E3C0, global:0x0059E3D4, source:raw]
+    // CALL: Otherwise, when the playback path is active, start the sample (AIL_start_sample). [global:0x0059E3C4, source:raw]
+    // RETURN: Return 0 on every exit path. Called from MilesAudioSamplePlaybackSetup (0x00405900) to keep the positional sample updated. [caller:0x00405900, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_405B90(void *this) {
+    //     uint32 flags = *(uint32*)this + 0x18;
+    //     float attenuation = *(float*)this + 0x40;
+    //     float* listener = *(float**)(this + 0x54);
+    //     int sampleInfo = *(int*)(this + 0x58);
+    //     BOOL active = 1;
+    //     if (*(int*)(this + 0x14) == 1)
+    //       active = (vtable[this]->query()(this) != 1);
+    //     float dx = *(float*)(this + 0x28) - listener[0x58 / 4];
+    //     float dy = *(float*)(this + 0x2C) - listener[0x5C / 4];
+    //     float dz = *(float*)(this + 0x30) - listener[0x60 / 4];
+    //     float dist = sqrt(dx*dx + dy*dy + dz*dz);
+    //     if (!(flags & 8)) { SmoothstepInterpolation(dist); attenuation = dist; }
+    //     float inv = (dist != 0.0f) ? (1.0f / dist) : 1.0f;
+    //     float dir[3] = { dx*inv, dy*inv, dz*inv };
+    //     if (active && !(flags & 1)) ScaledDotProductWithClamp(dir);
+    //     float pan = 0.5f;
+    //     if (!(flags & 4) || !(flags & 8)) pan = DotProductWithScaleOffset(dir);
+    //     float farLevel = (1.0f - pan) * attenuation;
+    //     float nearLevel = pan * attenuation;
+    //     AIL_set_sample_volume_levels(*(int*)(sampleInfo + 16), farLevel, nearLevel);
+    //     float rate = *(float*)(listener + 0x8C / 4) * *(float*)(this + 0x48) * *(float*)(this + 0x44);
+    //     AIL_set_sample_playback_rate(*(int*)(sampleInfo + 16), (int)rate);
+    //     ShortComputation_6100(this);
+    //     if (active) {
+    //       if (flags & 0x10) {
+    //         int pos = CRTFtol(flt_8AAE74[(unsigned __int8)dword_8AAE70++]);
+    //         AIL_set_sample_position(*(int*)(sampleInfo + 16), pos);
+    //         AIL_resume_sample(*(int*)(sampleInfo + 16));
+    //       } else {
+    //         AIL_start_sample(*(int*)(sampleInfo + 16));
+    //       }
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: The object referenced by field:obj:0x0000001C is the vtable of the sound-source object itself; its state query semantics are caller-defined.
+    // UNRESOLVED: The precise meaning of the this+0x18 bitmask bits (0, 2, 3, 4) is inferred from the branch structure of the raw text and not independently confirmed.
+    // UNRESOLVED: The relationship between the listener object at this+0x54 and the sample-information object at this+0x58 is not expressed in the raw text.
+}

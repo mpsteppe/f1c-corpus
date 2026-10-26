@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "address": "0x004A35F0",
+  "proposed_name": "AnimationTargetPropagator",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes desired float values from the input parameter struct a2 (base value at a2+0, two phase descriptors gated by flag bytes at a2+4 and a2+32), then propagates those values into sub-elements of the this array (element count this[3], base pointer this[4], 120-byte elements) by calling RangeProportionInitializer per sub-element. Called by PitStopOperationTimer (0x004A6340) on the frame path to drive part animation targets. Returns the number of outer array elements processed (always at least 0).",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Compute v4 = *(float*)(a2+52) + *(float*)a2, the base value combined with a trailing window offset.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the flag byte at a2+4: non-zero runs the phase-1 computation, zero fills the value slots with defaults.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Phase-1: build candidate floats v34..v38 from a2+8, +12, +16, +20 relative to *(float*)a2, and select the maximum of the four via a nested comparison chain (v38 = candidate + 2.0f is carried but not part of the max select).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Phase-1: v11 = selectedMax + *(float*)(a2+24); store v27 = v11 - 1.0f and v29 = v27; v39 = v11 + *(float*)(a2+28); raise v4 to v39 if smaller.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Phase-1 else: fill v26/v28 with 1203982208 and v34..v38, v27, v29 with 99999.0f as the default (no-phase) values.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the flag byte at a2+32: non-zero runs the phase-2 computation, zero fills its slots with defaults.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Phase-2: v32 = *(float*)(a2+36) + *(float*)a2; v12 = *(float*)(a2+44) + *(float*)(a2+40) + v32; store v33 = v12 - 1.0f; v40 = v12 + *(float*)(a2+48); raise v4 to v40 if smaller.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Phase-2 else: fill v32 and v33 with 99999.0f as defaults.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read this[3] (element count at this+0xC) into v13, compute v31 = v4 - 3.5999999f, and initialize result/counters to 0.",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on this[3] > 0: outer array loop body only runs when the element count is positive; otherwise the function returns 0.",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Outer do-while over array elements starting at this[4] (this+0x10), advancing the element pointer by 120 bytes each iteration, terminating when the processed count reaches this[3].",
+      "evidence_refs": ["field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner do-while over sub-elements of each element: count read from element+112, sub-element stride 28 bytes.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "For each sub-element: v21 = *(DWORD*)(sub+24) selects one of the computed value slots; v24 = sub[4] - sub[3] + selectedValue (slot offset into the v26/v32 stack block).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call RangeProportionInitializer(sub, selectedValue, v24) to initialize the range/proportion tween values for the sub-element.",
+      "evidence_refs": ["callee:0x004A1FD0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the number of outer array elements processed (v25 + 1 semantics), 0 when the element count is non-positive.",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_4A35F0(DWORD* this, int a2) {",
+    "  float base = *(float*)a2;",
+    "  float v4 = *(float*)(a2+52) + base;",
+    "  if (*(BYTE*)(a2+4)) {",
+    "    // build candidates from a2+8,+12,+16,+20, take max, then:",
+    "    // v11 = max + *(float*)(a2+24); v27 = v29 = v11 - 1.0f;",
+    "    // v39 = v11 + *(float*)(a2+28); if (v4 < v39) v4 = v39;",
+    "  } else { v26 = v28 = 1203982208; v34..v38 = v27 = v29 = 99999.0f; }",
+    "  if (*(BYTE*)(a2+32)) {",
+    "    // v32 = *(float*)(a2+36) + base;",
+    "    // v12 = *(float*)(a2+44) + *(float*)(a2+40) + v32; v33 = v12 - 1.0f;",
+    "    // v40 = v12 + *(float*)(a2+48); if (v4 < v40) v4 = v40;",
+    "  } else { v32 = v33 = 99999.0f; }",
+    "  v31 = v4 - 3.5999999f;",
+    "  int n = 0;",
+    "  if (this[3] > 0) {",
+    "    do {",
+    "      for (sub-elements of element, count at elem+112, stride 28) {",
+    "        int sel = *(DWORD*)(sub+24);",
+    "        float v24 = sub[4] - sub[3] + slotValue(sel);",
+    "        RangeProportionInitializer(sub, slotValue(sel), v24);",
+    "      }",
+    "      ++n;",
+    "    } while (n < this[3]);",
+    "  }",
+    "  return n;",
+    "}"
+  ],
+  "unresolved": [
+    "Semantics of the a2 parameter struct (offsets a2+0..a2+52) are not named evidence fields; the two flag-gated float blocks are inferred as animation phase descriptors but unproven.",
+    "Globals flt_59E43C, flt_59E800, flt_5ACAF4 appear in the packet global table as read-only but are not visible in the raw source text; their use is likely hidden by Hex-Rays constant folding.",
+    "The v14/sub-element selection slot mechanism relies on stack layout aliasing of the v26/v32 value block and is DERIVED.",
+    "Meaning of the 1203982208 default (bit pattern) and 99999.0f sentinel values is unknown."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059E43C", "global:0x0059E800", "global:0x005ACAF4"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,68 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00596A2E
+// Canonical corpus name: sub_596A2E
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_596A2E_00596a2e.c
+
+void UnknownObject::CRTGetStringType()
+{
+    // Character-type (ctype) retrieval for a wide character string, with a one-time CRT mode auto-detection. On first call, probes GetStringTypeW against the test string String2 and falls back to GetStringTypeA against String1, caching the chosen mode (1=Unicode, 2=ANSI) in the global dword_8D41D0. Unicode mode forwards straight to GetStringTypeW. ANSI mode measures the wide string via WideCharToMultiByte, converts it into an alloca'd buffer, then calls GetStringTypeA with the locale (falling back to dword_8D3F38) and a two-word sentinel window to detect the converted length, copying the result into the caller's lpCharType via sub_58B130. Stack buffers are guarded with __alloca_probe inside an SEH frame. Called by sub_58F939 (0058f939).
+    // GUARD: Mode cache dword_8D41D0 is read; when zero the CRT mode has not been detected and auto-detection runs, otherwise the cached v6 is reused [global:0x008D41D0, source:raw]
+    // CALL: Mode-detection probe: GetStringTypeW(1, &String2, 1, &CharType) tests the Unicode API against the static test string String2; success selects mode 1 [global:0x0059E090, global:0x005B95C4, source:raw]
+    // CALL: Mode-detection fallback: GetStringTypeA(0, 1, String1, 1, &CharType) tests the ANSI API against the static test string String1; failure returns 0, success selects mode 2 [global:0x0059E094, global:0x007CD8BC, source:raw]
+    // ASSIGNMENT: Detected mode (1 or 2) is cached back into the global dword_8D41D0 for subsequent calls [global:0x008D41D0, source:raw]
+    // CALL: Unicode path: when cached mode v6==1, returns GetStringTypeW(dwInfoType, lpSrcStr, cchSrc, lpCharType) directly [global:0x0059E090, source:raw]
+    // CALCULATION: ANSI path: a zero CodePage argument defaults to the global code page (0x008D3F48) before the conversion [global:0x008D3F48, source:raw]
+    // CALL: Measuring call: WideCharToMultiByte(CodePage, 0x220, lpSrcStr, cchSrc, 0, 0, 0, 0) computes the required multibyte length v8 (cached as v9 and v18) [global:0x0059E228, source:raw]
+    // GUARD: Measurement result v8 must be non-zero to proceed with the ANSI conversion and its stack allocations [source:raw]
+    // STATE_TRANSITION: SEH frame entered for the stack work: the exception registration (TryLevel, old_esp) is set up against the TEB-relative SEH data (byte_FF00000000001692/1695/1699/169B) and the ScriptFrameProcessor handler (0x0058895C), with the stru_5B9AF0 frame region; the frame is released by setting TryLevel back to -1 after the conversions [global:0x0058895C, global:0x005B9AF0, global:0xFF00000000001692, global:0xFF00000000001695, global:0xFF00000000001699, global:0xFF0000000000169B, source:raw]
+    // CALL: First stack allocation: v8+3 rounded up to a multiple of 4 is reserved with alloca, probed by __alloca_probe [callee:0x005881C0, source:raw]
+    // CALL: The multibyte workspace v16 is zero-filled for v9 bytes by sub_58BB10 [callee:0x0058BB10, source:raw]
+    // CALL: Conversion call: WideCharToMultiByte(CodePage, 0x220, lpSrcStr, cchSrc, lpMultiByteStr, v9, 0, 0) fills the workspace with the ANSI form; its BOOL result gates the rest of the ANSI path [global:0x0059E228, source:raw]
+    // CALCULATION: Second stack allocation: 2*v9+5 rounded up to a multiple of 4 is reserved with alloca (probed by __alloca_probe) for the WORD character-type buffer v16 [callee:0x005881C0, source:raw]
+    // CALCULATION: A zero Locale argument defaults to the global locale dword_8D3F38 (stored into v14) [global:0x008D3F38, source:raw]
+    // CALCULATION: Sentinel setup: the two WORDs at v16[cchSrc-1] and v16[cchSrc] are preset to -1 (0xFFFF) to mark the end of the converted character-type output [source:raw]
+    // CALL: ANSI conversion call: GetStringTypeA(v14, dwInfoType, lpMultiByteStr, v18, v16) produces the character-type words into v16; the BOOL result is captured as StringTypeA [global:0x0059E094, source:raw]
+    // GUARD: Sentinel check: the conversion is accepted only when v16[cchSrc-1] is no longer 0xFFFF and v16[cchSrc] is still 0xFFFF, i.e. the converter wrote exactly cchSrc words [source:raw]
+    // CALL: sub_58B130 copies 2*cchSrc bytes of the converted character-type words from v16 into the caller's lpCharType buffer; on success the function returns StringTypeA [callee:0x0058B130, source:raw]
+    // RETURN: Returns 0 on the ANSI-detection failure, the conversion failure, the sentinel mismatch, or the code page measurement failure paths; returns StringTypeA on the successful ANSI path and the GetStringTypeW result on the Unicode path [source:raw]
+    // CALL: Invoked by sub_58F939 (0058f939), the packet-listed caller of this CRT helper [caller:0x0058F939, source:raw]
+
+    // Conservative worker pseudocode:
+    //   v6 = dword_8D41D0;
+    //   if (!v6) {
+    //     if (GetStringTypeW(1, &String2, 1, &CharType)) v6 = 1;
+    //     else {
+    //       if (!GetStringTypeA(0, 1, String1, 1, &CharType)) return 0;
+    //       v6 = 2;
+    //     }
+    //     dword_8D41D0 = v6;
+    //   }
+    //   if (v6 == 1) return GetStringTypeW(dwInfoType, lpSrcStr, cchSrc, lpCharType);
+    //   if (v6 == 2) {
+    //     if (!CodePage) CodePage = ::CodePage;
+    //     v8 = WideCharToMultiByte(CodePage, 0x220, lpSrcStr, cchSrc, 0, 0, 0, 0);
+    //     v9 = v8;
+    //     if (v8) {
+    //       enter SEH frame;
+    //       alloca(round4(v8 + 3));
+    //       sub_58BB10(v16, 0, v9);
+    //       if (WideCharToMultiByte(CodePage, 0x220, lpSrcStr, cchSrc, v16, v9, 0, 0)) {
+    //         alloca(round4(2*v9 + 5));
+    //         Locale = Locale ? Locale : dword_8D3F38;
+    //         v16[cchSrc] = -1; v16[cchSrc-1] = -1;
+    //         StringTypeA = GetStringTypeA(Locale, dwInfoType, v16, v18, v16);
+    //         if (v16[cchSrc-1] != 0xFFFF && v16[cchSrc] == 0xFFFF) {
+    //           sub_58B130(lpCharType, v16, 2*cchSrc);
+    //           return StringTypeA;
+    //         }
+    //       }
+    //       leave SEH frame;
+    //     }
+    //   }
+    //   return 0;
+    // UNRESOLVED: dword_8D41D0 is a process-global mode cache shared across callers; its lifecycle and reset points are outside this packet
+    // UNRESOLVED: The sentinel-window idiom (v16[cchSrc-1]/v16[cchSrc]) is characteristic of an MSVCRT GetStringTypeA helper but its exact upstream contract is not evidenced here
+    // UNRESOLVED: TEB-relative globals byte_FF00000000001692/1695/1699/169B are compiler-generated SEH bookkeeping, not application state
+    // UNRESOLVED: GetStringTypeW/GetStringTypeA/WideCharToMultiByte appear as import thunk globals; the packet does not name their import module
+}

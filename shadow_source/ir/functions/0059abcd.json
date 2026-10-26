@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "address": "0x0059ABCD",
+  "proposed_name": "ObjectConstructorWithVTableAndStringInit",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Object constructor. Registers the SEH frame, sets the reference count at +0x4 to 1, installs the std::locale::facet vtable, copies two flag bytes from caller parameters to +0x14 and +0x18, zeroes the range +0x8..+0x10, re-initializes the embedded reference-counted string buffer at +0x18 from global word_5C406C (via Strlen + BufferWriteWithNullTerminate), then overrides the vtable with off_5B9D4C and returns the object.",
+  "local_names": {
+    "a1": "constructor frame pointer (ebp-relative caller slot)",
+    "a2": "object pointer (via ecx, becomes v3)",
+    "v2": "object pointer carried in ecx",
+    "v3": "constructed object",
+    "v4": "length of the init string from Strlen"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "SEHHandlerInit registers the SEH handler for this frame; the landing pad is loc_59D510.",
+      "evidence_refs": ["callee:0x0058A5D8", "global:0x0059D510"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the object pointer v2 into the frame slot at a1-16.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set the reference count at object+0x4 to 1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Install the initial vtable: std::locale::facet (??_7facet@locale@std@@6B@).",
+      "evidence_refs": ["global:0x005B9D54"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the flag byte at caller slot a1+8 (this+0x8) into object+0x14.",
+      "evidence_refs": ["field:this:0x00000008"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the low byte of caller slot a1+11 (this+0xB) into object+0x18 (v3[6] via the byte store at v3+24).",
+      "evidence_refs": ["field:this:0x0000000B"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the object dwords at +0x8, +0xC and +0x10 (v3[2], v3[3], v3[4]).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the frame slot at a1-4 to 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ReferenceCountDecrementWithConditionalFree(object+0x18, 0) releases the previous reference-counted string buffer at +0x18 before re-init.",
+      "evidence_refs": ["callee:0x005993AF"]
+    },
+    {
+      "kind": "call",
+      "description": "Strlen(&word_5C406C) computes the length of the init string constant.",
+      "evidence_refs": ["callee:0x0058E1B0", "global:0x005C406C"]
+    },
+    {
+      "kind": "call",
+      "description": "BufferWriteWithNullTerminate(object+0x18, &word_5C406C, len) copies the init string into the buffer with a null terminator.",
+      "evidence_refs": ["callee:0x00599615", "global:0x005C406C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Override the vtable with off_5B9D4C after initialization.",
+      "evidence_refs": ["global:0x005B9D4C"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the constructed object v3.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void* ObjectConstructorWithVTableAndStringInit(void* frame, void* obj, int* args) {",
+    "  SEHHandlerInit();",
+    "  void* result = obj;",
+    "  *(void**)(frame - 16) = obj;",
+    "  *(int*)((char*)obj + 4) = 1;",
+    "  *(void**)obj = &std::locale::facet::vftable;",
+    "  *(byte*)((char*)obj + 20) = *(byte*)(frame + 8);",
+    "  byte flag = *(byte*)(frame + 11);",
+    "  *(int*)((char*)obj + 8) = 0;",
+    "  *(int*)((char*)obj + 12) = 0;",
+    "  *(int*)((char*)obj + 16) = 0;",
+    "  *(byte*)((char*)obj + 24) = flag;",
+    "  *(int*)(frame - 4) = 0;",
+    "  ReferenceCountDecrementWithConditionalFree((char*)obj + 24, 0);",
+    "  unsigned int len = Strlen(&word_5C406C);",
+    "  BufferWriteWithNullTerminate((char*)obj + 24, &word_5C406C, len);",
+    "  *(void**)obj = &off_5B9D4C;",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Why the vtable is installed twice (std::locale::facet then overridden with off_5B9D4C) is not resolvable from this function alone.",
+    "Semantics of the two flag bytes read from a1+8 and a1+11 depend on the caller's parameter layout.",
+    "The role of the low-byte value stored at +0x18 before BufferWriteWithNullTerminate overwrites the buffer is unclear."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

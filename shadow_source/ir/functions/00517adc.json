@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "address": "0x00517ADC",
+  "proposed_name": "InflateBlockProcessor",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Deflate-block inflate wrapper: drives a state machine that parses the zlib/raw deflate block header (compression method, window-size validation, header check byte, optional 32-bit dictionary length), then performs block decompression via sub_527752, finalizes the checksum via sub_52765A, and verifies a stored 4-byte checksum against the accumulated value before returning. Part of the zlib-style decompression system.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Return -2 when the stream wrapper a1 is null, the state structure pointer (this+0x1C) is null, or the input byte pointer (obj+0) is null.",
+      "evidence_refs": ["field:this:0x0000001C", "field:obj:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Seed local state: v2 = 0, result accumulator v4 = -5, and record -5 when the expected-header argument a2 equals 4.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Infinite outer loop dispatching on the state selector dword (this+0) through the state jump table.",
+      "evidence_refs": ["field:this:0x00000000", "global:0x00517E0B", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "case 0 header parse: consume an input byte into the state accumulator (this+4), validate compression method equals 8 and window size against this+8; on failure set state to 13 and write the error message string into this+0x18.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000008", "field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Emit the header-validation error strings: unknown compression method, invalid window size, and incorrect header check.",
+      "evidence_refs": ["global:0x005AFA74", "global:0x005AFA60", "global:0x005AFA48", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Verify the header check byte (byte plus previous byte shifted left 8) modulo 31; if the FDICT bit is clear, parse the 32-bit dictionary length byte by byte into this+8 and set the window pointer field this+0x30, otherwise transition to the dictionary-required state.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "case 6 dictionary-required state: set state 13, clear this+4, store the need-dictionary error string into this+0x18, and return -2.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000018", "global:0x005AFA20", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "case 7: call sub_527752 with the decompression context held by the state structure (this+0x28) to inflate the block; on -3 result set state 13 and continue the loop, on success with block end proceed to checksum finalization, otherwise return the result.",
+      "evidence_refs": ["callee:0x00527752", "field:this:0x00000028", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "After a completed block, call sub_52765A to finalize the checksum using the decompression context (this+0x28); if a leftover flag is set transition to state 12, otherwise transition to state 8 to read the stored checksum.",
+      "evidence_refs": ["callee:0x0052765A", "field:this:0x00000028", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the stored expected checksum from this+0x2C and compare it against the accumulated checksum in this+0x24; on mismatch set state 13 and report the incorrect-data-check error string via this+0x18, on match set state 12.",
+      "evidence_refs": ["field:this:0x0000002C", "field:this:0x00000024", "field:this:0x00000018", "global:0x005AFA30", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 from the final state, -3 from the error state, and -2 from the default/invalid states.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// zlib inflate block wrapper. this = inflate state; this+0x1C = stream/state",
+    "// wrapper; this+0x18 = error message pointer.",
+    "int InflateBlockProcessor(state, expect_header) {",
+    "  int result = -5;",
+    "  if (!stream || !state_ptr || !in_ptr) return -2;",
+    "  for (;;) {",
+    "    switch (state->mode) {          // this+0",
+    "      case 0:                       // parse deflate header",
+    "        read input byte into this+4;",
+    "        if (method != 8) fail(\"unknown compression method\");",
+    "        if (window_too_large) fail(\"invalid window size\");",
+    "        read header check byte;",
+    "        if (check % 31 != 0) fail(\"incorrect header check\");",
+    "        if (FDICT bit set) { state->mode = 7; break; }",
+    "        read 4 dict-size bytes into this+8;",
+    "        set window pointer this+0x30;",
+    "        state->mode = 6; return 2;",
+    "      case 6: fail(\"need dictionary\"); return -2;",
+    "      case 7:",
+    "        r = sub_527752(this+0x28, stream, result);   // inflate block",
+    "        if (r == -3) { state->mode = 13; break; }",
+    "        if (r == 0) result = 0;",
+    "        if (result != 1) return result;",
+    "        sub_52765A(this+0x28, stream, checksum_slot);  // finalize checksum",
+    "        state->mode = leftover_flag ? 12 : 8;",
+    "        break;",
+    "      case 8: case 9: case 10: case 11:   // read 4 stored checksum bytes",
+    "        read checksum bytes into this+8;",
+    "        if (accumulated(this+0x24) != stored(this+0x2C))",
+    "          fail(\"incorrect data check\");",
+    "        state->mode = 12;",
+    "        return 1;",
+    "      case 12: return 1;",
+    "      case 13: return -3;",
+    "      default: return -2;",
+    "    }",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "Base ambiguity: the packet field offsets mix the stream-wrapper array (a1) and the inner inflate state structure; the raw-source immediate offsets (e.g. state[5], which is byte +0x14, passed to sub_527752) do not align 1:1 with the fact-table offsets (0x28, 0x2C), so the exact role of each field base is not established.",
+    "The role of this+0x20 (initialized to 0) is not visible in the decompiled excerpt and is parked as unresolved evidence.",
+    "Exact semantics of sub_527752 and sub_52765A arguments (context layout) are not available in this packet."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000020"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

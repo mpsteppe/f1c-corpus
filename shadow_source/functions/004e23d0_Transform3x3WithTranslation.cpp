@@ -1,0 +1,30 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004E23D0
+// Canonical corpus name: F_3x3MatrixTransform
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/F_3x3MatrixTransform_004e23d0.c
+
+void UnknownObject::Transform3x3WithTranslation()
+{
+    // 3x3 rotation-plus-translation transform. Copies rotation angles from a3 into this+0x14/0x18/0x1C, copies a 0x24-byte 3x3 rotation matrix from a4 into this+0x20..0x40, copies the translation vector a2 into this+0x54/0x58/0x5C, then computes the transformed vector as matrix * (this+0x48..0x50 input vector) + translation and stores the result into this+0x8/0xC/0x10, returning a pointer to that result.
+    // ASSIGNMENT: Copy the three rotation angles from a3 into this+0x14, this+0x18, this+0x1C. [field:this:0x00000014, field:this:0x00000018, field:this:0x0000001C, source:raw]
+    // ASSIGNMENT: qmemcpy a 0x24-byte block from a4 into this+0x20..0x40, storing the 3x3 rotation matrix. [field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, field:this:0x0000002C, field:this:0x00000030, field:this:0x00000034, field:this:0x00000038, field:this:0x0000003C, field:this:0x00000040, source:raw]
+    // ASSIGNMENT: Copy the translation vector a2 into this+0x54, this+0x58, this+0x5C. [field:this:0x00000054, field:this:0x00000058, field:this:0x0000005C, source:raw]
+    // CALCULATION: Read input vector components at this+0x48, this+0x4C, this+0x50 and compute each output component as the dot product of a rotation matrix row (from this+0x20..0x40) with the input vector plus the corresponding translation component of a2. [field:this:0x00000048, field:this:0x0000004C, field:this:0x00000050, source:raw]
+    // ASSIGNMENT: Store the three transformed result components into this+0x8, this+0xC, this+0x10. [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, source:raw]
+    // RETURN: Return a pointer to the transformed result at this+0x8. [field:this:0x00000008, source:raw]
+
+    // Conservative worker pseudocode:
+    //   float* Transform3x3WithTranslation(void* this, float* translation, float* angles, const void* matrix) {
+    //     this[5] = angles[0]; this[6] = angles[1]; this[7] = angles[2];      // +0x14..0x1C
+    //     qmemcpy(this + 8, matrix, 0x24);                                    // +0x20..0x40 matrix
+    //     this[21] = translation[0]; this[22] = translation[1]; this[23] = translation[2];
+    //     out.x = m[0]*v.x + m[1]*v.y + m[2]*v.z + translation[0];
+    //     out.y = m[3]*v.x + m[4]*v.y + m[5]*v.z + translation[1];
+    //     out.z = m[6]*v.x + m[7]*v.y + m[8]*v.z + translation[2];
+    //     this[2] = out.x; this[3] = out.y; this[4] = out.z;                 // +0x8..0x10 result
+    //     return (float*)(this + 2);
+    //   }
+    // UNRESOLVED: The input vector at this+0x48/0x4C/0x50 is read but never written in this function; its origin is external.
+    // UNRESOLVED: Whether the caller interprets this+0x14..0x1C as euler angles or a rotation-order-dependent tuple is unknown.
+}

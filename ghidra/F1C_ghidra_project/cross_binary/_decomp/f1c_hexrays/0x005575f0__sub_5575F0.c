@@ -1,0 +1,24 @@
+// f1c  0x005575f0  size=54
+int __thiscall sub_5575F0(_DWORD *this)
+{
+  int v2; // eax
+  int v3; // eax
+
+  v2 = this[8];
+  if ( (v2 & 8) != 0 )
+  {
+    if ( (v2 & 0x400) != 0 )
+      return 0;
+    v3 = sub_47ABB0();
+  }
+  else
+  {
+    if ( (v2 & 0x400) != 0 )
+      return 0;
+    v3 = sub_558310(this);
+  }
+  if ( v3 )
+    return -1;
+  this[8] |= 0x400u;
+  return 0;
+}

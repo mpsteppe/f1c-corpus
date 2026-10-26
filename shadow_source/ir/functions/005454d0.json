@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "address": "0x005454D0",
+  "proposed_name": "AppendDrawableNodeAndRebuildArray",
+  "owner": {
+    "type": "DrawableObjectNodeManager",
+    "trust": "DERIVED",
+    "evidence_refs": ["abi:lead", "function:0x005454D0"]
+  },
+  "summary": "Appends drawable object node a2 to the category-selected singly-linked list (walking to the tail via next pointers at node+0x6C), increments the selected category counter, sets the total count this+0x60 to the sum of the category-4 counter (this+0x124) and category-2 counter (this+0x12C), then rebuilds the flat 56-byte-slot array: frees the old array (running per-entry cleanup on each slot), allocates count*56+4 bytes via the operator-new wrapper, stores the count in the 4-byte header, zero-initializes each slot, and stores the array pointer in this+0x138.",
+  "operations": [
+    {
+      "kind": "state_transition",
+      "description": "Switch on a3: 1/2/4 select the (counter, head) pointer pairs this+71/this+72, this+75/this+76 or this+73/this+74; the default case selects a2 itself and skips list management.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Read the selected list head; branch on whether the list is non-empty.",
+      "evidence_refs": ["field:this:0x00000128", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the singly-linked list to its tail by following the next pointers stored at node+0x6C.",
+      "evidence_refs": ["field:*(this+0x128):0x0000006C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Append to a non-empty list: set the tail's next pointer (tail+0x6C) to a2 and store the tail back-pointer in a2+0x68.",
+      "evidence_refs": ["field:*(*(*(this+0x128)+0x6C)+0x6C):0x0000006C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Append to an empty list: store a2 as the new head and clear the a2 back-pointer at a2+0x68.",
+      "evidence_refs": ["field:this:0x00000128", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Increment the selected category counter and clear a2's next pointer at a2+0x6C.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Set the total count at this+0x60 to the category-4 counter (this+0x124) plus the category-2 counter (this+0x12C).",
+      "evidence_refs": ["field:this:0x00000060", "field:this:0x00000124", "field:this:0x0000012C"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the existing flat array pointer at this+0x138 is non-null, tear the array down.",
+      "evidence_refs": ["field:this:0x00000138", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate every existing 56-byte slot (count read from the 4-byte array header) running the per-entry cleanup stub on each.",
+      "evidence_refs": ["callee:0x004B0170", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Free the old array header block via the free wrapper.",
+      "evidence_refs": ["callee:0x00587BCF"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the array pointer at this+0x138 and the flag at this+0x134 after the old array is freed.",
+      "evidence_refs": ["field:this:0x00000138", "field:this:0x00000134"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the new flat array block (count*56+4 bytes) via the operator-new wrapper.",
+      "evidence_refs": ["callee:0x00587C03"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the allocation is non-null, store the count in the 4-byte header and zero-initialize every 56-byte slot; otherwise store 0 in this+0x138.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Run the per-slot zero-initializer over each 56-byte entry (14 dwords per slot).",
+      "evidence_refs": ["callee:0x0055D200", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the new array pointer in this+0x138 on success; leave it at 0 on allocation failure.",
+      "evidence_refs": ["field:this:0x00000138"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result of the last slot zero-init (or 0 when the allocation failed).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "switch (a3) { case 1: c=&this[71]; h=&this[72]; break; case 2: c=&this[75]; h=&this[76]; break; case 4: c=&this[73]; h=&this[74]; break; default: c=h=a2; break; }",
+    "if (*h) { walk to tail via +0x6C; tail->next = a2; a2->back = tail; } else { *h = a2; a2->back = 0; }",
+    "(*c)++; a2->next = 0; this[24] = this[73] + this[75];",
+    "if (this[78]) { run cleanup per old slot; free(old); this[78] = 0; this[77] = 0; }",
+    "block = alloc(this[24]*56 + 4); if (block) { *block = count; zero-init each 56-byte slot; this[78] = block+1; } else this[78] = 0;"
+  ],
+  "unresolved": [
+    "Case 1 selects the counter/head pair at this+71/this+72 and case 2 the pair at this+75/this+76, but only the case-4 pair (this+0x124/this+0x128) and the case-2 counter (this+0x12C) are covered by this packet's field evidence.",
+    "Only the category-4 and category-2 counters are summed into the total; the category-1 counter is excluded by the raw source.",
+    "The per-entry cleanup semantics (EmptyStub_0170) and the slot layout beyond the 56-byte stride are not recoverable from this packet."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x00545430"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

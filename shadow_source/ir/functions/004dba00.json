@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "address": "0x004DBA00",
+  "proposed_name": "UIMessageCompose",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004DBA00"]
+  },
+  "summary": "Composes a HUD warning-icon string into an 8-byte local buffer by querying three warning conditions in order: a general warning indicator (sub_49B9A0, appends icon byte -126), a fuel/low-fuel warning (FuelWeightComputation, appends 'D' = 68), and a two-state indicator (sub_49BA30, appends -116 for state 1 or -115 for state 2). If any warning is active (v2 > 0) the buffer is null-terminated and rendered with UITextRenderWithScale at x = a1 + 275, y = a2; otherwise the function returns the last state code from sub_49BA30.",
+  "local_names": {
+    "a1": "base x coordinate for the warning text position (render x = a1 + 275)",
+    "a2": "y coordinate for the warning text position",
+    "v2": "write index into the warning icon buffer",
+    "result": "state indicator code returned by sub_49BA30",
+    "v4": "composed warning icon byte buffer (up to 8 bytes)"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "v2 = 0: initialize the warning-buffer write index",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls sub_49B9A0 to query the general warning indicator state",
+      "evidence_refs": ["callee:0x0049B9A0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If sub_49B9A0 returned nonzero, the general warning indicator is active",
+      "evidence_refs": ["callee:0x0049B9A0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v4[0] = -126 (general warning icon byte) and v2 = 1 when the general warning is active",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls FuelWeightComputation to query the fuel/low-fuel warning state",
+      "evidence_refs": ["callee:0x0049BA50", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If FuelWeightComputation returned nonzero, the fuel warning is active",
+      "evidence_refs": ["callee:0x0049BA50", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v4[v2++] = 68 ('D' fuel icon byte), advancing the write index",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls sub_49BA30 to query the state indicator code, storing it into result",
+      "evidence_refs": ["callee:0x0049BA30", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If result == 1, state indicator 1 is active",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v4[v2] = -116 (state-1 icon byte) when result == 1",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Re-calls sub_49BA30 in the else path to re-query the state indicator code",
+      "evidence_refs": ["callee:0x0049BA30", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "In the else path, if result != 2 jump to the render check (no state icon appended)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v4[v2] = -115 (state-2 icon byte) when result == 2",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "++v2: advance the write index after the state-icon block",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v2 > 0, at least one warning icon is present in the buffer",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v4[v2] = 0: null-terminate the composed warning string",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Renders the composed warning string with UITextRenderWithScale at x = a1 + 275, y = a2, color 0xFFFFFF, flags 1/3 and scale 2.0/2.0",
+      "evidence_refs": ["callee:0x004D7E40", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the UITextRenderWithScale result when warnings were rendered",
+      "evidence_refs": ["callee:0x004D7E40", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns result (the last sub_49BA30 value) when v2 <= 0, i.e. no warning is active",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v2 = 0;",
+    "if (sub_49B9A0()) {",
+    "  v4[0] = -126;",
+    "  v2 = 1;",
+    "}",
+    "if (FuelWeightComputation())",
+    "  v4[v2++] = 68;",
+    "result = sub_49BA30();",
+    "if (result == 1) {",
+    "  v4[v2] = -116;",
+    "} else {",
+    "  result = sub_49BA30();",
+    "  if (result != 2) goto render_check;",
+    "  v4[v2] = -115;",
+    "}",
+    "++v2;",
+    "render_check:",
+    "if (v2 > 0) {",
+    "  v4[v2] = 0;",
+    "  return UITextRenderWithScale((int)v4, a1 + 275, a2, 0xFFFFFF, 1, 3, 2.0, 2.0);",
+    "}",
+    "return result;"
+  ],
+  "unresolved": [
+    "Three read-only globals are flagged by packet facts (flt_5ACF50, flt_5ACF54, unk_7CE234) but do not appear in the raw decompiled source; the existing analysis suggests they are text-render parameters (likely consumed by UITextRenderWithScale), but their role is not verifiable from this function alone",
+    "The on-screen meaning of the four icon bytes (-126, 68, -116, -115) and of the two state codes (1 and 2) is not established by this packet; interpretation is DERIVED from the existing analysis"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005ACF50",
+    "global:0x005ACF54",
+    "global:0x007CE234"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

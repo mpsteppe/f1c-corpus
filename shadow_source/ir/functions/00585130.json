@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "address": "0x00585130",
+  "proposed_name": "DrainTwoListsWithMutexCleanup_B",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Drains two queues guarded by a mutex. First, repeatedly pops queued items via sub_584E30 and dispatches each through the object's vtable method at offset 0x5C (thiscall(this, item)). Then, if the mutex handle at this+0x58C is non-null and WaitForSingleObject(this+0x58C, this+0x590) returns 0 (WAIT_OBJECT_0) or 128 (WAIT_ABANDONED), drains an embedded singly linked list control block at this+0x57C (head/tail/iterator/count): walks the list matching a node's data pointer, unlinks the node updating head/tail/iterator/count, runs SEH-guarded cleanup (0x005867B0) on flagged node payloads, and frees payload and node via FreeWrapper_7bcf. Finally releases the mutex (ReleaseMutex) when the handle is non-null. Called from AudioStreamingThreadShutdown (0x0057FDE0).",
+  "local_names": {
+    "v2": "mutex_handle_read",
+    "v3": "list_control_base",
+    "v4": "wait_result",
+    "v5": "list_control",
+    "v6": "node",
+    "v7": "first_node_data",
+    "v8": "prev_node",
+    "v9": "node_payload",
+    "v11": "popped_item"
+  },
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "First drain loop: while sub_584E30(this, &v11) returns nonzero, a queued item is popped into v11; the loop terminates when the first queue is empty.",
+      "evidence_refs": ["callee:0x00584E30", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Dispatch each popped item: virtual call at this->vtable[23] (offset 0x5C, +92) invoked as thiscall(this, v11).",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x0000005C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Acquire the second-list mutex: WaitForSingleObject(handle at this+0x58C, timeout at this+0x590).",
+      "evidence_refs": ["global:0x0059E1A0", "field:this:0x0000058C", "field:this:0x00000590"]
+    },
+    {
+      "kind": "guard",
+      "description": "Second-list access guard: when the mutex handle is non-null and the wait result equals 0 (WAIT_OBJECT_0) or 128 (WAIT_ABANDONED), v5 is set to this+0x57C (the list control block); otherwise v5=0 and the second drain is skipped.",
+      "evidence_refs": ["global:0x0059E1A0", "field:this:0x0000058C"]
+    },
+    {
+      "kind": "guard",
+      "description": "Second-list drain loop condition: node count at this+0x588 (equivalently *(this+0x57C)+0xC) is greater than 0.",
+      "evidence_refs": ["guard:0", "field:this:0x00000588", "field:*(this+0x57C):0x0000000C"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the embedded list from head (*v5) following each node's next pointer (node[1]), comparing each node's data pointer (*node) against the first node's data (v7); v8 tracks the previous node. Falling off the end of the list restarts the count check (LABEL_8).",
+      "evidence_refs": ["field:*(this+0x57C):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Unlink the located node: if the iterator v5[2] points at it, advance it to the node's next; splice the previous node's next (or the head *v5) past the removed node; if the removed node was the tail v5[1], set the tail to the previous node. These writes correspond to the list control fields at this+0x57C/0x580/0x584 (and their *(this+0x57C)+0x0/0x4/0x8 aliases).",
+      "evidence_refs": ["field:this:0x0000057C", "field:this:0x00000580", "field:this:0x00000584", "field:*(this+0x57C):0x00000000", "field:*(this+0x57C):0x00000004", "field:*(this+0x57C):0x00000008"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Decrement the node count (this+0x588, equivalently *(this+0x57C)+0xC).",
+      "evidence_refs": ["field:this:0x00000588", "field:*(this+0x57C):0x0000000C"]
+    },
+    {
+      "kind": "call",
+      "description": "If the node's flag byte (node+8) is set and the node's data pointer (*node) is non-null, run SEHGuardedFunctionWithExceptionHandling (0x005867B0) on the payload under an exception guard.",
+      "evidence_refs": ["callee:0x005867B0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FreeWrapper_7bcf (0x00587BCF) releases the node's data payload when it was non-null.",
+      "evidence_refs": ["callee:0x00587BCF", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FreeWrapper_7bcf (0x00587BCF) releases the unlinked node itself.",
+      "evidence_refs": ["callee:0x00587BCF"]
+    },
+    {
+      "kind": "return",
+      "description": "Return path: re-read the mutex handle at this+0x58C; when non-null, call ReleaseMutex on it and return its result; otherwise return 0.",
+      "evidence_refs": ["global:0x0059E1A4", "field:this:0x0000058C", "function:0x00585130", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "while (sub_584E30(this, &item))",
+    "    (this->vtbl[23])(this, item);",
+    "mutex = this[0x58C];",
+    "if (mutex && ((wait = WaitForSingleObject(mutex, this[0x590])) == 0 || wait == 128))",
+    "    drain_list(this + 0x57C);",
+    "if (mutex)",
+    "    ReleaseMutex(mutex);"
+  ],
+  "unresolved": [
+    "The vtable method at this+0x5C (offset +92) dispatched per drained item has an unknown identity and semantic target.",
+    "The first-drain queue managed by sub_584E30 is not structurally identified; the meaning of its nonzero return (item available) and of the popped value is unknown.",
+    "Node payload layout (node[0] data pointer, node[1] next, byte at node+8 flag) is inferred from the decompiler and has no dedicated evidence references in the packet.",
+    "The semantic role of SEHGuardedFunctionWithExceptionHandling (0x005867B0) invoked on node payloads (cleanup callback vs. notification) is unknown.",
+    "Treating the WaitForSingleObject result 128 (WAIT_ABANDONED) as access-granted along with 0 (WAIT_OBJECT_0) is a code-level observation; its intended behavior is unconfirmed.",
+    "Whether the two drain paths (sub_584E30 queue and the embedded list at this+0x57C) share the same underlying data structure or service different queues is unresolved."
+  ],
+  "unresolved_evidence_refs": ["caller:0x0057FDE0"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

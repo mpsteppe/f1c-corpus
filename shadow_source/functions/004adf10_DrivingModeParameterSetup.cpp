@@ -1,0 +1,56 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004ADF10
+// Canonical corpus name: DrivingModeParameterSetup
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/DrivingModeParameterSetup_004adf10.c
+
+void UnknownObject::DrivingModeParameterSetup()
+{
+    // Driving-mode parameter setup. Reads the mode selector at this+0x1CC0 and dispatches on it (switch over cases 0-5 plus default) via jump table 0x4AE46C. Modes 1 and 2 seed integer parameters (at this+0x214, +0x334, +0x280, +0x358, +0x2C8, +0x2EC, +0x40C, +0x25C, +0x2A4, +0x310, +0x1D08) and one float parameter (this+0x1CE4) with mode-specific defaults, clamping each against its per-slot min/max bounds via ClampByRange / FloatClamp. Modes 3-5 drive the same slots indirectly through ArithmeticComparison_20d0 sequences plus a shared ClampedFloatSetter_1de0 float default. After the switch the mode selector is re-read: a non-zero value triggers two final ArithmeticComparison_20d0 calls and returns the second one, otherwise 0 is returned.
+    // STATE_TRANSITION: Dispatch on the driving-mode selector at this+0x1CC0 through the switch jump table at 0x4AE46C; cases 0-5 and the default each install a distinct parameter set. [field:this:0x00001CC0, global:0x004AE46C, source:raw]
+    // ASSIGNMENT: Case 0 applies no parameter writes (empty case body, break). [field:this:0x00001CC0, source:raw]
+    // CALL: Mode 1: seed integer parameters with defaults 2, 1, 2, 2, 2, 1, 3, 2, 2, 1 at offsets 0x214, 0x334, 0x280, 0x358, 0x2C8, 0x2EC, 0x40C, 0x25C, 0x2A4, 0x310 and clamp each value into its paired min/max bound with ClampByRange. [field:this:0x00000214, field:this:0x0000021C, field:this:0x00000220, field:this:0x00000334, field:this:0x0000033C, field:this:0x00000340, field:this:0x00000280, field:this:0x00000288, field:this:0x0000028C, field:this:0x00000358, field:this:0x00000360, field:this:0x00000364, field:this:0x000002C8, field:this:0x000002D0, field:this:0x000002D4, field:this:0x000002EC, field:this:0x000002F4, field:this:0x000002F8, field:this:0x0000040C, field:this:0x00000414, field:this:0x00000418, field:this:0x0000025C, field:this:0x00000264, field:this:0x00000268, field:this:0x000002A4, field:this:0x000002AC, field:this:0x000002B0, field:this:0x00000310, field:this:0x00000318, field:this:0x0000031C, callee:0x0047F1F0, source:raw]
+    // CALL: Mode 1: seed integer parameter at 0x1D08 with default 75 and clamp it to [0x1D10, 0x1D14] via ClampByRange. [field:this:0x00001D08, field:this:0x00001D10, field:this:0x00001D14, callee:0x0047F1F0, source:raw]
+    // CALL: Mode 1: seed float parameter at 0x1CE4 with 1048576000 (0.25) and clamp it to [0x1CEC, 0x1CF0] via FloatClamp. [field:this:0x00001CE4, field:this:0x00001CEC, field:this:0x00001CF0, callee:0x004646C0, source:raw]
+    // CALL: Mode 2: repeat the integer parameter seeding with adjusted defaults 2, 1, 1, 2, 1, 1, 3, 2, 2, 1 at the same ten offsets, each clamped via ClampByRange. [field:this:0x00000214, field:this:0x0000021C, field:this:0x00000220, field:this:0x00000334, field:this:0x0000033C, field:this:0x00000340, field:this:0x00000280, field:this:0x00000288, field:this:0x0000028C, field:this:0x00000358, field:this:0x00000360, field:this:0x00000364, field:this:0x000002C8, field:this:0x000002D0, field:this:0x000002D4, field:this:0x000002EC, field:this:0x000002F4, field:this:0x000002F8, field:this:0x0000040C, field:this:0x00000414, field:this:0x00000418, field:this:0x0000025C, field:this:0x00000264, field:this:0x00000268, field:this:0x000002A4, field:this:0x000002AC, field:this:0x000002B0, field:this:0x00000310, field:this:0x00000318, field:this:0x0000031C, callee:0x0047F1F0, source:raw]
+    // CALL: Mode 2: seed integer parameter at 0x1D08 with default 85 and clamp it to [0x1D10, 0x1D14] via ClampByRange. [field:this:0x00001D08, field:this:0x00001D10, field:this:0x00001D14, callee:0x0047F1F0, source:raw]
+    // CALL: Mode 2: seed float parameter at 0x1CE4 with 1048576000 (0.25) and clamp it to [0x1CEC, 0x1CF0] via FloatClamp. [field:this:0x00001CE4, field:this:0x00001CEC, field:this:0x00001CF0, callee:0x004646C0, source:raw]
+    // CALL: Mode 3: seed integer parameters with defaults 1, 0, 0, 1, 0, 1 at offsets 0x214, 0x334, 0x280, 0x358, 0x2C8, 0x2EC, each clamped via ClampByRange. [field:this:0x00000214, field:this:0x0000021C, field:this:0x00000220, field:this:0x00000334, field:this:0x0000033C, field:this:0x00000340, field:this:0x00000280, field:this:0x00000288, field:this:0x0000028C, field:this:0x00000358, field:this:0x00000360, field:this:0x00000364, field:this:0x000002C8, field:this:0x000002D0, field:this:0x000002D4, field:this:0x000002EC, field:this:0x000002F4, field:this:0x000002F8, callee:0x0047F1F0, source:raw]
+    // CALL: Mode 3: issue a five-argument ArithmeticComparison_20d0 sequence (3, 2, 2, 0, 95) after the clamped integer writes, then fall through to the shared LABEL_6 float write. [callee:0x004B20D0, source:raw]
+    // CALL: Mode 4: issue an eleven-argument ArithmeticComparison_20d0 sequence (0, 0, 0, 0, 0, 0, 3, 2, 2, 0, 100), then fall through to the shared LABEL_6 float write. [callee:0x004B20D0, source:raw]
+    // CALL: Mode 5: issue an eleven-argument ArithmeticComparison_20d0 sequence (0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 100), then execute the shared float write. [callee:0x004B20D0, source:raw]
+    // CALL: Shared LABEL_6 float write reached by modes 3 and 4: ClampedFloatSetter_1de0 with 1048576000 (0.25); mode 5 uses the same setter with 1056964608 instead. [callee:0x004B1DE0, source:raw]
+    // CALL: Default case (unknown mode value): issue a single ArithmeticComparison_20d0 call with argument 0. [callee:0x004B20D0, source:raw]
+    // RETURN: Re-read the mode selector at 0x1CC0; if non-zero invoke ArithmeticComparison_20d0 with 1 and return the result of ArithmeticComparison_20d0 with 100; otherwise return the zero selector value. [field:this:0x00001CC0, callee:0x004B20D0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int DrivingModeParameterSetup(int this) {
+    //     switch (*(int*)(this + 7360)) {
+    //       case 0: break;
+    //       case 1:
+    //         // seed+clamp ten int slots and two bound pairs; K=75; float=0.25
+    //         ClampByRange((int*)(this + 532), this[540], this[544]);
+    //         ClampByRange((int*)(this + 820), this[828], this[832]);
+    //         ... (slots at 640, 856, 712, 748, 1036, 604, 676, 784) ...
+    //         ClampByRange((int*)(this + 7432), this[7440], this[7444]);
+    //         FloatClamp((float*)(this + 7396), this[7404], this[7408]);
+    //         break;
+    //       case 2: break;   // same pattern, different defaults
+    //       case 3:
+    //         // six clamped int slots, then ArithmeticComparison_20d0(3,2,2,0,95)
+    //         ClampedFloatSetter_1de0(1048576000);
+    //         break;
+    //       case 4: ClampedFloatSetter_1de0(1048576000); break;
+    //       case 5: ClampedFloatSetter_1de0(1056964608); break;
+    //       default: ArithmeticComparison_20d0(0); break;
+    //     }
+    //     if (*(int*)(this + 7360)) {
+    //       ArithmeticComparison_20d0(1);
+    //       return ArithmeticComparison_20d0(100);
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: Semantic meaning of each mode value (0-5) is not named by the packet; the selector likely maps to a driving-assist or difficulty mode.
+    // UNRESOLVED: Identity and purpose of ArithmeticComparison_20d0 calls on the mode 3-5 paths (arguments follow a fixed sequence but no target field is visible in this function).
+    // UNRESOLVED: The owner object type is unknown; the parameter cluster resembles a tuning/driver-assist struct but no class is named.
+}

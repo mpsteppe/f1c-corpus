@@ -1,0 +1,82 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004B7860
+// Canonical corpus name: sub_4B7860
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4B7860_004b7860.c
+
+void UnknownObject::ProcessCircularBufferToList()
+{
+    // __thiscall that drains one slot from a circular buffer, feeds it through CollisionObjectListManagement, and accumulates each processed result into a doubly-linked result list rooted at this+0x714. When the buffer provides no node, a fresh node is synthesized via the working list at this+0x30 and ShortComputation_a780. Returns 1 after advancing the buffer read index (RingBufferCounterWithWrap), or 0 when the buffer is not ready (count mismatch or non-positive).
+    // CALL: Call CircularBufferCheck(this) to obtain the active buffer count v3. [callee:0x004B68C0, source:raw]
+    // GUARD: Entry guard: if (v3 != this[621] && !a2) or (v3 <= 0) then return 0 immediately. this[621] is the circular buffer size field at this+0x9B4. [field:this:0x000009B4, function:0x004B7860, source:raw]
+    // LOOP: Infinite processing loop over working-list entries rooted at this+0x30; exits by break when CollisionObjectListManagement returns <= 0. [field:this:0x00000030, source:raw]
+    // ASSIGNMENT: Copy the working list current pointer: this[14] = this[12] (this+0x38 = this+0x30). [field:this:0x00000030, field:this:0x00000038, source:raw]
+    // GUARD: Test whether the working list head at this+0x30 is empty (v7 = *v4 == 0); when empty, the node must be synthesized. [guard:0, field:this:0x00000030, source:raw]
+    // ASSIGNMENT: On non-empty head: v6 = *(this+0x30) (node data pointer at node+0x0), and clear the node flag byte at node+0x8 to 0 before reuse. [field:*(this+0x30):0x00000000, field:*(this+0x30):0x00000008, source:raw]
+    // CALL: Validate the node via sub_4BB6B0(node, 1); when it returns 0 the node pointer v6 is discarded (set to 0). [callee:0x004BB6B0, source:raw]
+    // CALL: When no usable node: allocate a 4-byte token (OperatorNewNhMallocWrapper(4) ? ConditionalArrayAlloc(0) : 0) and append it to the working list via ListAppendWithSubListGeneration(token, 0). [callee:0x00587C03, callee:0x004BAAC0, callee:0x004BB150, source:raw]
+    // CALL: Call ShortComputation_a780(this+12) to advance the working list, then re-read this[14] (this+0x38) and apply the same node fetch/validate/flag-clear path as before. [callee:0x004BA780, field:this:0x00000038, field:*(this+0x30):0x00000000, field:*(this+0x30):0x00000008, source:raw]
+    // CALL: Call CollisionObjectListManagement(ptr, this+441, v6) where ptr = this[620] + 176 * this[623] (collision-data array base this+0x9B0 plus 176-byte-stride slot selected by this+0x9BC) and this+441 is the result list head at this+0x714. [callee:0x004B4B50, field:this:0x000009B0, field:this:0x000009BC, field:this:0x00000714, source:raw]
+    // CALCULATION: If CollisionObjectListManagement returned > 0: accumulate it into the running total this[970] (this+0xF28) and increment this[969] (this+0xF24); otherwise break out of the loop. [field:this:0x00000F28, field:this:0x00000F24, source:raw]
+    // CALL: When a result node v6 exists: allocate a 16-byte result-list node via OperatorNewNhMallocWrapper(16) and initialize it (payload = v6 at +0x0, next=0 at +0x4, prev=0 at +0x8, flag byte 0 at +0xC). [callee:0x00587C03, source:raw]
+    // ASSIGNMENT: Append the 16-byte node to the doubly-linked result list at this+0x714: if head this[453] (this+0x714) is non-zero, link tail this[454] (this+0x718) to the new node; else set both head this[453] and tail this[455] (this+0x71C) to it. Update tail this[454] and increment count this[456] (this+0x720). [field:this:0x00000714, field:this:0x00000718, field:this:0x0000071C, field:this:0x00000720, source:raw]
+    // CALL: After the loop, call SmallStructZeroInit(v6) to clean up the last node pointer. [callee:0x004B4460, source:raw]
+    // CALL: When a final node v6 survives: allocate a 12-byte node via OperatorNewNhMallocWrapper(12), initialize it (payload=v6, next=0 at +0x4, flag byte 0 at +0x8), and prepend it back onto the working list this+0x30..0x3C, incrementing the working count this[15] (this+0x3C). [callee:0x00587C03, field:this:0x00000030, field:this:0x00000034, field:this:0x00000038, field:this:0x0000003C, source:raw]
+    // CALL: Advance the circular-buffer read index by calling RingBufferCounterWithWrap(this). [callee:0x004B69D0, source:raw]
+    // RETURN: Return 1 after processing (buffer advanced), or 0 when the entry guard rejected the buffer state. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char ProcessCircularBufferToList(int *this, char force) {
+    //     int count = CircularBufferCheck(this);
+    //     if ((count != this[621] && !force) || count <= 0) return 0;
+    //     for (;;) {
+    //       int *node = (int*)this[12];
+    //       int *obj = 0;
+    //       this[14] = this[12];
+    //       if (node) {
+    //         obj = *(int**)node;
+    //         *(BYTE*)(node + 2) = 0;
+    //         if (!sub_4BB6B0(obj, 1)) obj = 0;
+    //       }
+    //       if (!obj) {
+    //         void *tok = OperatorNewNhMallocWrapper(4) ? ConditionalArrayAlloc(0) : 0;
+    //         ListAppendWithSubListGeneration(tok, 0);
+    //         ShortComputation_a780(this + 12);
+    //         node = (int*)this[14];
+    //         if (node) {
+    //           obj = *(int**)node;
+    //           *(BYTE*)(node + 2) = 0;
+    //           if (!sub_4BB6B0(obj, 1)) obj = 0;
+    //         }
+    //       }
+    //       int r = CollisionObjectListManagement((BYTE*)(this[620] + 176 * this[623]), (int)(this + 441), (int)obj);
+    //       if (r <= 0) break;
+    //       this[970] += r;
+    //       ++this[969];
+    //       if (obj) {
+    //         int *n = (int*)OperatorNewNhMallocWrapper(16);
+    //         if (n) { n[0] = (int)obj; n[1] = 0; n[2] = 0; *(BYTE*)(n + 3) = 0; }
+    //         if (this[453]) { *(int*)(this[454] + 1) = (int)n; n[2] = this[454]; }
+    //         else { this[453] = (int)n; this[455] = (int)n; }
+    //         this[454] = (int)n;
+    //         ++this[456];
+    //       }
+    //     }
+    //     SmallStructZeroInit(obj);
+    //     if (obj) {
+    //       int *n = (int*)OperatorNewNhMallocWrapper(12);
+    //       if (n) { n[0] = (int)obj; n[1] = 0; *(BYTE*)(n + 2) = 0; }
+    //       if (this[12]) *(int*)(n + 1) = this[12];
+    //       else { this[13] = (int)n; this[14] = (int)n; }
+    //       this[12] = (int)n;
+    //       ++this[15];
+    //     }
+    //     RingBufferCounterWithWrap(this);
+    //     return 1;
+    //   }
+    // UNRESOLVED: field:this:0x00000040 (secondary list head, initialized to 0) is not referenced by any visible statement in the raw text; its role alongside the working list at this+0x30 is unclear.
+    // UNRESOLVED: Semantics of sub_4BB6B0's boolean return (node accept/reject test) are caller-visible only here.
+    // UNRESOLVED: Meaning of the 176-byte stride and of this[623]'s slot index into the object at this+0x9B0 is unproven; depends on the collision-data layout.
+    // UNRESOLVED: Callers PitstopActionSet (0x004B6940) and QueuePop (0x004B7A00) determine how the force flag a2 and the object's buffer state are driven.
+    // UNRESOLVED: The LEGACY ABI lead name 'Render_Batch_Node_Allocator' conflicts with the observed circular-buffer semantics and is not used to name the owner.
+}

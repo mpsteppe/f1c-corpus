@@ -1,0 +1,42 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00598CF9
+// Canonical corpus name: InputStreamReadWithBufferedFill
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/InputStreamReadWithBufferedFill_00598cf9.c
+
+void UnknownObject::BufferedReadWithFill()
+{
+    // Reads bytes from a buffered input stream. While a requested count a3 remains, it consumes from an internal buffer (pointer at this+0x1C, remaining count at this+0x2C) when both are valid, copying via MemoryCopy_cc00; otherwise it calls the vtable method at obj+0x14 (index 5) to refill or read a single byte. Returns the total number of bytes read.
+    // ASSIGNMENT: Initialize v9 to 0, the running total of bytes read. [source:raw]
+    // LOOP: while (a3 > 0) — iterate until the requested byte count a3 is fully consumed. [source:raw]
+    // GUARD: If the buffer pointer at this+0x1C is non-null and the remaining byte count at this+0x2C is greater than 0, take the buffered-copy path. [field:this:0x0000001C, field:this:0x0000002C]
+    // CALCULATION: Compute v6 = min(a3, remaining count at this+0x2C), the number of bytes available to copy this iteration. [field:this:0x0000002C]
+    // CALL: MemoryCopy_cc00 copies v6 bytes from the internal buffer into the output buffer a2. [callee:0x0058CC00, field:this:0x0000001C]
+    // CALCULATION: Advance the read state: v9 += v6, a3 -= v6, remaining count at this+0x2C -= v6, a2 += v6, and buffer pointer at this+0x1C += v6. [field:this:0x0000001C, field:this:0x0000002C]
+    // CALL: When the buffer path is unavailable, invoke the refill/read method stored in the vtable at obj+0x14 (index 5) on this stream object. [field:obj:0x00000014, field:this:0x00000000]
+    // GUARD: If the refill/read call returns -1 (EOF or error), return v9 early. [field:obj:0x00000014]
+    // ASSIGNMENT: Otherwise store the returned byte into a2, advance a2, increment v9, and decrement a3. [source:raw]
+    // RETURN: Return v9, the total number of bytes read. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int BufferedReadWithFill(_DWORD **this, _BYTE *dst, int count) {
+    //     int total = 0;
+    //     while (count > 0) {
+    //       _BYTE *buf = (_BYTE *)*this[7];  /* this+0x1C * /
+    //       int avail = *this[11];           /* this+0x2C * /
+    //       if (buf && avail > 0) {
+    //         int n = (count < avail) ? count : avail;
+    //         MemoryCopy_cc00((unsigned int)dst, buf, n);
+    //         total += n; count -= n;
+    //         *this[11] -= n; dst += n; *this[7] += n;
+    //       } else {
+    //         int b = ((int (__thiscall *)(_DWORD **))(*this)[5])(this);
+    //         if (b == -1) return total;
+    //         *dst++ = b; ++total; --count;
+    //       }
+    //     }
+    //     return total;
+    //   }
+    // UNRESOLVED: Identity of the vtable method at index 5 (obj+0x14) is caller/constructor supplied and unknown here.
+    // UNRESOLVED: Stream object class and the exact layout of the internal buffer fields at this+0x1C / this+0x2C are unresolved.
+}

@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "address": "0x005107FB",
+  "proposed_name": "AdobePSDHeaderParser",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x005107FB"]
+  },
+  "summary": "Parses an Adobe APP14 JPEG marker segment from a byte stream managed by a refill-callback state at this+0x14. Reads a two-byte big-endian segment length, validates the 'Adobe' signature, decodes four big-endian values (DCT encoder version, two flag words, color transform) into the result object pointed to by *a1, records an Adobe-present flag, and advances the stream past the segment via a consume callback.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load stream state: v2 = a1[5] (pointer to byte-stream state, this+0x14); v3 = *v2 (buffer read pointer, field *(this+0x14)+0x0); v21 = v2[1] (remaining byte count, this+0x18).",
+      "evidence_refs": ["field:this:0x00000014", "field:*(this+0x14):0x00000000", "field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the remaining byte count v2[1] (this+0x18) is zero, call the refill callback v2[3] (slot this+0x20) with a1; return 0 when refill fails, then reload buffer pointer and count.",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x00000020", "field:*(this+0x14):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read a two-byte big-endian segment length into v20: high byte from *v3, low byte from the next stream byte, minus 2 (the length prefix bytes themselves).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the buffer empties while reading the second length byte, refill again via v2[3] (this+0x20); return 0 on refill failure.",
+      "evidence_refs": ["field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Finalize the segment length: v20 = *v5 + v20 - 2; when v20 < 12 the segment is too short to hold an Adobe payload.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Short segment path: when v20 < 12, write state code obj+0x14 = 77 (not-Adobe) and obj+0x18 = v20 into the result object (obj = *a1, base this+0x0).",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000014", "field:obj:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Read the 12-byte marker header into v17 byte by byte, refilling through v2[3] (this+0x20) whenever the buffer empties; return 0 on refill failure.",
+      "evidence_refs": ["field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Signature check on the first five bytes (65, 100, 111, 98, 101 == 'Adobe'). On mismatch write state code obj+0x14 = 77 and obj+0x18 = v20 + 12 (unconsumed remainder).",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000014", "field:obj:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Dispatch the parse result: call the parameterized dispatch callback stored at obj+0x4 (through *a1) with a1 and the state code 1.",
+      "evidence_refs": ["field:obj:0x00000004", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On Adobe match, decode four big-endian values into the result object: obj+0x18 = v17[6] + (v17[5] << 8) (DCT encoder version), obj+0x1C = v17[8] + (v17[7] << 8) (flag word 0), obj+0x20 = v17[10] + (v17[9] << 8) (flag word 1), obj+0x24 = v18 (color transform byte).",
+      "evidence_refs": ["field:obj:0x00000018", "field:obj:0x0000001C", "field:obj:0x00000020", "field:obj:0x00000024", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set the Adobe-OK state code obj+0x14 = 75 and record marker presence: this+0x106 = 1 (Adobe marker present), this+0x107 = v18 (color transform value).",
+      "evidence_refs": ["field:obj:0x00000014", "field:this:0x00000106", "field:this:0x00000107", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Persist stream position back into the state: *v2 = v6 (buffer read pointer) and v2[1] = v23 (remaining byte count at this+0x18).",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When more than zero unconsumed bytes remain (v20 > 0), call the consume callback at a1[5]+16 (slot this+0x24) with a1 and v20 to advance past the segment.",
+      "evidence_refs": ["field:this:0x00000024", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 on success; return 0 only when a refill fails or the dispatch returns false.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "state = *(this + 0x14);           // byte-stream state",
+    "buf = *state; remaining = state[1];",
+    "if (remaining == 0 && !refill(state[3], a1)) return 0;",
+    "len = (*buf << 8); buf++; remaining--;",
+    "if (remaining == 0 && !refill(state[3], a1)) return 0;",
+    "buf = *state; remaining = state[1];",
+    "len = *buf + len - 2; buf++; remaining--;",
+    "if (len < 12) { obj=*a1; obj[5]=77; obj[6]=len; dispatch(a1, 1); goto done; }",
+    "for (i = 0; i < 12; i++) {",
+    "  if (remaining == 0 && !refill(state[3], a1)) return 0;",
+    "  hdr[i] = *buf; buf++; remaining--;",
+    "}",
+    "len -= 12;",
+    "if (hdr[0..4] != 'Adobe') { obj[5]=77; obj[6]=len+12; dispatch(a1, 1); goto done; }",
+    "obj[6]  = hdr[6] + (hdr[5] << 8);   // DCT version",
+    "obj[7]  = hdr[8] + (hdr[7] << 8);   // flags 0",
+    "obj[8]  = hdr[10] + (hdr[9] << 8);  // flags 1",
+    "obj[9]  = colorTransform;",
+    "obj[5] = 75;                        // Adobe OK",
+    "dispatch(a1, 1);",
+    "*(byte*)(a1 + 262) = 1;             // Adobe present (this+0x106)",
+    "*(byte*)(a1 + 263) = colorTransform; // this+0x107",
+    "done:",
+    "*state = buf; state[1] = remaining;",
+    "if (len > 0) consume(state[4], a1, len);",
+    "return 1;"
+  ],
+  "unresolved": [
+    "The result object (obj = *a1 at this+0x0) layout beyond offsets 0x14..0x24 and the exact meaning of state codes 75/77 are not verifiable from this function alone.",
+    "Color-transform byte semantics (0/1/2) follow the Adobe APP14 convention but are not proven here.",
+    "The consume callback at this+0x24 is a vtable-style slot; its exact behavior for the leftover byte count is caller-side."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

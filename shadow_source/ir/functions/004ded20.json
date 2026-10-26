@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "address": "0x004DED20",
+  "proposed_name": "DualArrayDestructor",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Destructor for an object holding two heap arrays whose element counts live in the allocation header (count DWORD immediately before the block base, i.e. block-4). Each array is a packed stride of fixed-width elements: the first array uses a 3-DWORD (12-byte) element stride and per-element teardown via sub_4DD4C0; the second uses a 6-DWORD (24-byte) stride and per-element processing via ShortComputation_d4d0. Both arrays are cleared from the last element down to the first, the backing block is released through FreeWrapper_7bcf at its header base, and the object's array-pointer fields are zeroed. The two head fields at offsets 0x4 and 0x8 are zeroed first. Always returns 0.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Zero the head fields at offsets 0x4 and 0x8 before the first array teardown.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000008"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: first array pointer at offset 0xC (this[3]); if non-null, tear down the first array block.",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Element count read from the allocation header four bytes before the block (block-4); start pointer computed one past the last element using a 3-DWORD (12-byte) element stride.",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate the first array from the last element down to the first (stride 3 DWORDs, 12 bytes) calling the per-element teardown sub_4DD4C0 on each element.",
+      "evidence_refs": ["callee:0x004DD4C0", "field:this:0x0000000C"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the first array backing allocation through FreeWrapper_7bcf at its header base (block-4).",
+      "evidence_refs": ["callee:0x00587BCF"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the first array pointer at offset 0xC and its companion field at offset 0x10.",
+      "evidence_refs": ["field:this:0x0000000C", "field:this:0x00000010"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: second array pointer at offset 0x14 (this[5]); if non-null, tear down the second array block.",
+      "evidence_refs": ["field:this:0x00000014"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Second array element count read from header (block-4); start pointer computed one past the last element using a 6-DWORD (24-byte) element stride.",
+      "evidence_refs": ["field:this:0x00000014"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate the second array from the last element down to the first (stride 6 DWORDs, 24 bytes) calling ShortComputation_d4d0 on each element.",
+      "evidence_refs": ["callee:0x004DD4D0", "field:this:0x00000014"]
+    },
+    {
+      "kind": "call",
+      "description": "Release the second array backing allocation through FreeWrapper_7bcf at its header base (block-4).",
+      "evidence_refs": ["callee:0x00587BCF"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the second array pointer at offset 0x14 and its companion field at offset 0x18.",
+      "evidence_refs": ["field:this:0x00000014", "field:this:0x00000018"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Object teardown reached from caller lifecycle paths: F_2FieldInitCall, DualArrayDestructorLoopFree, VehicleResetClear, TimerClampAndProcess.",
+      "evidence_refs": ["caller:0x004DE5F0", "caller:0x004DFCA0", "caller:0x004E09E0", "caller:0x004E38D0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 on both teardown paths and the fall-through path.",
+      "evidence_refs": ["function:0x004DED20", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int DualArrayDestructor(void *this) {",
+    "  this[0x4] = 0;",
+    "  this[0x8] = 0;",
+    "  if (this[0xC]) {",
+    "    int n = *(this[0xC] - 4);",
+    "    for (int i = n - 1; i >= 0; --i) sub_4DD4C0((char*)this[0xC] + i * 12);",
+    "    FreeWrapper_7bcf((char*)this[0xC] - 4);",
+    "  }",
+    "  this[0xC] = 0;",
+    "  this[0x10] = 0;",
+    "  if (this[0x14]) {",
+    "    int n = *(this[0x14] - 4);",
+    "    for (int i = n - 1; i >= 0; --i) ShortComputation_d4d0((char*)this[0x14] + i * 24);",
+    "    FreeWrapper_7bcf((char*)this[0x14] - 4);",
+    "  }",
+    "  this[0x14] = 0;",
+    "  this[0x18] = 0;",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "Owner class is unidentified (UnknownObject); the dual-array layout and the callers suggest a vehicle/timer-managed object but there is no naming evidence in this packet.",
+    "Companion fields at offsets 0x10 and 0x18 are zeroed but never read; whether they hold a second pointer (capacity/end) or separate state is not evidenced.",
+    "Head fields at offsets 0x4 and 0x8 are zeroed but never read or written elsewhere in this function; their meaning is undetermined.",
+    "Element count is read from the allocation header at block-4; this MSVC-style header convention is inferred from the code, not independently evidenced.",
+    "sub_4DD4C0 and ShortComputation_d4d0 are treated as per-element teardown/processing helpers; their exact behavior is outside this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

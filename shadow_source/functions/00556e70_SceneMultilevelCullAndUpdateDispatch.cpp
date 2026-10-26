@@ -1,0 +1,88 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00556E70
+// Canonical corpus name: sub_556E70
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_556E70_00556e70.c
+
+void UnknownObject::SceneMultilevelCullAndUpdateDispatch()
+{
+    // Scene culling and update dispatcher (scene-manager this, scene argument a2). Guarded by flag byte at this+0x80 bit 8; performs an update pass (sub_5572B0, optional vtable callback at this+0x1A4/0x1A8, wheel-force transform, camera projection update), then culls/updates scene nodes by spatial-tree nearest-neighbor query or a plain node chain, running sphere/frustum visibility tests and recursive state traversal, dispatch to the sound manager via sub_5550E0(dword_8B78A0,...), an optional extra pass over the a2 chain, and a self-recursion for a sub-scene guarded by this+0x1B0.
+    // GUARD: Early-out guard on byte at this+0x80 bit 8; when clear, jump to the tail label that only performs the sub-scene self-recursion. [field:this:0x00000080, source:raw]
+    // CALL: Call sub_5572B0(a2) to begin the scene update pass. [callee:0x005572B0, source:raw]
+    // CALL: When the function pointer stored at this+0x1A4 is non-null, invoke it __thiscall with the argument stored at this+0x1A8 (optional vtable callback). [field:this:0x000001A4, field:this:0x000001A8, source:raw]
+    // CALL: TransformWheelForcesToChassis applied to this as the chassis float data, converting wheel forces before culling. [callee:0x00541A70, source:raw]
+    // CALL: CameraProjectionUpdate(this, 14) refreshes the camera projection for this scene. [callee:0x00541B70, source:raw]
+    // LOOP: Iterate the sibling chain rooted at a2[66] (next link at +76); for each node whose byte at +60 has bit 2 clear, call RecursiveStateTraversalWithFlagCheck(node, this). [callee:0x00556930, source:raw]
+    // GUARD: Branch on a2[59] & 0x3000: value 4096 selects the spatial-tree nearest-neighbor path; value 0x2000 selects the plain a2[64] node-chain path. [source:raw]
+    // CALL: SpatialTreeNearestNeighborQuery(a2, this) returns the nearest spatial node; when non-null, its content chains are processed. [callee:0x0054A340, source:raw]
+    // LOOP: Traverse the nearest node's child chain at +236 (next +76), calling RecursiveStateTraversalWithFlagCheck on each node whose byte at +60 has bit 2 clear. [callee:0x00556930, source:raw]
+    // LOOP: For each entry k in the secondary chain at +248 (next +20), fetch the node at k+16 and run SphereVsFrustumVisibilityTest(node, this). [callee:0x00549FB0, source:raw]
+    // GUARD: When the byte at node+4 has bit 4 set, run the full TestFrustumPlanes(node, this). [callee:0x0054A0A0, source:raw]
+    // GUARD: When the byte at node+4 has bit 5 set, recurse into the node's +236 child chain (next +76) with RecursiveStateTraversalWithFlagCheck. [callee:0x00556930, source:raw]
+    // ASSIGNMENT: When the nearest-neighbor query returns null, save a2[64] into v15 and clear a2[105] before walking the fallback node chain. [source:raw]
+    // LOOP: Walk the a2[64] node chain (next link at +260); for each node without bit 0x40 at +4 run SphereVsFrustumVisibilityTest, TestFrustumPlanes when bit 4 set, and recursive traversal when bit 5 set or this+0x80 bit 0x800 set. [callee:0x00549FB0, callee:0x0054A0A0, callee:0x00556930, field:this:0x00000080, source:raw]
+    // LOOP: For the 0x2000 branch, walk the a2[64] node chain (next link at +260) identically, applying the same visibility tests and recursive traversal. [callee:0x00549FB0, callee:0x0054A0A0, callee:0x00556930, field:this:0x00000080, source:raw]
+    // CALL: Dispatch to the sound manager: sub_5550E0(dword_8B78A0, v2, this) with the scene argument and this. [callee:0x005550E0, global:0x008B78A0, source:raw]
+    // LOOP: When this+0x80 bit 0x20 is set, iterate the chain at v2[328] (next +104) calling sub_558E70(v2, this) for each entry (extra render/update pass). [callee:0x00558E70, field:this:0x00000080, source:raw]
+    // CALL: Tail: when the dword at this+0x1B0 is non-zero, recurse into sub_556E70(v2) for the sub-scene and refresh CameraProjectionUpdate(this, 14). [callee:0x00556E70, callee:0x00541B70, field:this:0x000001B0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   void sub_556E70(int this, int* a2) {
+    //     if (!(*(byte*)(this + 0x80) & 8)) goto subscene_only;
+    //     sub_5572B0(a2);
+    //     if (*(fn*)(this + 0x1A4)) (*(fn*)(this + 0x1A4))(*(dword*)(this + 0x1A8));
+    //     TransformWheelForcesToChassis(this);
+    //     CameraProjectionUpdate(this, 14);
+    //     for (node = a2[66]; node; node = *(dword*)(node + 76))
+    //       if (!(*(byte*)(node + 60) & 2)) RecursiveStateTraversalWithFlagCheck(node, this);
+    //     mode = a2[59] & 0x3000;
+    //     if (mode == 4096) {
+    //       nearest = SpatialTreeNearestNeighborQuery(a2, this);
+    //       if (nearest) {
+    //         for (node = *(dword*)(nearest + 236); node; node = *(dword*)(node + 76))
+    //           if (!(*(byte*)(node + 60) & 2)) RecursiveStateTraversalWithFlagCheck(node, this);
+    //         for (entry = *(dword*)(nearest + 248); entry; entry = *(dword*)(entry + 20)) {
+    //           n = *(dword*)(entry + 16);
+    //           SphereVsFrustumVisibilityTest(n, this);
+    //           if (*(byte*)(n + 4) & 4) TestFrustumPlanes(n, this);
+    //           if (*(byte*)(n + 4) & 5)
+    //             for (node = *(dword*)(n + 236); node; node = *(dword*)(node + 76))
+    //               if (!(*(byte*)(node + 60) & 2)) RecursiveStateTraversalWithFlagCheck(node, this);
+    //         }
+    //         goto sound_dispatch;
+    //       }
+    //       a2[105] = 0;
+    //       for (n = a2[64]; n; n = *(dword*)(n + 260)) {
+    //         if (*(byte*)(n + 4) & 0x40) continue;
+    //         SphereVsFrustumVisibilityTest(n, this);
+    //         if (*(byte*)(n + 4) & 4) TestFrustumPlanes(n, this);
+    //         if ((*(byte*)(n + 4) & 5) || (*(dword*)(this + 0x80) & 0x800))
+    //           for (node = *(dword*)(n + 236); node; node = *(dword*)(node + 76))
+    //             if (!(*(byte*)(node + 60) & 2)) RecursiveStateTraversalWithFlagCheck(node, this);
+    //       }
+    //     } else if (mode == 0x2000) {
+    //       for (n = a2[64]; n; n = *(dword*)(n + 260)) {
+    //         if (*(byte*)(n + 4) & 0x40) continue;
+    //         SphereVsFrustumVisibilityTest(n, this);
+    //         if (*(byte*)(n + 4) & 4) TestFrustumPlanes(n, this);
+    //         if ((*(byte*)(n + 4) & 5) || (*(dword*)(this + 0x80) & 0x800))
+    //           for (node = *(dword*)(n + 236); node; node = *(dword*)(node + 76))
+    //             if (!(*(byte*)(node + 60) & 2)) RecursiveStateTraversalWithFlagCheck(node, this);
+    //       }
+    //     }
+    //   sound_dispatch:
+    //     sub_5550E0(dword_8B78A0, a2, this);
+    //     if (*(dword*)(this + 0x80) & 0x20)
+    //       for (node = *(dword*)(a2 + 328*4); node; node = *(dword*)(node + 104))
+    //         sub_558E70(a2, this);
+    //   subscene_only:
+    //     if (*(dword*)(this + 0x1B0)) {
+    //       sub_556E70(a2);
+    //       CameraProjectionUpdate(this, 14);
+    //     }
+    //   }
+    // UNRESOLVED: Identity of the scene manager type owning this and the exact role of the a2[59] mode bits (0x3000 mask) is not established.
+    // UNRESOLVED: Meaning of the +60 node flag bit 2 (skip list) and the +4 visibility flag bits (4, 5, 0x40) depends on the scene node type.
+    // UNRESOLVED: The optional vtable callback at this+0x1A4 and the extra-pass sub_558E70 role are caller-type dependent.
+    // UNRESOLVED: Self-recursion guard this+0x1B0 and the sub-scene it descends into are only structurally evident.
+}

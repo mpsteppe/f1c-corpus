@@ -1,0 +1,51 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004EC080
+// Canonical corpus name: VehicleTelemetryPositionAccumulator
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VehicleTelemetryPositionAccumulator_004ec080.c
+
+void UnknownObject::VehicleTelemetryPositionAccumulator()
+{
+    // Accumulates velocity-scaled deltas (velocity components from a2 scaled by a2[2]) into the accumulated position fields this+0x34D4/0x34D8/0x34DC, transforms them by the object's 3x3 rotation matrix, then dispatches the result by update mode selector at this+0x32BC: mode 0 applies the delta to the rigid-body transform keyed on the race-time global; mode 2 resolves a stride-based target pointer and applies the accumulated delta to it.
+    // CALCULATION: Scale the velocity components a2[11], a2[12], a2[13] by a2[2] to form deltas v7, v8, v9. [source:raw]
+    // ASSIGNMENT: Accumulate the deltas into the accumulated position floats at this+0x34D4, this+0x34D8, this+0x34DC (float indices 3381-3383). [field:this:0x000034D4, field:this:0x000034D8, field:this:0x000034DC, source:raw]
+    // CALL: Call F_3x3MatrixTransform with the rotation matrix stored at this+441 dwords, the accumulated position, a result float index at this+3384, and a workspace pointer at this+13488. [callee:0x004E23D0, source:raw]
+    // CALL: Call FieldReadDelegate on the matrix region base at this+1764 bytes. [callee:0x004E16C0, source:raw]
+    // ASSIGNMENT: Read the update mode selector dword at this+0x32BC (float index 3247); 0 selects the rigid-body path and 2 selects the pointer-based path. [field:this:0x000032BC, source:raw]
+    // GUARD: Mode 0 branch: when the selector is zero, store the deltas into the v13 vector and call RigidBodyTransformUpdate with the race-time global, then return. [callee:0x0043E6A0, global:0x007C7428, source:raw]
+    // CALL: Mode 2 branch: call ConditionalStridePointerComputation with the module-manager global and the object dword read through *(this) at obj+0x4894. [callee:0x00463DC0, global:0x007CD25C, field:obj:0x00004894, field:this:0x00000000, source:raw]
+    // GUARD: When the stride resolution returns non-zero, take the target pointer at result+8 as v6. [source:raw]
+    // CALL: Call ArithmeticComparison_2420 on the target pointer to read the existing position into v10/v11/v12 and the v13 output vector. [callee:0x004B2420, source:raw]
+    // CALCULATION: Add the deltas to the existing position: v10 += v7, v11 += v8, v12 += v9. [source:raw]
+    // CALL: Call sub_4B2310 on the target pointer with the updated position vector and return its result. [callee:0x004B2310, source:raw]
+    // RETURN: Return the mode-selector value when neither branch executes (selector non-zero and not 2, or stride resolution returned zero). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int VehicleTelemetryPositionAccumulator(char* this, float* a2) {
+    //     float v7 = a2[2] * a2[11], v8 = a2[2] * a2[12], v9 = a2[2] * a2[13];
+    //     ((float*)this)[3381] += v7;
+    //     ((float*)this)[3382] += v8;
+    //     ((float*)this)[3383] += v9;
+    //     F_3x3MatrixTransform((_DWORD*)this + 441, (float*)this + 3381, (_DWORD*)this + 3384, this + 13488);
+    //     FieldReadDelegate(this + 1764);
+    //     int mode = *((_DWORD*)this + 3247);
+    //     if (mode == 0) {
+    //       double v13[3] = { v7, v8, v9 };
+    //       return RigidBodyTransformUpdate(&dbl_7C7428, v13);
+    //     }
+    //     if (mode == 2) {
+    //       int p = ConditionalStridePointerComputation(dword_7CD25C, *(_DWORD*)(*(_DWORD*)this + 18580));
+    //       if (p) {
+    //         float v10, v11, v12, v13[3];
+    //         ArithmeticComparison_2420(p + 8, &v10, v13);
+    //         v10 += v7; v11 += v8; v12 += v9;
+    //         return sub_4B2310(p + 8, &v10, v13);
+    //       }
+    //     }
+    //     return mode;
+    //   }
+    // UNRESOLVED: Purpose of FieldReadDelegate on the matrix region and its relation to the transform workspace is unknown.
+    // UNRESOLVED: Which object or subsystem the obj+0x4894 field selects in the stride-based lookup is unknown.
+    // UNRESOLVED: dbl_7C7428 as a race-time scalar in the rigid-body path is DERIVED from the fill, not independently confirmed.
+    // UNRESOLVED: Semantics of the stride resolution and the target pointer layout returned by ConditionalStridePointerComputation are unknown.
+}

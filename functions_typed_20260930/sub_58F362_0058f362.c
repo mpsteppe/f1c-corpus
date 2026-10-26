@@ -1,0 +1,50 @@
+void __cdecl sub_58F362(LPVOID *a1)
+{
+  if ( a1 )
+  {
+    sub_58AA6F(a1[1]);
+    sub_58AA6F(a1[2]);
+    sub_58AA6F(a1[3]);
+    sub_58AA6F(a1[4]);
+    sub_58AA6F(a1[5]);
+    sub_58AA6F(a1[6]);
+    sub_58AA6F(*a1);
+    sub_58AA6F(a1[8]);
+    sub_58AA6F(a1[9]);
+    sub_58AA6F(a1[10]);
+    sub_58AA6F(a1[11]);
+    sub_58AA6F(a1[12]);
+    sub_58AA6F(a1[13]);
+    sub_58AA6F(a1[7]);
+    sub_58AA6F(a1[14]);
+    sub_58AA6F(a1[15]);
+    sub_58AA6F(a1[16]);
+    sub_58AA6F(a1[17]);
+    sub_58AA6F(a1[18]);
+    sub_58AA6F(a1[19]);
+    sub_58AA6F(a1[20]);
+    sub_58AA6F(a1[21]);
+    sub_58AA6F(a1[22]);
+    sub_58AA6F(a1[23]);
+    sub_58AA6F(a1[24]);
+    sub_58AA6F(a1[25]);
+    sub_58AA6F(a1[26]);
+    sub_58AA6F(a1[27]);
+    sub_58AA6F(a1[28]);
+    sub_58AA6F(a1[29]);
+    sub_58AA6F(a1[30]);
+    sub_58AA6F(a1[31]);
+    sub_58AA6F(a1[32]);
+    sub_58AA6F(a1[33]);
+    sub_58AA6F(a1[34]);
+    sub_58AA6F(a1[35]);
+    sub_58AA6F(a1[36]);
+    sub_58AA6F(a1[37]);
+    sub_58AA6F(a1[38]);
+    sub_58AA6F(a1[39]);
+    sub_58AA6F(a1[40]);
+    sub_58AA6F(a1[41]);
+    sub_58AA6F(a1[42]);
+  }
+}
+

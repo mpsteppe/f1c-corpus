@@ -1,0 +1,41 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0053CA00
+// Canonical corpus name: SearchPathPrune
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SearchPathPrune_0053ca00.c
+
+void UnknownObject::SearchPathPrune()
+{
+    // Prunes entries with flag bit 0x400 set from the global entry table rooted at dword_8B5A38 (entries are 132 bytes / 33 DWORDs, with a local staging copy of up to 32 entries in v12). Survivors are compacted back to the front of the table and the remaining slots up to the table boundary dword_8B6AB8 are zeroed. The live entry count dword_8B8E30 is updated to the surviving count. Called by StringMatchWithFlagSet.
+    // LOOP: Initialize the local staging table v12 (4224-byte stack buffer) entry by entry via TwoFieldInitializer, advancing each entry 132 bytes. [callee:0x0053C6A0, source:raw]
+    // CALL: __alloca_probe: stack allocation probe for the 4224-byte local buffer. [callee:0x005881C0, source:raw]
+    // GUARD: if (dword_8B8E30 > 0): only scan when the live entry count is positive. [global:0x008B8E30, source:raw]
+    // LOOP: Iterate the dword_8B5A38 entry table, advancing v6 by 33 DWORDs per entry, counting iterations in v4 until v4 reaches dword_8B8E30. [global:0x008B5A38, global:0x008B8E30, source:raw]
+    // GUARD: if ((*v6 & 0x400) == 0): entry survives when its flag bit 0x400 is clear. [source:raw]
+    // CALL: ArithmeticComparison_c6b0(v5, v6): copy a surviving entry from the global table into the local staging table. [callee:0x0053C6B0, source:raw]
+    // CALCULATION: Increment the surviving-entry counter v3 and advance the staging pointer v5 by 132 bytes. [source:raw]
+    // ASSIGNMENT: dword_8B8E30 = v3: store the surviving entry count back into the global count. [global:0x008B8E30, source:raw]
+    // LOOP: if (v3 > 0): for each survivor, ArithmeticComparison_c6b0(&dword_8B5A38[v8], &v12[v8 * 4]) compacts the staged entries back to the front of the global table, advancing v8 by 33 DWORDs per copy. [callee:0x0053C6B0, global:0x008B5A38, source:raw]
+    // GUARD: if (v3 < 32): more slots remain than survivors, so the tail of the table must be cleared. [source:raw]
+    // LOOP: ArithmeticComparison_c6b0(v10, 0): zero each remaining slot from &dword_8B5A38[33 * v3] up to the table boundary address dword_8B6AB8, advancing 132 bytes per entry. [callee:0x0053C6B0, global:0x008B5A38, global:0x008B6AB8, source:raw]
+
+    // Conservative worker pseudocode:
+    //   void sub_53CA00() {
+    //     Entry staging[32];
+    //     for (i = 0; i < 32; ++i) TwoFieldInitializer(&staging[i]);
+    //     int kept = 0;
+    //     for (n = 0; n < dword_8B8E30; ++n) {
+    //       if ((dword_8B5A38[33*n] & 0x400) == 0) {
+    //         ArithmeticComparison_c6b0(&staging[kept], &dword_8B5A38[33*n]);
+    //         ++kept;
+    //       }
+    //     }
+    //     dword_8B8E30 = kept;
+    //     for (n = 0; n < kept; ++n)
+    //       ArithmeticComparison_c6b0(&dword_8B5A38[33*n], &staging[n]);
+    //     for (p = &dword_8B5A38[33*kept]; p < &dword_8B6AB8; p += 33)
+    //       ArithmeticComparison_c6b0(p, 0);
+    //   }
+    // UNRESOLVED: The exact structure of a table entry (132 bytes) is unknown; two-field initialization and 33-DWORD copy semantics are inferred from the callee naming only.
+    // UNRESOLVED: The constant 0x400 flag's meaning is not established from this function alone.
+}

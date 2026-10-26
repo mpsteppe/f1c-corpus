@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "address": "0x004E3AA0",
+  "proposed_name": "TireContactForceComputation",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Per-tire contact force computation. Queries the track surface collision normal via CollisionNormalFromFeature, computes contact penetration depth, spring/damper normal force and slip velocity in the surface frame, applies a friction/load saturation, and writes the resulting tire force terms into the tire contact state. Called per-frame by WheelForceCalculationSpringDamperTorque (004E5470).",
+  "local_names": {
+    "this": "tire contact-state object (float array; offsets are byte displacements)",
+    "a2": "contact/slip velocity vector for this tire",
+    "a3": "wheel hub position vector",
+    "v17": "collision normal X component (also reuse buffer)",
+    "v18": "collision normal Y component",
+    "v19": "collision normal Z component",
+    "v21": "local contact position vector passed to the collision query",
+    "v26": "stack double read before initialization (Hex-Rays artifact)"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Copy the tire contact position (this+0x0/+0x4/+0x8) into the local vector v21 used as input to the collision query.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Stash the collision-feature selector dword at this+0xE8 into local v27; after the query returns, the collision feature pointer is written back into this+0xE8.",
+      "evidence_refs": ["field:this:0x000000E8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call CollisionNormalFromFeature(dbl_7C9360, contact position vector, &normal) to obtain the track surface normal and feature pointer.",
+      "evidence_refs": ["callee:0x0044C550", "global:0x007C9360", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the returned feature pointer: when non-null, penetration depth v16 = (this+0x4 - v26 - this+0xE4) * normal-Y; otherwise the normal defaults to (0, 1, 0) and v16 is set to 9.9999999e36.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x000000E4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Rotate the contact/slip velocity vector a2 into the surface frame using the collision normal basis, writing the result to this+0x38/+0x3C/+0x40.",
+      "evidence_refs": ["field:this:0x00000038", "field:this:0x0000003C", "field:this:0x00000040", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute penetration depth v28 = this+0x90 - v16 and write it to this+0x74.",
+      "evidence_refs": ["field:this:0x00000090", "field:this:0x00000074", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the penetration depth: when v28 >= 0 the contact branch computes tire forces; otherwise this+0x44 and this+0x34 are zeroed.",
+      "evidence_refs": ["field:this:0x00000044", "field:this:0x00000034", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Project the rotated slip velocity onto the tire lateral basis: v7 = this+0x18 * this+0x38 + this+0x3C * this+0x1C + this+0x40 * this+0x20.",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x0000001C", "field:this:0x00000020", "field:this:0x00000038", "field:this:0x0000003C", "field:this:0x00000040", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Saturation guard: when this+0x3C <= 0.98500001 and |v7| exceeds this+0x7C, v7 and this+0x74 are scaled by (2 * this+0x7C) / (|v7| + this+0x7C).",
+      "evidence_refs": ["field:this:0x0000003C", "field:this:0x0000007C", "field:this:0x00000074", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Spring/damper normal force: this+0x34 = this+0x78 * this+0x74 * this+0x3C.",
+      "evidence_refs": ["field:this:0x00000034", "field:this:0x00000078", "field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute slip displacement relative to the wheel hub: this+0xCC/+0xD0/+0xD4 = (contact position minus normal-scaled penetration) minus hub vector a3, projected onto the surface frame.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x00000038", "field:this:0x0000003C", "field:this:0x00000040", "field:this:0x000000CC", "field:this:0x000000D0", "field:this:0x000000D4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Steep-normal branch: normal force this+0x34 = v28 * this+0x78, slip Y term = v28 + this+0x60 - this+0x90, and slip components taken from this+0xC and this+0x14 into this+0xCC/+0xD0.",
+      "evidence_refs": ["field:this:0x00000034", "field:this:0x00000078", "field:this:0x00000090", "field:this:0x00000060", "field:this:0x0000000C", "field:this:0x00000014", "field:this:0x000000CC", "field:this:0x000000D0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Tire force result: this+0x44 = this+0xEC * this+0x74 - v7 * this+0xF0.",
+      "evidence_refs": ["field:this:0x00000044", "field:this:0x000000EC", "field:this:0x000000F0", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "No-contact branch: force and normal-force terms this+0x44 and this+0x34 are cleared to zero.",
+      "evidence_refs": ["field:this:0x00000044", "field:this:0x00000034", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked per frame by WheelForceCalculationSpringDamperTorque (004E5470) as the tire-ground force stage.",
+      "evidence_refs": ["caller:0x004E5470", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// this: tire contact state (byte offsets), a2: slip velocity, a3: wheel hub",
+    "copy (this[0x0], this[0x4], this[0x8]) into contact_pos;",
+    "v27 = *(int*)(this + 0xE8);",
+    "feature = CollisionNormalFromFeature(dbl_7C9360, contact_pos, &normal);",
+    "*(int*)(this + 0xE8) = feature;",
+    "if (feature) {",
+    "  penetration = (this[0x4] - v26 - this[0xE4]) * normal[1];  // v26 uninitialized stack double",
+    "} else {",
+    "  normal = (0.0, 1.0, 0.0);",
+    "  penetration = 9.9999999e36;",
+    "}",
+    "this[0x38] = normal.z*a2[6] + normal.x*a2[0] + normal.y*a2[3];",
+    "this[0x3C] = normal.y*a2[4] + normal.x*a2[1] + normal.z*a2[7];",
+    "this[0x40] = normal.z*a2[8] + normal.y*a2[5] + normal.x*a2[2];",
+    "v28 = this[0x90] - penetration;",
+    "this[0x74] = v28;",
+    "if (v28 >= 0.0) {",
+    "  v7 = this[0x18]*this[0x38] + this[0x3C]*this[0x1C] + this[0x40]*this[0x20];",
+    "  if (this[0x3C] <= 0.98500001) {",
+    "    if (fabs(v7) > this[0x7C]) {",
+    "      scale = (2.0*this[0x7C]) / (fabs(v7) + this[0x7C]);",
+    "      v7 *= scale; this[0x74] = v28 * scale;",
+    "    }",
+    "    this[0x34] = this[0x78] * this[0x74] * this[0x3C];",
+    "    this[0xCC] = (this[0x0] - normal.x*penetration - a3[0])*a2[0] + ... ;",
+    "    this[0xD0] = ...; this[0xD4] = ...;",
+    "  } else {",
+    "    this[0x34] = v28 * this[0x78];",
+    "    this[0xCC] = this[0xC]; this[0xD0] = this[0x34] + this[0x60] - this[0x90];",
+    "    this[0xD4] = this[0x14];",
+    "  }",
+    "  this[0x44] = this[0xEC] * this[0x74] - v7 * this[0xF0];",
+    "} else {",
+    "  this[0x44] = 0.0;",
+    "  this[0x34] = 0.0;",
+    "}"
+  ],
+  "unresolved": [
+    "Local double v26 is read before initialization; the decompiler lost the true stack origin of the ground-plane term in the penetration expression.",
+    "Globals flt_59E440 (0x0059E440) and flt_5AD168 (0x005AD168) are flagged read-only by packet facts but appear nowhere in the raw decompiled source; the skeleton fill's claimed roles cannot be verified from this packet.",
+    "The packed integer literals v22..v25 written near v21 are never referenced by the visible body; their role in the collision query is unresolved."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440",
+    "global:0x005AD168"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

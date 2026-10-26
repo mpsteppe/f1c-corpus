@@ -1,0 +1,52 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00414E60
+// Canonical corpus name: CommentaryTVPWSPathBuilder
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/CommentaryTVPWSPathBuilder_00414e60.c
+
+void UnknownObject::CommentaryTVPWSPathBuilder()
+{
+    // Builds a base commentary path under a literal \tv subdirectory from a directory-name string (this[0], falling back to byte_5EA438), dword_5EC420 and dword_5EC3D8 (each falling back to byte_5EA438), then repeatedly appends one of four extension strings (CountryB/CountryE/CircuitB/CircuitE), checks whether the resulting file path exists via FilePathExtensionCheck, and when it does looks up a track display ID through TrackNameDisplayIDLookup with the index this[2]; always returns 0.
+    // ASSIGNMENT: Load v2 from *this (field offset 0x0) and v3 = v2; when *this is null, set both to byte_5EA438. [field:this:0x00000000, global:0x005EA438, source:raw]
+    // ASSIGNMENT: Set v4 from dword_5EC420; when dword_5EC420 is null, fall back to byte_5EA438. [global:0x005EC420, global:0x005EA438, source:raw]
+    // ASSIGNMENT: Set v5 from dword_5EC3D8; when dword_5EC3D8 is null, fall back to byte_5EA438. [global:0x005EC3D8, global:0x005EA438, source:raw]
+    // CALL: Build the base \tv path into v8: StringFormatWithBufferOverflowCheck(v8, aSS "%s%s%s\\tv%s_", v5, v4, v3, v2). [callee:0x0058815F, global:0x005BE860, source:raw]
+    // CALL: Append the CountryB extension: StringFormatWithBufferOverflowCheck(v7, aSSSTvS "%s%s", v8, aCountryb). [callee:0x0058815F, global:0x005C23B8, global:0x005C240C, source:raw]
+    // GUARD: When FilePathExtensionCheck(v7, this+3) is true, proceed to the CountryB track lookup. [callee:0x00414900, source:raw]
+    // CALL: Look up display ID for the CountryB path: TrackNameDisplayIDLookup(this+3, this[2], 0, 1). [callee:0x00417F60, field:this:0x00000008, source:raw]
+    // CALL: Append the CountryE extension: StringFormatWithBufferOverflowCheck(v7, aSSSTvS "%s%s", v8, aCountrye). [callee:0x0058815F, global:0x005C23B8, global:0x005C2400, source:raw]
+    // GUARD: When FilePathExtensionCheck(v7, this+8) is true, proceed to the CountryE track lookup. [callee:0x00414900, source:raw]
+    // CALL: Look up display ID for the CountryE path: TrackNameDisplayIDLookup(this+8, this[2], 0, 0). [callee:0x00417F60, field:this:0x00000008, source:raw]
+    // CALL: Append the CircuitB extension: StringFormatWithBufferOverflowCheck(v7, aSSSTvS "%s%s", v8, aCircuitb). [callee:0x0058815F, global:0x005C23B8, global:0x005C23F4, source:raw]
+    // GUARD: When FilePathExtensionCheck(v7, this+13) is true, proceed to the CircuitB track lookup. [callee:0x00414900, source:raw]
+    // CALL: Look up display ID for the CircuitB path: TrackNameDisplayIDLookup(this+13, this[2], 1, 1). [callee:0x00417F60, field:this:0x00000008, source:raw]
+    // CALL: Append the CircuitE extension: StringFormatWithBufferOverflowCheck(v7, aSSSTvS "%s%s", v8, aCircuite). [callee:0x0058815F, global:0x005C23B8, global:0x005C23E8, source:raw]
+    // GUARD: When FilePathExtensionCheck(v7, this+18) is true, proceed to the CircuitE track lookup. [callee:0x00414900, source:raw]
+    // CALL: Look up display ID for the CircuitE path: TrackNameDisplayIDLookup(this+18, this[2], 1, 0). [callee:0x00417F60, field:this:0x00000008, source:raw]
+    // CALL: Invoked by SceneListBuilderFromGlobalArray as part of scene-list/commentary data construction. [caller:0x00415C40, function:0x00414E60, source:raw]
+    // RETURN: Return 0 unconditionally. [function:0x00414E60, source:raw]
+
+    // Conservative worker pseudocode:
+    //   v2 = *this ? *this : &byte_5EA438;
+    //   v3 = v2;
+    //   v4 = dword_5EC420 ? (const char*)dword_5EC420 : &byte_5EA438;
+    //   v5 = dword_5EC3D8 ? (const char*)dword_5EC3D8 : &byte_5EA438;
+    //   StringFormatWithBufferOverflowCheck(v8, aSS "%s%s%s\\tv%s_", v5, v4, v3, v2);
+    //   StringFormatWithBufferOverflowCheck(v7, aSSSTvS "%s%s", v8, aCountryb);
+    //   if (FilePathExtensionCheck(v7, this+3))
+    //     TrackNameDisplayIDLookup(this+3, this[2], 0, 1);
+    //   StringFormatWithBufferOverflowCheck(v7, aSSSTvS "%s%s", v8, aCountrye);
+    //   if (FilePathExtensionCheck(v7, this+8))
+    //     TrackNameDisplayIDLookup(this+8, this[2], 0, 0);
+    //   StringFormatWithBufferOverflowCheck(v7, aSSSTvS "%s%s", v8, aCircuitb);
+    //   if (FilePathExtensionCheck(v7, this+13))
+    //     TrackNameDisplayIDLookup(this+13, this[2], 1, 1);
+    //   StringFormatWithBufferOverflowCheck(v7, aSSSTvS "%s%s", v8, aCircuite);
+    //   if (FilePathExtensionCheck(v7, this+18))
+    //     TrackNameDisplayIDLookup(this+18, this[2], 1, 0);
+    //   return 0;
+    // UNRESOLVED: dword_5EA5E8 appears in the packet globals but is absent from the raw source; its role here is unknown.
+    // UNRESOLVED: Semantics of the final two TrackNameDisplayIDLookup arguments (pairs 0/1, 0/0, 1/1, 1/0) are unknown.
+    // UNRESOLVED: this+3, this+8, this+13, this+18 are pointer-array entries used as file-extension string pointers, but the packet carries no field records for those offsets.
+    // UNRESOLVED: The return value is a constant 0; whether callers treat it as success/failure is unknown.
+}

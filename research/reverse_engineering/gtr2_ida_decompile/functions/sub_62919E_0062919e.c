@@ -1,0 +1,443 @@
+void *__stdcall sub_62919E(void *a1)
+{
+  void *result; // eax
+
+  result = a1;
+  switch ( (unsigned int)a1 )
+  {
+    case 0u:
+      dbl_FB4278 = 1.0;
+      dbl_FB4328 = 0.0;
+      dbl_FB43D8 = 0.0;
+      dbl_FB4488 = 0.0;
+      dbl_FB4538 = 0.0;
+      dbl_FB45E8 = 0.0;
+      dbl_FB4698 = 0.0;
+      dbl_FB4748 = 0.0;
+      dbl_FB47F8 = 0.0;
+      dbl_FB48A8 = 0.0;
+      dbl_FB4C50 = 0.0;
+      dbl_FB4D60 = 0.0;
+      dbl_FB4E70 = 0.0;
+      dbl_FB5100 = 0.0;
+      dbl_FB4168 = 0.0;
+      break;
+    case 1u:
+      dbl_FB4328 = 0.0;
+      dbl_FB4330 = 1.0;
+      dbl_FB43E0 = 0.0;
+      dbl_FB4490 = 0.0;
+      dbl_FB4540 = 0.0;
+      dbl_FB45F0 = 0.0;
+      dbl_FB46A0 = 0.0;
+      dbl_FB4750 = 0.0;
+      dbl_FB4800 = 0.0;
+      dbl_FB48B0 = 0.0;
+      dbl_FB4C58 = 0.0;
+      dbl_FB4D68 = 0.0;
+      dbl_FB4E78 = 0.0;
+      dbl_FB5108 = 0.0;
+      dbl_FB4170 = 0.0;
+      break;
+    case 2u:
+      dbl_FB43D8 = 0.0;
+      dbl_FB43E0 = 0.0;
+      dbl_FB43E8 = 1.0;
+      dbl_FB4498 = 0.0;
+      dbl_FB4548 = 0.0;
+      dbl_FB45F8 = 0.0;
+      dbl_FB46A8 = 0.0;
+      dbl_FB4758 = 0.0;
+      dbl_FB4808 = 0.0;
+      dbl_FB48B8 = 0.0;
+      dbl_FB4C60 = 0.0;
+      dbl_FB4D70 = 0.0;
+      dbl_FB4E80 = 0.0;
+      dbl_FB5110 = 0.0;
+      dbl_FB4178 = 0.0;
+      break;
+    case 3u:
+      result = memset(&dbl_FB4488, 0, 0x18u);
+      dbl_FB44A0 = 1.0;
+      dbl_FB4550 = 0.0;
+      dbl_FB4600 = 0.0;
+      dbl_FB46B0 = 0.0;
+      dbl_FB4760 = 0.0;
+      dbl_FB4810 = 0.0;
+      dbl_FB48C0 = 0.0;
+      dbl_FB4C68 = 0.0;
+      dbl_FB4D78 = 0.0;
+      dbl_FB4E88 = 0.0;
+      dbl_FB5118 = 0.0;
+      dbl_FB4180 = 0.0;
+      break;
+    case 4u:
+      result = memset(&dbl_FB4538, 0, 0x20u);
+      dbl_FB4558 = 1.0;
+      dbl_FB4608 = 0.0;
+      dbl_FB46B8 = 0.0;
+      dbl_FB4768 = 0.0;
+      dbl_FB4818 = 0.0;
+      dbl_FB48C8 = 0.0;
+      dbl_FB4C70 = 0.0;
+      dbl_FB4D80 = 0.0;
+      dbl_FB4E90 = 0.0;
+      dbl_FB5120 = 0.0;
+      dbl_FB4188 = 0.0;
+      break;
+    case 5u:
+      result = memset(&dbl_FB45E8, 0, 0x28u);
+      dbl_FB4610 = 1.0;
+      dbl_FB46C0 = 0.0;
+      dbl_FB4770 = 0.0;
+      dbl_FB4820 = 0.0;
+      dbl_FB48D0 = 0.0;
+      dbl_FB4C78 = 0.0;
+      dbl_FB4D88 = 0.0;
+      dbl_FB4E98 = 0.0;
+      dbl_FB5128 = 0.0;
+      dbl_FB4190 = 0.0;
+      break;
+    case 6u:
+      result = memset(&dbl_FB4698, 0, 0x30u);
+      dbl_FB46C8 = 1.0;
+      dbl_FB4778 = 0.0;
+      dbl_FB4828 = 0.0;
+      dbl_FB48D8 = 0.0;
+      dbl_FB4C80 = 0.0;
+      dbl_FB4D90 = 0.0;
+      dbl_FB4EA0 = 0.0;
+      dbl_FB5130 = 0.0;
+      dbl_FB4198 = 0.0;
+      break;
+    case 7u:
+      result = memset(&dbl_FB4748, 0, 0x38u);
+      dbl_FB4780 = 1.0;
+      dbl_FB4830 = 0.0;
+      dbl_FB48E0 = 0.0;
+      dbl_FB4C88 = 0.0;
+      dbl_FB4D98 = 0.0;
+      dbl_FB4EA8 = 0.0;
+      dbl_FB5138 = 0.0;
+      dbl_FB41A0 = 0.0;
+      break;
+    case 8u:
+      result = memset(&dbl_FB47F8, 0, 0x40u);
+      dbl_FB4838 = 1.0;
+      dbl_FB48E8 = 0.0;
+      dbl_FB4C90 = 0.0;
+      dbl_FB4DA0 = 0.0;
+      dbl_FB4EB0 = 0.0;
+      dbl_FB5140 = 0.0;
+      dbl_FB41A8 = 0.0;
+      break;
+    case 9u:
+      result = memset(&dbl_FB48A8, 0, 0x48u);
+      dbl_FB48F0 = 1.0;
+      dbl_FB4C98 = 0.0;
+      dbl_FB4DA8 = 0.0;
+      dbl_FB4EB8 = 0.0;
+      dbl_FB5148 = 0.0;
+      dbl_FB41B0 = 0.0;
+      break;
+    case 0xAu:
+      dbl_FB4958 = 1.0;
+      dbl_FB49F0 = 0.0;
+      dbl_FB4A88 = 0.0;
+      dbl_FB4B20 = 0.0;
+      dbl_FB4BB8 = 0.0;
+      dbl_FB5310 = 0.0;
+      dbl_FB53D0 = 0.0;
+      dbl_FB5490 = 0.0;
+      dbl_FB5550 = 0.0;
+      dbl_FB5610 = 0.0;
+      dbl_FB41B8 = 0.0;
+      break;
+    case 0xBu:
+      dbl_FB49F0 = 0.0;
+      dbl_FB49F8 = 1.0;
+      dbl_FB4A90 = 0.0;
+      dbl_FB4B28 = 0.0;
+      dbl_FB4BC0 = 0.0;
+      dbl_FB5318 = 0.0;
+      dbl_FB53D8 = 0.0;
+      dbl_FB5498 = 0.0;
+      dbl_FB5558 = 0.0;
+      dbl_FB5618 = 0.0;
+      dbl_FB41C0 = 0.0;
+      break;
+    case 0xCu:
+      dbl_FB4A88 = 0.0;
+      dbl_FB4A90 = 0.0;
+      dbl_FB4A98 = 1.0;
+      dbl_FB4B30 = 0.0;
+      dbl_FB4BC8 = 0.0;
+      dbl_FB5320 = 0.0;
+      dbl_FB53E0 = 0.0;
+      dbl_FB54A0 = 0.0;
+      dbl_FB5560 = 0.0;
+      dbl_FB5620 = 0.0;
+      dbl_FB41C8 = 0.0;
+      break;
+    case 0xDu:
+      result = memset(&dbl_FB4B20, 0, 0x18u);
+      dbl_FB4B38 = 1.0;
+      dbl_FB4BD0 = 0.0;
+      dbl_FB5328 = 0.0;
+      dbl_FB53E8 = 0.0;
+      dbl_FB54A8 = 0.0;
+      dbl_FB5568 = 0.0;
+      dbl_FB5628 = 0.0;
+      dbl_FB41D0 = 0.0;
+      break;
+    case 0xEu:
+      result = memset(&dbl_FB4BB8, 0, 0x20u);
+      dbl_FB4BD8 = 1.0;
+      dbl_FB5330 = 0.0;
+      dbl_FB53F0 = 0.0;
+      dbl_FB54B0 = 0.0;
+      dbl_FB5570 = 0.0;
+      dbl_FB5630 = 0.0;
+      dbl_FB41D8 = 0.0;
+      break;
+    case 0xFu:
+      result = memset(&dbl_FB4C50, 0, 0x50u);
+      dbl_FB4CC8 = 1.0;
+      dbl_FB4DD8 = 0.0;
+      dbl_FB4EE8 = 0.0;
+      dbl_FB5178 = 0.0;
+      dbl_FB5338 = 0.0;
+      dbl_FB53F8 = 0.0;
+      dbl_FB54B8 = 0.0;
+      dbl_FB5578 = 0.0;
+      dbl_FB5638 = 0.0;
+      dbl_FB56D0 = 0.0;
+      dbl_FB5768 = 0.0;
+      dbl_FB5800 = 0.0;
+      dbl_FB5898 = 0.0;
+      dbl_FB5930 = 0.0;
+      dbl_FB41E0 = 0.0;
+      break;
+    case 0x10u:
+      result = memset(&dbl_FB4D60, 0, 0x50u);
+      dbl_FB4DD8 = 0.0;
+      dbl_FB4DE0 = 1.0;
+      dbl_FB4EF0 = 0.0;
+      dbl_FB5180 = 0.0;
+      dbl_FB5340 = 0.0;
+      dbl_FB5400 = 0.0;
+      dbl_FB54C0 = 0.0;
+      dbl_FB5580 = 0.0;
+      dbl_FB5640 = 0.0;
+      dbl_FB56D8 = 0.0;
+      dbl_FB5770 = 0.0;
+      dbl_FB5808 = 0.0;
+      dbl_FB58A0 = 0.0;
+      dbl_FB5938 = 0.0;
+      dbl_FB41E8 = 0.0;
+      break;
+    case 0x11u:
+      result = memset(&dbl_FB4E70, 0, 0x50u);
+      dbl_FB4EE8 = 0.0;
+      dbl_FB4EF0 = 0.0;
+      dbl_FB4EF8 = 1.0;
+      dbl_FB5188 = 0.0;
+      dbl_FB5348 = 0.0;
+      dbl_FB5408 = 0.0;
+      dbl_FB54C8 = 0.0;
+      dbl_FB5588 = 0.0;
+      dbl_FB5648 = 0.0;
+      dbl_FB56E0 = 0.0;
+      dbl_FB5778 = 0.0;
+      dbl_FB5810 = 0.0;
+      dbl_FB58A8 = 0.0;
+      dbl_FB5940 = 0.0;
+      dbl_FB41F0 = 0.0;
+      break;
+    case 0x12u:
+      dbl_FB4F80 = 1.0;
+      dbl_FB5000 = 0.0;
+      dbl_FB5080 = 0.0;
+      dbl_FB5210 = 0.0;
+      dbl_FB5290 = 0.0;
+      dbl_FB56E8 = 0.0;
+      dbl_FB5780 = 0.0;
+      dbl_FB5818 = 0.0;
+      dbl_FB58B0 = 0.0;
+      dbl_FB5948 = 0.0;
+      dbl_FB41F8 = 0.0;
+      break;
+    case 0x13u:
+      dbl_FB5000 = 0.0;
+      dbl_FB5008 = 1.0;
+      dbl_FB5088 = 0.0;
+      dbl_FB5218 = 0.0;
+      dbl_FB5298 = 0.0;
+      dbl_FB56F0 = 0.0;
+      dbl_FB5788 = 0.0;
+      dbl_FB5820 = 0.0;
+      dbl_FB58B8 = 0.0;
+      dbl_FB5950 = 0.0;
+      dbl_FB4200 = 0.0;
+      break;
+    case 0x14u:
+      dbl_FB5080 = 0.0;
+      dbl_FB5088 = 0.0;
+      dbl_FB5090 = 1.0;
+      dbl_FB5220 = 0.0;
+      dbl_FB52A0 = 0.0;
+      dbl_FB56F8 = 0.0;
+      dbl_FB5790 = 0.0;
+      dbl_FB5828 = 0.0;
+      dbl_FB58C0 = 0.0;
+      dbl_FB5958 = 0.0;
+      dbl_FB4208 = 0.0;
+      break;
+    case 0x15u:
+      memset(&dbl_FB5100, 0, 0x50u);
+      result = memset(&dbl_FB5178, 0, 0x18u);
+      dbl_FB51A8 = 1.0;
+      dbl_FB5368 = 0.0;
+      dbl_FB5428 = 0.0;
+      dbl_FB54E8 = 0.0;
+      dbl_FB55A8 = 0.0;
+      dbl_FB5668 = 0.0;
+      dbl_FB5700 = 0.0;
+      dbl_FB5798 = 0.0;
+      dbl_FB5830 = 0.0;
+      dbl_FB58C8 = 0.0;
+      dbl_FB5960 = 0.0;
+      dbl_FB4210 = 0.0;
+      break;
+    case 0x16u:
+      result = memset(&dbl_FB5210, 0, 0x18u);
+      dbl_FB5230 = 1.0;
+      dbl_FB52B0 = 0.0;
+      dbl_FB5708 = 0.0;
+      dbl_FB57A0 = 0.0;
+      dbl_FB5838 = 0.0;
+      dbl_FB58D0 = 0.0;
+      dbl_FB5968 = 0.0;
+      dbl_FB4218 = 0.0;
+      break;
+    case 0x17u:
+      result = memset(&dbl_FB5290, 0, 0x18u);
+      dbl_FB52B0 = 0.0;
+      dbl_FB52B8 = 1.0;
+      dbl_FB5710 = 0.0;
+      dbl_FB57A8 = 0.0;
+      dbl_FB5840 = 0.0;
+      dbl_FB58D8 = 0.0;
+      dbl_FB5970 = 0.0;
+      dbl_FB4220 = 0.0;
+      break;
+    case 0x18u:
+      result = memset(&dbl_FB5310, 0, 0x40u);
+      dbl_FB5368 = 0.0;
+      dbl_FB5380 = 1.0;
+      dbl_FB5440 = 0.0;
+      dbl_FB5500 = 0.0;
+      dbl_FB55C0 = 0.0;
+      dbl_FB5680 = 0.0;
+      dbl_FB5718 = 0.0;
+      dbl_FB57B0 = 0.0;
+      dbl_FB5848 = 0.0;
+      dbl_FB58E0 = 0.0;
+      dbl_FB5978 = 0.0;
+      dbl_FB4228 = 0.0;
+      break;
+    case 0x19u:
+      result = memset(&dbl_FB53D0, 0, 0x40u);
+      dbl_FB5428 = 0.0;
+      dbl_FB5440 = 0.0;
+      dbl_FB5448 = 1.0;
+      dbl_FB5508 = 0.0;
+      dbl_FB55C8 = 0.0;
+      dbl_FB5688 = 0.0;
+      dbl_FB5720 = 0.0;
+      dbl_FB57B8 = 0.0;
+      dbl_FB5850 = 0.0;
+      dbl_FB58E8 = 0.0;
+      dbl_FB5980 = 0.0;
+      dbl_FB4230 = 0.0;
+      break;
+    case 0x1Au:
+      result = memset(&dbl_FB5490, 0, 0x40u);
+      dbl_FB54E8 = 0.0;
+      dbl_FB5500 = 0.0;
+      dbl_FB5508 = 0.0;
+      dbl_FB5510 = 1.0;
+      dbl_FB55D0 = 0.0;
+      dbl_FB5690 = 0.0;
+      dbl_FB5728 = 0.0;
+      dbl_FB57C0 = 0.0;
+      dbl_FB5858 = 0.0;
+      dbl_FB58F0 = 0.0;
+      dbl_FB5988 = 0.0;
+      dbl_FB4238 = 0.0;
+      break;
+    case 0x1Bu:
+      memset(&dbl_FB5550, 0, 0x40u);
+      dbl_FB55A8 = 0.0;
+      result = memset(&dbl_FB55C0, 0, 0x18u);
+      dbl_FB55D8 = 1.0;
+      dbl_FB5698 = 0.0;
+      dbl_FB5730 = 0.0;
+      dbl_FB57C8 = 0.0;
+      dbl_FB5860 = 0.0;
+      dbl_FB58F8 = 0.0;
+      dbl_FB5990 = 0.0;
+      dbl_FB4240 = 0.0;
+      break;
+    case 0x1Cu:
+      memset(&dbl_FB5610, 0, 0x40u);
+      dbl_FB5668 = 0.0;
+      result = memset(&dbl_FB5680, 0, 0x20u);
+      dbl_FB56A0 = 1.0;
+      dbl_FB5738 = 0.0;
+      dbl_FB57D0 = 0.0;
+      dbl_FB5868 = 0.0;
+      dbl_FB5900 = 0.0;
+      dbl_FB5998 = 0.0;
+      dbl_FB4248 = 0.0;
+      break;
+    case 0x1Du:
+      result = memset(&dbl_FB56D0, 0, 0x70u);
+      dbl_FB5740 = 1.0;
+      dbl_FB57D8 = 0.0;
+      dbl_FB5870 = 0.0;
+      dbl_FB5908 = 0.0;
+      dbl_FB59A0 = 0.0;
+      dbl_FB4250 = 0.0;
+      break;
+    case 0x1Eu:
+      result = memset(&dbl_FB5768, 0, 0x78u);
+      dbl_FB57E0 = 1.0;
+      dbl_FB5878 = 0.0;
+      dbl_FB5910 = 0.0;
+      dbl_FB59A8 = 0.0;
+      dbl_FB4258 = 0.0;
+      break;
+    case 0x1Fu:
+      result = memset(&dbl_FB5800, 0, 0x80u);
+      dbl_FB5880 = 1.0;
+      dbl_FB5918 = 0.0;
+      dbl_FB59B0 = 0.0;
+      dbl_FB4260 = 0.0;
+      break;
+    case 0x20u:
+      result = memset(&dbl_FB5898, 0, 0x88u);
+      dbl_FB5920 = 1.0;
+      dbl_FB59B8 = 0.0;
+      dbl_FB4268 = 0.0;
+      break;
+    case 0x21u:
+      result = memset(&dbl_FB5930, 0, 0x90u);
+      dbl_FB59C0 = 1.0;
+      dbl_FB4270 = 0.0;
+      break;
+    default:
+      return result;
+  }
+  return result;
+}

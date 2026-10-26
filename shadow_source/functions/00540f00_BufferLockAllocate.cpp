@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00540F00
+// Canonical corpus name: BufferLockAllocate
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/BufferLockAllocate_00540f00.c
+
+void UnknownObject::BufferLockAllocate()
+{
+    // Allocates a buffer through an allocator object vtable. Reads allocation flags from the request struct: the base flag is 2048 (2064 when request flag bit 0 is set), and when request flag bit 0x20 is set the allocation-type hint field at this[0x13E0] selects between flag 0x2000 and 0x1000. The allocator's vtable entry at +44 is called with sizes a4*a2[2] and a5*a2[2] and the computed flags. The result is stored into *this (field 0x0). Returns 0 on success; on failure the request failure counter (a2[5]) is incremented and the buffer ID is returned. Null request struct or null allocator object return 0 early.
+    // GUARD: If the request struct a2 is null, return 0 immediately without allocating. [function:0x00540F00, source:raw]
+    // GUARD: If the allocator object pointer at a2[8] is null, return 0 immediately. [source:raw]
+    // ASSIGNMENT: Initialize the allocation flags to 2048; raise them to 2064 when request flag bit 0 (a2[0] & 1) is set. [source:raw]
+    // GUARD: When request flag bit 0x20 (a2[0] & 0x20) is set, decode the allocation-type hint field this[0x13E0]: a null or out-of-range hint (<= 0 or > 2) selects flag 0x2000, and a hint in range selects 0x1000 unless the a3 flag bit 0x40 is set, which forces 0x2000. [field:this:0x000013E0, source:raw]
+    // CALL: Indirect stdcall call to the allocator vtable entry at offset +44 of the allocator object (a2[8]), passing the allocator object, sizes a4*a2[2] and a5*a2[2], an out buffer-ID pointer, and the computed flags; returns the allocation pointer. [source:raw]
+    // ASSIGNMENT: Store the allocator return value into *this (field 0x0). [field:this:0x00000000, source:raw]
+    // RETURN: Return 0 when the allocation succeeded (non-null result); on failure increment the request failure counter (a2[5]) and return the buffer ID written by the allocator. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int BufferLockAllocate(int* result, Request* req, char a3, int a4, int a5) {
+    //     int flags = 2048;
+    //     int bufferId = 0;
+    //     if (!req) return 0;
+    //     void* allocator = req->allocator;
+    //     if (!allocator) return 0;
+    //     if (req->flags & 1) flags = 2064;
+    //     if (req->flags & 0x20) {
+    //       int hint = this->allocationTypeHint;
+    //       if (!hint || hint < 0 || hint > 2 || (a3 & 0x40)) flags |= 0x2000;
+    //       else flags |= 0x1000;
+    //     }
+    //     *result = allocator_vtbl_44(allocator, a4 * req->scale, a5 * req->scale, &bufferId, flags);
+    //     if (*result) return 0;
+    //     req->failureCount++;
+    //     return bufferId;
+    //   }
+}

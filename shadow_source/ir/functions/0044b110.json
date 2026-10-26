@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "address": "0x0044B110",
+  "proposed_name": "CollisionFaceProximityAxisSelector",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Proximity-based axis selector for a collision pipeline. Packs the first field of the input struct as an RGB color identifier, gathers the triangle-face vertices, copies the capsule shape into the pipeline buffer, then tests each face edge against the capsule. Counts how many edges pass the proximity test: more than one pass returns 0 (ambiguous), zero passes runs a three-way fallback that returns 4 when every edge still passes, otherwise a single resolved edge selects a permutation axis (2 or 3) read via AxisPermutationMatrixRead and re-validated with a final two-edge proximity check that retries the whole selection on failure.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Pack the first DWORD of the input struct a1 as an RGB color identifier into the stack color buffer v15, reading field this+0x0.",
+      "evidence_refs": ["callee:0x00448EE0", "field:this:0x00000000"]
+    },
+    {
+      "kind": "call",
+      "description": "Gather the six coordinate values from the three triangle-face vertices of a1 into the stack array v16.",
+      "evidence_refs": ["callee:0x0044AF20"]
+    },
+    {
+      "kind": "call",
+      "description": "Copy the capsule collision shape from v16/v15 into the pipeline buffer v17 for proximity testing.",
+      "evidence_refs": ["callee:0x0044B040"]
+    },
+    {
+      "kind": "loop",
+      "description": "Loop over three face edges: clear the per-edge pass flag byte, then while TriangleProximityTest on the edge (a1 offset 4 within 23-DWORD stride rows) against pipeline buffer v17 passes, advance the edge cursor; on exhaustion record the edge as passing and increment the pass count v10.",
+      "evidence_refs": ["callee:0x0044B090"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the pass count v10 is greater than 1, the result is ambiguous: return 0 immediately.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If no edge passed (v10 == 0), enter the three-way fallback loop: test each edge against the next edge in the cycle; if all three pass consecutively return 4 (edge-fallback marker), otherwise the first failing edge sets the retry state v11/v12.",
+      "evidence_refs": ["callee:0x0044B090"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan the per-edge pass byte array to locate the first edge that passed proximity; if none is found return 0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Select the axis permutation based on the resolved passing edge: edge 0 maps to permutation 2 with edge pair (v1=0, v3=1, v14=2); edge 1 maps to permutation 2 via AxisPermutationMatrixRead(v16, a1, 2, 0) with pair (v1=1, v3=2, v14=0); edge 2 maps to permutation 3 via AxisPermutationMatrixRead(v16, a1, 3, 0) with pair (v1=2, v3=0, v14=1).",
+      "evidence_refs": ["callee:0x0044AF60"]
+    },
+    {
+      "kind": "call",
+      "description": "Re-copy the capsule shape into the pipeline buffer after the permutation matrix has been read, refreshing v17 for the final proximity check.",
+      "evidence_refs": ["callee:0x0044B040"]
+    },
+    {
+      "kind": "guard",
+      "description": "Final two-edge proximity check: if the primary edge fails, or after reading the transposed permutation via AxisPermutationMatrixRead(v16, a1, v10, 1) and refreshing the buffer the secondary edge fails, retry from the edge scan loop.",
+      "evidence_refs": ["callee:0x0044AF60", "callee:0x0044B090"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the resolved permutation axis index v10 once both edges of the selected axis pass proximity.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_44B110(int *face) {",
+    "  int v15; _DWORD verts[6]; _DWORD pipeline[23];",
+    "  RGBColorPacking(*face, &v15);",
+    "  CollisionFaceVerticesGather(verts, face);",
+    "  CollisionCapsuleShapeCopyToPipeline(verts, &v15, pipeline);",
+    "  int passed[3] = {0}; int passCount = 0;",
+    "  for (int e = 0; e < 3; ++e) {",
+    "    int cursor = e;",
+    "    while (TriangleProximityTest(&face[23 * (cursor == 3 ? 0 : cursor) + 4],",
+    "                                 pipeline, *(face[cursor == 3 ? 0 : cursor] + 8 * e + 4))) {",
+    "      if (++cursor >= ???) break;",
+    "    }",
+    "    passed[e] = 1; ++passCount;",
+    "  }",
+    "  if (passCount > 1) return 0;",
+    "  if (passCount == 0) {",
+    "    for (int e = 0; ; ) {",
+    "      int next = e == 2 ? 0 : e + 1;",
+    "      if (!TriangleProximityTest(&face[23 * e + 4], pipeline, *(face[e] + 8 * next + 4))) break;",
+    "      if (++e >= 3) return 4;",
+    "    }",
+    "    // fallback retry state seeded",
+    "  }",
+    "  int pick = 0;",
+    "  while (!passed[pick]) { if (++pick >= 3) return 0; }",
+    "  int axis; int v1, v3, v14;",
+    "  if (pick == 0)      { axis = 2; v1 = 0; v3 = 1; v14 = 2; }",
+    "  else if (pick == 1) { axis = 2; v1 = 1; v3 = 2; v14 = 0; AxisPermutationMatrixRead(verts, face, 2, 0); }",
+    "  else                { axis = 3; v1 = 2; v3 = 0; v14 = 1; AxisPermutationMatrixRead(verts, face, 3, 0); }",
+    "  CollisionCapsuleShapeCopyToPipeline(verts, &v15, pipeline);",
+    "  if (!TriangleProximityTest(&face[23 * v1 + 4], pipeline, *(face[v1] + 8 * v3 + 4)) ||",
+    "      (AxisPermutationMatrixRead(verts, face, axis, 1),",
+    "       CollisionCapsuleShapeCopyToPipeline(verts, &v15, pipeline),",
+    "       !TriangleProximityTest(&face[23 * v3 + 4], pipeline, *(face[v3] + 8 * v14 + 4))))",
+    "    goto edge_scan_retry;",
+    "  return axis;",
+    "}"
+  ],
+  "unresolved": [
+    "The exact loop bound for the per-edge proximity while loop (v4) is not restored by the decompiler and its retry semantics are ambiguous.",
+    "Whether the returned index selects a response axis or a permutation of collision normals depends on the caller BezierPatchTessellation (0x0044B370).",
+    "The v11/v12 fallback retry state seeded when no edge passes is an unconfirmed edge case."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x0044B370"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

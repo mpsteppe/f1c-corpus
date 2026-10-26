@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "address": "0x00528BD0",
+  "proposed_name": "SSEPolynomialApproximation",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00528BD0"]
+  },
+  "summary": "Packed SSE float transform with no memory access (no fields, globals are read-only constant tables, no callees). Masks the input a1 with xmmword_5D9140, applies an affine transform using xmmword_5D9120/xmmword_5D9100, computes a residual with xmmword_5D9110 and a shuffle-based (57) cross-lane correction, squares the corrected value, extracts integer bit fields from xmmword_5D90F0/xmmword_5D90E0 (difference kept as integer, sum masked by xmmword_5D90D0 and left-shifted by 0x1E), evaluates a polynomial in the squared value with coefficient chain xmmword_5D90C0/xmmword_5D90B0/xmmword_5D90A0/xmmword_5D9090 scaled by unpacklo and offset by xmmword_5D9080, builds a per-lane mask from the left-shifted bit field compared against zero, and blends the two candidate paths (plus a 177-shuffle path) with a final XOR merge that folds in sign bits from a1 masked by xmmword_5D9130. Returns the resulting packed float vector in xmm0.",
+  "local_names": {
+    "a1": "packed 128-bit integer/float input passed in xmm0 (userpurge receiver)",
+    "v7": "affine-transformed value (range-reduction stage)",
+    "v13": "cross-lane-corrected value after shuffle-57 subtractions",
+    "v14": "squared corrected value (polynomial argument)",
+    "v16": "extracted integer bit field (masked with xmmword_5D90E0)",
+    "v19": "polynomial evaluation result",
+    "v20": "per-lane compare mask selecting between two blend paths"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Masks the input a1 with xmmword_5D9140 to produce v6",
+      "evidence_refs": ["global:0x005D9140", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Affine step: v7 = v6*xmmword_5D9120 + xmmword_5D9100, then residual v8 = xmmword_5D9110 * (v7 - xmmword_5D9100)",
+      "evidence_refs": ["global:0x005D9120", "global:0x005D9100", "global:0x005D9110", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Cross-lane correction: subtracts shuffle-57 rotated residuals twice from v6, yielding v13, then squares it into v14",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Integer bit extraction: v15 = v7 & xmmword_5D90F0, v16 = v15 & xmmword_5D90E0, v17 = v15 - v16 (kept as packed int32)",
+      "evidence_refs": ["global:0x005D90F0", "global:0x005D90E0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Builds high-bit field v18: left-shift ((v15+v16) & xmmword_5D90D0) by 0x1E",
+      "evidence_refs": ["global:0x005D90D0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Polynomial evaluation of v14 with coefficient chain xmmword_5D90C0, xmmword_5D90B0, xmmword_5D90A0, xmmword_5D9090, scaled by _mm_unpacklo_ps(v13, v14) and offset by xmmword_5D9080, producing v19",
+      "evidence_refs": ["global:0x005D90C0", "global:0x005D90B0", "global:0x005D90A0", "global:0x005D9090", "global:0x005D9080", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per-lane mask: v20 = packed compare of left-shifted v16 (by 0x1E) against zero; selects v19 lanes via and / andnot, with a 177-shuffle of the not-path",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Final merge: XOR-combines the blended paths with unpacklo(v18, xor(shifted (v17 & xmmword_5D90D0) by 0x1E, a1 & xmmword_5D9130)); result returned in xmm0",
+      "evidence_refs": ["global:0x005D90D0", "global:0x005D9130", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by SSEVectorMatrixInit (0052087E) and SSEMatrixConstructionFrom44Data (005208FE)",
+      "evidence_refs": ["caller:0x0052087E", "caller:0x005208FE", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v6 = a1 & xmmword_5D9140;",
+    "v7 = v6*xmmword_5D9120 + xmmword_5D9100;",
+    "v8 = xmmword_5D9110 * (v7 - xmmword_5D9100);",
+    "v13 = v6 - shuffle57(v8) - shuffle57(shuffle57(v8));",
+    "v14 = v13*v13;",
+    "v15 = v7 & xmmword_5D90F0; v16 = v15 & xmmword_5D90E0; v17 = v15 - v16;",
+    "v18 = ((v15+v16) & xmmword_5D90D0) << 0x1E;",
+    "v19 = (((((xmmword_5D90C0*v14 + xmmword_5D90B0)*v14 + xmmword_5D90A0)*v14 + xmmword_5D9090) * unpacklo(v13,v14)) + xmmword_5D9080);",
+    "v20 = (v16 << 0x1E) != 0;",
+    "return xor(or(v20&v19, shuffle177(~v20&v19)), unpacklo(v18, xor(((v17 & xmmword_5D90D0) << 0x1E), a1 & xmmword_5D9130)));"
+  ],
+  "unresolved": [
+    "The exact mathematical purpose (range reduction, reciprocal/sqrt refinement or transcendental approximation) is not identifiable from this packet alone",
+    "The thirteen xmmword constant tables 0x005D9080-0x005D9140 are not decoded to float or bit patterns",
+    "Integer arguments a2-a5 are declared in the userpurge prototype but never used by the function body",
+    "The function's declared name EmptyStub_8bd0 conflicts with the substantial computation shown in the raw source"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "address": "0x004B6190",
+  "proposed_name": "assignPitCrewWorkers",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004B6190"]
+  },
+  "summary": "Pit crew worker allocator for driver a2 (called by sub_4B7500 and PitTimingUpdate 004b7a90). Skips when the driver's vehicle slot dword_5EF9A0[4656 * a2] is inactive (-1). For each of 4 worker slots, scans the pit stall circular buffer (176-byte entries) via HashTableLookup, collecting up to 12 matching entries; when at least 9 match, marks processed entries with BitfieldSetter_4800, sorts the collected entries by distance using sub_4B6360, and assigns worker data to each stall with sub_4B4A30. Returns i + 1 per slot iteration.",
+  "local_names": {
+    "this": "pit stall manager: stall entry array pointer at +0x9B0, circular buffer modulus at +0x9B4, current circular index at +0x9B8",
+    "a2": "driver index selecting the vehicle slot in dword_5EF9A0 and worker data",
+    "v22": "active entry count returned by CircularBufferCheck",
+    "v7": "wrapped circular buffer index of the entry being probed",
+    "v17": "out-flag filled by HashTableLookup; when set, the scan breaks",
+    "v24": "local collection: entry pointer at v24[v5], buffer index at v24[v5 + 12]",
+    "v18": "collected entry count for the current worker slot"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard: return immediately when the vehicle slot for driver a2 is inactive, tested as dword_5EF9A0[4656 * a2] == -1.",
+      "evidence_refs": ["global:0x005EF9A0", "function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate i over the 4 worker slots (i = 0..3).",
+      "evidence_refs": ["function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call CircularBufferCheck(v3) to obtain the active entry count v22 of the pit stall circular buffer.",
+      "evidence_refs": ["callee:0x004B68C0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when the circular buffer count is not positive (v22 <= 0), skip the lookup pass for this worker slot.",
+      "evidence_refs": ["callee:0x004B68C0", "function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "do-while scan over the circular buffer while v6 < v22, advancing v6 each iteration.",
+      "evidence_refs": ["callee:0x004B68C0", "function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the candidate entry index v7 = v3[622] - v6, wrapping by adding the buffer modulus v3[621] when the difference is negative.",
+      "evidence_refs": ["field:this:0x000009B4", "field:this:0x000009B8", "function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call HashTableLookup on the pit stall entry at v3[620] + 176 * v7 with worker slot i and driver index a2, filling the out-flag v17.",
+      "evidence_refs": ["callee:0x004B4840", "field:this:0x000009B0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when the lookup returns a non-null entry and the out-flag v17 is set, break the scan early.",
+      "evidence_refs": ["callee:0x004B4840", "function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Record the matched entry pointer into v24[v5] and its buffer index into v24[v5 + 12], then increment v5.",
+      "evidence_refs": ["field:this:0x000009B0", "function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: stop collecting once 12 entries are gathered (v5 >= 12).",
+      "evidence_refs": ["function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: only proceed with marking, sorting and assignment when at least 9 entries were collected for this slot (v18 >= 9).",
+      "evidence_refs": ["function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "for loop over the collected entries: call BitfieldSetter_4800 on each stall entry at v3[620] + 176 * v24[v10 + 12] to mark it processed.",
+      "evidence_refs": ["callee:0x004B4800", "field:this:0x000009B0", "function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Sort the collected entries with a two-pointer partition loop that calls sub_4B6360 to compare entries v23 and v24[v11].",
+      "evidence_refs": ["callee:0x004B6360", "function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Assignment pass: while v11 > v14, call sub_4B4A30 to assign the collected worker data to the stall entry at v3[620] + 176 * v24[v11 + 12], then decrement v11.",
+      "evidence_refs": ["callee:0x004B4A30", "field:this:0x000009B0", "function:0x004B6190", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return i + 1 at the end of each worker-slot iteration.",
+      "evidence_refs": ["function:0x004B6190", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (dword_5EF9A0[4656 * a2] == -1) return;",
+    "for (i = 0; i < 4; ++i) {",
+    "    count = CircularBufferCheck(this);",
+    "    v18 = 0;",
+    "    if (count > 0) {",
+    "        for (v6 = 0; v6 < count; ++v6) {",
+    "            v7 = this->curIndex - v6;",
+    "            if (v7 < 0) v7 += this->modulus;",
+    "            entry = HashTableLookup(this->stalls + 176 * v7, i, a2, &flag);",
+    "            if (!entry) continue;",
+    "            if (flag) break;",
+    "            v24[v18] = entry;",
+    "            v24[v18 + 12] = v7;",
+    "            ++v18;",
+    "            if (v18 >= 12) break;",
+    "        }",
+    "    }",
+    "    if (v18 >= 9) {",
+    "        for (j = v18 - 1; j > v18 - 2; --j)",
+    "            BitfieldSetter_4800(this->stalls + 176 * v24[j + 12], i, a2);",
+    "        /* two-pointer sort comparing entries with sub_4B6360 */",
+    "        while (v11 > v14) {",
+    "            sub_4B4A30(this->stalls + 176 * v24[v11 + 12], v24[v11]);",
+    "            --v11;",
+    "        }",
+    "    }",
+    "    result = i + 1;",
+    "}"
+  ],
+  "unresolved": [
+    "The global flt_5ACD38 is read by this function per the fact table, but the raw decompiled body does not show its use; its role cannot be grounded from this packet.",
+    "The meaning of the collection-size thresholds (9 and 12) and the sort comparator semantics of sub_4B6360 are not evidenced here.",
+    "The pit stall entry layout (176 bytes) and the worker-slot meaning of the 4-iteration loop are inferred from the caller names, not proven by this packet.",
+    "The final result value (i + 1) has no observed consumer; the return semantics are unclear."
+  ],
+  "unresolved_evidence_refs": ["global:0x005ACD38"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

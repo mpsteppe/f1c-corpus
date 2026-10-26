@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "address": "0x004C2CB0",
+  "proposed_name": "MovingAverageFilterWithClamp",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes an incremental moving average of input a2 using the sample count at this+0x28 as the weighting denominator and storing the result at this+0x48. The base term is the old average at this+0x48 when count is 1, the raw input when count is 0, and (count-1)*old_average otherwise. When the count is zero the input is stored directly, then the averaged value is stored and clamped: a compare-flag branch writes 1065353216 (1.0f) and an over-range branch writes 1102053376 (22.0f). Called by SeasonScoringInfoUpdater.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Select the weighted base term: old average at this+0x48 when count at this+0x28 equals 1, the raw input as float when count is 0, or (count-1)*old_average at this+0x48 otherwise.",
+      "evidence_refs": ["field:this:0x00000028", "field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Sum the selected base term and the input a2 converted to double.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the count at this+0x28 is zero or negative, store the raw input directly at this+0x48.",
+      "evidence_refs": ["field:this:0x00000028", "field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero-count path: store the input as a float at this+0x48.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Divide the accumulated sum by the count at this+0x28 to produce the averaged value.",
+      "evidence_refs": ["field:this:0x00000028", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the averaged value at this+0x48.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the floating-point compare flags (v8|v9) indicate the unordered/below-range case, write 1065353216 (1.0f) to this+0x48.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Else if the averaged value exceeds 22.0, write 1102053376 (22.0f) to this+0x48.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clamp path: store the lower clamp 1065353216 (1.0f) or the upper clamp 1102053376 (22.0f) at this+0x48.",
+      "evidence_refs": ["field:this:0x00000048", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void MovingAverageFilterWithClamp(int this, int a2) {",
+    "  int count = *(int*)(this + 40);        // this+0x28",
+    "  double base;",
+    "  if (count <= 1) {",
+    "    base = (count == 1) ? *(float*)(this + 72) : *(float*)&a2;   // this+0x48",
+    "  } else {",
+    "    base = (double)(count - 1) * *(float*)(this + 72);",
+    "  }",
+    "  double sum = base + (double)a2;",
+    "  if (count <= 0) *(float*)(this + 72) = (float)a2;",
+    "  double avg = sum / (double)count;",
+    "  *(float*)(this + 72) = avg;",
+    "  if (compare_flags_unordered) *(DWORD*)(this + 72) = 1065353216;   // 1.0f",
+    "  else if (avg > 22.0)         *(DWORD*)(this + 72) = 1102053376;   // 22.0f",
+    "}"
+  ],
+  "unresolved": [
+    "Globals flt_59E43C and flt_59E85C are read by this function per the deterministic facts but do not appear as symbols in the raw source; the source uses the literals 1065353216/1102053376 and 22.0 directly.",
+    "The v8|v9 compare-flag test is a decompiler artifact of an FPU compare; its exact comparison is not visible in the raw source text.",
+    "The zero-count guard writes the raw input and then falls through to the division-based update, which would divide by a non-positive count; the intended count invariant is not established here."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059E43C", "global:0x0059E85C"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

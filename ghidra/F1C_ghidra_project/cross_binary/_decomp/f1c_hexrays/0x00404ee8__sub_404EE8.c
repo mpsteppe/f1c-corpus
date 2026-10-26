@@ -1,0 +1,6 @@
+// f1c  0x00404ee8  size=8
+// positive sp value has been detected, the output may be wrong!
+void __userpurge sub_404EE8(char a1@<bl>, int a2@<edi>, int a3)
+{
+  *(_BYTE *)(a2 + 94) += a1;
+}

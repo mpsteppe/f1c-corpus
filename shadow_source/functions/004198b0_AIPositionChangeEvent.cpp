@@ -1,0 +1,55 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004198B0
+// Canonical corpus name: AIPositionChangeEvent
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AIPositionChangeEvent_004198b0.c
+
+void UnknownObject::AIPositionChangeEvent()
+{
+    // Per-frame AI race-commentary handler that detects a driver's position change and appends a driver-table event describing the gain/loss. Compares the stored position (this[driverIndex + 108]) against the driver's current position (a2[4120]). On change it updates the stored value, selects an event type depending on whether the driver is the human player's driver and on direction of the change, fills a local event record via DriverDataTableLookupAndTimeConversion, and inserts it into the session event table via InsertDriverTableEntry. Guards on race-active, track-condition, race phase, and session type before any work.
+    // GUARD: Race-active guard: return unless dword_7D0308 (race active flag) is nonzero. [global:0x007D0308, source:raw]
+    // GUARD: Track/phase guard: return unless flt_7CF3C8 (track-condition state) is nonzero (compared against a zero threshold, float constant pool value at 0x0059E440) AND dword_7C56A8 (race phase) is not 8 (post-race). [global:0x007CF3C8, global:0x0059E440, global:0x007C56A8, source:raw]
+    // CALCULATION: Read stored position for this driver: v3 = this[a2[4645] + 108], where a2[4645] is the driver index into a per-driver position array at this+108. [source:raw]
+    // CALCULATION: Read current position: v4 = a2[4120]. [source:raw]
+    // GUARD: Change/session guard: proceed only if stored position differs from current position (v3 != v4) AND dword_7C56A4 (session type) equals 5 (race). [global:0x007C56A4, source:raw]
+    // CALL: Initialize the local 8-dword event record with sentinel values: StructInitWithSentinelValues(v9). [callee:0x004144D0, source:raw]
+    // ASSIGNMENT: Persist the new position: this[a2[4645] + 108] = v4, updating the stored per-driver position to the current value. [source:raw]
+    // GUARD: Player-driver check: this driver (a2[4645]) is the human player's driver when the driver-id field at offset +18580 (0x4894) of the player vehicle pointed to by dword_7C54E8 equals a2[4645]. The player branch handles only the player's own change; otherwise the AI branch is taken. [global:0x007C54E8, source:raw]
+    // GUARD: Player early-return guards: return without inserting an event if a2[4111] (driver state flag) equals 1, or if the player's position equals 1 (v4 == 1, already first). [source:raw]
+    // CALCULATION: Player event-type selection: v6 = 18 when the player gained positions (v4 >= v3, since stored was updated to v4), else v6 = 17 for a loss. [source:raw]
+    // CALL: Build the player event record: DriverDataTableLookupAndTimeConversion(v9, v6, v4, -1, -1, -1, -2.0, -2.0) with event type v6, position v4, sentinel lookup fields and time inputs. [callee:0x004144F0, source:raw]
+    // GUARD: AI branch guards: continue only if v4 != 1 (driver not already first) and a2[4111] (driver state flag) != 1. [source:raw]
+    // CALCULATION: AI event-type selection: v8 = 7 when a2[4111] equals 2, otherwise v8 = (v4 >= v3) + 8, i.e. 8 for a gain and 9 for a loss. [source:raw]
+    // CALL: Build the AI event record: DriverDataTableLookupAndTimeConversion(v9, v8, a2[4647], this[v5 + 108], -1, -1, -2.0, -2.0) with event type v8, lookup field a2[4647], and the just-updated stored position this[v5 + 108]. [callee:0x004144F0, source:raw]
+    // CALL: Append the event to the session event table: InsertDriverTableEntry(flt_5EA618, v9), where flt_5EA618 holds the event-table pointer and v9 the initialized record. [callee:0x00418560, global:0x005EA618, source:raw]
+    // RETURN: Return without insertion on any failed guard or after the player branch early returns; the shared LABEL_19 path inserts the record only after a successful lookup. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   void AIPositionChangeEvent(this, a2) {
+    //     if (!race_active) return;
+    //     if (track_condition == 0.0 || race_phase == 8) return;
+    //     v3 = this[a2[driverIdx] + 108];
+    //     v4 = a2[pos];
+    //     if (v3 == v4 || session_type != 5) return;
+    //     StructInitWithSentinelValues(rec);
+    //     this[a2[driverIdx] + 108] = v4;
+    //     if (player_vehicle.driverId == a2[driverIdx]) {
+    //       if (a2[state] == 1) return;
+    //       if (v4 >= v3) {
+    //         if (v4 == 1) return;
+    //         evType = 18;
+    //       } else {
+    //         evType = 17;
+    //       }
+    //       DriverDataTableLookupAndTimeConversion(rec, evType, v4, -1, -1, -1, -2.0, -2.0);
+    //     } else if (v4 != 1 && a2[state] != 1) {
+    //       evType = (a2[state] == 2) ? 7 : ((v4 >= v3) ? 8 : 9);
+    //       DriverDataTableLookupAndTimeConversion(rec, evType, a2[lookupField], this[driverIdx + 108], -1, -1, -2.0, -2.0);
+    //     }
+    //     InsertDriverTableEntry(session_event_table, rec);
+    //   }
+    // UNRESOLVED: Semantics of a2[4111] (driver state flag): value 1 causes early return for both player and AI paths; value 2 selects event type 7. The concrete driver-state meaning is DERIVED at best (candidate: retired/done/state flag), not evidenced by this packet alone.
+    // UNRESOLVED: Role of a2[4647], the third argument to DriverDataTableLookupAndTimeConversion in the AI branch (position/lookup field for the AI driver). Its exact vehicle field meaning is not evidenced in this packet.
+    // UNRESOLVED: The player-driver identifier field at vehicle offset +18580 (0x4894) read through dword_7C54E8: location DERIVED from source, field name not evidenced.
+    // UNRESOLVED: flt_59E440 (0x0059E440) is treated as the zero-threshold float constant for the track-condition comparison; the clean decompilation shows the literal 0.0, so this global's exact role is DERIVED.
+}

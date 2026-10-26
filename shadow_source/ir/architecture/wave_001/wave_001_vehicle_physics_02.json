@@ -1,0 +1,4371 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_001_vehicle_physics_02",
+  "scope": "vehicle_physics",
+  "subsystem": {
+    "name": "VehiclePhysics",
+    "responsibility": "Per-frame vehicle physics: input smoothing and gear selection, rigid-body velocity/angular-velocity integration, spatial-grid collision normal resolution, broadphase collision list building/filtering/draining, track-environment physics parameter initialization, per-car physics state construction, vehicle reset/clear, and qualifying tire-usage event encoding.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x0044C550",
+      "function:0x00454DA0",
+      "function:0x00459AE0",
+      "function:0x00490EE0",
+      "function:0x004AF3A0",
+      "function:0x004B4B50",
+      "function:0x004B4E10",
+      "function:0x004B5630",
+      "function:0x004B57F0",
+      "function:0x004BC060",
+      "function:0x004C6E80",
+      "function:0x004C79E0",
+      "function:0x004C7BF0",
+      "source:raw"
+    ]
+  },
+  "summary": "Architecture proposal for the vehicle_physics scope. Collision handling is split between a spatial-grid feature normal solver (CollisionFeatureSolver at 0x0044C550) and a family of linked-list managers operating on 16-byte {head,tail,anchor,count} records: CollisionBroadphaseBuilder (0x00490EE0) for AABB subdivision, and CollisionObjectListManager (0x004B4B50/0x004B4E10/0x004B5630) for sorting, minimum-tolerance removal, draining to a global free pool and filtering. Per-frame control comes from VehicleInputController (0x00454DA0) whose accumulators feed the VehiclePhysicsIntegrator (0x00459AE0). TrackEnvironmentManager (0x004AF3A0) initializes clamped environment parameter profiles; CarPhysicsState (0x004B57F0) is the large per-car physics state constructor; F1CVehicle (0x004C6E80/0x004C79E0/0x004C7BF0) covers reset/clear/property-set; QualifyingTireUsageRecorder (0x004BC060) encodes qualifying tire-set events. All class identities are DERIVED/GUESS proposals on validated IR; owners are mostly UNKNOWN in the packet.",
+  "function_roles": [
+    {
+      "address": "0x0044C550",
+      "role": "Collision normal solver: queries the spatial grid for the feature at a2 and derives the oriented collision normal from the feature plane coefficients into a3; returns the grid query result.",
+      "owner": "CollisionFeatureSolver",
+      "evidence_refs": [
+        "function:0x0044C550",
+        "callee:0x0044C4C0",
+        "global:0x0059E420",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00454DA0",
+      "role": "Per-frame input processor: ramps throttle/brake/clutch/steering/handbrake accumulators (mode==2 passthrough), sign-aware steering return-to-center, and gear selection from the gear-flag ladder with neutral override.",
+      "owner": "VehicleInputController",
+      "evidence_refs": [
+        "function:0x00454DA0",
+        "abi:lead",
+        "source:raw",
+        "global:0x007D12A4",
+        "global:0x007D12C8",
+        "global:0x007D12EC",
+        "global:0x007D1310",
+        "global:0x007D1370"
+      ]
+    },
+    {
+      "address": "0x00459AE0",
+      "role": "Per-frame velocity/angular-velocity integrator: branches on the contact count at +0x50, integrates physics state, composes transforms, renders the sprite grid, and exchanges remote-vehicle state through the network packet codecs.",
+      "owner": "VehiclePhysicsIntegrator",
+      "evidence_refs": [
+        "function:0x00459AE0",
+        "caller:0x0045A8E0",
+        "source:raw",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "global:0x0059E880",
+        "global:0x0059ED50",
+        "global:0x0059F038",
+        "global:0x0059F040",
+        "global:0x0059F048",
+        "global:0x0059F050",
+        "global:0x0059F058",
+        "global:0x008AB710"
+      ]
+    },
+    {
+      "address": "0x00490EE0",
+      "role": "Broadphase collision list builder: allocates a pool AABB node, filters existing nodes, clips overlapping AABBs into subdivisions, re-links and partitions the list.",
+      "owner": "CollisionBroadphaseBuilder",
+      "evidence_refs": [
+        "function:0x00490EE0",
+        "abi:lead",
+        "source:raw",
+        "callee:0x00490940",
+        "callee:0x00491350",
+        "callee:0x00491680",
+        "callee:0x00490D00",
+        "callee:0x00587C03",
+        "callee:0x00434030"
+      ]
+    },
+    {
+      "address": "0x004AF3A0",
+      "role": "Track-environment physics parameter initializer: dispatches on the track-type selector at +0x3B40 to one of four profiles and initializes a dense run of clamped parameter slots plus a per-wheel 2x8 array.",
+      "owner": "TrackEnvironmentManager",
+      "evidence_refs": [
+        "function:0x004AF3A0",
+        "abi:lead",
+        "caller:0x004ADE20",
+        "field:this:0x00003B40",
+        "global:0x004B0154",
+        "callee:0x004646C0",
+        "callee:0x0047F1F0",
+        "callee:0x004B1DE0",
+        "callee:0x004B20D0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B4B50",
+      "role": "Collision object-list processor: when enabled, re-sorts the four sub-lists, then removes every node within the +/-0.02 tolerance of the global minimum head value and dispatches the collected nodes.",
+      "owner": "CollisionObjectListManager",
+      "evidence_refs": [
+        "function:0x004B4B50",
+        "abi:lead",
+        "source:raw",
+        "global:0x005ACD0C",
+        "global:0x008AB700",
+        "callee:0x004BAB20",
+        "callee:0x004B42E0",
+        "callee:0x004BB490"
+      ]
+    },
+    {
+      "address": "0x004B4E10",
+      "role": "Collision list drainer: moves every sub-list node into the global free pool (dword_8AB700 head/tail/count), stores the session timestamp, resets per-sub-list metadata and re-arms the enable flag.",
+      "owner": "CollisionObjectListManager",
+      "evidence_refs": [
+        "function:0x004B4E10",
+        "source:raw",
+        "global:0x008AB700",
+        "global:0x008AB704",
+        "global:0x008AB708",
+        "global:0x008AB70C",
+        "global:0x008AFEA0",
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "address": "0x004B5630",
+      "role": "Collision list filter: walks the active list, keeps nodes passing the compare/tolerance tests, and unlinks/replaces culled nodes into the output list.",
+      "owner": "CollisionObjectListManager",
+      "evidence_refs": [
+        "function:0x004B5630",
+        "source:raw",
+        "global:0x005ACD30",
+        "callee:0x005001D0",
+        "callee:0x005001F0",
+        "callee:0x004B0170",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "address": "0x004B57F0",
+      "role": "Per-car physics state constructor: zeroes the leading and middle arrays, sets sentinel/default blocks, forwards to sub-initializers, and configures the QPC timer block.",
+      "owner": "CarPhysicsState",
+      "evidence_refs": [
+        "function:0x004B57F0",
+        "abi:lead",
+        "caller:0x004B9780",
+        "source:raw",
+        "global:0x0059E43C",
+        "global:0x005ACD08",
+        "global:0x005ACD24",
+        "callee:0x00568BE0",
+        "callee:0x00568C60"
+      ]
+    },
+    {
+      "address": "0x004BC060",
+      "role": "Qualifying tire-usage event encoder: during a qualifying session advances the ring buffer and encodes tire set in-use/discard events with the session-time payload and tire-compound byte.",
+      "owner": "QualifyingTireUsageRecorder",
+      "evidence_refs": [
+        "function:0x004BC060",
+        "source:raw",
+        "callee:0x004B33B0",
+        "global:0x007C56A4",
+        "global:0x0083EE60",
+        "global:0x008AAE64",
+        "global:0x008AFEA0"
+      ]
+    },
+    {
+      "address": "0x004C6E80",
+      "role": "Vehicle reset for reinitialization: clears physics/UI/driver sub-structures, reassigns random AI drivers, invalidates the slot markers at +0x48A4/+0x48A8, and resets the force-feedback base.",
+      "owner": "F1CVehicle",
+      "evidence_refs": [
+        "function:0x004C6E80",
+        "abi:lead",
+        "source:raw",
+        "global:0x005EA560",
+        "global:0x005C329C",
+        "global:0x007C54F0",
+        "global:0x008ACEE0",
+        "callee:0x004C79E0",
+        "callee:0x004E09E0",
+        "caller:0x0042C9F0",
+        "caller:0x0045FC50",
+        "caller:0x004B8DA0"
+      ]
+    },
+    {
+      "address": "0x004C79E0",
+      "role": "Driver-info region clearer: zeroes the byte fields, writes -1 into six slot-marker dwords, and sets fixed sentinels (0x48B4 = -8388609, 0x48BC = 11).",
+      "owner": "F1CVehicle",
+      "evidence_refs": [
+        "function:0x004C79E0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004C7BF0",
+      "role": "Vehicle property setter: stores the argument into this[4651] (+0x48AC) and returns the stored value.",
+      "owner": "F1CVehicle",
+      "evidence_refs": [
+        "function:0x004C7BF0",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x000048AC",
+        "caller:0x004B3400",
+        "caller:0x004C73F0"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "CollisionFeatureSolver",
+      "responsibility": "Resolves the oriented collision normal for a query position from the spatial-grid collision feature's plane coefficients, writing it into the caller's output vector.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0044C550"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0044C550",
+        "callee:0x0044C4C0",
+        "global:0x0059E420",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "LinkedList",
+      "responsibility": "Generic doubly-linked node list: {head, tail, anchor/current, count} at offsets 0x0/0x4/0x8/0xC. The broadphase builder and collision-list managers operate on such records.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "Head",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "Tail",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "Anchor",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "Count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionNode",
+      "responsibility": "Node object for collision lists: value at +0x0, next link at +0x4 (also used as a float sort key), flag byte at +0x8, an unread dword at +0xC, and a distance/tolerance field at +0x370.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x20)",
+          "offset": "0x00000000",
+          "name": "Value",
+          "type_guess": "int/pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x20):0x00000000",
+            "field:*(this+0x70):0x00000000",
+            "field:obj:0x00000000",
+            "field:*(this+0x28):0x00000000"
+          ]
+        },
+        {
+          "base": "*(this+0x20)",
+          "offset": "0x00000004",
+          "name": "NextLink",
+          "type_guess": "pointer/float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x20):0x00000004",
+            "field:*(this+0x70):0x00000004",
+            "field:*(*(this+0x70)+0x0):0x00000004",
+            "field:obj:0x00000004",
+            "field:*(this+0x28):0x00000004"
+          ]
+        },
+        {
+          "base": "*(this+0x20)",
+          "offset": "0x00000008",
+          "name": "FlagByte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x20):0x00000008",
+            "field:*(this+0x70):0x00000008",
+            "field:obj:0x00000008"
+          ]
+        },
+        {
+          "base": "*(this+0x20)",
+          "offset": "0x0000000C",
+          "name": "UnusedField",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x20):0x0000000C",
+            "field:*(this+0x70):0x0000000C"
+          ]
+        },
+        {
+          "base": "*(*(this+0x20)+0x0)",
+          "offset": "0x00000370",
+          "name": "Distance",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x20)+0x0):0x00000370"
+          ]
+        }
+      ],
+      "evidence_refs": []
+    },
+    {
+      "name": "CollisionBroadphaseBuilder",
+      "responsibility": "Builds/updates a broadphase AABB list: allocates a pool AABB node, clips overlapping AABBs into subdivisions via RectangleClipping, re-links and partitions the result list.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00490EE0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x00490EE0",
+        "abi:lead",
+        "source:raw",
+        "callee:0x00490940",
+        "callee:0x00491350",
+        "callee:0x00491680",
+        "callee:0x00490D00",
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "name": "CollisionObjectListManager",
+      "responsibility": "Manages the per-frame collision object lists: four 16-byte {head,tail,anchor,count} sub-list records at +0x70, an output list and an active list, a filter threshold, and the global free-pool protocol for recycled nodes.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B4B50",
+        "0x004B4E10",
+        "0x004B5630"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "EnableFlag",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "OutputListHead",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "OutputAnchorA",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "OutputAnchorB",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "OutputCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "ActiveListHead",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "ActiveListTail",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "ActiveListIterator",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "ActiveListCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "FilterThreshold",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000035",
+          "name": "SubListMeta0",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000035"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000039",
+          "name": "SubListMeta1",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000039"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003D",
+          "name": "SubListMeta2",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000003D"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000041",
+          "name": "SubListMetaByte",
+          "type_guess": "byte",
+          "trust": "UNKNOWN",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000041"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000006C",
+          "name": "SessionTimestamp",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000006C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000070",
+          "name": "SubList1Head",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000070"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000074",
+          "name": "SubList1Tail",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000074"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000078",
+          "name": "SubList1Anchor",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000078"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000007C",
+          "name": "SubList1Count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000007C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B4B50",
+        "function:0x004B4E10",
+        "function:0x004B5630",
+        "global:0x008AB700",
+        "global:0x008AB704",
+        "global:0x008AB708",
+        "global:0x008AB70C",
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleInputController",
+      "responsibility": "Per-frame vehicle input processor: ramps per-axis smoothed accumulators toward direct targets with mode==2 passthrough, sign-aware steering return-to-center, and gear selection from the gear-flag ladder with neutral overrides.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00454DA0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00001B20",
+          "name": "ThrottleMode",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B20"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001B44",
+          "name": "ThrottleInputActive",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B44"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001B48",
+          "name": "ThrottleDirectTarget",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B48"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001B4C",
+          "name": "BrakeMode",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B4C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001B70",
+          "name": "BrakeInputActive",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B70"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001B74",
+          "name": "BrakeDirectTarget",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B74"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001B78",
+          "name": "SteeringMode",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B78"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001B9C",
+          "name": "SteeringInputActive",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B9C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BA0",
+          "name": "SteeringSignValue",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001BA0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BA4",
+          "name": "SteeringMode2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001BA4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BC8",
+          "name": "NeutralFlag",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001BC8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BCC",
+          "name": "SteeringDirectTarget",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001BCC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C54",
+          "name": "HandbrakeMode",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001C54"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C78",
+          "name": "HandbrakeInputActive",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001C78"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C7C",
+          "name": "HandbrakeDirectTarget",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001C7C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001FBC",
+          "name": "GearFlagReverse",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001FBC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001FE8",
+          "name": "GearFlag1",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001FE8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002014",
+          "name": "GearFlag2",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00002014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002040",
+          "name": "GearFlag3",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00002040"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000206C",
+          "name": "GearFlag4",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000206C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002098",
+          "name": "GearFlag5",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00002098"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000020C4",
+          "name": "GearFlag6",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000020C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000020F0",
+          "name": "NeutralOverride",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000020F0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000021D4",
+          "name": "ClutchMode",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000021D4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000021F8",
+          "name": "ClutchInputActive",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000021F8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000021FC",
+          "name": "ClutchDirectTarget",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000021FC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002410",
+          "name": "ThrottleOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00002410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002414",
+          "name": "BrakeOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00002414"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002418",
+          "name": "ClutchOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00002418"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000241C",
+          "name": "SteeringOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000241C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002420",
+          "name": "HandbrakeOutput",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00002420"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002424",
+          "name": "GearOutput",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00002424"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00002428",
+          "name": "GearSelectEnable",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00002428"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00454DA0",
+        "abi:lead",
+        "source:raw",
+        "global:0x007D12A4",
+        "global:0x007D12C8",
+        "global:0x007D12EC",
+        "global:0x007D1310",
+        "global:0x007D1370"
+      ]
+    },
+    {
+      "name": "VehiclePhysicsIntegrator",
+      "responsibility": "Per-frame velocity/angular-velocity integrator: reads physics coefficients and position/orientation/rotation state, branches on the contact count, integrates the physics state, composes transforms, renders the sprite grid and exchanges remote-vehicle state via the network packet codecs.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00459AE0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "VTable",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "VelocityDragCoefficient",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "GravityScale",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "LongitudinalForce",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000038"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "LateralForce",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000040"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "CollisionRestitution",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000048"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "ContactPointCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000050"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "PositionX",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000054"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "PositionY",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000058"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "PositionZ",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "OrientationElement00",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000064"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000068",
+          "name": "OrientationElement10",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000068"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C0",
+          "name": "AngularVelocityOutX",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000C0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C4",
+          "name": "AngularVelocityOutY",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C8",
+          "name": "AngularVelocityOutZ",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000C8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000CC",
+          "name": "AngularVelocityInX",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000CC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D0",
+          "name": "AngularVelocityInY",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D8",
+          "name": "AngularVelocityInZ",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000D8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E0",
+          "name": "RotationData0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E8",
+          "name": "RotationData1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000E8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F0",
+          "name": "RotationData2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000100",
+          "name": "RotationData3",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000100"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000108",
+          "name": "RotationData4",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000108"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000110",
+          "name": "RotationData5",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000110"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000118",
+          "name": "AttitudeState0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000118"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000120",
+          "name": "AttitudeState1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000120"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000130",
+          "name": "AttitudeState2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000130"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000138",
+          "name": "AttitudeState3",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000138"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000140",
+          "name": "AttitudeState4",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000140"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000148",
+          "name": "AttitudeState5",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000148"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000150",
+          "name": "TransformColumn0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000150"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000158",
+          "name": "TransformColumn1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000158"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000160",
+          "name": "TransformColumn2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000160"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000180",
+          "name": "TransformColumn3",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000180"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000208",
+          "name": "WorkBlock0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000208"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000020C",
+          "name": "WorkBlock1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000020C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000210",
+          "name": "WorkBlock2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000210"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000214",
+          "name": "WorkBlock3",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000214"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000218",
+          "name": "WorkBlock4",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000218"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000021C",
+          "name": "WorkBlock5",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000021C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000220",
+          "name": "WorkBlock6",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000220"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000224",
+          "name": "WorkBlock7",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000224"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000228",
+          "name": "WorkBlock8",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000228"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000022C",
+          "name": "WorkBlock9",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000022C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000230",
+          "name": "WorkBlock10",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000230"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000234",
+          "name": "WorkBlock11",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000234"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00459AE0",
+        "caller:0x0045A8E0",
+        "source:raw",
+        "callee:0x00459A40",
+        "callee:0x004361D0",
+        "callee:0x0043AEE0",
+        "callee:0x0054FA00",
+        "callee:0x0054FA90"
+      ]
+    },
+    {
+      "name": "TrackEnvironmentManager",
+      "responsibility": "Track-environment physics parameter container: the track-type selector at +0x3B40 dispatches to one of four profiles that initialize a dense run of clamped float parameter slots and a nested per-wheel 2x8 array (36-byte stride).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004AF3A0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00003B40",
+          "name": "TrackTypeSelector",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003B40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003BAC",
+          "name": "ProfileParam00_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003BAC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003BB4",
+          "name": "ProfileParam00_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003BB4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003BB8",
+          "name": "ProfileParam00_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003BB8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003BD0",
+          "name": "ProfileParam01_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003BD0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003BD8",
+          "name": "ProfileParam01_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003BD8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003BDC",
+          "name": "ProfileParam01_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003BDC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003BF4",
+          "name": "ProfileParam02_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003BF4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003BFC",
+          "name": "ProfileParam02_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003BFC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C00",
+          "name": "ProfileParam02_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C00"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C18",
+          "name": "ProfileParam03_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003C18"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C20",
+          "name": "ProfileParam03_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C20"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C24",
+          "name": "ProfileParam03_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C24"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C3C",
+          "name": "ProfileParam04_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003C3C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C44",
+          "name": "ProfileParam04_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C44"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C48",
+          "name": "ProfileParam04_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C48"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C60",
+          "name": "ProfileParam05_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003C60"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C68",
+          "name": "ProfileParam05_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C68"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C6C",
+          "name": "ProfileParam05_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C6C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C84",
+          "name": "ProfileParam06_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003C84"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C8C",
+          "name": "ProfileParam06_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C8C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003C90",
+          "name": "ProfileParam06_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003C90"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003CA8",
+          "name": "ProfileParam07_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003CA8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003CB0",
+          "name": "ProfileParam07_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003CB0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003CB4",
+          "name": "ProfileParam07_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003CB4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003CCC",
+          "name": "ProfileParam08_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003CCC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003CD4",
+          "name": "ProfileParam08_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003CD4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003CD8",
+          "name": "ProfileParam08_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003CD8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003CF0",
+          "name": "ProfileParam09_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003CF0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003CF8",
+          "name": "ProfileParam09_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003CF8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003CFC",
+          "name": "ProfileParam09_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003CFC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D14",
+          "name": "ProfileParam10_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003D14"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D1C",
+          "name": "ProfileParam10_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D1C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D20",
+          "name": "ProfileParam10_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D20"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D38",
+          "name": "ProfileParam11_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003D38"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D40",
+          "name": "ProfileParam11_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D44",
+          "name": "ProfileParam11_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D44"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D5C",
+          "name": "ProfileParam12_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003D5C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D64",
+          "name": "ProfileParam12_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D64"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D68",
+          "name": "ProfileParam12_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D68"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D80",
+          "name": "ProfileParam13_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003D80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D88",
+          "name": "ProfileParam13_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D88"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D8C",
+          "name": "ProfileParam13_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D8C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DA4",
+          "name": "ProfileParam14_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003DA4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DAC",
+          "name": "ProfileParam14_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DAC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DB0",
+          "name": "ProfileParam14_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DB0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DC8",
+          "name": "ProfileParam15_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003DC8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DD0",
+          "name": "ProfileParam15_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DD0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DD4",
+          "name": "ProfileParam15_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DD4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DEC",
+          "name": "ProfileParam16_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003DEC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DF4",
+          "name": "ProfileParam16_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DF4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003DF8",
+          "name": "ProfileParam16_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003DF8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E10",
+          "name": "ProfileParam17_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003E10"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E18",
+          "name": "ProfileParam17_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003E18"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E1C",
+          "name": "ProfileParam17_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003E1C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E34",
+          "name": "ProfileParam18_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003E34"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E3C",
+          "name": "ProfileParam18_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003E3C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E40",
+          "name": "ProfileParam18_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003E40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E58",
+          "name": "ProfileParam19_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003E58"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E60",
+          "name": "ProfileParam19_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003E60"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E64",
+          "name": "ProfileParam19_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003E64"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E7C",
+          "name": "ProfileParam20_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003E7C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E84",
+          "name": "ProfileParam20_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003E84"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003E88",
+          "name": "ProfileParam20_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003E88"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003EA0",
+          "name": "ProfileParam21_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003EA0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003EA8",
+          "name": "ProfileParam21_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003EA8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003EAC",
+          "name": "ProfileParam21_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003EAC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003EC4",
+          "name": "ProfileParam22_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003EC4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003ECC",
+          "name": "ProfileParam22_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003ECC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003ED0",
+          "name": "ProfileParam22_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003ED0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003EE8",
+          "name": "ProfileParam23_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003EE8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003EF0",
+          "name": "ProfileParam23_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003EF0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003EF4",
+          "name": "ProfileParam23_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003EF4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F0C",
+          "name": "ProfileParam24_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003F0C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F14",
+          "name": "ProfileParam24_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003F14"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F18",
+          "name": "ProfileParam24_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003F18"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F30",
+          "name": "ProfileParam25_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003F30"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F38",
+          "name": "ProfileParam25_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003F38"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F3C",
+          "name": "ProfileParam25_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003F3C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F54",
+          "name": "ProfileParam26_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003F54"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F5C",
+          "name": "ProfileParam26_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003F5C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F60",
+          "name": "ProfileParam26_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003F60"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F78",
+          "name": "ProfileParam27_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003F78"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F80",
+          "name": "ProfileParam27_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003F80"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F84",
+          "name": "ProfileParam27_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003F84"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003F9C",
+          "name": "ProfileParam28_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003F9C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003FA4",
+          "name": "ProfileParam28_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003FA4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003FA8",
+          "name": "ProfileParam28_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003FA8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003FC0",
+          "name": "ProfileParam29_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003FC0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003FC8",
+          "name": "ProfileParam29_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003FC8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003FCC",
+          "name": "ProfileParam29_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003FCC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003FE4",
+          "name": "ProfileParam30_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00003FE4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003FEC",
+          "name": "ProfileParam30_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003FEC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003FF0",
+          "name": "ProfileParam30_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003FF0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004008",
+          "name": "ProfileParam31_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004010",
+          "name": "ProfileParam31_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004014",
+          "name": "ProfileParam31_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000402C",
+          "name": "WheelArrayElementA_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000402C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004034",
+          "name": "WheelArrayElementA_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004034"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004038",
+          "name": "WheelArrayElementA_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004038"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000426C",
+          "name": "WheelArrayElementB_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000426C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004274",
+          "name": "WheelArrayElementB_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004274"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004278",
+          "name": "WheelArrayElementB_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004278"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000044AC",
+          "name": "WheelArrayElementC_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000044AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000044B4",
+          "name": "WheelArrayElementC_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000044B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000044B8",
+          "name": "WheelArrayElementC_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000044B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000046EC",
+          "name": "WheelArrayElementD_Value",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000046EC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000046F4",
+          "name": "WheelArrayElementD_Lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000046F4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000046F8",
+          "name": "WheelArrayElementD_Upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000046F8"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004AF3A0",
+        "abi:lead",
+        "caller:0x004ADE20",
+        "field:this:0x00003B40",
+        "global:0x004B0154",
+        "callee:0x004646C0",
+        "callee:0x0047F1F0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CarPhysicsState",
+      "responsibility": "Large per-car physics state object (DWORD array up to this[998]): zeroed leading/middle arrays, sentinel and default blocks, sub-initializer forwards, and a QPC timer configuration block.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B57F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "StateWords0to3",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008",
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "Quad0",
+          "type_guess": "quad",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "StateWords8to11",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "field:this:0x00000024",
+            "field:this:0x00000028",
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "Quad1",
+          "type_guess": "quad",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "ZeroLoopWord0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "field:this:0x00000044",
+            "field:this:0x00000048",
+            "field:this:0x0000004C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "ZeroLoopWord1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000044"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "ZeroLoopWord2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000048"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "ZeroLoopWord3",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000004C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006C0",
+          "name": "StateWords432to435",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000006C0",
+            "field:this:0x000006C4",
+            "field:this:0x000006C8",
+            "field:this:0x000006CC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006D4",
+          "name": "StateWords437to440",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000006D4",
+            "field:this:0x000006D8",
+            "field:this:0x000006DC",
+            "field:this:0x000006E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000700",
+          "name": "StateWord448",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000700"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000704",
+          "name": "SentinelBlock",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000704",
+            "field:this:0x00000708",
+            "field:this:0x0000070C",
+            "field:this:0x00000710",
+            "field:this:0x00000714",
+            "field:this:0x00000718",
+            "field:this:0x0000071C",
+            "field:this:0x00000720",
+            "field:this:0x00000724",
+            "field:this:0x00000728",
+            "field:this:0x0000072C",
+            "field:this:0x00000730"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000009A4",
+          "name": "ConfigBlock617to623",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000009A4",
+            "field:this:0x000009A8",
+            "field:this:0x000009AC",
+            "field:this:0x000009B0",
+            "field:this:0x000009B4",
+            "field:this:0x000009B8",
+            "field:this:0x000009BC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D28",
+          "name": "StateWord842",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000D28"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D78",
+          "name": "StateWord862",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000D78"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F24",
+          "name": "StateWords969to973",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F24",
+            "field:this:0x00000F28",
+            "field:this:0x00000F2C",
+            "field:this:0x00000F30",
+            "field:this:0x00000F34"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F38",
+          "name": "StateWord974",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F38"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F3C",
+          "name": "StateWord975",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F3C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F40",
+          "name": "StateWord976",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F44",
+          "name": "StateWords977to980",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F44",
+            "field:this:0x00000F48",
+            "field:this:0x00000F4C",
+            "field:this:0x00000F50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F64",
+          "name": "StateWords985to988",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F64",
+            "field:this:0x00000F68",
+            "field:this:0x00000F6C",
+            "field:this:0x00000F70"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F74",
+          "name": "StateWord989",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F74"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F78",
+          "name": "ByteFlag0",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F78"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F79",
+          "name": "ByteFlag1",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F79"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F7A",
+          "name": "ByteFlag2",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F7A"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F7C",
+          "name": "FloatSlot",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F7C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F81",
+          "name": "ByteFlag3",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F81"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F8C",
+          "name": "StateWord995",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F8C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F90",
+          "name": "StateWord996",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F90"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F94",
+          "name": "StateWord997",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F94"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F98",
+          "name": "StateWord998",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000F98"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B57F0",
+        "abi:lead",
+        "caller:0x004B9780",
+        "source:raw",
+        "callee:0x004BA820",
+        "callee:0x00568BE0",
+        "callee:0x00568C60"
+      ]
+    },
+    {
+      "name": "QualifyingTireUsageRecorder",
+      "responsibility": "Records qualifying tire-usage ring-buffer events: during a qualifying session advances the ring buffer and encodes tire set in-use/discard events with a session-time payload and the tire-compound byte.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BC060"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "VehicleId",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "TireCompound",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000034"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BC060",
+        "source:raw",
+        "callee:0x004B33B0",
+        "global:0x007C56A4",
+        "global:0x0083EE60",
+        "global:0x008AAE64",
+        "global:0x008AFEA0"
+      ]
+    },
+    {
+      "name": "F1CVehicle",
+      "responsibility": "The per-vehicle object. Carries the driver-info region (bytes 0x4620..0x48BC) that is cleared and reset, the live AI-driver slots, and the recalculated property slot at +0x48AC.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004C6E80",
+        "0x004C79E0",
+        "0x004C7BF0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00004620",
+          "name": "DriverName",
+          "type_guess": "char[8]",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004620"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004660",
+          "name": "NumberOfLaps",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004660"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004678",
+          "name": "CarName",
+          "type_guess": "char",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004678"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000046B8",
+          "name": "UnknownByte0",
+          "type_guess": "byte",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000046B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000046F8",
+          "name": "UnknownByte1",
+          "type_guess": "byte",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000046F8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004708",
+          "name": "UnknownByte2",
+          "type_guess": "byte",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004708"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004710",
+          "name": "DriverSlotMarker",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004710"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004714",
+          "name": "VehiclePath",
+          "type_guess": "char",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004714"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004794",
+          "name": "SaveFilePath",
+          "type_guess": "char",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004794"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004898",
+          "name": "SlotMarker0",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004898"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000489C",
+          "name": "DriverID",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000489C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000048A0",
+          "name": "SlotMarker1",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000048A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000048A4",
+          "name": "PitTeamIndex",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000048A4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000048A8",
+          "name": "SlotMarker2",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000048A8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000048AC",
+          "name": "PropertySlot",
+          "type_guess": "dword",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000048AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000048B0",
+          "name": "WordSlot",
+          "type_guess": "word",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000048B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000048B4",
+          "name": "MaskSlot",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000048B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000048B8",
+          "name": "DwordSlot0",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000048B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000048BC",
+          "name": "DwordSlot1",
+          "type_guess": "dword",
+          "trust": "UNKNOWN",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000048BC"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004C6E80",
+        "function:0x004C79E0",
+        "function:0x004C7BF0",
+        "abi:lead",
+        "source:raw",
+        "global:0x007C54F0"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "GearSelection",
+      "owner": "VehicleInputController",
+      "states": [
+        "UNSELECTED (-2)",
+        "REVERSE (-1)",
+        "GEAR1",
+        "GEAR2",
+        "GEAR3",
+        "GEAR4",
+        "GEAR5",
+        "GEAR6",
+        "NEUTRAL (0)"
+      ],
+      "transitions": [
+        "Gear-input flag ladder at +0x1FBC..+0x20C4 selects reverse/gears 1..6 when the ladder enable byte at +0x2428 is nonzero; no flag leaves UNSELECTED (-2).",
+        "Neutral override at +0x20F0 == 0 and global byte_7D1370 == 1 force NEUTRAL (0) when the ladder is still UNSELECTED.",
+        "Gear-output slots outside the ladder (0x20F0 != 0) force the highest gear value 7."
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00454DA0",
+        "field:this:0x00002424",
+        "field:this:0x00002428",
+        "field:this:0x000020F0",
+        "global:0x007D1370",
+        "field:this:0x00001FBC",
+        "field:this:0x00001FE8",
+        "field:this:0x00002014",
+        "field:this:0x00002040",
+        "field:this:0x0000206C",
+        "field:this:0x00002098",
+        "field:this:0x000020C4",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "ICollisionNormalProvider",
+      "purpose": "Provide the oriented collision normal for a query position against the spatial-grid collision features.",
+      "functions": [
+        "0x0044C550"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0044C550",
+        "callee:0x0044C4C0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IVehicleInputProcessor",
+      "purpose": "Produce per-frame smoothed control outputs (steering, throttle, brake, clutch, handbrake) and a gear selection from raw input state.",
+      "functions": [
+        "0x00454DA0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00454DA0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IVehiclePropertySetter",
+      "purpose": "Set a single vehicle property/state dword (this[4651]) and return the written value.",
+      "functions": [
+        "0x004C7BF0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004C7BF0",
+        "field:this:0x000048AC",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x0044C550",
+      "to": "0x0044C4C0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0044C4C0"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00434030",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00434030"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00490940",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00490940"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00490AA0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00490AA0"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00490D00",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00490D00"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00491350",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00491350"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00491680",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00491680"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00491DB0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00491DB0"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00491E10",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00491E10"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00581780",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00581780"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "0x00490EE0",
+      "to": "0x004BAC20",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BAC20"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x004BAB20",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BAB20"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x00582290",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00582290"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x004BAC20",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BAC20"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x004B4470",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B4470"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x004B42E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B42E0"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x004BA790",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BA790"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x004BB490",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BB490"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x004646F0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004646F0"
+      ]
+    },
+    {
+      "from": "0x004B4B50",
+      "to": "0x0049AF30",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0049AF30"
+      ]
+    },
+    {
+      "from": "0x004B4E10",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "0x004B4E10",
+      "to": "0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "0x004B4E10",
+      "to": "0x004BAC20",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BAC20"
+      ]
+    },
+    {
+      "from": "0x004B5630",
+      "to": "0x005001D0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005001D0"
+      ]
+    },
+    {
+      "from": "0x004B5630",
+      "to": "0x005001F0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005001F0"
+      ]
+    },
+    {
+      "from": "0x004B5630",
+      "to": "0x004B0170",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B0170"
+      ]
+    },
+    {
+      "from": "0x004B5630",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "0x004B5630",
+      "to": "0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "0x004B5630",
+      "to": "0x004BAC20",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BAC20"
+      ]
+    },
+    {
+      "from": "0x004B57F0",
+      "to": "0x004BA820",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BA820"
+      ]
+    },
+    {
+      "from": "0x004B57F0",
+      "to": "0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "0x004B57F0",
+      "to": "0x004BAAC0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BAAC0"
+      ]
+    },
+    {
+      "from": "0x004B57F0",
+      "to": "0x004BB150",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BB150"
+      ]
+    },
+    {
+      "from": "0x004B57F0",
+      "to": "0x005668B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005668B0"
+      ]
+    },
+    {
+      "from": "0x004B57F0",
+      "to": "0x004FF670",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FF670"
+      ]
+    },
+    {
+      "from": "0x004B57F0",
+      "to": "0x00568BA0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00568BA0"
+      ]
+    },
+    {
+      "from": "0x004B57F0",
+      "to": "0x00568BE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00568BE0"
+      ]
+    },
+    {
+      "from": "0x004B57F0",
+      "to": "0x00568C60",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00568C60"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x004361D0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004361D0"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x0043AEE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0043AEE0"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x00459A40",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00459A40"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x004BE4E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BE4E0"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x0054B4D0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054B4D0"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x0054FA00",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054FA00"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x0054FA90",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054FA90"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x0054FAE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054FAE0"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x00569AD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00569AD0"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x00569C10",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00569C10"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x00569DE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00569DE0"
+      ]
+    },
+    {
+      "from": "0x00459AE0",
+      "to": "0x00588570",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00588570"
+      ]
+    },
+    {
+      "from": "0x004AF3A0",
+      "to": "0x0047F1F0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0047F1F0"
+      ]
+    },
+    {
+      "from": "0x004AF3A0",
+      "to": "0x004646C0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004646C0"
+      ]
+    },
+    {
+      "from": "0x004AF3A0",
+      "to": "0x004B1DE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B1DE0"
+      ]
+    },
+    {
+      "from": "0x004AF3A0",
+      "to": "0x004B20D0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B20D0"
+      ]
+    },
+    {
+      "from": "0x004BC060",
+      "to": "0x004B33B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B33B0"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "0x00410B40",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00410B40"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "0x004E4790",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004E4790"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "0x004E09E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004E09E0"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "0x004A4DB0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004A4DB0"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "0x004F83B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004F83B0"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "0x004BB950",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BB950"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "0x0042AE20",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0042AE20"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "0x004C79E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004C79E0"
+      ]
+    },
+    {
+      "from": "0x004B4E10",
+      "to": "global:0x008AB700",
+      "kind": "writes_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AB700",
+        "global:0x008AB704",
+        "global:0x008AB708",
+        "global:0x008AB70C"
+      ]
+    },
+    {
+      "from": "0x004B4E10",
+      "to": "global:0x008AFEA0",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFEA0"
+      ]
+    },
+    {
+      "from": "0x004BC060",
+      "to": "global:0x008AFEA0",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFEA0"
+      ]
+    },
+    {
+      "from": "0x004BC060",
+      "to": "global:0x0083EE60",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x0083EE60"
+      ]
+    },
+    {
+      "from": "0x004C6E80",
+      "to": "global:0x007C54F0",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007C54F0",
+        "global:0x005C329C"
+      ]
+    },
+    {
+      "from": "0x0045A8E0",
+      "to": "0x00459AE0",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045A8E0",
+        "function:0x00459AE0"
+      ]
+    },
+    {
+      "from": "0x004B9780",
+      "to": "0x004B57F0",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004B9780",
+        "function:0x004B57F0"
+      ]
+    },
+    {
+      "from": "0x004ADE20",
+      "to": "0x004AF3A0",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004ADE20",
+        "function:0x004AF3A0"
+      ]
+    },
+    {
+      "from": "0x004C6920",
+      "to": "0x004C79E0",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C6920",
+        "function:0x004C79E0"
+      ]
+    },
+    {
+      "from": "0x004B3400",
+      "to": "0x004C7BF0",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004B3400",
+        "function:0x004C7BF0"
+      ]
+    },
+    {
+      "from": "0x004C73F0",
+      "to": "0x004C7BF0",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C73F0",
+        "function:0x004C7BF0"
+      ]
+    },
+    {
+      "from": "0x004B8DA0",
+      "to": "0x004C6E80",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004B8DA0",
+        "function:0x004C6E80"
+      ]
+    },
+    {
+      "from": "0x0042C9F0",
+      "to": "0x004C6E80",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0042C9F0",
+        "function:0x004C6E80"
+      ]
+    },
+    {
+      "from": "0x0045FC50",
+      "to": "0x004C6E80",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045FC50",
+        "function:0x004C6E80"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "CollisionNormalOutputConvention",
+      "category": "physics_output_convention",
+      "description": "A replacement must write the normalized collision normal into the caller output vector a3 as { -(v8*v6), v8, -(v8*v7) } with v8 = 1/sqrt(v7*v7 + v6*v6 + 1.0) derived from the feature plane coefficients, and return the spatial-grid query result (feature pointer or NULL).",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0044C550",
+        "callee:0x0044C4C0",
+        "global:0x0059E420",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleInputSmoothingOutputOrder",
+      "category": "physics_output_convention",
+      "description": "A replacement must emit the smoothed control outputs through output pointers in the order a3=steering, a4=throttle, a5=brake, a6=clutch, a7=handbrake, a8=gear, with throttle/brake/clutch/handbrake clamped to the [0,1] float range and the gear output in {-2..7} with the neutral override honoring global byte_7D1370.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00454DA0",
+        "field:this:0x00002410",
+        "field:this:0x00002414",
+        "field:this:0x00002418",
+        "field:this:0x0000241C",
+        "field:this:0x00002420",
+        "field:this:0x00002424",
+        "global:0x007D1370",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DriverInfoClearSentinels",
+      "category": "initialization",
+      "description": "A replacement clearing the vehicle driver-info region must zero the byte fields at 0x4620/0x4660/0x4678/0x46B8/0x46F8/0x4708/0x4714/0x4794, write -1 into dwords 0x4710/0x4898/0x489C/0x48A0/0x48A4/0x48A8, 0 into 0x48AC/0x48B8, -8388609 into 0x48B4 and 11 into 0x48BC.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004C79E0",
+        "field:this:0x00004620",
+        "field:this:0x000048A4",
+        "field:this:0x000048AC",
+        "field:this:0x000048B4",
+        "field:this:0x000048BC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CollisionNodeFreePoolProtocol",
+      "category": "resource_lifecycle",
+      "description": "A replacement reusing collision nodes must push drained nodes onto the global free pool through dword_8AB700 (head), dword_8AB704 (tail), dword_8AB708 (used when the pool is empty) and increment dword_8AB70C (count).",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B4E10",
+        "global:0x008AB700",
+        "global:0x008AB704",
+        "global:0x008AB708",
+        "global:0x008AB70C",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "The layout of the feature plane returned by SpatialGridQuery (result[0..4]) is not enumerated as packet fields (CollisionNormalFromFeature).",
+    "dbl_59E420 is read by CollisionNormalFromFeature but does not appear by name in the decompiled arithmetic; the 1.0 normalization constant is the only plausible consumer -- unverified.",
+    "The steering fallthrough ramp direction in VehicleInputSmoothingAndGearSelect is ambiguous: it is chosen by a decompiler FPU-status byte (v24 & 0x41) whose origin is unverifiable in the .c.",
+    "Six read-only globals (0x0059E43C, 0x0059E440, 0x0059E478, 0x0059E5FC, 0x0059E670, 0x0059E8A4) are read by VehicleInputSmoothingAndGearSelect but folded into FPU instructions by Hex-Rays; no named reference exists in the .c.",
+    "Gear-field semantics (which of +0x1FBC/+0x1FE8/+0x2014/+0x2040/+0x206C/+0x2098/+0x20C4 maps to which gear) come from DERIVED fill naming, not from the .c.",
+    "The raw decompiled body of VehiclePhysicsVelocityAngularVelocityIntegrator is truncated in the packet; exact ordering and FPU/long-double comparison semantics are not recoverable.",
+    "The branching meaning of the guard at +0x50 (contact-point count <= 1) versus the multi-vehicle network contact-force path is inferred from prior analysis.",
+    "The roles of the integration constants dbl_59E420/59E430/59E880/59ED50/59F038/59F040/59F048/59F050/59F058 and dword_8AB710 in the integrator are not pinned down; the step-size parameter value is absent from the packet.",
+    "The meaning of the collision node flags byte at obj+0x8 is unknown; no operation consumes it in CollisionBroadphaseBuilder.",
+    "The semantics of the sub_490D00 partitioning step and the argument 0 to DoublyLinkedListAppend in CollisionBroadphaseBuilder are unknown.",
+    "The concrete target offsets written by ClampedFloatSetter_1de0/ArithmeticComparison_20d0 in TrackPhysicsParameterInit profiles 2 and 3 are not evidenced (writes happen inside the callees).",
+    "The per-wheel loop base this+0x4258 used by profiles 2 and 3 is not present in the packet field list, so its element offsets cannot be tied to evidence refs.",
+    "The physical meaning of each TrackEnvironmentManager parameter slot (grip, wear, temperature, etc.) is not deterministically evidenced; only that they are clamped track-environment physics parameters.",
+    "flt_5ACD0C and dword_8AB700 are read by ProcessCollisionObjectLists but absent from the raw source text; flt_5ACD0C may back the +/-0.02 tolerance literal but that link is unconfirmed.",
+    "Only the first of the four 16-byte sub-list records (this+0x70/0x74/0x78/0x7C) has packet field evidence; records 2-4 are un-evidenced.",
+    "The DrainCollisionListsToFreePool reset loop also zeroes a parallel per-sub-list metadata array with no packet field evidence.",
+    "Collision node field +0xC is listed in the packet but never read by FilterCollisionListNodes; global dbl_5ACD30 is read but absent from the raw text (the 2.5 distance bound is a literal).",
+    "The object type and semantic purpose of the sentinel 0/-1 blocks and the config block this[617..623] = 4/2/2/0/0/0/0 in CarPhysicsStateInitializer are not established by this packet.",
+    "The sub-list allocated via ConditionalArrayAlloc/ListAppendWithSubListGeneration in CarPhysicsStateInitializer is not referenced again in that function; its disposition is unknown.",
+    "The semantic labels for tire-usage event ids 26 (in use) vs 27 (discarded) come from existing-analysis prose, not from the raw source.",
+    "The ABI lead name Vehicle_Audio_Event_Dispatch conflicts with the tire-usage interpretation of EncodeQualifyingTireUsage; the legacy lead is unconfirmed.",
+    "The non-qualifying return path of EncodeQualifyingTireUsage reads an uninitialized register, so the returned value there is undefined.",
+    "The +0x48A4/+0x48A8 slot markers and the -1 sentinel semantics (invalid/uninitialised) in ResetVehicleForReinit are DERIVED from the unconditional reset context.",
+    "The final reset call on dword_8ACEE0 in ResetVehicleForReinit targets an address not present in the packet's callee list, so it is described without naming the target.",
+    "The semantic meaning of the unnamed F1CVehicle driver-info fields (0x46B8, 0x46F8, 0x4708, 0x4710, 0x4898, 0x48A0, 0x48A8, 0x48AC, 0x48B0, 0x48B4, 0x48B8, 0x48BC) is not recoverable from this packet.",
+    "The recalc writer of field 0x48AC (noted by existing analysis as recalculated every frame, so external pokes do not persist) is not evidenced by this packet.",
+    "CarPhysicsState field at offset 0x000006E4 (SmallStruct) could not be carried as a class field: no allowed evidence ref field:<base>:0x000006E4 exists in the packet for this offset, so its presence is recorded only in this unresolved note.",
+    "CarPhysicsState field at offset 0x00000D2C (TimerStruct) could not be carried as a class field: no allowed evidence ref field:<base>:0x00000D2C exists in the packet for this offset, so its presence is recorded only in this unresolved note.",
+    "CarPhysicsState field at offset 0x00000D7C (TimerBlock) could not be carried as a class field: no allowed evidence ref field:<base>:0x00000D7C exists in the packet for this offset, so its presence is recorded only in this unresolved note.",
+    "CarPhysicsState field at offset 0x00000F54 (Quad981) could not be carried as a class field: no allowed evidence ref field:<base>:0x00000F54 exists in the packet for this offset, so its presence is recorded only in this unresolved note."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "abi:lead",
+    "field:obj:0x00000008",
+    "caller:0x004918D0",
+    "caller:0x004E3AA0",
+    "global:0x0059E478",
+    "caller:0x004F1FE0",
+    "caller:0x004CB620",
+    "caller:0x004C6E80",
+    "global:0x0059E5FC",
+    "field:*(this+0x20):0x0000000C",
+    "caller:0x004B2DD0",
+    "caller:0x004CBC50",
+    "global:0x0059E670",
+    "caller:0x004C6920",
+    "global:0x005ACD0C",
+    "caller:0x004CCE90",
+    "caller:0x004A0250",
+    "caller:0x004B7860",
+    "caller:0x00401340",
+    "caller:0x004B9000",
+    "global:0x0059E8A4",
+    "global:0x005ACD24",
+    "global:0x008AB700",
+    "caller:0x004B46F0",
+    "global:0x005ACD30",
+    "caller:0x004EF180",
+    "caller:0x0042A3D0",
+    "global:0x005ACD08",
+    "caller:0x00491960",
+    "global:0x0059E440",
+    "caller:0x004B6940"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

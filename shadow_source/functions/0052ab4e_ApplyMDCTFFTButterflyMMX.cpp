@@ -1,0 +1,43 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0052AB4E
+// Canonical corpus name: AudioCodecMDCTFFTTransform
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AudioCodecMDCTFFTTransform_0052ab4e.c
+
+void UnknownObject::ApplyMDCTFFTButterflyMMX()
+{
+    // MMX audio codec butterfly stage. Runs a two-iteration packed 16-bit multiply-accumulate butterfly over the a1/a2 sample-pair arrays (this+0x0..this+0x70), using fixed-point twiddle constants (read-only qword table 0x005B0B98..0x005B0C58, inlined as __m64 literals) and rounding shifts, packing 8 interleaved results into a3[0..14]; a second 8-iteration pass post-processes the a3 pairs, quantizes them to 8-bit PCM through the lookup table a6, and stores the packed bytes to a5 + a4 offsets. Emits EMMS and returns 0.
+    // ASSIGNMENT: Initialize the first-pass loop counter v117 = 2 and the output pointer v113 = a3. [source:raw]
+    // LOOP: First pass: run the packed 16-bit butterfly twice, advancing the a1/a2 sample-pair pointers by one qword each iteration; reads sample pairs at this+0x0, this+0x10, this+0x20, this+0x30, this+0x40, this+0x50, this+0x60, this+0x70 and the corresponding a2 elements. [field:this:0x00000000, field:this:0x00000010, field:this:0x00000020, field:this:0x00000030, field:this:0x00000040, field:this:0x00000050, field:this:0x00000060, field:this:0x00000070, source:raw]
+    // CALCULATION: Packed fixed-point butterfly arithmetic: _m_pmullw of sample pairs a1[i]*a2[i], _m_pmaddwd/_m_paddw/_m_pxor accumulations and rounding shift right by 0xB, using the read-only qword twiddle table 0x005B0B98..0x005B0C58 (the decompiler renders the table values as inline __m64 literals such as 0x187E0000187E, 0x115100001151, 0x3B2100003B21). [global:0x005B0B98, global:0x005B0BA0, global:0x005B0BA8, global:0x005B0BB0, global:0x005B0BB8, global:0x005B0BC0, global:0x005B0BC8, global:0x005B0BD0, global:0x005B0BD8, global:0x005B0BE0, global:0x005B0BE8, global:0x005B0BF0, global:0x005B0BF8, global:0x005B0C00, global:0x005B0C08, global:0x005B0C10, global:0x005B0C18, global:0x005B0C20, global:0x005B0C28, global:0x005B0C30, global:0x005B0C38, global:0x005B0C40, global:0x005B0C48, global:0x005B0C50, global:0x005B0C58, source:raw]
+    // ASSIGNMENT: Pack the 16 accumulated sub-band results into output qwords a3[0], a3[2], a3[4], a3[6], a3[8], a3[10], a3[12], a3[14] via _m_punpcklwd/_m_punpckhwd/_m_punpckldq. [source:raw]
+    // LOOP: Second pass: post-process the a3 qword pairs for 8 iterations, advancing the v114 pointer by two qwords each iteration. [source:raw]
+    // CALCULATION: Fixed-point combine of the second pass with round-and-shift (round constant 0x2000000020000, shift right by 0x12) and mask 0x3FF000003FF, producing the index into the byte lookup table a6. [source:raw]
+    // ASSIGNMENT: Quantize: fetch 8-bit table values a6[index] for the four packed lanes, assemble them into two 32-bit results, and store to a5 + a4[v116], advancing v116 by 4 bytes per iteration. [source:raw]
+    // RETURN: Emit the MMX empty-state instruction (_m_empty) and return the loop-exit result. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int ApplyMDCTFFTButterflyMMX(__m64 *a1, __m64 *a2, __m64 *a3, int a4, int a5, int a6) {
+    //     int n = 2;
+    //     __m64 *out = a3;
+    //     do {
+    //       butterfly_fixed_point(a1, a2, out, twiddleTable); // table 0x005B0B98..0x005B0C58
+    //       pack_interleaved(out);   // out[0], [2], [4], [6], [8], [10], [12], [14]
+    //       ++a1; ++a2; ++out;
+    //     } while (--n);
+    //     __m64 *p = a3;
+    //     int off = 0;
+    //     for (int k = 0; k < 8; ++k) {
+    //       __m64 pair[2];
+    //       int q[4];
+    //       quantize_pair(p, q, lut);        // a6 + index, mask 0x3FF000003FF
+    //       *(unsigned __int64*)(a5 + *(int*)(a4 + off)) = pack2(q);
+    //       p += 2; off += 4;
+    //     }
+    //     _m_empty();
+    //     return 0;
+    //   }
+    // UNRESOLVED: Exact mapping between the inline __m64 twiddle literals and the read-only qword globals 0x005B0B98..0x005B0C58 is not recoverable from packet evidence.
+    // UNRESOLVED: The a4 offset array, a5 output base and a6 8-bit lookup table are caller-supplied; their concrete structures are unknown here.
+    // UNRESOLVED: The fixed-point constants 0x40000000400 and 0x2000000020000 suggest 16-bit PCM accumulation, but the exact codec format is not proven by packet evidence.
+}

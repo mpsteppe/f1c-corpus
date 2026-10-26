@@ -1,0 +1,13 @@
+double __thiscall sub_41FB10(_DWORD *this, int a2)
+{
+  double result; // st7
+  int v3; // eax
+
+  result = -1.0;
+  if ( !a2 )
+    return 0.0;
+  v3 = this[5046];
+  if ( v3 )
+    return *(float *)(a2 + 80) - *(float *)(v3 + 80);
+  return result;
+}

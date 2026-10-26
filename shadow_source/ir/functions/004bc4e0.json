@@ -1,0 +1,203 @@
+{
+  "schema_version": 1,
+  "address": "0x004BC4E0",
+  "proposed_name": "LapCompletion",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004BC4E0"]
+  },
+  "summary": "Session lap/sector completion handler. Returns immediately when the session is finished (obj+0x32C8 == 3). On the full-lap path (a4 == 0) it records the lap split time into the per-lap timing array, updates best-lap and best-sector state, stores the pit-stop order rank, then dispatches on dword_7C56A4 (retirement, penalty/stop-go processing, disqualification on laps, finish, and last-lap menu transitions), runs a pending-penalty countdown, and writes the common tail (last time, lap time array, phase flag). On the sector path (a4 != 0) it updates per-sector best times and flags. Called by sub_4B3400 and LapSplitTimeEvent (004BC390).",
+  "local_names": {
+    "this": "per-vehicle lap-timing object (this[k] = dword at this + 4k)",
+    "obj": "session object reached as *this",
+    "a2": "split time (seconds) for the completed lap/sector",
+    "a3": "overall event time used for gap and last-time updates",
+    "a4": "sector selector: 0 = full lap, 1/2 = sector split",
+    "a5": "new lap counter value",
+    "v7": "clamped lap index (capped at 127)",
+    "v14": "a5 + 1, the incremented lap counter"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Early return when the session is finished: (obj+0x32C8) == 3.",
+      "evidence_refs": ["guard:1", "field:obj:0x000032C8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on a4: the full-lap path runs only when a4 == 0; otherwise the per-sector path below is taken.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the sector indicator this+0xC to 0 at the start of the full-lap path.",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp the current lap counter this+0x8 to at most 127; a negative counter jumps past the recording block.",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Record the lap split only when the clamped index is below the total lap count this+0x88 (this[34]).",
+      "evidence_refs": ["field:this:0x00000088", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write a2 into the per-lap split array this+0x90 (this[36]) at the clamped index when a2 > 0.0.",
+      "evidence_refs": ["field:this:0x00000090", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Best-lap update: when the stored best (this+0x68) is invalid or a2 beats it, snapshot this+0x80 = this+0x64, set this+0x68 = a2 and call sub_4D1C40(this+0xC, obj+0x4894, 0) to commit the new best.",
+      "evidence_refs": ["field:this:0x00000080", "field:this:0x00000064", "field:this:0x00000068", "field:this:0x0000000C", "field:obj:0x00004894", "callee:0x004D1C40", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Best-sector snapshot: when the previous best (this+0x74) is invalid or beaten by a2, store this+0x74 = this+0x18 and copy this+0x1C/this+0x20 pointers into this+0x78/this+0x7C.",
+      "evidence_refs": ["field:this:0x00000074", "field:this:0x00000078", "field:this:0x0000007C", "field:this:0x00000018", "field:this:0x0000001C", "field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the pit-stop order rank for this lap: this+0x94 (this[37])[index] = PitStopOrderRank(this+0x4).",
+      "evidence_refs": ["field:this:0x00000094", "field:this:0x00000004", "callee:0x004D1BC0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Proceed to phase dispatch only when this+0x60 (this[24]) is non-null; then set this+0x8 = a5 + 1.",
+      "evidence_refs": ["field:this:0x00000060", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Dispatch on dword_7C56A4 via the jump table jpt_4BC612: case 0 retires the vehicle (AIRetirementVehicleFailureEvent); cases 1-6 process penalties and finish; case 7 handles the final-lap/gap path; default falls through to the common tail.",
+      "evidence_refs": ["global:0x007C56A4", "global:0x004BC984", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Case 0 (and the penalty-expiry path): retire the vehicle via AIRetirementVehicleFailureEvent(this+0x0).",
+      "evidence_refs": ["field:this:0x00000000", "callee:0x004199E0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Disqualification path: when this+0x30 (this[12]) == 1 and dword_7C56A4 == 5, the lap count exceeds dword_8ACF8C, dword_7CE814 is set and the session is not finished (obj+0x32C8 <= 1), copy the lap word aLaps_1 through byte_5EC4C0 into byte_5EC4CC, format a \"%d %s\" message (via StringFormatWithBufferOverflowCheck) and hand it to DisqualificationHandler.",
+      "evidence_refs": ["guard:2", "guard:0", "global:0x008ACF8C", "global:0x007CE814", "field:obj:0x000032C8", "global:0x005EC4C0", "global:0x005EC4CC", "global:0x005C32FC", "global:0x005C3778", "callee:0x00423A00", "callee:0x0058815F", "callee:0x004BC0E0", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Cases 1-6, non-DSQ branch: retire when this+0xC == 2; mark the vehicle finished (this+0x30 = 1) when the lap count reaches dword_8ACF8C or the gap time a3 reaches flt_8ACF94; on the last lap, phase 5 and the vehicle matching the player (this+0x4 == obj in dword_7C54F0[dword_7C54E4]) call SessionMenuModeSwitch.",
+      "evidence_refs": ["guard:3", "guard:4", "field:this:0x00000030", "global:0x008ACF94", "field:this:0x00000004", "global:0x007C54F0", "global:0x007C54E4", "callee:0x004199E0", "callee:0x004A0C60", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Case 7: when dword_7C56A8 == 8, mark finished (this+0x30 = 1) and store the gap this+0x84 = a3 - flt_8ACF90; otherwise, when the lap is still below dword_8ACF8C and a3 stays under flt_8ACF94, call sub_4A0B20 and retire; then RaceFinishHandler(&unk_7CE24C, this+0x0), set this+0x30 = 1, store this+0x84 = a3 - flt_8ACF90 and bump the session mode via sub_42D140(&dword_7C569C, 8).",
+      "evidence_refs": ["global:0x007C56A8", "field:this:0x00000030", "field:this:0x00000084", "global:0x008ACF90", "global:0x008ACF8C", "global:0x008ACF94", "callee:0x004A0B20", "callee:0x004199E0", "callee:0x004A0BA0", "global:0x007CE24C", "callee:0x0042D140", "global:0x007C569C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Pending-penalty countdown: for each of this+0x3C pending penalties (timers stored from this+0x40 onward), decrement the timer; on expiry, when the vehicle's penalty flag is not exempt, zero the slot and call DisqualificationHandler(aIgnoredStopGoP) while the session is unfinished; while any penalty remains, accumulate the countdown into this+0x84.",
+      "evidence_refs": ["guard:5", "guard:6", "field:this:0x0000003C", "field:this:0x00000040", "field:this:0x00000084", "global:0x005C2730", "callee:0x004BC0E0", "field:obj:0x000032C8", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Common tail (LABEL_62/LABEL_64): latch byte_8ACFA0 when the lap count reaches (dword_8ACF8C + 1) >> 1, set this+0x64 = a3 (last time), set this+0x60 = 2, store a3 into the lap-time array this+0x8C (this[35]) at lap-1 when the counter is valid, and call sub_4BC240(this).",
+      "evidence_refs": ["global:0x008ACFA0", "global:0x008ACF8C", "field:this:0x00000064", "field:this:0x00000060", "field:this:0x0000008C", "field:this:0x00000088", "callee:0x004BC240", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Sector path: set this+0xC = a4; when a2 > 0.0 update the sector best this+0x68 and the running split this+0x18, call sub_4D1C40(this+0xC, obj+0x4894, 0) and AICornerSpeedComparison.",
+      "evidence_refs": ["field:this:0x0000000C", "field:this:0x00000068", "field:this:0x00000018", "field:obj:0x00004894", "callee:0x004D1C40", "callee:0x00419500", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Start-of-race latch: when this+0x60 is null and this+0xC == 1 (first split), set this+0x60 = 1.",
+      "evidence_refs": ["field:this:0x00000060", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "On the sector-2 event (a4 == 2), scan the penalty slots from this+0x40 for a timer of exactly 1 and play the session event audio via AISessionEventAudio.",
+      "evidence_refs": ["field:this:0x0000003C", "field:this:0x00000040", "callee:0x0041A8C0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Tail init: when the object at this+0x0 has no buffer at +13000, initialize the +13004 area via sub_4A6D50.",
+      "evidence_refs": ["field:this:0x00000000", "callee:0x004A6D50", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void sub_4BC4E0(DWORD** this, float a2, float a3, int a4, int a5) {",
+    "  if ((*this)[3250] == 3) return;",
+    "  if (a4 == 0) {",
+    "    this[3] = 0;",
+    "    idx = clamp((int)this[2], 0, 127);",
+    "    if (idx < (int)this[34]) {",
+    "      if (a2 > 0.0) {",
+    "        this[36][idx] = a2;",
+    "        if (this[26] < 0.0 || a2 < this[26]) { this[32] = this[25]; this[26] = a2; sub_4D1C40(this[3], (*this)[4645], 0); }",
+    "        this[6] = a2;",
+    "        if (this[29] <= 0.0 || this[29] > a2) { this[29] = this[6]; this[30] = this[7]; this[31] = this[8]; }",
+    "      }",
+    "      this[37][idx] = PitStopOrderRank(this[4]);",
+    "    }",
+    "    if (this[24]) {",
+    "      this[2] = a5 + 1;",
+    "      switch (dword_7C56A4) {",
+    "        case 0: AIRetirementVehicleFailureEvent(*this); break;",
+    "        case 1..6:",
+    "          if (this[12] == 1) {",
+    "            if (dword_7C56A4 == 5 && a5+1 > dword_8ACF8C && dword_7CE814 && (*this)[3250] <= 1)",
+    "              { copy aLaps_1 into byte_5EC4CC; format \"%d %s\"; DisqualificationHandler(this, msg); }",
+    "          } else {",
+    "            if (this[12] == 2) AIRetirementVehicleFailureEvent(*this);",
+    "            if (this[2] >= dword_8ACF8C || flt_8ACF94 <= a3) { if (this[12] != 3) this[12] = 1; }",
+    "            if ((this[2] >= dword_8ACF8C - 1 || flt_8ACF94 <= a3) && dword_7C56A4 == 5 && this[1] == vehicle(player)) SessionMenuModeSwitch();",
+    "          }",
+    "          break;",
+    "        case 7:",
+    "          if (dword_7C56A8 == 8) { if (this[12] != 3) this[12] = 1; this[33] = a3 - flt_8ACF90; }",
+    "          else {",
+    "            if (a5+1 < dword_8ACF8C && flt_8ACF94 > a3) { sub_4A0B20(*this); AIRetirementVehicleFailureEvent(*this); }",
+    "            RaceFinishHandler(&unk_7CE24C, *this); this[33] = a3 - flt_8ACF90; sub_42D140(&dword_7C569C, 8);",
+    "          }",
+    "          for (each of this[15] penalties) decrement timer, expire or DisqualificationHandler(aIgnoredStopGoP);",
+    "          break;",
+    "      }",
+    "      if (!byte_8ACFA0) byte_8ACFA0 = (this[2] >= (dword_8ACF8C + 1) >> 1);",
+    "    }",
+    "    this[25] = a3; this[24] = 2;",
+    "    if (this[2] > 0 && this[2] <= (int)this[34]) this[35][this[2]-1] = a3;",
+    "    sub_4BC240(this); return;",
+    "  }",
+    "  this[3] = a4;",
+    "  if (a2 > 0.0) {",
+    "    if (this[a4+26] < 0.0 || a2 < this[a4+26]) this[a4+26] = a2;",
+    "    this[this[3]+6] = a2;",
+    "    sub_4D1C40(this[3], (*this)[4645], 0);",
+    "    AICornerSpeedComparison(*this, this[3]);",
+    "  }",
+    "  if (!this[24] && this[3] == 1) this[24] = 1;",
+    "  if (a4 == 2) for (each penalty slot) if (*slot == 1) AISessionEventAudio(*this);",
+    "  if (!*(DWORD*)((char*)*this + 13000)) sub_4A6D50((DWORD*)((char*)*this + 13004));",
+    "}"
+  ],
+  "unresolved": [
+    "Two packet-flagged fields do not appear in the raw source: this+0x44 and obj+0x344C; their roles cannot be confirmed.",
+    "flt_59E440, dword_5EB978 and dword_8ACEE0 are flagged as read by packet facts but are absent from the raw decompiled source.",
+    "The penalty slots (from this+0x40, 8-byte stride) layout, and the meaning of the per-vehicle penalty exempt flag at obj+13388, are not defined here.",
+    "obj+0x32C8 value 3 as 'session finished' and value 1 as 'not finished' are only inferred from guard structure; the full session-phase enum is not evidenced.",
+    "The exact condition source for guards this+0x30 == 1 and this+0x40 != 1 overlaps several code paths; they are mapped to the closest matching branch."
+  ],
+  "unresolved_evidence_refs": [
+    "field:obj:0x0000344C",
+    "field:this:0x00000044",
+    "global:0x0059E440",
+    "global:0x005EB978",
+    "global:0x008ACEE0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "address": "0x0049BFF0",
+  "proposed_name": "formatNextLapTimeString",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0049BFF0", "caller:0x0049D8B0"]
+  },
+  "summary": "Formats the next lap time into an output buffer for HUD/replay display. Computes the next lap index (current lap counter at dword_7C54E0+16448 incremented by 1, wrapped 2->0), copies the empty prefix string asc_5CCE18 into the buffer, then selects the time source: when byte_7CFFF0 bit 0 is set it resolves the ghost car index via sub_4D1B50(0) (returning 0 without formatting when the index is 255/invalid) and reads flt_5F0780[4656*index+lap]; otherwise it reads the float at dword_7C54E0+4*lap+16552. The float is written into the first 4 bytes of the output buffer, and when it is positive the value is split via SpatialGridCell and appended with StringFormatWithBufferOverflowCheck as \" %.2d:%06.3f\".",
+  "local_names": {
+    "v2": "nextLapIndex",
+    "v4": "ghostIndex",
+    "v5": "lapTimeSeconds",
+    "v7": "minutes"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "v2 = (lap counter at dword_7C54E0+16448) + 1, wrapped to 0 when the counter equals 2; selects the next lap index.",
+      "evidence_refs": ["global:0x007C54E0"]
+    },
+    {
+      "kind": "call",
+      "description": "strcpy copies the empty prefix string asc_5CCE18 into the output buffer a1; v3 retains the buffer pointer for the later append.",
+      "evidence_refs": ["global:0x005CCE18", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When byte_7CFFF0 bit 0 is set, use the ghost/replay timing source; otherwise read the race-struct lap time.",
+      "evidence_refs": ["global:0x007CFFF0"]
+    },
+    {
+      "kind": "call",
+      "description": "Resolve the ghost/replay car index via sub_4D1B50(0).",
+      "evidence_refs": ["callee:0x004D1B50"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the ghost index is 255 (invalid), return 0 without formatting anything.",
+      "evidence_refs": ["callee:0x004D1B50"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v5 = flt_5F0780[4656 * ghostIndex + nextLapIndex]; the ghost lap time selected by car index and lap index.",
+      "evidence_refs": ["global:0x005F0780"]
+    },
+    {
+      "kind": "assignment",
+      "description": "v5 = *(float*)(dword_7C54E0 + 4*nextLapIndex + 16552); the race-struct lap time for the next lap.",
+      "evidence_refs": ["global:0x007C54E0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write v5 as a float into the first 4 bytes of the output buffer a1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Formatting is only attempted when v5 > 0.0 (a valid lap time).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "SpatialGridCell splits the float seconds value into minute/second components used for display.",
+      "evidence_refs": ["callee:0x0049B630"]
+    },
+    {
+      "kind": "call",
+      "description": "Append the formatted string via StringFormatWithBufferOverflowCheck(v3, \" %.2d:%06.3f\", minutes, seconds) into the buffer.",
+      "evidence_refs": ["callee:0x0058815F"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 (success) in all non-guard paths.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int formatNextLapTimeString(char* out, int unused) {",
+    "  int lap = lapCounter(dword_7C54E0) + 1;",
+    "  if (lapCounter(dword_7C54E0) == 2) lap = 0;",
+    "  char* buf = strcpy(out, emptyPrefix);",
+    "  float seconds;",
+    "  if (byte_7CFFF0 & 1) {",
+    "    int ghost = sub_4D1B50(0);",
+    "    if (ghost == 255) return 0;",
+    "    seconds = flt_5F0780[4656 * ghost + lap];",
+    "  } else {",
+    "    seconds = *(float*)(dword_7C54E0 + 4 * lap + 16552);",
+    "  }",
+    "  *(float*)out = seconds;",
+    "  if (seconds > 0.0) {",
+    "    int minutes;",
+    "    SpatialGridCell(seconds, &minutes, (float*)out);",
+    "    StringFormatWithBufferOverflowCheck(buf, \" %.2d:%06.3f\", minutes, seconds);",
+    "  }",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "flt_59E440, a2d063f_1 and dword_8ACEE0 are listed as packet globals but do not appear in the raw source; their role is unknown.",
+    "Meaning of the hardcoded offsets 16448 / 16552 and the 4656 stride are inferred (lap counter / lap-time array); not independently confirmed.",
+    "Literal character '\\' (backslash) is used as the strcpy prefix; the exact content of asc_5CCE18 was not verified."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059E440", "global:0x005CCE24", "global:0x008ACEE0"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

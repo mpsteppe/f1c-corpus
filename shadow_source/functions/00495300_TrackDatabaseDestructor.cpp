@@ -1,0 +1,75 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00495300
+// Canonical corpus name: sub_495300
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_495300_00495300.c
+
+void UnknownObject::TrackDatabaseDestructor()
+{
+    // Destructor for a track-database-like object (only caller is DestructorWithConditionalFree_52e0, 0x004952E0). Restores the vtable pointer this+0 to &off_5AC998, destroys the three adjacent list containers via LinkedListDestroy, walks and drains the segment list at this+0x18AC calling ShortComputation_9620(1) per node, then zeroes its four head fields. Runs ListCleanupWithVTableDestructor, EmptyStub_0170 and MultiListDestruction_a2f0 on three other interior regions, frees a run of four backwards-consecutive heap pointers through FreeWrapper_7bcf, frees *(this+0x1558) when present, walks and drains the curve/section list at this+0xF0 calling DestructorWithDataFree(1) per node and zeroes its four head fields. It then frees *(this+0x3C) when non-null (saving its value as the result), and walks the child-object list at this+0x4: per node, if the byte at +0xC is non-zero and the node data pointer at +0 is non-null, invokes the node vtable[0](data, 1); every node is freed via FreeWrapper_7bcf in the loop update. Finally the four list-head fields at this+0x4/0x8/0xC/0x10 are zeroed and `result` is returned.
+    // ASSIGNMENT: Restore the vtable pointer this+0 = &off_5AC998 at the start of destruction. [field:this:0x00000000, global:0x005AC998, source:raw]
+    // CALL: Call LinkedListDestroy on the three adjacent interior list containers at this+0x18DC, this+0x18CC and this+0x18BC. [callee:0x00499580, source:raw]
+    // LOOP: Walk the segment list at this+0x18AC: v2 = *(this+0x18AC); while non-null, advance via the node next pointer at +4 and call ShortComputation_9620(1) once per node. [field:this:0x000018AC, field:*(*(this+0x18AC)+0x4):0x00000004, callee:0x00499620, source:raw]
+    // CALL: Call ShortComputation_9620(1) once per segment-list node. [callee:0x00499620, source:raw]
+    // ASSIGNMENT: After draining the segment list, zero its four head fields at this+0x18AC, this+0x18B0, this+0x18B4, this+0x18B8. [field:this:0x000018AC, field:this:0x000018B0, field:this:0x000018B4, field:this:0x000018B8, source:raw]
+    // CALL: Call ListCleanupWithVTableDestructor(this+0x18A4) to clean a list whose nodes carry vtable destructors. [callee:0x0049A190, source:raw]
+    // CALL: Call EmptyStub_0170(this+0x16F4); callee is a stub whose real behavior is unevidenced. [callee:0x004B0170, source:raw]
+    // CALL: Call MultiListDestruction_a2f0(this+0x168C) to destroy a multi-list container. [callee:0x0049A2F0, source:raw]
+    // LOOP: Walk a cursor v3 backwards in 12-byte steps starting at this+5676 over four iterations, reading *(v3-12) each step; free each non-null value via FreeWrapper_7bcf. [callee:0x00587BCF, source:raw]
+    // CALL: Free each non-null heap pointer of the four-slot run via FreeWrapper_7bcf. [callee:0x00587BCF, source:raw]
+    // GUARD: If *(this+0x1558) is non-null, free it via FreeWrapper_7bcf. [field:this:0x00001558, callee:0x00587BCF, source:raw]
+    // CALL: Call FreeWrapper_7bcf(*(this+0x1558)). [field:this:0x00001558, callee:0x00587BCF, source:raw]
+    // LOOP: Walk the curve/section list at this+0xF0: v6 = *(this+0xF0); while non-null, advance via the node next pointer at +4 and call DestructorWithDataFree(1) once per node. [field:this:0x000000F0, field:*(*(this+0xF0)+0x4):0x00000004, callee:0x004995E0, source:raw]
+    // CALL: Call DestructorWithDataFree(1) once per curve/section-list node. [callee:0x004995E0, source:raw]
+    // ASSIGNMENT: After draining the curve/section list, zero its four head fields at this+0xF0, this+0xF4, this+0xF8, this+0xFC. [field:this:0x000000F0, field:this:0x000000F4, field:this:0x000000F8, field:this:0x000000FC, source:raw]
+    // CALCULATION: result = *(this+0x3C); when that heap block pointer is non-null, free it via FreeWrapper_7bcf. [field:this:0x0000003C, callee:0x00587BCF, source:raw]
+    // CALL: Call FreeWrapper_7bcf(*(this+0x3C)) when present. [field:this:0x0000003C, callee:0x00587BCF, source:raw]
+    // LOOP: Walk the child-object list at this+0x4: i = *(this+0x4); per node read the flag byte at +0xC (guard:0 == 0) and the next pointer at +4; when the flag is non-zero and the node data pointer at +0 is non-null, call the node's vtable destructor vtable[0](data, 1); free every node via FreeWrapper_7bcf in the loop update. [field:this:0x00000004, field:*(this+0x4):0x0000000C, field:*(*(this+0x4)+0x4):0x00000004, field:*(*(this+0x4)+0x0):0x00000000, field:*(*(*(this+0x4)+0x0)+0x0):0x00000000, guard:0, callee:0x00587BCF, source:raw]
+    // CALL: Invoke the child destructor through the node vtable: (*(*v9))(*v9, 1). [field:*(*(*(this+0x4)+0x0)+0x0):0x00000000, field:*(this+0x4):0x00000000, source:raw]
+    // ASSIGNMENT: Zero the four child-list head fields at this+0x4, this+0x8, this+0xC, this+0x10. [field:this:0x00000004, field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, source:raw]
+    // RETURN: Return `result` (the last FreeWrapper_7bcf result, or the value read from this+0x3C when it was null). [function:0x00495300, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int TrackDatabaseDestructor(char *this) {
+    //       *(int *)this = (int)&off_5AC998;
+    //       LinkedListDestroy(this + 0x18DC);
+    //       LinkedListDestroy(this + 0x18CC);
+    //       LinkedListDestroy(this + 0x18BC);
+    //       int *seg = *(int **)(this + 0x18AC);
+    //       while (seg) { seg = *(int **)(seg + 1); ShortComputation_9620(1); }
+    //       *(int *)(this + 0x18AC) = 0; *(int *)(this + 0x18B0) = 0;
+    //       *(int *)(this + 0x18B4) = 0; *(int *)(this + 0x18B8) = 0;
+    //       ListCleanupWithVTableDestructor(this + 0x18A4);
+    //       EmptyStub_0170(this + 0x16F4);
+    //       MultiListDestruction_a2f0(this + 0x168C);
+    //       char *cur = this + 5676;
+    //       int n = 4;
+    //       do {
+    //           void *p = *(void **)(cur - 12);
+    //           cur -= 12;
+    //           if (p) FreeWrapper_7bcf(p);
+    //       } while (--n);
+    //       if (*(int *)(this + 0x1558)) FreeWrapper_7bcf(*(void **)(this + 0x1558));
+    //       int *curve = *(int **)(this + 0xF0);
+    //       while (curve) { curve = *(int **)(curve + 1); DestructorWithDataFree(1); }
+    //       *(int *)(this + 0xF0) = 0; *(int *)(this + 0xF4) = 0;
+    //       *(int *)(this + 0xF8) = 0; *(int *)(this + 0xFC) = 0;
+    //       int result = *(int *)(this + 0x3C);
+    //       if (result) result = FreeWrapper_7bcf(*(void **)(this + 0x3C));
+    //       int i = *(int *)(this + 0x4);
+    //       for (; i; result = FreeWrapper_7bcf((void *)i)) {
+    //           int node = i;
+    //           int flag = *(char *)(i + 0xC) == 0;
+    //           i = *(int *)(i + 0x4);
+    //           if (!flag && *(int *)node)
+    //               (**(int (__thiscall ***)(int, int))*(int *)node)(*(int *)node, 1);
+    //       }
+    //       *(int *)(this + 0x4) = 0; *(int *)(this + 0x8) = 0;
+    //       *(int *)(this + 0xC) = 0; *(int *)(this + 0x10) = 0;
+    //       return result;
+    //   }
+    // UNRESOLVED: The five interior offsets (0x18DC/0x18CC/0x18BC list containers, 0x18A4 ListCleanup target, 0x16F4 EmptyStub target, 0x168C MultiList target, and the four-slot run ending at this+5676) are not declared as packet fields; their contents are unevidenced beyond the calls.
+    // UNRESOLVED: ShortComputation_9620 and DestructorWithDataFree are called with a constant 1; the meaning of that argument per node is not in this packet.
+    // UNRESOLVED: The child-list node layout (flag byte at +0xC, vtable/data at +0) is inferred from the dereference pattern; no node struct is evidenced.
+    // UNRESOLVED: The ABI lead name Full_Object_Destructor_with_Multi_List_Cleanup is a legacy label; the concrete owning class is unevidenced.
+}

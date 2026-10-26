@@ -1,0 +1,1426 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_007_generic_runtime_objects_18",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Heterogeneous set of 2D raster/color-conversion pipeline helpers, texture block quantization, track-surface heightmap counting, a weighted-centroid grid routine, virtual-dispatch wrappers, and a cluster of standalone SSE float/spline math helpers. The strongest cross-function groupings are: (1) the raster context cluster (0x0051D1DB, 0x0051DC01, 0x0051E5D7, 0x0051E65F, 0x0051E6EC) that shares the row-width field this+0x5C, the channel-count field this+0x64, and the context pointer this+0x1A4 whose +0x18 member is read as a data/table array; (2) the four-lookup-table row pixel converters (0x0051C6E1 RGBA, 0x0051CE2A and 0x0051CF80 RGB twins) that share row width this+0x5C, additive base this+0x11C and four table pointers in the 0x1A8..0x1B8 range reached through distinct sub-object pointers (this+0x1A0 vs this+0x19C); (3) the SSE math library (0x0051F160, 0x0051F200, 0x0051F2C0, 0x0051F350, 0x0051F400, 0x0051F4C0, 0x0051F560) sharing the read-only coefficient globals 0x005D8A30..0x005D8AC0. The 2D copy pair (0x0051C653, 0x0051C6BE) shares this+0x5C as a byte length and is kept as its own class. No packet-supplied DERIVED owner exists in this packet; every owner was proposed from shared field/call evidence.",
+    "trust": "GUESS",
+    "evidence_refs": [
+      "function:0x0051C237",
+      "function:0x0051C653",
+      "function:0x0051C6BE",
+      "function:0x0051C6E1",
+      "function:0x0051C813",
+      "function:0x0051CDF9",
+      "function:0x0051CE2A",
+      "function:0x0051CF80",
+      "function:0x0051D1DB",
+      "function:0x0051D6D2",
+      "function:0x0051DA17",
+      "function:0x0051DB31",
+      "function:0x0051DC01",
+      "function:0x0051E5D7",
+      "function:0x0051E65F",
+      "function:0x0051E6EC",
+      "function:0x0051EB5A",
+      "function:0x0051F160",
+      "function:0x0051F200",
+      "function:0x0051F2C0",
+      "function:0x0051F350",
+      "function:0x0051F400",
+      "function:0x0051F4C0",
+      "function:0x0051F560",
+      "source:raw",
+      "abi:lead"
+    ]
+  },
+  "summary": "Reconstruction of generic runtime objects from 24 validated function IR records. The packet labels every owner UNKNOWN, so all class groupings here are DERIVED proposals (shared field clusters plus call edges) or GUESS. SurfaceRenderContext groups five functions around this+0x5C/this+0x64/this+0x1A4/this+0x1BC (0x0051D1DB heightmap counting, 0x0051DC01 palette-grid packed copy, 0x0051E5D7 table-weighted mix, 0x0051E65F three-channel lookup sum, 0x0051E6EC convolution-style checksum accumulation). ColorLutRgbRowConverter groups the two structurally twin RGB converters 0x0051CE2A and 0x0051CF80; the RGBA converter 0x0051C6E1 is kept separate because it reaches its four tables through the sub-object pointer at this+0x1A0 (tables this+0x1A8..0x1B4) while the RGB twins use this+0x19C (tables this+0x1AC..0x1B8), an overlapping but not provably identical pointer path (rule 8). The VQ palette (0x0051DA17), block quantizer (0x0051DB31) and packed-palette copy (0x0051DC01) form a quantization chain via the call edges 0x0051DB31 -> 0x0051D897/0x0051DA17 and 0x0051DC01/0x0051DCAA -> 0x0051DB31; the palette component arrays behind this+0x74 are the only packet-grounded palette fields. The seven SSE math helpers are grouped as one SseMathLibrary sharing the constant globals 0x005D8A30..0x005D8AC0. 0x0051CDF9 and 0x0051EB5A are virtual-dispatch wrappers with unknown callee identity. Contradiction recorded: this+0x19C is read as a polymorphic dispatch sub-object (vtable slot +0xC) by 0x0051CDF9 and as a LUT sub-object (pointers at +0x10..+0x1C) by the RGB twins, and *(*(this+0x1A4)+0x18) is read as a heightmap data base, a palette grid row-pointer base, and an array of table base pointers by different members.",
+  "function_roles": [
+    {
+      "address": "0x0051C237",
+      "role": "Horizontal 2x interpolating pixel filter on a surface: iterates row-count rows (this+0x110), reads the input row pointer from the a3 row-pointer array and the output row pointer from (*a4)[i], and writes 2*count output bytes per row using the weighted kernel ((3a+b+2)>>2, (a+3b+1)>>2). The interior run is skipped when the channel count at the a2 argument object +40 differs from 2, so only boundary pixels are emitted for the 2-channel case. Returns a1. The a2+40 channel count is read on an argument object, not on this, and its object type is unknown.",
+      "owner": "HorizontalPixelFilterSurface",
+      "evidence_refs": [
+        "function:0x0051C237",
+        "field:this:0x00000110",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051C653",
+      "role": "2D texture copy with column-wise output placement: reads the column count from this+0x20 and the per-segment byte length from this+0x5C, then for each of a5 output rows copies each column's byte segment (source pointer resolved through the DWORD index table a2) down the output column with a vertical stride equal to the column count. Guarded by a5 >= 1. The index-table content and the meaning of a3 are not established.",
+      "owner": "TwoDimensionalCopySurface",
+      "evidence_refs": [
+        "function:0x0051C653",
+        "field:this:0x00000020",
+        "field:this:0x0000005C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051C6BE",
+      "role": "Thin delegation wrapper for a 2D rectangular array copy: loads the per-row copy size from this+0x5C and calls F_2DArrayBlockCopy(*a2, a3, a4, 0, a5, *(this+0x5C)), returning the callee's result. No local computation beyond argument marshalling; argument semantics other than the marshalling order are not specified by the packet.",
+      "owner": "TwoDimensionalCopySurface",
+      "evidence_refs": [
+        "function:0x0051C6BE",
+        "callee:0x0051593F",
+        "field:this:0x0000005C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051C6E1",
+      "role": "Per-row pixel blit with four color lookup tables: reads the LUT sub-object pointer at this+0x1A0 (table pointers at this+0x1A8..0x1B4), the row width this+0x5C and the additive base this+0x11C, then for each of a5 rows and each of row_width pixels reads three channel bytes plus an alpha byte, transforms each channel as base + 255 - LUT[channel] - luma (middle channel averaging two tables with a >> 16 blend) and writes four output bytes per pixel. Rows skipped when a5 <= 0; per-row pixel work skipped when the row width is zero.",
+      "owner": "ColorLutRgbaRowConverter",
+      "evidence_refs": [
+        "function:0x0051C6E1",
+        "field:this:0x000001A0",
+        "field:this:0x000001A8",
+        "field:this:0x000001AC",
+        "field:this:0x000001B0",
+        "field:this:0x000001B4",
+        "field:this:0x0000005C",
+        "field:this:0x0000011C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051C813",
+      "role": "MMX/SIMD blend loop processing a1>>2 groups of four packed 32-bit pixels from three source buffers (a2, a3, a4): byte-unpacks, bias-subtracts with qword_5D89E8, multiply-accumulates against the coefficient QWORDs qword_5D89F0/0x5D89F8/0x5D8A00, shifts right by 8, packs/masks (qword_8B00C0 zero filler, qword_5D8A08 mask), writes three DWORD results per group at a 12-byte stride, advances all three source pointers by one DWORD and returns the advanced a2 pointer. The exact per-channel transform semantics are not determinable from the packet.",
+      "owner": "PackedPixelBlendOperation",
+      "evidence_refs": [
+        "function:0x0051C813",
+        "global:0x005D89E8",
+        "global:0x005D89F0",
+        "global:0x005D89F8",
+        "global:0x005D8A00",
+        "global:0x005D8A08",
+        "global:0x008B00C0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051CDF9",
+      "role": "Virtual dispatch wrapper processing one element: reads the sub-object pointer at this+0x19C, calls the vtable method at its +0xC (vtable slot 3) with (a1, a2, *a3, a5 + 4 * *a6), then increments *a6 (element index) and *a3 (input pointer) by one and returns the dispatch result. The indirect callee identity and the per-element array role of a5 + 4 * *a6 are unresolved.",
+      "owner": "VirtualElementDispatchObject",
+      "evidence_refs": [
+        "function:0x0051CDF9",
+        "field:this:0x0000019C",
+        "field:*(this+0x19C):0x0000000C",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051CE2A",
+      "role": "Palette-indexed texture color conversion writing one RGB row: reads the LUT sub-object pointer at this+0x19C (table pointers at this+0x1AC..0x1B8), the additive base this+0x11C and the row width this+0x5C, resolves three source byte streams from the a2 array at byte offset 4*a3, and writes 3 output bytes per pixel with two pixels per loop iteration (a1[23] >> 1 iterations) plus one trailing pixel when the row width is odd. No alpha byte is written.",
+      "owner": "ColorLutRgbRowConverter",
+      "evidence_refs": [
+        "function:0x0051CE2A",
+        "field:this:0x0000019C",
+        "field:this:0x0000011C",
+        "field:this:0x0000005C",
+        "field:this:0x000001AC",
+        "field:this:0x000001B0",
+        "field:this:0x000001B4",
+        "field:this:0x000001B8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051CF80",
+      "role": "Dual-output color conversion structurally twin to TexturePaletteColorLookup (same this+0x19C LUT sub-object, same table offsets +0x1AC..0x1B8, same width/base fields): reads the a0 pointer pair at byte offset 8*a3 and the a1/a2 streams at 4*a3 from the a2 array, and writes 3 output bytes per pixel into each of two destination streams (*a4 and *(a4+4)) using the same table-lookup arithmetic with a >> 16 middle-channel blend. Returns the low byte of the base register.",
+      "owner": "ColorLutRgbRowConverter",
+      "evidence_refs": [
+        "function:0x0051CF80",
+        "field:this:0x0000019C",
+        "field:this:0x0000011C",
+        "field:this:0x0000005C",
+        "field:this:0x000001AC",
+        "field:this:0x000001B0",
+        "field:this:0x000001B4",
+        "field:this:0x000001B8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051D1DB",
+      "role": "Increments uint16 counters in a track-surface heightmap grid: for each of a4 row entries decodes a 3-byte-per-cell stream (x = byte[0]>>3, y = byte[1]>>2, z = byte[2]>>3), increments the counter at grid cell (x, z + 32*y) inside the data array reached as *(*(this+0x1A4)+0x18), clamping a wrap to 65535. The inner loop bound is read once from this+0x5C; parameter a3 is unused.",
+      "owner": "SurfaceRenderContext",
+      "evidence_refs": [
+        "function:0x0051D1DB",
+        "field:this:0x000001A4",
+        "field:*(this+0x1A4):0x00000018",
+        "field:this:0x0000005C",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051D6D2",
+      "role": "Computes the weighted centroid of non-zero 16-bit pixel values inside the 3D grid region bounded by this[0..5] (minX, maxX, minY, maxY, minZ, maxZ): nested X/Y/Z loops with empty-axis guards accumulate the total weight and the weighted X/Y/Z coordinate sums, then three rounded byte centroids are written to the output a3 at offsets read from the descriptor at a2+116. Returns the Z centroid. The descriptor chains at a2+420 and a2+116 are source-derived, not declared packet fields.",
+      "owner": "WeightedCentroidGridRegion",
+      "evidence_refs": [
+        "function:0x0051D6D2",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051DA17",
+      "role": "For each palette-index byte from the source array builds a weighted squared color distance against target components a2/a3/a4 using the palette's three component arrays behind this+0x74 (R/G/B at +0x0/+0x4/+0x8), then fills a 128-entry distance buffer (initialized to 0x7FFFFFFF) and a parallel 128-byte index buffer via a 4x8x4 nested block scan, storing the palette index wherever the distance beats the current best. Guarded on a5 > 0; weights 2 (R) and 3 (G) are grounded literals. Called by BitstreamTextureBlockCopy to build per-block best-match index maps.",
+      "owner": "VectorQuantizationPalette",
+      "evidence_refs": [
+        "function:0x0051DA17",
+        "caller:0x0051DB31",
+        "field:this:0x00000074",
+        "field:*(this+0x74):0x00000000",
+        "field:*(this+0x74):0x00000004",
+        "field:*(this+0x74):0x00000008",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051DB31",
+      "role": "Bitstream texture block quantize-and-copy helper (__usercall): given a texture object a2 and source block coordinates, loads the destination word-table base reached as *(*(a2+420)+24), quantizes the source region via PaletteVectorQuantizationNearestNeighbor (0x0051D897), derives the per-block index stream via sub_51DA17 (0x0051DA17), and writes the encoded block as 4x8 groups of 4 words (*index + 1), stepping the write cursor 64 bytes per row. Returns the final cursor position. Invoked by 0x0051DC01 and 0x0051DCAA to store a palette-quantized texture block.",
+      "owner": "TextureBlockQuantizer",
+      "evidence_refs": [
+        "function:0x0051DB31",
+        "callee:0x0051D897",
+        "callee:0x0051DA17",
+        "caller:0x0051DC01",
+        "caller:0x0051DCAA",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051DC01",
+      "role": "Copies a grid of packed pixels to a byte output using an RGB 5-6-5 palette lookup: for each of a4 source pixels decomposes three packed bytes into a grid key (v7 = byte0>>3, v9 = byte1>>2, v10 = byte2>>3), resolves the palette cell word at *(*(this+0x1A4)+0x18) + 4*v7 + 2*(v10 + 32*v9), populates an empty (zero) cell via BitstreamTextureBlockCopy (0x0051DB31), and writes (palette index minus 1) to the output. The width from this+0x5C gates the inner column loop; returns a1.",
+      "owner": "SurfaceRenderContext",
+      "evidence_refs": [
+        "function:0x0051DC01",
+        "callee:0x0051DB31",
+        "field:this:0x000001A4",
+        "field:*(this+0x1A4):0x00000018",
+        "field:this:0x0000005C",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051E5D7",
+      "role": "Per-pixel channel mixing via multiple byte lookup tables: for each of a4 pixels reads a source byte row and a destination pixel pointer, then for each output byte (width this+0x5C) sums over each channel (count this+0x64) the table byte at table[channel][source_byte], where the table array base is loaded as *(*(this+0x1A4)+0x18) (context field this+0x1BC), and writes the summed byte. Returns the channel count.",
+      "owner": "SurfaceRenderContext",
+      "evidence_refs": [
+        "function:0x0051E5D7",
+        "field:this:0x0000005C",
+        "field:this:0x00000064",
+        "field:this:0x000001A4",
+        "field:this:0x000001BC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051E65F",
+      "role": "Blends 3-channel pixel data by summing three lookup-table reads into a single output byte per source pixel: reads the context pointer this+0x1A4, loads three table base pointers from its +0x18 member (indices 0/4/8), and for each pixel descriptor in the a3 array (a4 total) accumulates LUT0[src0] + LUT1[src1] + LUT2[src2] over this+0x5C bytes into the destination. The ABI label ChecksumCompute_Type0_3Stream (abi:lead) is inconsistent with the three-table lookup-sum body and is recorded unresolved.",
+      "owner": "SurfaceRenderContext",
+      "evidence_refs": [
+        "function:0x0051E65F",
+        "field:this:0x000001A4",
+        "field:*(this+0x1A4):0x00000018",
+        "field:*(*(this+0x1A4)+0x18):0x00000000",
+        "field:*(*(this+0x1A4)+0x18):0x00000004",
+        "field:*(*(this+0x1A4)+0x18):0x00000008",
+        "field:this:0x0000005C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051E6EC",
+      "role": "Convolution-style checksum/sum accumulator over a set of pixel buffers: for each of a4 output buffers clears the buffer via MemoryZeroFill (0x005159A8) to the row size this+0x5C, then for each of this+0x64 channels accumulates bytes from a source stream (stepped by the channel count) through a lookup table whose base comes from the context object at this+0x1A4 (v4[6] = this+0x1BC), advancing a rolling 4-bit phase at this+0x1D4 (phase-step entries at this+0x1D8) per byte; the phase value is returned.",
+      "owner": "SurfaceRenderContext",
+      "evidence_refs": [
+        "function:0x0051E6EC",
+        "callee:0x005159A8",
+        "field:this:0x000001A4",
+        "field:this:0x0000005C",
+        "field:this:0x00000064",
+        "field:this:0x000001BC",
+        "field:this:0x000001D4",
+        "field:this:0x000001D8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051EB5A",
+      "role": "Unconditional wrapper: writes the constant 45 into obj+0x14 (obj is the pointer stored at this+0x0), then calls the first entry of the function-pointer table stored at this+0x0 (obj+0x0) on this and returns its integer result. The meaning of the constant and the identity of the called table entry are unknown.",
+      "owner": "VirtualFieldWriteDispatcher",
+      "evidence_refs": [
+        "function:0x0051EB5A",
+        "field:this:0x00000000",
+        "field:obj:0x00000014",
+        "field:obj:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F160",
+      "role": "Unconditional 4-component float vector normalization via Newton-Raphson refined reciprocal square root: computes the squared length over all four components, computes 1/sqrt(length), applies the refinement v7 = (dword_5D8A40 - length * v6 * v6) * dword_5D8A30 * v6, scales every input component into the output a1 (this+0x0..0xC) and returns a1. No threshold guard.",
+      "owner": "SseMathLibrary",
+      "evidence_refs": [
+        "function:0x0051F160",
+        "global:0x005D8A30",
+        "global:0x005D8A40",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F200",
+      "role": "Hermite cubic interpolation between four input float pairs (a4-a7) using SSE intrinsics: computes t^2 and t^3 from the parameter t (a8), evaluates a cubic basis polynomial from the constant vectors xmmword_5D8A60/0x5D8A80/0x5D8A70/0x5D8A50, blends the four inputs with the resulting basis values and stores the interleaved float-pair result at a3 (returned). Straight-line, unconditional, no callees; the exact coefficient values are not in the packet.",
+      "owner": "SseMathLibrary",
+      "evidence_refs": [
+        "function:0x0051F200",
+        "global:0x005D8A50",
+        "global:0x005D8A60",
+        "global:0x005D8A70",
+        "global:0x005D8A80",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F2C0",
+      "role": "Pure SSE cubic-spline (Hermite-basis) interpolation: evaluates four cubic weight polynomials at the float parameter a8 from the coefficient vectors xmmword_5D8A80/0x5D8A60/0x5D8A70/0x5D8A50, broadcasts the weights, blends the start control pair a5 and the end control pair a7, and stores the two single-precision results to a3 (returned). The int parameters a4/a6 are unused in the body.",
+      "owner": "SseMathLibrary",
+      "evidence_refs": [
+        "function:0x0051F2C0",
+        "global:0x005D8A50",
+        "global:0x005D8A60",
+        "global:0x005D8A70",
+        "global:0x005D8A80",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F350",
+      "role": "Evaluates the four cubic Hermite basis functions at parameter t=a8 using SSE intrinsics and blends four input vectors (a4-a7) with the resulting basis weights; writes the weighted sum to a3 (returned). Coefficients xmmword_5D8A60/0x5D8A80/0x5D8A70/0x5D8A50; the lane-to-basis-function mapping is not established without the constant values.",
+      "owner": "SseMathLibrary",
+      "evidence_refs": [
+        "function:0x0051F350",
+        "global:0x005D8A50",
+        "global:0x005D8A60",
+        "global:0x005D8A70",
+        "global:0x005D8A80",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F400",
+      "role": "SSE-accelerated cubic spline interpolation: computes t^2 and t^3, evaluates the cubic basis polynomial vector from xmmword_5D8AC0 (t term), xmmword_5D8AB0 (t^2 term), xmmword_5D8A90 (t^3 term) and the bias dword_5D8AA0, blends the four 8-byte control-point pairs a4-a7 and stores the blended pair plus one trailing dword at a3, returning a3. The ABI lead Cubic_Spline_Catmull_Rom_Basis_Evaluation (LEGACY trust) is consistent with, but not evidence for, a Catmull-Rom reading.",
+      "owner": "SseMathLibrary",
+      "evidence_refs": [
+        "function:0x0051F400",
+        "global:0x005D8A90",
+        "global:0x005D8AA0",
+        "global:0x005D8AB0",
+        "global:0x005D8AC0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F4C0",
+      "role": "Pure SIMD cubic Bernstein/Bezier polynomial evaluation: combines t, t^2, t^3 against the read-only constants xmmword_5D8AC0, dword_5D8AA0, xmmword_5D8AB0, xmmword_5D8A90 to form a per-lane basis weight vector, then outputs a weighted blend of four control vectors a4..a7 into *a3 (returned). No guards, no callees; the exact Bernstein basis cannot be derived without the constant values.",
+      "owner": "SseMathLibrary",
+      "evidence_refs": [
+        "function:0x0051F4C0",
+        "global:0x005D8A90",
+        "global:0x005D8AA0",
+        "global:0x005D8AB0",
+        "global:0x005D8AC0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0051F560",
+      "role": "Straight-line SSE evaluation of the four cubic Hermite basis functions at parameter t followed by a weighted blend of two input values (a6, a8) against the tangent basis lanes H10/H11, storing two floats through a4 (returned). Structurally a twin of CubicSpline but only the H10/H11 combination is emitted (the H00/H01 contributions are cancelled by loadh low-half zeroing). Scalar parameters a5/a7 are unused.",
+      "owner": "SseMathLibrary",
+      "evidence_refs": [
+        "function:0x0051F560",
+        "global:0x005D8A90",
+        "global:0x005D8AA0",
+        "global:0x005D8AB0",
+        "global:0x005D8AC0",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "HorizontalPixelFilterSurface",
+      "responsibility": "Surface object exposing the row count at this+0x110 used to bound the per-row horizontal 2x interpolation filter (0x0051C237). The channel-count guard at a2+40 is read on a different argument object and is not part of this class.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051C237"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000110",
+          "name": "row_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000110"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051C237",
+        "field:this:0x00000110",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TwoDimensionalCopySurface",
+      "responsibility": "2D array copy surface holding the column count at this+0x20 and the per-row/per-segment byte length at this+0x5C: 0x0051C653 performs the column-wise blit and 0x0051C6BE delegates to the F_2DArrayBlockCopy service (0x0051593F) using this+0x5C as the copy size. Grouping is proposed from the shared this+0x5C byte-length field.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051C653",
+        "0x0051C6BE"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "column_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "segment_byte_length",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051C653",
+        "function:0x0051C6BE",
+        "callee:0x0051593F",
+        "field:this:0x00000020",
+        "field:this:0x0000005C"
+      ]
+    },
+    {
+      "name": "ColorLutRgbaRowConverter",
+      "responsibility": "Per-row RGBA pixel converter using four byte lookup tables reached through the LUT sub-object pointer at this+0x1A0 (table pointers at this+0x1A8..0x1B4), with row width this+0x5C and additive base this+0x11C; 0x0051C6E1 writes four output bytes per pixel (three transformed color channels plus a copied source byte). The base + 255 - LUT arithmetic resembles an inverse color-space conversion but is not runtime-confirmed.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051C6E1"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "row_width",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000011C",
+          "name": "additive_base",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000011C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001A0",
+          "name": "lut_subobject_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001A8",
+          "name": "lut_table_0",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001A8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001AC",
+          "name": "lut_table_1",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B0",
+          "name": "lut_table_2",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B4",
+          "name": "lut_table_3",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001B4"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051C6E1",
+        "field:this:0x000001A0",
+        "field:this:0x000001A8",
+        "field:this:0x000001AC",
+        "field:this:0x000001B0",
+        "field:this:0x000001B4",
+        "field:this:0x0000005C",
+        "field:this:0x0000011C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PackedPixelBlendOperation",
+      "responsibility": "SIMD/MMX pixel blend primitive (0x0051C813) over three packed source buffers using the read-only QWORD constants qword_5D89E8/0x5D89F0/0x5D89F8/0x5D8A00/0x5D8A08 and the zero filler qword_8B00C0. No owned fields on this; the exact per-channel transform (color conversion vs generic 3x3 matrix) is unknown, and the only known caller sub_51C94F is outside the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051C813"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0051C813",
+        "global:0x005D89E8",
+        "global:0x005D89F0",
+        "global:0x005D89F8",
+        "global:0x005D8A00",
+        "global:0x005D8A08",
+        "global:0x008B00C0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VirtualElementDispatchObject",
+      "responsibility": "Object dispatching one element through a vtable method on the sub-object pointed to by this+0x19C: 0x0051CDF9 reads vtable slot 3 (+0xC) of the sub-object and calls it with a per-element pointer argument, then advances an element index and an input pointer. The callee identity and the element-array role of a5 + 4 * *a6 are unresolved.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051CDF9"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000019C",
+          "name": "dispatch_subobject_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000019C"
+          ]
+        },
+        {
+          "base": "*(this+0x19C)",
+          "offset": "0x0000000C",
+          "name": "vtable_slot3_method",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x19C):0x0000000C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051CDF9",
+        "field:this:0x0000019C",
+        "field:*(this+0x19C):0x0000000C",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ColorLutRgbRowConverter",
+      "responsibility": "Per-row RGB pixel converter pair (structural twins 0x0051CE2A and 0x0051CF80) using four byte lookup tables reached through the LUT sub-object pointer at this+0x19C (table pointers at this+0x1AC..0x1B8), with row width this+0x5C and additive base this+0x11C; both convert two pixels per iteration with a trailing odd pixel and write 3 output bytes per pixel (RGB only, no alpha). 0x0051CF80 additionally writes two independent destination rows.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0051CE2A",
+        "0x0051CF80"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "row_width",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000011C",
+          "name": "additive_base",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000011C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000019C",
+          "name": "lut_subobject_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000019C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001AC",
+          "name": "lut_table_0",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B0",
+          "name": "lut_table_1",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B4",
+          "name": "lut_table_2",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001B8",
+          "name": "lut_table_3",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001B8"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051CE2A",
+        "function:0x0051CF80",
+        "field:this:0x0000019C",
+        "field:this:0x0000011C",
+        "field:this:0x0000005C",
+        "field:this:0x000001AC",
+        "field:this:0x000001B0",
+        "field:this:0x000001B4",
+        "field:this:0x000001B8",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SurfaceRenderContext",
+      "responsibility": "Raster processing context shared by five functions (0x0051D1DB heightmap counting, 0x0051DC01 palette-grid packed copy, 0x0051E5D7 table-weighted mix, 0x0051E65F three-channel lookup sum, 0x0051E6EC convolution-style checksum accumulation): row width this+0x5C and channel count this+0x64 bound the inner loops, and the context pointer this+0x1A4 dereferences at +0x18 to a data array that is read as a heightmap grid base (0x0051D1DB), a palette grid row-pointer base (0x0051DC01), or an array of byte lookup-table base pointers (0x0051E5D7/0x0051E65F/0x0051E6EC; absolute offset this+0x1BC). 0x0051E6EC additionally persists a rolling 4-bit phase at this+0x1D4 (phase-step entries at this+0x1D8). The different interpretations of the +0x18 member are not proven to be the same allocation.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0051D1DB",
+        "0x0051DC01",
+        "0x0051E5D7",
+        "0x0051E65F",
+        "0x0051E6EC"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "row_width",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "channel_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000064"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001A4",
+          "name": "context_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001A4"
+          ]
+        },
+        {
+          "base": "*(this+0x1A4)",
+          "offset": "0x00000018",
+          "name": "context_data_array",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1A4):0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001BC",
+          "name": "table_array_base",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001BC"
+          ]
+        },
+        {
+          "base": "*(*(this+0x1A4)+0x18)",
+          "offset": "0x00000000",
+          "name": "table_ptr_0",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x1A4)+0x18):0x00000000"
+          ]
+        },
+        {
+          "base": "*(*(this+0x1A4)+0x18)",
+          "offset": "0x00000004",
+          "name": "table_ptr_1",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x1A4)+0x18):0x00000004"
+          ]
+        },
+        {
+          "base": "*(*(this+0x1A4)+0x18)",
+          "offset": "0x00000008",
+          "name": "table_ptr_2",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x1A4)+0x18):0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001D4",
+          "name": "phase_counter",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001D4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001D8",
+          "name": "phase_step_entries",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001D8"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051D1DB",
+        "function:0x0051DC01",
+        "function:0x0051E5D7",
+        "function:0x0051E65F",
+        "function:0x0051E6EC",
+        "callee:0x005159A8",
+        "callee:0x0051DB31",
+        "field:this:0x0000005C",
+        "field:this:0x00000064",
+        "field:this:0x000001A4",
+        "field:this:0x000001BC",
+        "field:this:0x000001D4",
+        "field:this:0x000001D8",
+        "field:*(this+0x1A4):0x00000018",
+        "field:*(*(this+0x1A4)+0x18):0x00000000",
+        "field:*(*(this+0x1A4)+0x18):0x00000004",
+        "field:*(*(this+0x1A4)+0x18):0x00000008"
+      ]
+    },
+    {
+      "name": "WeightedCentroidGridRegion",
+      "responsibility": "Object exposing a 3D bounding region as six WORD bounds this[0..5] (minX, maxX, minY, maxY, minZ, maxZ); 0x0051D6D2 computes the weighted centroid of non-zero 16-bit pixels inside the region and writes three rounded byte centroids to an output buffer at descriptor offsets read from a2+116. The physical grid dimensions, the 64-byte row stride and the coordinate proxies (8*x+4, 4*y+2, 8*z+4) are taken from the raw source without independent confirmation.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051D6D2"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "min_x",
+          "type_guess": "word",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "max_x",
+          "type_guess": "word",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "min_y",
+          "type_guess": "word",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "max_y",
+          "type_guess": "word",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "min_z",
+          "type_guess": "word",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "max_z",
+          "type_guess": "word",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051D6D2",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VectorQuantizationPalette",
+      "responsibility": "Palette object backing nearest-color distance evaluation: this+0x74 points to a palette structure whose three byte component arrays (R/G/B) sit at +0x0/+0x4/+0x8; 0x0051DA17 builds weighted squared-distance maps over a 4x8x4 block for the caller 0x0051DB31. Weights 2 (R) and 3 (G) are grounded literals. The 128-entry block scan and the 128/288/512 position strides encode a tiled sub-position layout that the raw source alone does not reveal.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051DA17"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000074",
+          "name": "palette_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000074"
+          ]
+        },
+        {
+          "base": "*(this+0x74)",
+          "offset": "0x00000000",
+          "name": "pal_red_array",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x74):0x00000000"
+          ]
+        },
+        {
+          "base": "*(this+0x74)",
+          "offset": "0x00000004",
+          "name": "pal_green_array",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x74):0x00000004"
+          ]
+        },
+        {
+          "base": "*(this+0x74)",
+          "offset": "0x00000008",
+          "name": "pal_blue_array",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x74):0x00000008"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051DA17",
+        "caller:0x0051DB31",
+        "field:this:0x00000074",
+        "field:*(this+0x74):0x00000000",
+        "field:*(this+0x74):0x00000004",
+        "field:*(this+0x74):0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TextureBlockQuantizer",
+      "responsibility": "Texture object helper that quantizes a source block to nearest palette colors and writes the encoded block into a destination word table: 0x0051DB31 (__usercall) follows the a2 texture object's +420 pointer to a structure whose +24 field holds the table, calls PaletteVectorQuantizationNearestNeighbor (0x0051D897) and sub_51DA17 (0x0051DA17), and writes 4x8 groups of 4 words (*index + 1) at a 64-byte row step. Called by 0x0051DC01 and 0x0051DCAA. The a2+420/+24 path has no packet field evidence refs (source-derived only).",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051DB31"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0051DB31",
+        "callee:0x0051D897",
+        "callee:0x0051DA17",
+        "caller:0x0051DC01",
+        "caller:0x0051DCAA",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VirtualFieldWriteDispatcher",
+      "responsibility": "Wrapper object that writes a constant into a sub-object field and dispatches through a function-pointer table: 0x0051EB5A stores 45 at obj+0x14 (obj = *this), then calls the first table entry at obj+0x0 with this and returns its result. The constant's meaning (flag/parameter for the callee) and the identity of the called table entry (constructor, notification or update) are unknown.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051EB5A"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "obj_ptr",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "function_table",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000014",
+          "name": "constant_field_45",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:obj:0x00000014"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051EB5A",
+        "field:this:0x00000000",
+        "field:obj:0x00000000",
+        "field:obj:0x00000014",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SseMathLibrary",
+      "responsibility": "Standalone SSE/float math helper set (0x0051F160..0x0051F560): 4-component Newton-Raphson normalization (0x0051F160, constants dword_5D8A30/dword_5D8A40) and six straight-line cubic-spline/basis evaluators (0x0051F200, 0x0051F2C0, 0x0051F350, 0x0051F400, 0x0051F4C0, 0x0051F560) sharing the read-only SSE coefficient globals xmmword_5D8A50..0x5D8AC0. All are unconditional, guard-less, callee-less and return their output pointer; the exact numeric basis (Hermite vs Catmull-Rom vs Bezier) cannot be derived without the constant values. The 0x0051F160 output vector overlaps offsets this+0x0..0xC that WeightedCentroidGridRegion reads as region bounds; the overlap is a decompiler-`this` artifact and is not evidence of a shared type (rule 8).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0051F160",
+        "0x0051F200",
+        "0x0051F2C0",
+        "0x0051F350",
+        "0x0051F400",
+        "0x0051F4C0",
+        "0x0051F560"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "out_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "out_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "out_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "out_w",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0051F160",
+        "function:0x0051F200",
+        "function:0x0051F2C0",
+        "function:0x0051F350",
+        "function:0x0051F400",
+        "function:0x0051F4C0",
+        "function:0x0051F560",
+        "global:0x005D8A30",
+        "global:0x005D8A40",
+        "global:0x005D8A50",
+        "global:0x005D8A60",
+        "global:0x005D8A70",
+        "global:0x005D8A80",
+        "global:0x005D8A90",
+        "global:0x005D8AA0",
+        "global:0x005D8AB0",
+        "global:0x005D8AC0"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "ChecksumPhaseRollover",
+      "owner": "SurfaceRenderContext",
+      "states": [
+        "phase_0 .. phase_15 (4-bit rolling phase counter at this+0x1D4)"
+      ],
+      "transitions": "0x0051E6EC loads the phase from this+0x1D4 before each output buffer, steps through the phase entries at this+0x1D8 per channel/byte, and after each output buffer persists (phase + 1) & 0xF back to this+0x1D4. The phase value is returned as the function result. The reset/initialization mechanism is outside this packet.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051E6EC",
+        "field:this:0x000001D4",
+        "field:this:0x000001D8",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PaletteGridCellPopulation",
+      "owner": "SurfaceRenderContext",
+      "states": [
+        "empty (palette grid cell word == 0)",
+        "populated (nearest-color block written via BitstreamTextureBlockCopy)"
+      ],
+      "transitions": "0x0051DC01 resolves the palette cell word at *(*(this+0x1A4)+0x18) + 4*v7 + 2*(v10 + 32*v9) for each packed pixel; a zero word triggers BitstreamTextureBlockCopy (0x0051DB31) to populate the cell before the output byte (palette index minus 1) is written. The eviction/reset path is outside this packet.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051DC01",
+        "callee:0x0051DB31",
+        "field:*(this+0x1A4):0x00000018",
+        "field:this:0x0000005C",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "TwoDimensionalRasterServices",
+      "purpose": "Internal raster service callees: F_2DArrayBlockCopy (0x0051593F) consumed by the 2D copy delegation 0x0051C6BE (with this+0x5C as the per-row copy size), and MemoryZeroFill (0x005159A8) consumed by the checksum/convolution accumulation 0x0051E6EC to clear each output buffer to the row size this+0x5C.",
+      "functions": [
+        "0x0051C6BE",
+        "0x0051E6EC"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051593F",
+        "callee:0x005159A8",
+        "function:0x0051C6BE",
+        "function:0x0051E6EC"
+      ]
+    },
+    {
+      "name": "PaletteVectorQuantizationApi",
+      "purpose": "Nearest-palette-color quantization services: PaletteVectorQuantizationNearestNeighbor (0x0051D897) and VQBlockErrorBufferFill (0x0051DA17) are consumed by BitstreamTextureBlockCopy (0x0051DB31), which is in turn consumed by 0x0051DC01 and 0x0051DCAA to store palette-quantized texture blocks into the word table.",
+      "functions": [
+        "0x0051DB31",
+        "0x0051DC01"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051D897",
+        "callee:0x0051DA17",
+        "callee:0x0051DB31",
+        "caller:0x0051DC01",
+        "caller:0x0051DCAA"
+      ]
+    },
+    {
+      "name": "SseSplineConstantGlobals",
+      "purpose": "Read-only SSE/float coefficient globals consumed by the math helpers: dword_5D8A30/dword_5D8A40 (Newton-Raphson refinement coefficients for 0x0051F160) and xmmword_5D8A50..0x005D8AC0 (cubic spline/basis constant vectors for 0x0051F200, 0x0051F2C0, 0x0051F350, 0x0051F400, 0x0051F4C0, 0x0051F560). The numeric values are not present in the packet, so the exact basis semantics remain unresolved.",
+      "functions": [
+        "0x0051F160",
+        "0x0051F200",
+        "0x0051F2C0",
+        "0x0051F350",
+        "0x0051F400",
+        "0x0051F4C0",
+        "0x0051F560"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x005D8A30",
+        "global:0x005D8A40",
+        "global:0x005D8A50",
+        "global:0x005D8A60",
+        "global:0x005D8A70",
+        "global:0x005D8A80",
+        "global:0x005D8A90",
+        "global:0x005D8AA0",
+        "global:0x005D8AB0",
+        "global:0x005D8AC0"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x0051C6BE",
+      "to": "0x0051593F",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051593F"
+      ]
+    },
+    {
+      "from": "0x0051E6EC",
+      "to": "0x005159A8",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005159A8"
+      ]
+    },
+    {
+      "from": "0x0051DB31",
+      "to": "0x0051D897",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051D897"
+      ]
+    },
+    {
+      "from": "0x0051DB31",
+      "to": "0x0051DA17",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051DA17"
+      ]
+    },
+    {
+      "from": "0x0051DC01",
+      "to": "0x0051DB31",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0051DB31"
+      ]
+    },
+    {
+      "from": "0x0051DCAA",
+      "to": "0x0051DB31",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0051DCAA"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "RasterContextIndirectionContract",
+      "category": "memory_layout",
+      "description": "Any replacement of the raster context must resolve the data/table array through this+0x1A4 dereferenced at +0x18 (absolute field this+0x1BC): the member is read as a heightmap data base by 0x0051D1DB, as a palette grid row-pointer base by 0x0051DC01, and as an array of byte lookup-table base pointers (indices 0/4/8) by 0x0051E5D7/0x0051E65F/0x0051E6EC. The row width this+0x5C and channel count this+0x64 must gate the corresponding inner loops.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0051D1DB",
+        "function:0x0051DC01",
+        "function:0x0051E5D7",
+        "function:0x0051E65F",
+        "function:0x0051E6EC",
+        "field:this:0x000001A4",
+        "field:*(this+0x1A4):0x00000018",
+        "field:this:0x000001BC",
+        "field:*(*(this+0x1A4)+0x18):0x00000000",
+        "field:*(*(this+0x1A4)+0x18):0x00000004",
+        "field:*(*(this+0x1A4)+0x18):0x00000008",
+        "field:this:0x0000005C",
+        "field:this:0x00000064"
+      ]
+    },
+    {
+      "name": "ColorLutRowConversionContract",
+      "category": "graphics",
+      "description": "The row pixel converters must read the row width this+0x5C, the additive base this+0x11C and four byte lookup-table pointers, and write per-pixel output: the RGBA variant (0x0051C6E1, tables this+0x1A8..0x1B4) writes 4 bytes per pixel including a copied source byte; the RGB twins (0x0051CE2A, 0x0051CF80, tables this+0x1AC..0x1B8) write 3 bytes per pixel with two pixels per loop iteration and a trailing odd pixel. The two table-pointer paths are not proven to be the same allocation and must not be merged (rule 8).",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051C6E1",
+        "function:0x0051CE2A",
+        "function:0x0051CF80",
+        "field:this:0x0000005C",
+        "field:this:0x0000011C",
+        "field:this:0x000001A0",
+        "field:this:0x0000019C",
+        "field:this:0x000001A8",
+        "field:this:0x000001AC",
+        "field:this:0x000001B0",
+        "field:this:0x000001B4",
+        "field:this:0x000001B8"
+      ]
+    },
+    {
+      "name": "PaletteBlockQuantizationContract",
+      "category": "texture",
+      "description": "0x0051DB31 must quantize the source block via PaletteVectorQuantizationNearestNeighbor (0x0051D897) and sub_51DA17 (0x0051DA17), then write the encoded block as 4x8 groups of 4 words (*index + 1), stepping the word-table cursor 64 bytes per row; the palette component arrays used by 0x0051DA17 are read behind this+0x74 (R/G/B at +0x0/+0x4/+0x8). The destination word table is reached through the a2 texture object's +420 pointer's +24 field.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0051DB31",
+        "function:0x0051DA17",
+        "callee:0x0051D897",
+        "callee:0x0051DA17",
+        "caller:0x0051DC01",
+        "caller:0x0051DCAA",
+        "field:this:0x00000074",
+        "field:*(this+0x74):0x00000000",
+        "field:*(this+0x74):0x00000004",
+        "field:*(this+0x74):0x00000008"
+      ]
+    },
+    {
+      "name": "WeightedCentroidContract",
+      "category": "math",
+      "description": "0x0051D6D2 must iterate the 3D region bounded by this[0..5] (minX, maxX, minY, maxY, minZ, maxZ), skipping empty axes, accumulate the total weight and the weighted X/Y/Z coordinate sums of non-zero 16-bit pixels, normalize each with round-half-up division by the total weight, and write three rounded byte centroids to the output base a3 at the offsets read from the descriptor at a2+116; the Z centroid is also returned.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051D6D2",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SseMathHelperContract",
+      "category": "math",
+      "description": "The spline/basis helpers (0x0051F200, 0x0051F2C0, 0x0051F350, 0x0051F400, 0x0051F4C0, 0x0051F560) are pure straight-line evaluations of a cubic basis at the scalar parameter t with the read-only coefficient globals xmmword_5D8A50..0x005D8AC0, blending control inputs and returning the output pointer a3; 0x0051F160 normalizes a 4-component vector via a Newton-Raphson refined reciprocal square root using dword_5D8A30/dword_5D8A40 and writes the four scaled components to the output (this+0x0..0xC). No callees and no side effects beyond the output write.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0051F160",
+        "function:0x0051F200",
+        "function:0x0051F2C0",
+        "function:0x0051F350",
+        "function:0x0051F400",
+        "function:0x0051F4C0",
+        "function:0x0051F560",
+        "global:0x005D8A30",
+        "global:0x005D8A40",
+        "global:0x005D8A50",
+        "global:0x005D8A60",
+        "global:0x005D8A70",
+        "global:0x005D8A80",
+        "global:0x005D8A90",
+        "global:0x005D8AA0",
+        "global:0x005D8AB0",
+        "global:0x005D8AC0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C"
+      ]
+    }
+  ],
+  "unresolved": [
+    "0x0051C237 (PixelBlendFilterHorizontal): the channel count at a2+40 is read on an argument object, not on this, and has no packet field evidence; the filter kernel weights (3-1/1-3) and the 2-channel special case are DERIVED from the shift-divide arithmetic; the a3/a4 row-pointer array layout is DERIVED from the dereference pattern; the owning class exposing this+0x110 is unidentified.",
+    "0x0051C653 (F_2DBlitTextureCopy): the role of a3 (4*a3 initial source byte offset) and the content of the DWORD index table a2 are unknown; the transposed column-wise output placement is DERIVED from the address arithmetic; the returned pointer has no caller contract in the packet.",
+    "0x0051C6BE (F_2DCopyDelegation): the semantics of a2/a3/a4/a5 and the 0 literal parameter are not specified by the packet; the owner type has no vtable or constructor evidence.",
+    "0x0051C6E1 (PixelBlitWithColorLookupTable): the exact color-space meaning of the four lookup tables and the base + 255 - table arithmetic is not runtime-confirmed; the meaning of the copied alpha byte and the semantic role of a3 are unknown.",
+    "0x0051C813 (PackedPixelBlend): the per-channel transform and the byte layout of the six QWORD constants are unknown; the only known caller sub_51C94F is outside the packet.",
+    "0x0051CDF9 (VirtualDispatchWrapper_cdf9): vtable slot 3 callee identity is indirect and not statically resolvable; the element-array role of a5 + 4 * *a6 is DERIVED from the increment pattern.",
+    "0x0051CE2A (TexturePaletteColorLookup): palette/color-space semantics, the source-stream layout of a2, and the reason RGB output writes no alpha byte are unresolved.",
+    "0x0051CF80 (YuvToRgbColorSpaceConverter): the legacy ABI label suggests YUV-to-RGB conversion but is not runtime-confirmed; the meaning of the two destination rows and the interleaved a2[0] pointer pair is unknown; the return value is only the low byte of the base register.",
+    "0x0051D1DB (TrackSurfaceHeightmapIncrement): the owner of the heightmap sub-struct and the caller populating the a2 row entries are unknown; v5 (this+0x5C) is read once before the outer loop so per-entry differing pixel counts are not supported; parameter a3 is unused; the (x, z + 32*y) grid geometry is inferred from the shift masks.",
+    "0x0051D6D2 (WeightedCentroidCompute): the descriptor layouts at a2+420 and a2+116 are source-derived, not declared packet fields; the physical grid dimensions, coordinate proxies (8*x+4, 4*y+2, 8*z+4) and 64-byte row stride are raw-source literals without independent evidence; the purpose of returning the Z centroid is unknown.",
+    "0x0051DA17 (VQBlockErrorBufferFill): the exact meaning of target components a2/a3/a4 is inferred; the 4x8x4 block scan with strides 128/288/512 encodes a tiled sub-position layout the raw source alone does not reveal; the palette object behind this+0x74 is an unknown class; weights 2 (R) and 3 (G) are grounded literals but their perceptual rationale is undocumented.",
+    "0x0051DB31 (BitstreamTextureBlockCopy): identity of a2 (a texture/palette manager whose +420 field reaches a +24 word table) is unknown and has no packet field evidence refs; the 32-scaled source window and 4x8x4 word write pattern semantics are unclear; the meaning of the sub_51DA17 return value v5 and the +1 index offset are unknown.",
+    "0x0051DC01 (PackedPixelCopyWithPaletteLookup): the owner object type is unidentified (empty packet owner evidence); the minus-one transform on the stored palette index is not derivable; the 32-column-per-row inference from 2*(v10 + 32*v9) is arithmetic-based; the relation between the a4 pixel count and the width field this+0x5C is not explicit.",
+    "0x0051E5D7 (TableWeightedMix): the buffer roles of a2 and a3 are ambiguous; the object pointed to by this+0x1A4 whose +0x18 field holds the table array is unidentified; why the function returns the channel count is unknown; width this+0x5C as an output-byte-per-pixel count is unverified; the lookup tables are opaque bytes.",
+    "0x0051E65F (ThreeChannelLookupSumBlend): the ABI label ChecksumCompute_Type0_3Stream (abi:lead) is inconsistent with the three-table lookup-sum body; the exact role of this+0x5C is inferred; the a3 descriptor layout is not defined. This is the only packet-declared unresolved evidence ref.",
+    "0x0051E6EC (ChecksumComputeType1): whether the table accumulation is a checksum or an image convolution is inferred from structure only; whether v4[6] (this+0x1BC) is one shared table base or per-channel table storage is not settled; the relation between the a3 output-buffer stride and the row size this+0x5C is not defined.",
+    "0x0051EB5A (writeFieldThenCallVirtual): the owner object type and the class owning the function-pointer table are unknown; the meaning of the constant 45 written at obj+0x14 and the identity of the first table entry are unknown.",
+    "0x0051F160 (Vec4NormalizeNewtonRaphson): the read-only globals dword_5D8A30 and dword_5D8A40 have no documented values or ownership; the caller context is not provided by the packet.",
+    "0x0051F200 (SSEHermiteCubicInterp): the exact coefficient values at xmmword_5D8A50/60/70/80 are not present; the interleaved float-pair output layout is unconfirmed; no callers or frame path found.",
+    "0x0051F2C0 (SSECubicSplineInterpolation): the float values of the four coefficient vectors are absent so the specific Hermite/cubic basis cannot be confirmed; a3/a5/a7 are declared double* but consumed as single-precision pairs; the unused int parameters a4/a6 are unexplained.",
+    "0x0051F350 (SSECubicHermiteBasisFunctionEvaluation): coefficient values are absent so the lane-to-basis-function (h00/h10/h01/h11) mapping is not established; no callers or frame path found.",
+    "0x0051F400 (CubicSpline): the dword written at a3+8 (v11 element [0], lower lanes zeroed by loadh) may be intentional or vestigial; the spline basis is not proven (the LEGACY ABI lead is only consistent with Catmull-Rom); the __userpurge register arguments a1/a2 have an unknown caller contract.",
+    "0x0051F4C0 (SSECubicBezierBernsteinPolynomialEvaluation): the numeric values of the four constants are absent so the exact Bernstein basis cannot be derived; whether a4..a7 are true control points in order is assumed from the shuffle masks 0/85/170/255.",
+    "0x0051F560 (HermiteSplineBasis): the four SSE constant globals have no packet values so the Hermite-basis identification is DERIVED from the cubic polynomial shape and structural twin only; a6/a8 are declared const double* but consumed as two float lanes; only the H10/H11 lanes are emitted (H00/H01 cancelled by loadh low-half zeroing) - whether that is intentional tangent-only interpolation is unknown; scalar parameters a5/a7 and the a1/a2/a3 __userpurge register arguments are unused/artifacts.",
+    "CONTRADICTION (this+0x19C): 0x0051CDF9 reads the sub-object at this+0x19C as a polymorphic dispatch object (vtable slot 3 at +0xC) while 0x0051CE2A/0x0051CF80 read the same this-base offset as a LUT sub-object (table pointers at +0x10..+0x1C). The two readings are consistent with a single polymorphic object carrying both a vtable and LUT fields, but the packet does not prove it, so VirtualElementDispatchObject and ColorLutRgbRowConverter are kept as separate classes (rule 8).",
+    "CONTRADICTION (LUT pointer range): ColorLutRgbaRowConverter reaches its four tables through the sub-object pointer at this+0x1A0 (tables this+0x1A8..0x1B4) while ColorLutRgbRowConverter uses this+0x19C (tables this+0x1AC..0x1B8); the two pointer paths overlap in the 0x1AC..0x1B4 range but are not proven to be the same allocation and are kept as separate classes (rule 8).",
+    "CONTRADICTION (*(this+0x1A4)+0x18): SurfaceRenderContext members interpret the +0x18 member of the context object as a heightmap data base (0x0051D1DB), a palette grid row-pointer base (0x0051DC01) and an array of lookup-table base pointers (0x0051E5D7/0x0051E65F/0x0051E6EC); the readings are consistent with a generic array-of-pointers field but the allocations are not proven identical.",
+    "CONTRADICTION (this+0x0..0xC): WeightedCentroidGridRegion reads these offsets as a 3D bbox while SseMathLibrary (0x0051F160) writes them as a normalized output vector; both are decompiler-`this` argument artifacts, not evidence of a shared type (rule 8).",
+    "General: every owner in this packet is packet-labeled UNKNOWN, so every class here is a DERIVED proposal or GUESS; worker proposals cannot be promoted to CONFIRMED/FACT without independent static or runtime evidence; equal offsets on different bases or on different sub-object pointer paths are never merged into a shared type without packet proof of common ownership (rule 8)."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

@@ -1,0 +1,9 @@
+# Shadow-source chunk 82
+
+Read and obey `%USERPROFILE%\Desktop\f1c_ida_decompiled\tools\agents\F1C_SHADOW_SOURCE_WORKER.md` completely.
+Validate output shape against `%USERPROFILE%\Desktop\f1c_ida_decompiled\analysis\shadow_source_schema.json`.
+
+- Read `%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\waves\wave_002\packets\00461530.json` and write `%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\ir\functions\00461530.json`.
+- Read `%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\waves\wave_002\packets\00486720.json` and write `%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\ir\functions\00486720.json`.
+- Read `%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\waves\wave_002\packets\00494a30.json` and write `%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\ir\functions\00494a30.json`.
+- Read `%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\waves\wave_002\packets\0049ba90.json` and write `%USERPROFILE%\Desktop\f1c_ida_decompiled\shadow_source\ir\functions\0049ba90.json`.

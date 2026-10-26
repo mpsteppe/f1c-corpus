@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "address": "0x004FF8F0",
+  "proposed_name": "AudioSampleCrossFadeInterpolation",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Cross-fades an audio sample state from source A (a3) toward source B (a4) into output a5, driven by a time value a2. Clamps the time into the source range, emits an audio status event, picks discrete blend factors for out-of-range cases, otherwise computes a continuous blend. Position is interpolated with a Hermite spline (or linear blend), orientation via Euler-to-quaternion, quaternion slerp and back, and the remaining packed channels and bitfields are blended per-channel. Returns 1.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Clamp the time value a2 into the source range [a3+4, a4+4].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ProgressBarEventEncode: emit an audio position/status event decoded from the packed bitfield header at a3.",
+      "evidence_refs": ["callee:0x004B33B0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the time delta v43 = (a4+4) - (a3+4) and, when valid, its reciprocal as the blend basis.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the time delta exceeds the 5.0 threshold, choose a discrete blend: (0.0, 1.0) when FieldCompareConstant(this) is set, otherwise (1.0, 0.0).",
+      "evidence_refs": ["callee:0x005001D0", "global:0x0059E7EC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Within range, reject a continuous blend when the squared source-position delta scaled by the reciprocal reaches 14981.386, or when the time delta is zero; both fall back to a discrete source.",
+      "evidence_refs": ["global:0x005AD35C", "global:0x0059E43C", "global:0x0059E440", "global:0x0059E450", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the continuous blend factors v36 (from a2 relative to the source range) and v37 = 1.0 - v36.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ShortVectorToFloatWithScale: decode the packed short position of source A into a float vector.",
+      "evidence_refs": ["callee:0x004B2580", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ShortVectorToFloatWithScale: decode the packed short position of source B into a float vector.",
+      "evidence_refs": ["callee:0x004B2580", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "F_3DHermiteSplineInterpolation: interpolate the position between the two sources by v36, producing the blended float vector.",
+      "evidence_refs": ["callee:0x004FF3A0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the interpolated position to a5+8/+12/+16; the fall-through path writes the linear blend v37*A + v36*B instead.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Decode the packed short Euler angles of both sources (scaled by the 0.00048828125 short-to-angle factor) for quaternion conversion.",
+      "evidence_refs": ["global:0x0059E714", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "QuaternionFromEulerAngles: build the source A quaternion from its decoded Euler angles.",
+      "evidence_refs": ["callee:0x00567030", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "QuaternionFromEulerAngles: build the source B quaternion from its decoded Euler angles.",
+      "evidence_refs": ["callee:0x00567030", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_567580: interpolate/slerp between the two quaternions by the blend factor v36.",
+      "evidence_refs": ["callee:0x00567580", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_567010: convert the interpolated quaternion back to Euler angles.",
+      "evidence_refs": ["callee:0x00567010", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Quantize the interpolated Euler angles back to 16-bit words (scale 2048.0) and write them to a5+20/+22/+24.",
+      "evidence_refs": ["global:0x0059E77C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Blend the four-byte and four-short auxiliary channels between a3 and a4 into a5, one element per iteration, using v37 and v36.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Blend the remaining scalar channels (offsets +38/+40/+42/+44/+45/+46/+48/+50) between the sources with v37 and v36.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CRTFtol: float-to-int truncation applied to every quantized channel write in this function.",
+      "evidence_refs": ["callee:0x00587BDC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BitfieldToFloatConversion: decode the source A bitfield float for the blended re-encode.",
+      "evidence_refs": ["callee:0x004B2A80", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FloatToBitfieldEncoder: re-encode the blended float value into the output bitfield.",
+      "evidence_refs": ["callee:0x004B2A40", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ShortComputation_29f0: decode a packed short quantity from source A for the blended re-encode.",
+      "evidence_refs": ["callee:0x004B29F0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BitfieldInsert: insert the blended short value into the output bitfield.",
+      "evidence_refs": ["callee:0x004B29B0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BitfieldExtract: compare the raw bitfield values of source A and source B to decide between blending and selecting a single source.",
+      "evidence_refs": ["callee:0x004B2A30", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BitfieldExtractScale: decode the scaled bitfield component from the selected source for re-pack.",
+      "evidence_refs": ["callee:0x004B2980", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FloatToBitfieldPack: pack the blended (or source-selected) float into the output bitfield.",
+      "evidence_refs": ["callee:0x004B2930", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 on success; the bitfield block also copies a3 or a4 payload words to a5+52/+56 depending on the blend sign.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// a3/a4: source sample states; a5: output; a2: time; this: owner",
+    "char AudioSampleCrossFadeInterpolation(void* this, int a2, int a3, int a4, int a5) {",
+    "  clampTime(a2, a3, a4);",
+    "  ProgressBarEventEncode(a5, packedHeader(a3), a2, 0);",
+    "  float delta = *(float*)(a4 + 4) - *(float*)(a3 + 4);",
+    "  if (delta > 5.0) { pick discrete (v36, v37) via FieldCompareConstant(this); }",
+    "  else if (delta == 0.0) { v36 = 0.0; v37 = 1.0; }",
+    "  else if (squaredDelta(delta) >= 14981.386) { v36 = 1.0; v37 = 0.0; }",
+    "  else { v36 = (a2 - *(float*)(a3 + 4)) / delta; v37 = 1.0 - v36; }",
+    "  if (0 < v37 && v37 < 1) HermiteInterpolatePosition(a3, a4, v36, a5 + 8);",
+    "  else LinearBlendPosition(a3, a4, v36, v37, a5 + 8);",
+    "  SlerpAndQuantizeOrientation(a3, a4, v36, a5 + 20);",
+    "  BlendAuxChannels(a3, a4, v36, v37, a5);",
+    "  BlendBitfields(a3, a4, a2, v36, v37, a5);",
+    "  return 1;",
+    "}"
+  ],
+  "unresolved": [
+    "Exact roles of sub_567010 and sub_567580 (Euler round-trip and quaternion interpolation) are DERIVED from caller/callee names.",
+    "The float constants backing the 5.0 threshold, the 14981.386 rejection, and the scale factors are grouped per operation; individual constant ownership is DERIVED."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

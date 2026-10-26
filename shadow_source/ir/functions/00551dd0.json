@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "address": "0x00551DD0",
+  "proposed_name": "DecodeBinkVideoFrame",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00551DD0", "source:raw"]
+  },
+  "summary": "Bink video frame decoder (thiscall). Waits for the next frame (BinkWait on the Bink handle at this+0), decompresses it with BinkDoFrame, advances with BinkNextFrame, and wraps the frame index this[1] modulo the total frame count read from the Bink header at *this+8. Then maps the render-path flag a2[12] through a jump table into a copy-flag word, ORs high bits from the a5 flags (0x20 sets 0x80000000, 0x10 sets 0x60000000), locks a surface via ThunkWithArgReorder, copies the frame with BinkCopyToBuffer, clears bit 0x400 of a2[6], and returns the surface-unlock result.",
+  "local_names": {
+    "v6": "copy-flag word assembled from the a2[12] switch, the a5 bits and the a2 pointer default",
+    "result": "return of the surface unlock/return helper"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Advance the frame only when BinkWait(*this) returns 0 (next frame is ready); otherwise skip the frame-advance block.",
+      "evidence_refs": ["field:this:0x00000000", "global:0x0059E340", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BinkDoFrame(*this) decompresses and renders the current frame.",
+      "evidence_refs": ["field:this:0x00000000", "global:0x0059E344", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BinkNextFrame(*this) advances the Bink stream to the next frame.",
+      "evidence_refs": ["field:this:0x00000000", "global:0x0059E348", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Advance and wrap the current frame index: this[1] = (this[1] + 1) % *(int*)(*this + 8), using the total frame count read from the Bink header.",
+      "evidence_refs": ["field:this:0x00000004", "field:obj:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Select the base copy-flag value v6 from the render-path flag a2[12] via the jump table: case 5 -> 9, case 6 -> 10, case 7 -> 1, case 8 -> 5, default keeps the a2 pointer value.",
+      "evidence_refs": ["global:0x00551E94", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "OR the high flag bits into v6 from a5: when (a5 & 0x20) != 0 set 0x80000000; when (a5 & 0x10) != 0 set 0x60000000.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ThunkWithArgReorder(a2, 4, 0) locks the surface/buffer and returns a destination pointer as result.",
+      "evidence_refs": ["callee:0x00543210", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When a surface was obtained, BinkCopyToBuffer(*this, result, a2[10], a2[8], a3, a4, v6) copies the decoded frame into the buffer using the surface pitch, rect and assembled flags.",
+      "evidence_refs": ["global:0x0059E34C", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ArgumentReorderWrapper_3230(a2, 4, 0) unlocks/releases the surface; result takes its return value.",
+      "evidence_refs": ["callee:0x00543230", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Clear bit 0x400 of a2[6] after the copy.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return result (the surface unlock/return value).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by IndexedArrayLookupWithBoundsCheck (0x005504D0) to decode a Bink video frame for an indexed surface.",
+      "evidence_refs": ["caller:0x005504D0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int DecodeBinkVideoFrame(void *this, void *a2, int a3, int a4, int a5) {",
+    "  if (!BinkWait(this[0])) {",
+    "    BinkDoFrame(this[0]);",
+    "    BinkNextFrame(this[0]);",
+    "    this[1] = (this[1] + 1) % *(int*)(this[0] + 8);",
+    "  }",
+    "  switch (a2[12]) { case 5: v6 = 9; break; case 6: v6 = 10; break;",
+    "                  case 7: v6 = 1; break; case 8: v6 = 5; break;",
+    "                  default: v6 = (int)a2; break; }",
+    "  if (a5 & 0x20) v6 |= 0x80000000;",
+    "  if (a5 & 0x10) v6 |= 0x60000000;",
+    "  int result = ThunkWithArgReorder(a2, 4, 0);",
+    "  if (result) {",
+    "    BinkCopyToBuffer(this[0], result, a2[10], a2[8], a3, a4, v6);",
+    "    result = ArgumentReorderWrapper_3230(a2, 4, 0);",
+    "    a2[6] &= ~0x400u;",
+    "  }",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The render-path flag enum behind a2[12] and the a5 flag semantics (0x10/0x20) are not documented in this function.",
+    "The mapping from jump-table cases 5-8 to the copy flags 9/10/1/5 is inferred from decompiler structure only.",
+    "The exact meaning of the surface parameters a2[10], a2[8] and of a2[6] bit 0x400 requires the caller's surface type."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

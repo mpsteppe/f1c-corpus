@@ -1,0 +1,24 @@
+## sub_59FDA0_0059fda0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_41C460 (0041c460), sub_41C5A0 (0041c5a0), sub_5A36B0 (005a36b0), sub_5A3A90 (005a3a90), sub_5A3CC0 (005a3cc0), sub_5A8910 (005a8910), sub_5A8C40 (005a8c40), sub_5A8E30 (005a8e30), sub_5A9C30 (005a9c30), sub_5B5490 (005b5490)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 007e6b48 | dword_7E6B48 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 005a71d0 | sub_5A71D0 | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

@@ -1,0 +1,40 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051C3E2
+// Canonical corpus name: MediaAudioDecodeDispatch
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/MediaAudioDecodeDispatch_0051c3e2.c
+
+void UnknownObject::MediaAudioDecodeDispatch()
+{
+    // Allocates a per-surface decode descriptor through the media allocator, stores its address at this+0x19C, and fills a per-sub-surface function-pointer table choosing among passthrough, zero-init, byte-duplicate, interleave, pixel-blend, resample, and track-map-fill routines based on surface format flags, dimensions, scale factors, and channel count. Performs an aligned secondary allocation for the output buffer and writes integer scale factors for the track-map case. Unsupported formats raise errors 23 and 37 through the error object.
+    // CALL: Call the allocator through vtable slot 0 of this+0x4 with (this, 1, 160); the returned descriptor pointer is used as the base for the routine table. [field:this:0x00000004, field:*(this+0x4):0x00000000, source:raw]
+    // ASSIGNMENT: Store the allocated descriptor pointer at this+0x19C and clear the byte at descriptor+8. [field:this:0x0000019C, source:raw]
+    // ASSIGNMENT: Initialize descriptor entries: slot 0 = VehicleStructFieldCopy, slot 1 = AudioBufferMixing. [global:0x0051BFA6, global:0x0051BFC0, source:raw]
+    // GUARD: If the byte at this+0x108 is set, write error code 23 to obj+0x14 and dispatch the error through obj vtable slot 0. [field:this:0x00000108, field:this:0x00000000, field:obj:0x00000000, field:obj:0x00000014, source:raw]
+    // CALCULATION: Compute v18 = (byte at this+0x48 set) && (this+0x114 > 1); used to select the blended filter path. [field:this:0x00000048, guard:2, source:raw]
+    // GUARD: Run the population loop only when the sub-surface count at this+0x20 is greater than 0. [guard:1, field:this:0x00000020, source:raw]
+    // LOOP: Iterate the sub-surface descriptor array at this+0xC4, advancing 84 bytes per element. [field:this:0x000000C4, source:raw]
+    // CALCULATION: Per element, scale source dimensions by the factor at this+0x114, compare the results against target widths at this+0x10C and this+0x110, and store a scaled value in the descriptor table. [field:this:0x00000114, field:this:0x0000010C, field:this:0x00000110, field:*(this+0xC4):0x00000024, source:raw]
+    // GUARD: Branch on the element flag byte at *(this+0xC4)+0x30: when clear, the element routine is set to PtrInitZero. [field:*(this+0xC4):0x00000030, global:0x0051C091, source:raw]
+    // STATE_TRANSITION: Select the element copy routine when scaled size differs from target: identity SetterReturnA4 when sizes match; half-resolution with channel count at *(this+0xC4)+0x28 greater than 2 uses PixelBlendFilterHorizontal else MonochromeBufferByteDuplicateCopy; quarter-resolution uses ImageResampleFilter (marking descriptor+8) or BufferInterleaveCopy. [global:0x0051C086, global:0x0051C237, global:0x0051C176, global:0x0051C2DB, global:0x0051C1CD, field:*(this+0xC4):0x00000028, guard:0, source:raw]
+    // STATE_TRANSITION: On a non-integer scale (remainder present), write error code 37 to obj+0x14 and dispatch through obj vtable; otherwise select TrackMapPixelFill and store the 8-bit integer scale factors at descriptor+140 and descriptor+150. [global:0x0051C099, field:obj:0x00000014, source:raw]
+    // CALL: Secondary allocation: call slot 8 of the this+0x4 allocator vtable with (this, 1, AlignUp(this+0x5C, this+0x10C), this+0x110) and store the returned buffer pointer in the descriptor. [field:this:0x00000004, field:*(this+0x4):0x00000008, field:this:0x0000005C, field:this:0x0000010C, field:this:0x00000110, callee:0x00515927, source:raw]
+    // RETURN: Return the final loop counter. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_51C3E2(int this) {
+    //     int desc = alloc_vtbl[0](this, 1, 160);
+    //     this->pDesc = desc;
+    //     desc->vtbl = VehicleStructFieldCopy; desc->fn2 = AudioBufferMixing;
+    //     if (this->flag108) { errorObj->code = 23; errorObj->vtbl[0](this); }
+    //     bool blend = this->byte48 && this->d114 > 1;
+    //     for (int i = 0; i < this->n20; ++i) {
+    //       // choose routine per element and write into desc table
+    //     }
+    //     return i;
+    //   }
+    // UNRESOLVED: The exact media container and codec identity behind the 84-byte sub-surface descriptor layout are unknown.
+    // UNRESOLVED: The semantics of the nine corpus-labeled routine pointers (VehicleStructFieldCopy, AudioBufferMixing, SetterReturnA4, PtrInitZero, TrackMapPixelFill, MonochromeBufferByteDuplicateCopy, BufferInterleaveCopy, PixelBlendFilterHorizontal, ImageResampleFilter) are corpus labels, not runtime-proven behavior.
+    // UNRESOLVED: The allocator and secondary-alignment helpers behind the this+0x4 vtable are unverified.
+    // UNRESOLVED: Single known static caller is sub_516C7B; no frame-path evidence.
+}

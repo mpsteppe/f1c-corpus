@@ -1,0 +1,12 @@
+// f1c  0x00517e92  size=54
+int __cdecl sub_517E92(int a1, int a2)
+{
+  int v2; // esi
+
+  if ( !a1 || !a2 )
+    return 0;
+  v2 = sub_58A935(a2);
+  if ( !v2 )
+    sub_511869(a1, (int)"Out of Memory");
+  return v2;
+}

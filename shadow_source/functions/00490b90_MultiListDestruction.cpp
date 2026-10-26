@@ -1,0 +1,58 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00490B90
+// Canonical corpus name: MultiListDestruction
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/MultiListDestruction_00490b90.c
+
+void UnknownObject::MultiListDestruction()
+{
+    // Destructor for a container that holds an array of 16-byte list elements (count at this+0x0, array pointer at this+0x8) and three embedded singly-linked lists (heads at this+0xC, this+0x1C, this+0x2C). Fully destroys every element: iterators for the array and each sub-list are destroyed via ListIteratorFullDestruction, the array block and each list node are freed via FreeWrapper_7bcf (array elements additionally via LinkedListDestructor_1db0, first-sub-list values via EmptyStub_0170), and each sub-list head block is zeroed. Always returns 0. Invoked by ConditionalDestructor_1740.
+    // GUARD: Array destruction loop runs only while the element count at this+0x0 is greater than 0. [guard:0, field:this:0x00000000, source:raw]
+    // LOOP: do-while loop over the array of 16-byte elements rooted at this+0x8, iterating *this (this+0x0) times with a 16-byte stride. [field:this:0x00000000, field:this:0x00000008, source:raw]
+    // CALL: ListIteratorFullDestruction(v3 + this[2]) destroys each 16-byte array element iterator during the loop. [callee:0x004910D0, source:raw]
+    // CALL: ListIteratorFullDestruction(this + 3) destroys the first sub-list iterator at this+0xC. [callee:0x004910D0, field:this:0x0000000C, source:raw]
+    // CALL: ListIteratorFullDestruction(this + 7) destroys the second sub-list iterator at this+0x1C. [callee:0x004910D0, field:this:0x0000001C, source:raw]
+    // CALL: ListIteratorFullDestruction(this + 11) destroys the third sub-list iterator at this+0x2C. [callee:0x004910D0, field:this:0x0000002C, source:raw]
+    // GUARD: Array block release runs only while the array pointer this[2] (this+0x8) is non-null. [field:this:0x00000008, source:raw]
+    // CALCULATION: The array element cursor walks the block backwards from this[2] using the element count stored in the 4-byte header preceding the block (this[2] - 4). [field:this:0x00000008, source:raw]
+    // LOOP: Backwards do-while loop calling LinkedListDestructor_1db0 on each 16-byte array element until the countdown reaches zero. [callee:0x00491DB0, source:raw]
+    // CALL: FreeWrapper_7bcf releases the whole array block, freeing the header at this[2] - 4. [callee:0x00587BCF, field:this:0x00000008, source:raw]
+    // CALL: EmptyStub_0170(this + 15) runs against the trailing 4-DWORD region beginning at this+0x3C. [callee:0x004B0170, source:raw]
+    // LOOP: Walk of the third sub-list at this+0x2C: reads the value pointer (this+0x2C node +0x0), the flags byte (+0x8) and the next pointer (+0x4) of each node, frees every node with FreeWrapper_7bcf, and calls ShortComputation_1e60(1) when the flags byte and value pointer of a node are both non-zero. [callee:0x00491E60, callee:0x00587BCF, field:*(*(this+0x2C)+0x4):0x00000004, field:*(this+0x2C):0x00000000, field:*(this+0x2C):0x00000008, source:raw]
+    // ASSIGNMENT: Zeroes the four DWORDs of the third sub-list head block at this+0x2C through this+0x38. [field:this:0x0000002C, field:this:0x00000030, field:this:0x00000034, field:this:0x00000038, source:raw]
+    // LOOP: Walk of the second sub-list at this+0x1C: reads the value pointer (this+0x1C node +0x0), the flags byte (+0x8) and the next pointer (+0x4) of each node, frees every node with FreeWrapper_7bcf, and calls ShortComputation_1e60(1) when the flags byte and value pointer of a node are both non-zero. [callee:0x00491E60, callee:0x00587BCF, field:*(*(this+0x1C)+0x4):0x00000004, field:*(this+0x1C):0x00000000, field:*(this+0x1C):0x00000008, source:raw]
+    // ASSIGNMENT: Zeroes the four DWORDs of the second sub-list head block at this+0x1C through this+0x28. [field:this:0x0000001C, field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, source:raw]
+    // LOOP: Walk of the first sub-list at this+0xC: reads the value pointer (this+0xC node +0x0), the flags byte (+0x8) and the next pointer (+0x4) of each node, frees every node with FreeWrapper_7bcf, and for nodes whose flags byte is non-zero additionally passes the node's value pointer to EmptyStub_0170 and frees it with FreeWrapper_7bcf. [callee:0x004B0170, callee:0x00587BCF, field:*(*(this+0xC)+0x4):0x00000004, field:*(this+0xC):0x00000000, field:*(this+0xC):0x00000008, source:raw]
+    // ASSIGNMENT: Zeroes the four DWORDs of the first sub-list head block at this+0xC through this+0x18. [field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, field:this:0x00000018, source:raw]
+    // RETURN: Returns 0 on all paths. [source:raw]
+    // CALL: Called by ConditionalDestructor_1740 as part of container teardown. [caller:0x00491740, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_490B90(int *this) {
+    //     int result = 0;
+    //     if (this[0] > 0) {
+    //       int idx = 0, base = 0;
+    //       do { ListIteratorFullDestruction(base + this[2]); ++idx; base += 16; } while (idx < this[0]);
+    //     }
+    //     ListIteratorFullDestruction(this + 3);
+    //     ListIteratorFullDestruction(this + 7);
+    //     ListIteratorFullDestruction(this + 11);
+    //     if (this[2]) {
+    //       void *hdr = (void *)(this[2] - 4);
+    //       int *p = (int *)(this[2] + 16 * *(int *)(this[2] - 4));
+    //       if (*(int *)(this[2] - 4) - 1 >= 0) {
+    //         int n = *(int *)(this[2] - 4);
+    //         do { p -= 16; LinkedListDestructor_1db0(p); --n; } while (n);
+    //       }
+    //       FreeWrapper_7bcf(hdr);
+    //     }
+    //     EmptyStub_0170(this + 15);
+    //     walkAndFreeList(this + 0x2C, /*+0x8 flags trigger ShortComputation_1e60(1)* /);
+    //     walkAndFreeList(this + 0x1C, /*+0x8 flags trigger ShortComputation_1e60(1)* /);
+    //     walkAndFreeListWithValueFree(this + 0xC, EmptyStub_0170);
+    //     return result;
+    //   }
+    // UNRESOLVED: The semantics of ShortComputation_1e60 and EmptyStub_0170 (beyond being invoked conditionally on node state) are unknown here.
+    // UNRESOLVED: The layout meaning of the four DWORDs at this+0x3C that EmptyStub_0170(this + 15) receives is unknown.
+    // UNRESOLVED: The owning class behind this+0x0 / this+0x8 / this+0xC is unknown.
+}

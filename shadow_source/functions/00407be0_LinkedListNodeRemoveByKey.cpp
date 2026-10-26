@@ -1,0 +1,45 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00407BE0
+// Canonical corpus name: LinkedListNodeRemovalByKey
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LinkedListNodeRemovalByKey_00407be0.c
+
+void UnknownObject::LinkedListNodeRemoveByKey()
+{
+    // Removes the first linked-list node whose stored value equals the key a2, using a two-pass traversal: the first pass advances the cursor at this+0x10 until a node value matches, the second pass walks from the head at this+0x8 to find the predecessor for unlinking. Adjusts head/tail/cursor and decrements the count at this+0x14; when the removed node's +8 flag byte is set and its value is non-null, calls the value object's vtable release method with argument 1; finally frees the node via FreeWrapper_7bcf and returns it (or null when nothing matched).
+    // ASSIGNMENT: Copies the head pointer at this+0x8 into the traversal cursor at this+0x10; a null head terminates immediately with a null result. [field:this:0x00000008, field:this:0x00000010, source:raw]
+    // GUARD: Requires the head node and its stored value (the dword read through this+0x8) to be non-null before traversing. [field:*(this+0x8):0x00000000, source:raw]
+    // LOOP: First pass: advances the cursor at this+0x10 through next pointers (+4) until the cursor's stored value equals the key a2; returns null when the cursor runs out. [field:this:0x00000010, field:*(this+0x10):0x00000000, source:raw]
+    // GUARD: If the key a2 is null, the removal is skipped entirely. [source:raw]
+    // LOOP: Second pass: from the head at this+0x8 walks next pointers (+4) tracking the predecessor until a node whose value field equals a2; returns when no predecessor exists (head match or list exhausted). [field:this:0x00000008, field:*(this+0x8):0x00000000, field:*(this+0xC):0x00000000, source:raw]
+    // ASSIGNMENT: Unlinks the matched node: if it was the cursor, the cursor at this+0x10 advances to its next; the predecessor's +4 pointer (or the head at this+0x8 when there is no predecessor) skips the node; if the node was the tail at this+0xC, the tail rewinds to the predecessor (the tail node's value at +0 is read in the process). [field:this:0x00000010, field:this:0x00000008, field:this:0x0000000C, field:*(this+0xC):0x00000000, field:*(*(this+0xC)+0x0):0x00000000, source:raw]
+    // CALCULATION: Decrements the node count at this+0x14. [field:this:0x00000014, source:raw]
+    // GUARD: If the removed node's +8 flag byte is set and its value pointer is non-null, calls the value object's vtable release method (first vtable entry) with argument 1. [field:*(this+0x8):0x00000000, source:raw]
+    // CALL: Frees the unlinked node structure with FreeWrapper_7bcf. [callee:0x00587BCF, source:raw]
+    // RETURN: Returns the freed node pointer, or null when the list/head/value guard failed or no node matched. [function:0x00407BE0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   node* LinkedListNodeRemoveByKey(list* this, void* key) {
+    //     this->cursor = this->head;
+    //     if (this->head && this->head->value) {
+    //       while (this->cursor->value != key) {
+    //         this->cursor = this->cursor->next;
+    //         if (!this->cursor || !this->cursor->value) return 0;
+    //       }
+    //       if (key) {
+    //         node* prev = 0; node* cur = this->head;
+    //         while (cur->value != key) { prev = cur; cur = cur->next; if (!cur) return prev; }
+    //         if (cur == this->cursor) this->cursor = cur->next;
+    //         if (prev) prev->next = cur->next; else this->head = cur->next;
+    //         if (this->tail == cur) this->tail = prev;
+    //         this->count--;
+    //         if (cur->flag && cur->value) cur->value->vtable[0](cur->value, 1);
+    //         return FreeWrapper_7bcf(cur);
+    //       }
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: Node layout (value at +0, next at +4, flag byte at +8) is inferred from the raw body; packet field evidence only names the head/tail/cursor/count offsets on the list object.
+    // UNRESOLVED: The vtable release call target is dynamic (first entry of the value object's vtable); the concrete value type is not evidenced.
+    // UNRESOLVED: The two-pass traversal's overlapping loops make the exact return value on some early-exit paths ambiguous.
+}

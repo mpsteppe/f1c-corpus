@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "address": "0x00585550",
+  "proposed_name": "ThreadTerminationWithWaitCleanup",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00585550"]
+  },
+  "summary": "Thread shutdown and cleanup helper. Retries ThreadResumeWithMutexWait up to 10 times with a 250 ms sleep, then, when a live thread handle exists at this+0x4, acquires the mutex at this+0x10, sets the termination flag at this+0xC to 1, releases the mutex, waits indefinitely on the thread handle, closes it, and clears the handle/ID fields at this+0x4 and this+0x8.",
+  "local_names": {
+    "this": "thread-object descriptor (handle, ID, termination flag, mutex, timeout)",
+    "v5": "WaitForSingleObject return code compared against zero and 128",
+    "v6": "selected termination-flag pointer under the mutex",
+    "v7": "mutex handle used for ReleaseMutex"
+  },
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Retry loop, up to 10 iterations: call ThreadResumeWithMutexWait(this); if it returns non-zero, break out; otherwise Sleep(0xFA) (250 ms) before retrying",
+      "evidence_refs": ["callee:0x00585680", "global:0x0059E0DC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Termination and cleanup proceed only when the thread handle at this+0x4 is non-zero",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the mutex handle at this+0x10 is non-null and WaitForSingleObject on it with the timeout this+0x14 returns zero or 128, select the termination flag at this+0xC; otherwise select a null pointer",
+      "evidence_refs": ["field:this:0x00000010", "field:this:0x00000014", "global:0x0059E1A0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write 1 to the selected termination flag (this+0xC when the mutex wait succeeded; the raw source writes through the null pointer on the failure path)",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "If the mutex handle at this+0x10 is non-null, release it via ReleaseMutex",
+      "evidence_refs": ["field:this:0x00000010", "global:0x0059E1A4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "WaitForSingleObject on the thread handle this+0x4 with timeout 0xFFFFFFFF (infinite) until the thread exits",
+      "evidence_refs": ["field:this:0x00000004", "global:0x0059E1A0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CloseHandle on the thread handle this+0x4; its result becomes the function return value",
+      "evidence_refs": ["field:this:0x00000004", "global:0x0059E1A8", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the thread handle this+0x4 and the thread ID this+0x8 to 0 after the close",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the CloseHandle result; the recorded caller AudioStreamingThreadShutdown (0057fde0) drives this during audio thread shutdown",
+      "evidence_refs": ["function:0x00585550", "caller:0x0057FDE0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "for (i = 0; i < 10; ++i) {",
+    "  if (ThreadResumeWithMutexWait(this)) break;",
+    "  Sleep(0xFA);",
+    "}",
+    "if (this->handle /* +4 */) {",
+    "  if (mutex /* +10 */ && WaitForSingleObject(mutex, this->timeout /* +14 */) in {0, 128})",
+    "    flag = &this->terminateFlag /* +C */;",
+    "  else",
+    "    flag = NULL;",
+    "  *flag = 1;",
+    "  if (mutex) ReleaseMutex(mutex);",
+    "  WaitForSingleObject(this->handle /* +4 */, INFINITE);",
+    "  result = CloseHandle(this->handle);",
+    "  this->handle = 0; this->threadId = 0;",
+    "}",
+    "return result;"
+  ],
+  "unresolved": [
+    "The termination-flag write dereferences a possibly null pointer when the mutex wait fails; the raw source contains no guard for that path",
+    "The exact semantics of the 128 return code (WAIT_ABANDONED_0 range) are not established from this packet alone"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

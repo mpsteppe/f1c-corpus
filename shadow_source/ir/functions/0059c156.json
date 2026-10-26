@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "address": "0x0059C156",
+  "proposed_name": "FileSeekWithModeFlagValidation",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "File stream seek with mode-flag validation. Reads the mode flags at this+0xC; if (flags & 0x83) is zero or the seek origin a3 exceeds 2 it sets the TLS error slot to 22 (EINVAL) via TLSOffsetGetter and returns -1. Otherwise it clears bit 0x10 of the flags, optionally (a3==1) adds sub_58C824(a1) to the requested offset for a relative seek, flushes buffered writes with BufferFlushWrite, conditionally resets the +0x18 field to 512 or clears the low two flag bits, performs the seek via sub_595F11(this+0x10 handle, offset), and returns 0 on success / -1 on failure. Called by ThreadSafeWrapper.",
+  "local_names": {
+    "flags": "v3/v6 mode flags at this+0xC",
+    "seekOrigin": "a3 (0..2) seek origin selector",
+    "seekOffset": "a2 requested seek offset",
+    "v4": "seek origin forwarded to sub_595F11 (forced to 0 when a3==1)"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load mode flags: v3 = a1[3] (this+0xC).",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Proceed only if (flags & 0x83) != 0 and a3 <= 2; otherwise the error path writes 22 into the TLS slot returned by TLSOffsetGetter() and returns -1.",
+      "evidence_refs": ["field:this:0x0000000C", "callee:0x0058AFCF", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear bit 0x10 of the flags (mask 0xEF) and store back to a1[3].",
+      "evidence_refs": ["field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When a3 == 1, call sub_58C824(a1) and add its returned value to the requested offset a2 (relative-seek position query); force v4 = 0.",
+      "evidence_refs": ["callee:0x0058C824", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Flush pending buffered writes before seeking: BufferFlushWrite(a1).",
+      "evidence_refs": ["callee:0x0058A05A", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Re-read flags at +0xC: if (flags & 0x80) == 0 and (flags & 1) and (flags & 8) and (flags & 0x400) == 0, set a1[6] (+0x18) = 512; otherwise (bit 0x80 set) clear the low two bits (mask 0xFC) and store back.",
+      "evidence_refs": ["field:this:0x0000000C", "field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Perform the seek: v7 = sub_595F11(a1[4] handle at +0x10, a2, SHIDWORD(a2), v4).",
+      "evidence_refs": ["callee:0x00595F11", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "If (v8 & v7) != 0xFFFFFFFF return 0 (success); otherwise fall through to the failure return.",
+      "evidence_refs": ["function:0x0059C156", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Failure paths return -1 (including the TLS-22 guard failure path).",
+      "evidence_refs": ["callee:0x0058AFCF", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_59C156(int a1, __int64 a2, unsigned int a3) {",
+    "  int flags = a1[3];",
+    "  if ((flags & 0x83) == 0 || a3 > 2) { *(int*)TLSOffsetGetter() = 22; return -1; }",
+    "  int v4 = a3;",
+    "  flags &= 0xEF; a1[3] = flags;",
+    "  if (a3 == 1) { a2 += sub_58C824(a1); v4 = 0; }",
+    "  BufferFlushWrite(a1);",
+    "  flags = a1[3];",
+    "  if ((flags & 0x80) == 0) {",
+    "    if ((flags & 1) && (flags & 8) && (flags & 0x400) == 0) a1[6] = 512;",
+    "  } else {",
+    "    flags &= 0xFC; a1[3] = flags;",
+    "  }",
+    "  int v7 = sub_595F11(a1[4], a2, SHIDWORD(a2), v4);",
+    "  if ((v8 & v7) != 0xFFFFFFFF) return 0;",
+    "  return -1;",
+    "}"
+  ],
+  "unresolved": [
+    "v8 is read in the success test before any assignment in the decompiled body; the true success/error discriminator is likely the return of sub_595F11, so the exact success condition is not settled.",
+    "Exact meanings of the flag bits (0x83 mask, 0x10, 0x80, 0x400, 0xFC) and of the seek-origin selector a3 (0..2) are unverified.",
+    "Meaning of the +0x18 field reset to 512 (likely a buffer size) is inferred, not verified.",
+    "Role of sub_58C824 as the position query backing the a3==1 relative seek is inferred."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x0059C127"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

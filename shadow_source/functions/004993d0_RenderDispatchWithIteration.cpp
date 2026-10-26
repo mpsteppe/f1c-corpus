@@ -1,0 +1,42 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004993D0
+// Canonical corpus name: RenderDispatchWithIteration
+// Owner: UIRenderDispatchObject [DERIVED]
+// Raw source: functions/RenderDispatchWithIteration_004993d0.c
+
+void UIRenderDispatchObject::RenderDispatchWithIteration()
+{
+    // Render-dispatch method on a UI object: builds the clip rectangle from this offsets 0x4C/0x50 and the sub-struct at *(this+0x58), clears the surface via vtable slot 0x2C, iterates a linked list of clamped sub-rectangles drawing each via F_10ParamForwarder when it has positive size, then iterates the child list at this+0x44 invoking each child's draw virtual (slot 0x44). Returns -1 when this+0x4C is null, otherwise 0. Called by FieldSetterWithGuardedCall (0x004970E0) and GuardedDrawRenderDispatch (0x00498FE0).
+    // GUARD: Read the state pointer v2 from this+0x4C (this[19]); return -1 immediately when it is null. Called by FieldSetterWithGuardedCall (0x004970E0) and GuardedDrawRenderDispatch (0x00498FE0). [field:this:0x0000004C, function:0x004993D0, caller:0x004970E0, caller:0x00498FE0, source:raw]
+    // CALL: Build the clip rectangle v19 with MultiShortStructWriter: x = this+0xC (this[3]) plus the field at *(this+0x50)+12, y = this+0x4 (this[1]) plus the field at *(this+0x50)+4, and the width/height read from the sub-struct at *(this+0x58) offsets 0x1C and 0x20 (the struct reached through this+0x4C+12). [callee:0x00491300, field:this:0x0000000C, field:this:0x00000004, field:this:0x00000050, field:this:0x00000058, field:*(this+0x58):0x0000001C, field:*(this+0x58):0x00000020, source:raw]
+    // CALL: Fetch the rect-list head: Accessor() returns the object whose 0x1C pointer is followed by LinkedListFollow0x1cPointer to obtain the first list node. [callee:0x00490920, callee:0x00491CF0, source:raw]
+    // CALL: Invoke the clear/reset virtual on this at vtable slot 44 (0x2C) with argument 0 (indirect call through this vtable at this+0). [field:this:0x00000000, field:obj:0x0000002C, source:raw]
+    // LOOP: While the rect-list node v5 is non-null: write the four shorts of the node into sub-rect v15 with MultiShortStructWriter and clamp v15 against the clip rectangle (fields this+0x54 and this+0x5C supply clip bounds) with RectangleClampConstraint. [callee:0x00491300, callee:0x00491600, field:this:0x00000054, field:this:0x0000005C, source:raw]
+    // GUARD: When the clamped sub-rect width (v17) and height (v18) are both greater than 0, compute the offset deltas (v6, v7) and call F_10ParamForwarder with the value from GlobalAccessor_5150, the state sub-pointer at this+0x4C+12, the sub-rect origin, size, and two trailing 0 arguments to draw the sub-rectangle. [callee:0x00494A30, callee:0x00495150, field:this:0x0000004C, source:raw]
+    // ASSIGNMENT: Advance the rect list: re-fetch the accessor with Accessor(), read the next node with LinkedListFieldReader, and run EmptyStub_0170 on the finished sub-rect v15. [callee:0x00490920, callee:0x00491D10, callee:0x004B0170, source:raw]
+    // LOOP: Iterate the child list starting at this+0x44 (this[17]); for each child node, invoke the draw virtual at the child's vtable slot 0x44 (offset 68) and advance with StructFieldAccessor. [field:this:0x00000044, field:*(this+0x44):0x00000044, callee:0x00486320, source:raw]
+    // CALL: Run EmptyStub_0170 on the clip rectangle v19 to release/clean it up. [callee:0x004B0170, source:raw]
+    // RETURN: Return 0 on the success path (and -1 on the null-guard path). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   state = this[19]; if (!state) return -1;
+    //   write4Shorts(&clip, this[3] + *(this[20]+12), this[1] + *(this[20]+4), *(*(this[19]+12)+28), *(*(this[19]+12)+32));
+    //   node = firstRectNode(accessor());
+    //   (this->vtable[0x2C / 4])(this, 0);
+    //   while (node) {
+    //     write4Shorts(&sub, node[0], node[1], node[2], node[3]);
+    //     clampRect(&sub, &clip);
+    //     if (sub.w > 0 && sub.h > 0)
+    //       F_10ParamForwarder(*(this[19]+12), sub.x - clip.x, sub.y - clip.y, globalValue(), sub.x, sub.y, sub.w, sub.h, 0, 0);
+    //     node = nextRectNode(accessor());
+    //     destroy(&sub);
+    //   }
+    //   for (child = this[17]; child; child = nextChild(child))
+    //     (child->vtable[0x44])(child);
+    //   destroy(&clip);
+    //   return 0;
+    // UNRESOLVED: Global 0x007CDE00 is listed as a packet read but does not appear in the raw function text; its role is unknown.
+    // UNRESOLVED: The exact layout of the sub-struct at *(this+0x58) (offsets 0x1C/0x20) and of the clip-bounds fields this+0x54/0x5C is inferred from the rect clamp usage, not independently evidenced.
+    // UNRESOLVED: The concrete class behind this vtable (and the child draw slot 0x44 semantics) is not named by the packet.
+    // UNRESOLVED: F_10ParamForwarder's parameter meaning is derived from the two trailing zero arguments and the rect values, not from a prototype.
+}

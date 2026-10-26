@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "address": "0x0057EA30",
+  "proposed_name": "NetworkMessageQueueDequeue",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Mutex-protected search of a singly linked message queue: acquires the mutex at this+0xB10, walks the list from the head at this+0xB00, and looks for the first node whose data's first DWORD equals htonl(0) (network-order zero, e.g. INADDR_ANY). On match the node's data second DWORD is copied to *a2 and 1 is returned; otherwise 0 is returned. The mutex is released on every path that acquired it.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize the return flag v2 to 0 (no match dequeued yet).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build the match key v11 = htonl(0) in network byte order (equal to 0) and call htons(0); the htons result is discarded.",
+      "evidence_refs": ["global:0x0059E2D8", "global:0x0059E2F4"]
+    },
+    {
+      "kind": "call",
+      "description": "Copy a 4-DWORD structure from the queue object (this+0xA84 per prior analysis) into a local stack scratch buffer via Copy4DwordsStructToStruct; the copied values are not subsequently read on this path.",
+      "evidence_refs": ["callee:0x0057B9F0"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the mutex handle at this+0xB10 is null, skip the entire operation and return 0.",
+      "evidence_refs": ["field:this:0x00000B10"]
+    },
+    {
+      "kind": "call",
+      "description": "Wait on the mutex with the timeout stored at this+0xB14 via WaitForSingleObject.",
+      "evidence_refs": ["global:0x0059E1A0", "field:this:0x00000B14"]
+    },
+    {
+      "kind": "guard",
+      "description": "Proceed with the list search only when the wait result is 0 (signaled) or 0x80 (abandoned); otherwise skip search and mutex release.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the list head pointer at this+0xB00 is null, skip the search and jump to mutex release.",
+      "evidence_refs": ["field:this:0x00000B00"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the singly linked queue from the head; each node holds a data pointer at +0 and a next pointer at +4. Continue while the node is null or its data's first DWORD differs from the match key v11. List bookkeeping (head at this+0xB00, tail at this+0xB04, cursor at this+0xB08) is owned by the queue; only the head pointer is consumed on this path.",
+      "evidence_refs": ["field:*(this+0xB04):0x00000000", "field:*(this+0xB04):0x00000004", "field:this:0x00000B04", "field:this:0x00000B08"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On match, set v2 to 1 and write the second DWORD of the matched node's data into *a2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "If the mutex handle at this+0xB10 is non-null, release it via ReleaseMutex.",
+      "evidence_refs": ["global:0x0059E1A4", "field:this:0x00000B10"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v2: 1 when a matching node was found and its payload copied, 0 otherwise.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_57EA30(void* this_, void* out) {",
+    "  int found = 0;",
+    "  u_long key = htonl(0); htons(0);",
+    "  Copy4DwordsStructToStruct(this_ + 0xA84, scratch);",
+    "  if (mutex = this_[0xB10/4]) {",
+    "    DWORD r = WaitForSingleObject(mutex, this_[0xB14/4]);",
+    "    if (r == 0 || r == 0x80) {",
+    "      for (node = this_[0xB00/4]; node; node = node[1]) {",
+    "        if (node[0] && *(DWORD*)node[0] == key) {",
+    "          found = 1; *(DWORD*)out = *(DWORD*)(node[0] + 4);",
+    "          break;",
+    "        }",
+    "      }",
+    "      if (this_[0xB10/4]) ReleaseMutex(this_[0xB10/4]);",
+    "    }",
+    "  }",
+    "  return found;",
+    "}"
+  ],
+  "unresolved": [
+    "Exact owner object and the meaning of the 4-DWORD structure copied to stack scratch by Copy4DwordsStructToStruct are not proven.",
+    "The match key is network-order zero (htons/htonl of 0), suggesting address-like queue keys such as INADDR_ANY, but the key domain is not demonstrated here.",
+    "this+0xB04 (tail) and this+0xB08 (cursor) are referenced by assembly-level field facts but are not read in this source path."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

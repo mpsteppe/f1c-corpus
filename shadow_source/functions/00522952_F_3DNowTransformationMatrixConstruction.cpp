@@ -1,0 +1,39 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00522952
+// Canonical corpus name: F_3DNowTransformationMatrixConstruction
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/F_3DNowTransformationMatrixConstruction_00522952.c
+
+void UnknownObject::F_3DNowTransformationMatrixConstruction()
+{
+    // Builds a 4x4 transformation matrix in the output __m64 buffer a1 from an angle parameter a2, using 3DNow!/MMX packed arithmetic. The angle is loaded into mm0, expanded into the packed-float domain by PackedFloatingPointMath, then distributed across the eight matrix slots together with 3DNow! identity/homogeneous constants: a 1.0f identity element at a1[0], zero rows, the angle and its high-dword/negated copies at a1[2]-a1[5], and a {1.0, 1.0} homogeneous row at a1[7]. All eight slots are written once; the function returns the output pointer.
+    // CALL: Load the angle parameter a2 into mm0 and call PackedFloatingPointMath (0x005295E0) to expand it into the packed-float domain used for the matrix construction; the quaternion-init constant global (0x005AF978) participates in this expansion state. [callee:0x005295E0, global:0x005AF978, source:raw]
+    // CALCULATION: Extract the high dword of the expanded angle into v4 via _m_psrlqi(v2, 0x20). [source:raw]
+    // ASSIGNMENT: Write the 1.0f identity element (1065353216) into matrix slot a1[0]; the value is sourced from the 3DNow! identity constant global (0x005AF9C0). [field:this:0x00000000, global:0x005AF9C0, source:raw]
+    // ASSIGNMENT: Zero matrix slot a1[1] (row 0 columns 2-3). [field:this:0x00000008, source:raw]
+    // ASSIGNMENT: Write the dword pair {0, low32(angle)} into matrix slot a1[2]. [field:this:0x00000010, source:raw]
+    // ASSIGNMENT: Write the shifted angle copy v4 into matrix slot a1[3]. [field:this:0x00000018, source:raw]
+    // ASSIGNMENT: Write the dword pair {0, low32(pxor(v4, 0x80000000))} (negated shifted angle) into matrix slot a1[4]. [field:this:0x00000020, source:raw]
+    // ASSIGNMENT: Write the dword pair {low32(angle), 0} into matrix slot a1[5]. [field:this:0x00000028, source:raw]
+    // ASSIGNMENT: Zero matrix slot a1[6]. [field:this:0x00000030, source:raw]
+    // ASSIGNMENT: Write the homogeneous {1.0, 1.0} row (0x3F80000000000000) into matrix slot a1[7]; the value is sourced from the matrix-constants global (0x005AF9C8). [field:this:0x00000038, global:0x005AF9C8, source:raw]
+    // RETURN: Emit the MMX/3DNow! state reset (_m_femms) and return the constructed matrix pointer a1. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   __m64 *sub_522952(__m64 *a1, unsigned int a2) {
+    //     mm0 = a2;
+    //     PackedFloatingPointMath();      // expand angle into packed-float form
+    //     v4 = psrlqi(mm0, 0x20);         // high dword of expanded angle
+    //     a1[0] = 1.0f;                   // identity element (1065353216)
+    //     a1[1] = {0, 0};
+    //     a1[2] = {0, low32(mm0)};
+    //     a1[3] = v4;
+    //     a1[4] = {0, low32(pxor(v4, 0x80000000))};
+    //     a1[5] = {low32(mm0), 0};
+    //     a1[6] = {0, 0};
+    //     a1[7] = {1.0f, 1.0f};          // 0x3F80000000000000 homogeneous row
+    //     return a1;
+    //   }
+    // UNRESOLVED: Exact layout and encoding of the angle parameter a2 (which dwords become rotation terms and how the low/high split maps to the caller's frame) is not resolved.
+    // UNRESOLVED: Semantic role of the output matrix and the object/frame it transforms depend on the caller and are not visible here.
+}

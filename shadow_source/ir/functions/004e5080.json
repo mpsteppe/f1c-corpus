@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "address": "0x004E5080",
+  "proposed_name": "BrakeCoolingPostTreatment",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes and clamps a brake cooling effectiveness factor on the vehicle object in a1. Forms a temperature delta at this+0x3A04 by subtracting this+0x34A8 from itself, then when the delta is positive selects a source value through a cooling-mode branch tree: a direct value at this+0x3990 (gated by a byte at this+0x39EC and a selector at this+0x3A08), or wheel averages of this+0x35B0/0x36A8/0x37A0/0x3898 selected by the mode at this+0x39B4, then applies an index lookup table (index from this+0x3A08, low range base 14796, high range base 18464), and writes (v2 - this+0x3994 + 50.0) * 0.0099999998 into this+0x3570 clamped to [0,1]. When the delta is not positive, copies this+0x3A08 into this+0x39F0 instead.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Form the temperature delta: v1 = *(float*)(this+0x3A04) - *(float*)(this+0x34A8), then store v1 back into this+0x3A04.",
+      "evidence_refs": ["field:this:0x00003A04", "field:this:0x000034A8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the delta: when v1 is not greater than 0.0, take the else path and copy the selector *(this+0x3A08) into this+0x39F0.",
+      "evidence_refs": ["field:this:0x00003A08", "field:this:0x000039F0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the byte at this+0x39EC is nonzero and the dword at this+0x3A08 equals 1, take the direct path v2 = *(float*)(this+0x3990) without the lookup table.",
+      "evidence_refs": ["guard:1", "field:this:0x000039EC", "field:this:0x00003A08", "field:this:0x00003990", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Else path: read the cooling mode v3 = *(int*)(this+0x39B4) and select the wheel average: when v3 is 0, v5 = (*(this+0x3898) + *(this+0x37A0)) * 0.5; when v3 is 1, v5 = (*(this+0x3898) + *(this+0x37A0) + *(this+0x36A8) + *(this+0x35B0)) * 0.25; when v3 is 2, v5 = (*(this+0x36A8) + *(this+0x35B0)) * 0.5; otherwise v5 = *(float*)&a1, a decompiler artifact reading the low dword of the this pointer.",
+      "evidence_refs": ["field:this:0x000039B4", "field:this:0x00003898", "field:this:0x000037A0", "field:this:0x000036A8", "field:this:0x000035B0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Index the cooling lookup tables with the selector v6 = *(this+0x3A08) (forced to 0 when it equals -1): when v6 > 7, v7 = v5 * *(float*)(this + 4*v6 + 18464); otherwise v7 = v5 * *(float*)(this + 4*v6 + 14796); then v2 = -v7.",
+      "evidence_refs": ["guard:0", "field:this:0x00003A08", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Write the cooling effectiveness factor: *(float*)(this+0x3570) = (v2 - *(float*)(this+0x3994) + 50.0) * 0.0099999998. The compiled constants 50.0, 0.0099999998 and the 0.5/0.25/0.99999998-family scalars are emitted from the six single-precision globals (flt_59E43C, flt_59E440, flt_59E444, flt_59E450, flt_59E7F8, flt_59E828); the exact global-to-constant binding is not determinable from this packet.",
+      "evidence_refs": ["field:this:0x00003570", "field:this:0x00003994", "global:0x0059E43C", "global:0x0059E440", "global:0x0059E444", "global:0x0059E450", "global:0x0059E7F8", "global:0x0059E828", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Clamp the effectiveness factor at this+0x3570 to [0,1]: when it is below 0.0 write 0 (dword), when it exceeds 1.0 write the single-precision 1.0 bit pattern 1065353216.",
+      "evidence_refs": ["field:this:0x00003570", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void BrakeCoolingPostTreatment(char* this) {",
+    "  float delta = *(float*)(this + 14852) - *(float*)(this + 13480);",
+    "  *(float*)(this + 14852) = delta;",
+    "  if (delta <= 0.0) {",
+    "    *(int*)(this + 14832) = *(int*)(this + 14856);",
+    "    return;",
+    "  }",
+    "  float v2;",
+    "  if (*(char*)(this + 14828) && *(int*)(this + 14856) == 1) {",
+    "    v2 = *(float*)(this + 14736);",
+    "  } else {",
+    "    float v5;",
+    "    switch (*(int*)(this + 14772)) {",
+    "      case 0: v5 = (*(float*)(this+14488) + *(float*)(this+14240)) * 0.5f; break;",
+    "      case 1: v5 = (*(float*)(this+14488) + *(float*)(this+14240) + *(float*)(this+13992) + *(float*)(this+13744)) * 0.25f; break;",
+    "      case 2: v5 = (*(float*)(this+13992) + *(float*)(this+13744)) * 0.5f; break;",
+    "      default: v5 = *(float*)&this; break; /* artifact */",
+    "    }",
+    "    int idx = *(int*)(this + 14856) == -1 ? 0 : *(int*)(this + 14856);",
+    "    float v7 = idx > 7 ? v5 * *(float*)(this + 4*idx + 18464)",
+    "                      : v5 * *(float*)(this + 4*idx + 14796);",
+    "    v2 = -v7;",
+    "  }",
+    "  float eff = (v2 - *(float*)(this + 14740) + 50.0f) * 0.0099999998f;",
+    "  if (eff < 0.0f) eff = 0.0f;",
+    "  if (eff > 1.0f) eff = 1.0f;",
+    "  *(float*)(this + 13680) = eff;",
+    "}"
+  ],
+  "unresolved": [
+    "The exact binding of the six single-precision globals (flt_59E43C/59E440/59E444/59E450/59E7F8/59E828) to the compiled constants (50.0, 0.0099999998, 0.5, 0.25) is not determinable from this packet.",
+    "The default branch v5 = *(float*)&a1 reads the low dword of the this pointer as a float; this is interpreted as a decompiler artifact of a register spill, but its exact origin is not confirmed.",
+    "The two lookup tables indexed by this+0x3A08 (base 14796 and base 18464, each element 4 bytes, split at index 7) have no per-slot meaning in this packet.",
+    "Why the -1 selector maps to index 0 and what the selector at this+0x3A08 semantically encodes (cooling profile, brake circuit, axle index) is not confirmed.",
+    "The temperature delta self-subtraction pattern (this+0x3A04 minus this+0x34A8 stored back to this+0x3A04) suggests this+0x34A8 is a reference/ambient temperature, which is DERIVED."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x004E4F40",
+    "function:0x004E5080"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

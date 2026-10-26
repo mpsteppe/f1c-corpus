@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "address": "0x00442060",
+  "proposed_name": "SteeringGeometryUpdate",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Per-wheel steering geometry update. Converts steering input a3 to radians, perturbs it with a noise angle from the flt_8AAE74 trig table indexed by dword_8AAE70, accumulates the steering angle into the per-wheel block (sign differs for front wheels a2==0/3 vs rears), and clamps it to +/-0.1745 rad. When wheel-body contact count (0x15BC) is positive, iterates the contact array (0x15C0, 48-byte stride), matches contacts to the shared suspension selector (0x141C) and transforms contact geometry through the coordinate frames of the matching contact bodies via Matrix3x3VectorMultiply, Mat3x3MulVec and F_3x3MatrixInverseCoordinateTransform. Finally accumulates the steering angle into the wheel offset and, when the accumulated value exceeds 0.015, sets a state flag to 4 in the secondary state struct (0x1F00). Called by CollisionSparkParticleEffects on the per-frame path.",
+  "local_names": {
+    "a2": "wheelIndex",
+    "a3": "steeringInput",
+    "v28": "steeringAngleRad",
+    "v4": "wheelBlock",
+    "v9": "contactBodyId"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Convert steering input a3 to radians: v28 = a3 * 0.08726646259971647 (approximately 5 degrees per unit).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Mark the per-wheel block active: set BYTE1 of wheel entry at index 281*a2+276 to 1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build a perturbation angle from the noise/trig table: v5 = flt_8AAE74[dword_8AAE70 & 0xFF] * pi, increment the dword_8AAE70 counter, then v6 = sin(v5) * v28.",
+      "evidence_refs": ["global:0x008AAE74", "global:0x008AAE70", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate the steering angle into the wheel block at index 281*a2+279: add for front wheels (a2==0 or a2==3), subtract for rear wheels.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Clamp the accumulated steering angle to +/-0.1745329251994329 rad; when out of range write clamp literals (1069963032 / -1077520616) into the per-wheel 280/282 slots, otherwise snap the angle (279/281) to 1256670343.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call PhysicsSubObjectFree(this) to release transient per-subobject data before the contact transform pass.",
+      "evidence_refs": ["callee:0x00441450", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "this->wheelContactCount (0x15BC) > 0 enables iteration over the wheel-body contact array at this->wheelContacts (0x15C0) with 48-byte stride.",
+      "evidence_refs": ["guard:0", "field:this:0x00005564", "field:this:0x00005568"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate contact entries (stride 48) to find the contact whose body id matches the wheel block's contact body id (read at v4+348); on match transform the contact's vector bases through the coordinate frames of the matching contact bodies using Matrix3x3VectorMultiply, Mat3x3MulVec and F_3x3MatrixInverseCoordinateTransform, with the shared suspension selector this->0x141C overriding the target frame for rear contact slots 96/144.",
+      "evidence_refs": [
+        "callee:0x00435E00",
+        "callee:0x004388D0",
+        "callee:0x0056D020",
+        "field:this:0x00005148",
+        "caller:0x004EC1A0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate the steering angle into the per-wheel accumulated offset at v4+480: value = v28 + *(v4+480).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "When the accumulated steering angle exceeds 0.015 and the field at secondary state struct (this+0x1F00) offset +16488 is zero, set that field to 4 (steering state flag 0x5F68).",
+      "evidence_refs": ["field:this:0x00007936", "field:this:0x00024424", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v28 = a3 * 0.087266; wheelBlock = &this[281*a2 + 163]; BYTE1(this[281*a2+276]) = 1;",
+    "v5 = flt_8AAE74[dword_8AAE70++ & 0xFF] * PI; v6 = sin(v5) * v28;",
+    "this[281*a2+279] += (a2==0 || a2==3) ? v6 : -v6;  // clamp to +/-0.1745 rad, snap literals",
+    "PhysicsSubObjectFree(this);",
+    "for each contact (this->0x15C0, stride 48) if id matches wheel block contact id:",
+    "    transform contact vectors via Matrix3x3VectorMultiply / Mat3x3MulVec / F_3x3MatrixInverseCoordinateTransform;",
+    "v18 = *(v4+480) += v28;",
+    "if (v18 > 0.015 && *(this[0x1F00/4]+16488) == 0) *(this[0x1F00/4]+16488) = 4;"
+  ],
+  "unresolved": [
+    "Suspension data pointer fields 0x1438..0x1478 are read but only consumed inside callees (not directly in pseudocode); exact role unconfirmed.",
+    "dbl_59E890 and dbl_59ED60..78 are read constants not visible in the pseudocode; likely steering tolerance/geometry thresholds, use unconfirmed.",
+    "The per-wheel block layout (281-int stride, offsets 276/279/280/281/282/348/352/480) is inferred from the 281*a2 indexing pattern; struct definition not confirmed."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00005176",
+    "field:this:0x00005184",
+    "field:this:0x00005192",
+    "field:this:0x00005200",
+    "field:this:0x00005208",
+    "field:this:0x00005216",
+    "field:this:0x00005224",
+    "field:this:0x00005232",
+    "field:this:0x00005240",
+    "global:0x0059E890",
+    "global:0x0059ED60",
+    "global:0x0059ED68",
+    "global:0x0059ED70",
+    "global:0x0059ED78"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

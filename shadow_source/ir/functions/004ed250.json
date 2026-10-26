@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "address": "0x004ED250",
+  "proposed_name": "RepairServiceStateDispatcher",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "State-switch dispatcher for the repair/pit service subsystem, selected on the detached part index a2 (0-13). Cases 0-3 (wheels) set the reason-code slot *this+0x4068 to 6 when it is still zero (first-write-wins), run SubslotCleanup(this+1764, a2), write service state this[0x3D60]=2, and - when this[0x32BC] is zero - call WheelCollisionContactFlagSetter(&dbl_7C7428, a2) and forward to sub_41AFD0(*this, a2). Cases 4-5 (front/rear wing) release the per-part resource record via ConditionalResourceRelease at this+0xCC8 (front) or this+0xD0C (rear), call StateTransition(this+3248, 1), set this[0x3D60]=1 when it is zero, copy this[0x3A80] into this[0x3A70], then run TireBrushModelForceSolver(this, 0) and sub_41AFD0(*this, a2). Cases 6-13 (bodywork) release the record at &this[17*a2 + 750] and fall through to sub_41AFD0(*this, a2).",
+  "local_names": {
+    "a2": "detached part index (0-3 wheels, 4 front wing, 5 rear wing, 6-13 bodywork, per existing analysis)",
+    "v3": "read of this[0x32BC] used to gate the collision-flag path",
+    "v4": "per-part resource record pointer (this+0xCC8 for front wing, this+0xD0C for rear wing)"
+  },
+  "operations": [
+    {
+      "kind": "state_transition",
+      "description": "Dispatch on the detached part index a2 (0-13) through a jump table at 0x004ED360/0x004ED370, routing to wheel, front/rear wing, or bodywork repair paths.",
+      "evidence_refs": ["global:0x004ED360", "global:0x004ED370", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Cases 0-3 (wheels): if the reason-code slot at *this + 0x4068 is zero, initialize it to 6 (first write wins).",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00004068", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Cases 0-3 (wheels): run SubslotCleanup(this + 1764, a2) to clean the affected subslot.",
+      "evidence_refs": ["callee:0x004E0E70", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Cases 0-3 (wheels): read v3 = this[0x32BC] and write service state this[0x3D60] = 2.",
+      "evidence_refs": ["field:this:0x000032BC", "field:this:0x00003D60", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Cases 0-3 (wheels): only when this[0x32BC] is zero, call WheelCollisionContactFlagSetter(&dbl_7C7428, a2) and forward sub_41AFD0(*this, a2).",
+      "evidence_refs": ["field:this:0x000032BC", "callee:0x0043E770", "global:0x007C7428", "callee:0x0041AFD0", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Cases 4-5: release the front-wing resource record via ConditionalResourceRelease(this + 0xCC8) for case 4, and the rear-wing record via ConditionalResourceRelease(this + 0xD0C) for case 5.",
+      "evidence_refs": ["callee:0x004E0D70", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Cases 4-5: call StateTransition(this + 3248, 1) to advance the wing service state.",
+      "evidence_refs": ["callee:0x004A56B0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Cases 4-5: set this[0x3D60] to 1 when it is zero, then copy this[0x3A80] into this[0x3A70].",
+      "evidence_refs": ["field:this:0x00003D60", "field:this:0x00003A80", "field:this:0x00003A70", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Cases 4-5: run TireBrushModelForceSolver(this, 0) then forward sub_41AFD0(*this, a2).",
+      "evidence_refs": ["callee:0x004E8010", "callee:0x0041AFD0", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Cases 6-13 (bodywork): release the per-part resource record at &this[17*a2 + 750] via ConditionalResourceRelease, then fall through to sub_41AFD0(*this, a2).",
+      "evidence_refs": ["callee:0x004E0D70", "callee:0x0041AFD0", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Default/fall-through path: forward sub_41AFD0(*this, a2) and return.",
+      "evidence_refs": ["callee:0x0041AFD0", "field:this:0x00000000", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void RepairServiceStateDispatcher(int* this, int a2) {",
+    "  switch (a2) {",
+    "    case 0: case 1: case 2: case 3:",
+    "      if (!*(dword*)(*this + 16488)) *(_DWORD*)(*this + 16488) = 6;",
+    "      SubslotCleanup((char*)this + 1764, a2);",
+    "      v3 = this[3247]; this[3928] = 2;",
+    "      if (!v3) {",
+    "        WheelCollisionContactFlagSetter(&dbl_7C7428, a2);",
+    "        sub_41AFD0(*this, a2);",
+    "      }",
+    "      break;",
+    "    case 4: ConditionalResourceRelease(this + 818); break;",
+    "    case 5: ConditionalResourceRelease(this + 835); break;",
+    "    case 4: case 5:",
+    "      StateTransition(this + 3248, 1);",
+    "      if (!this[3928]) this[3928] = 1;",
+    "      this[3740] = this[3744];",
+    "      TireBrushModelForceSolver((int)this, 0);",
+    "      sub_41AFD0(*this, a2);",
+    "      break;",
+    "    case 6: case 7: case 8: case 9: case 10: case 11: case 12: case 13:",
+    "      ConditionalResourceRelease(&this[17*a2 + 750]);",
+    "    default:",
+    "      sub_41AFD0(*this, a2);",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The resource-record offsets this+0xCC8 (front wing) and this+0xD0C (rear wing) lag the retire-test offsets *this+0xCD4 / *this+0xD18 by a consistent 0xC base gap; the gap is noted in the existing analysis but not explained.",
+    "The exact meaning of the reason-code value 6 at *this+0x4068 and of service-state values 1/2 in this[0x3D60] is DERIVED from the existing analysis, not proven by this packet.",
+    "Packet global dword_5EB978 does not appear in the raw source text; it is most likely consumed by sub_41AFD0, which this packet does not show."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x00410BC0",
+    "caller:0x004EC1A0",
+    "global:0x005EB978"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,46 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00411330
+// Canonical corpus name: ShortComputation_1330
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ShortComputation_1330_00411330.c
+
+void UnknownObject::PhysicsStateUpdateByType()
+{
+    // Dispatches a physics state update on operation type a2 (3, 4 or 5). Each type selects a distinct array base stored in this (+0x4C, +0x58 or +0x64), a per-type global data table, and a row stride; it computes an element pointer v7 into a 36-byte-stride local array and a global index v6, writes flt_7D0AD4 + *a6 into a float slot reached through (v7+32), then runs ShortComputation_e770(v7, v6, 1), SwitchBasedFloatProcessing(v7, a3) and PhysicsStateVectorConversion(v7, a6), marks the element active at v7+10, and returns the conversion result. For any other a2 value the element and table inputs pass through as a5.
+    // GUARD: Dispatch on a2: if a2 == 3 take the type-3 path, else if a2 == 4 the type-4 path, else if a2 == 5 the type-5 path; otherwise passthrough with v6 = a5 and v7 = a5. [source:raw]
+    // ASSIGNMENT: Type 3: table index v6 = dword_5ECF0C[4656 * a4 + 74 * a5]; element v7 = this[19] (this+0x4C) + 36 * (a5 + 4 * a4). [field:this:0x0000004C, global:0x005ECF0C, source:raw]
+    // ASSIGNMENT: Type 4: element v7 = this[22] (this+0x58) + 36 * (a5 + 2 * a4); table index picks dword_5ED3F0[4656 * a4] when a5 is nonzero, else dword_5ED3AC[4656 * a4]. [field:this:0x00000058, global:0x005ED3F0, global:0x005ED3AC, source:raw]
+    // ASSIGNMENT: Type 5: table index v6 = dword_5ED434[4656 * a4 + 17 * a5]; element v7 = this[25] (this+0x64) + 36 * (a5 + 8 * a4). [field:this:0x00000064, global:0x005ED434, source:raw]
+    // ASSIGNMENT: For types 3/4/5: write float value flt_7D0AD4 + *a6 into the slot at (*(v7 + 32)) + 28. [global:0x007D0AD4, source:raw]
+    // CALL: Run ShortComputation_e770 on the selected element v7 with global index v6 and constant 1. [callee:0x0040E770, source:raw]
+    // CALL: Run SwitchBasedFloatProcessing on the selected element v7 with the float array a3. [callee:0x0040EEC0, source:raw]
+    // CALL: Run PhysicsStateVectorConversion on the selected element v7 with the float input a6; keep its result as the return value. [callee:0x0040EF70, source:raw]
+    // STATE_TRANSITION: Mark the element active: *(BYTE*)(v7 + 10) = 1. [source:raw]
+    // RETURN: Return the result of PhysicsStateVectorConversion. [callee:0x0040EF70, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int PhysicsStateUpdateByType(this, type, float* floats, row, sel, float* value) {
+    //     if (type == 3) {
+    //       index = dword_5ECF0C[4656 * row + 74 * sel];
+    //       el = this[19] + 36 * (sel + 4 * row);
+    //     } else if (type == 4) {
+    //       el = this[22] + 36 * (sel + 2 * row);
+    //       index = sel ? dword_5ED3F0[4656 * row] : dword_5ED3AC[4656 * row];
+    //     } else if (type == 5) {
+    //       index = dword_5ED434[4656 * row + 17 * sel];
+    //       el = this[25] + 36 * (sel + 8 * row);
+    //     } else {
+    //       index = sel; el = sel;
+    //     }
+    //     if (type == 3 || type == 4 || type == 5)
+    //       *(float*)(*(DWORD*)(el + 32) + 28) = flt_7D0AD4 + *value;
+    //     ShortComputation_e770(el, index, 1);
+    //     SwitchBasedFloatProcessing(el, floats);
+    //     result = PhysicsStateVectorConversion(el, value);
+    //     *(BYTE*)(el + 10) = 1;
+    //     return result;
+    //   }
+    // UNRESOLVED: The element object layout (pointer at +32 with a float written at +28 through it, plus an active flag at +10) is DERIVED from the decompilation; no packet field table defines it.
+    // UNRESOLVED: Global table row stride (4656 per a4) and per-type sub-stride meaning (74, 17, 2, 4, 8) come from the decompilation only.
+    // UNRESOLVED: Exact meaning of the type discriminator a2 (3/4/5) and its interaction with caller CollisionSparkParticleEffects is not grounded beyond the dispatch itself.
+}

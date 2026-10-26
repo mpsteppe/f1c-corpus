@@ -1,0 +1,33 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005565B0
+// Canonical corpus name: HighPrecisionTimerCounterArithmetic
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/HighPrecisionTimerCounterArithmetic_005565b0.c
+
+void UnknownObject::TimerQueryAdjustedElapsedTime()
+{
+    // High-resolution timer query. Reads the current 64-bit performance counter, subtracts the stored reference timestamp (offsets 0x18/0x1C) and an accumulated delta (offsets 0x28/0x2C) to obtain an elapsed tick count, then converts ticks to seconds using a fixed-point divisor built from the frequency word at offset 0x0 and an unlisted offset 0x4 factor, adding the offset 0x8 base term. Read-only; never writes a stored field.
+    // CALL: QueryPerformanceCounterWrapperWithModeDispatch(this, &v7+1, &v7) samples the current 64-bit high-resolution counter into v7. [callee:0x005564B0, source:raw]
+    // ASSIGNMENT: Read the reference timestamp words: low part from offset 0x18, high part from offset 0x1C. [field:this:0x00000018, field:this:0x0000001C]
+    // ASSIGNMENT: Read the accumulated delta words: low part from offset 0x28, high part from offset 0x2C. [field:this:0x00000028, field:this:0x0000002C]
+    // CALCULATION: Compute elapsed ticks as 64-bit: elapsed = now - __PAIR64__(ref high, ref low) - __PAIR64__(delta high, delta low). [field:this:0x00000018, field:this:0x0000001C, field:this:0x00000028, field:this:0x0000002C]
+    // CALCULATION: Read the timer frequency word at offset 0x0 and merge it with the high word of elapsed to build the double divisor v5 used for tick-to-time conversion. [field:this:0x00000000]
+    // CALCULATION: Convert to seconds: (uint)v7 / v5 + HIDWORD(v7) * this[1] + this[2], where this[1] is the unlisted offset 0x4 factor and this[2] is the base term at offset 0x8. [field:this:0x00000008, source:raw]
+    // RETURN: Return the adjusted elapsed time in seconds. [function:0x005565B0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   double sub_5565B0(double* this) {
+    //     unsigned __int64 ref_lo  = ((unsigned int*)this)[6];
+    //     unsigned __int64 ref_hi  = ((unsigned int*)this)[7];
+    //     unsigned __int64 delta_lo = ((unsigned int*)this)[10];
+    //     unsigned __int64 delta_hi = ((unsigned int*)this)[11];
+    //     unsigned __int64 now;
+    //     QueryPerformanceCounterWrapperWithModeDispatch(this, (LONG*)&now + 1, (DWORD*)&now);
+    //     __int64 elapsed = now - __PAIR64__(ref_hi, ref_lo) - __PAIR64__(delta_hi, delta_lo);
+    //     double v5 = (double)((unsigned int)((unsigned int*)this)[0] | (HIDWORD(elapsed) << 32));
+    //     return (double)(unsigned int)elapsed / v5 + (double)HIDWORD(elapsed) * ((unsigned int*)this)[1] + ((unsigned int*)this)[2];
+    //   }
+    // UNRESOLVED: Packet lists a read-only field at offset 0x10 but the decompiled source never references it; its role cannot be grounded here
+    // UNRESOLVED: The return expression reads this[1] (offset 0x4) which is not a listed packet field; exact fixed-point divisor semantics of v5 are inferred rather than documented
+    // UNRESOLVED: Whether this is a member of the high-precision timer object is inherited only from the legacy ABI name, not independently established
+}

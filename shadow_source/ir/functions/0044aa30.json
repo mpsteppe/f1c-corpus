@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "address": "0x0044AA30",
+  "proposed_name": "BVHTreeTraversal",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0044AA30", "source:raw"]
+  },
+  "summary": "Recursive BVH (bounding-volume hierarchy) traversal for collision queries (per-frame tick, called by SpatialGridQuery 0x0044C4C0). Reads the node type word at this+0x8: negative values mark a leaf that runs QuadraticSurfaceCollisionTest against the surface pointer stored in the node (this+0x10), with the sentinel 0xFFFE additionally testing a second surface at surface+92. Non-negative values mark an interior node: it computes a split coordinate from the query a2 using the axis tables indexed by the split-axis word at this+0xA (global 0x007CA3A4) with a sign selection from the node, recurses into the child subtree (this+0x1C) when the split coordinate falls inside the child bounding interval, then walks the next sibling (this+0x20) while the split coordinate remains within the next node's bound (this+0x24), re-checking the leaf sentinel after each step.",
+  "local_names": {
+    "this": "BVH node header: type/sentinel word at +0x8, split axis at +0xA, split sign at +0xC, surface/child pointer at +0x10, child bounds at +0x1C, next sibling at +0x20, next bound at +0x24",
+    "a2": "query vector used to compute the split coordinate",
+    "v2": "current node pointer (moves to next sibling during the walk)",
+    "v3": "node type word (negative = leaf, 0xFFFE = two-surface leaf, non-negative = interior)",
+    "v5": "axis-scaled query x term",
+    "v6": "axis-scaled query z term",
+    "v7": "split coordinate (v5 - v6 or v6 + v5 depending on the sign selection)",
+    "v8/v9": "child bounds/surface float pointer"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Read the node type word v3 from this+0x8 at entry.",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Leaf dispatch: when v3 (word at this+0x8) is negative the node is a leaf and execution takes the surface-test path.",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Leaf primary test: QuadraticSurfaceCollisionTest(surface, a2) against the surface pointer at this+0x10, updating closest-hit data.",
+      "evidence_refs": ["callee:0x0044A070", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Two-surface sentinel: when the word at this+0x8 equals 0xFFFE, additionally run QuadraticSurfaceCollisionTest against the secondary surface at surface+92.",
+      "evidence_refs": ["guard:0", "callee:0x0044A070", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Interior split coordinate: v5 = axis_table[split-axis at this+0xA] * a2[0] and v6 = axis_table_other[split-axis at this+0xA] * a2[2], then v7 = v5 - v6 or v6 + v5 selected by the node sign word (this+0xC), using the axis table global 0x007CA3A4.",
+      "evidence_refs": ["global:0x007CA3A4", "field:this:0x0000000A", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Child subtree range test: when the split coordinate falls inside the child bounding interval (bounds carried at this+0x1C), recurse BVHTreeTraversal(a2) into the child subtree.",
+      "evidence_refs": ["callee:0x0044AA30", "field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Sibling walk: advance to the next sibling node pointer (this+0x20) and continue while the split coordinate is not below the next node's lower bound and not above its upper bound (bound at this+0x24); the loop re-reads the node type word at +0x8 after each step and re-enters the leaf surface-test path when it turns negative.",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000024", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by SpatialGridQuery (0x0044C4C0) to resolve which surfaces a query intersects.",
+      "evidence_refs": ["caller:0x0044C4C0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "type = word(this + 0x8);",
+    "if (type < 0) {",
+    "  QuadraticSurfaceCollisionTest(*(this + 0x10), a2);",
+    "  if (type == 0xFFFE) QuadraticSurfaceCollisionTest(*(this + 0x10) + 92, a2);",
+    "} else {",
+    "  for (;;) {",
+    "    split = (sign at this+0xC) ? axis[this+0xA]*a2[0] - axis2[this+0xA]*a2[2]",
+    "                              : axis2[this+0xA]*a2[2] + axis[this+0xA]*a2[0];",
+    "    if (boundsMin(this+0x1C) <= split <= boundsMax(this+0x1C)) BVHTreeTraversal(a2);",
+    "    node = nextSibling(this+0x20);",
+    "    if (split < lowerBound(node) || split > upperBound(this+0x24)) break;",
+    "    type = word(node + 0x8);",
+    "    if (type < 0) goto leafPath;",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The exact node layout mapping the packet fields (bounds at this+0x1C, next sibling at this+0x20, next bound at this+0x24) onto the raw pointer/float arithmetic (v8[0]/v8[1], v9+4, *(next+1)) follows the skeleton fill at DERIVED trust and is not independently verified here.",
+    "The axis table is rendered by the raw source as both dword_7CA388 and the indexed float access unk_7CA3A4; only the single global 0x007CA3A4 is granted by the packet, so the second table address is not referenced as an evidence ref."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

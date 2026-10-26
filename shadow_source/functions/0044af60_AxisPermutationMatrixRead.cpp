@@ -1,0 +1,41 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0044AF60
+// Canonical corpus name: AxisPermutationMatrixRead
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AxisPermutationMatrixRead_0044af60.c
+
+void UnknownObject::AxisPermutationMatrixRead()
+{
+    // Reads a permutation matrix row for a requested axis index a3 (1/2/3) out of an axis-direction table a2 and writes six gathered DWORD coordinates into the caller buffer a1. When a4 is nonzero the row is read in the transposed orientation. Returns the primary axis index for the requested permutation, or the passthrough a2 when a3 is out of the accepted set.
+    // GUARD: Switch on a3 selecting the axis permutation triple: case 1 -> (result=0, v5=1, v6=2); case 2 -> (result=1, v5=2, v6=0); case 3 -> (result=2, v5=0, v6=1); default passthrough all three indices equal a2. [source:raw]
+    // ASSIGNMENT: When a4 is nonzero, gather the first output pair from the v5-indexed table row: a1[0] and a1[1] come from the result-indexed element of that row, and the remaining pairs from the v5/v6-indexed elements. [source:raw, field:this:0x00000000, field:this:0x00000004]
+    // ASSIGNMENT: a1[2] reads the element addressed by the v5-indexed table row and v5-indexed element, completing the middle pair of the output. [source:raw, field:this:0x00000008]
+    // ASSIGNMENT: a1[3] and a1[4] read the two consecutive elements from the v6-indexed table row (v5-indexed then v6-indexed element), producing the third output pair. [source:raw, field:this:0x0000000C, field:this:0x00000010]
+    // ASSIGNMENT: a1[5] is stored from v7, the trailing element of the v6-indexed row: result-indexed+4 bytes in the a4-nonzero branch, result-indexed in the a4-zero branch. [source:raw, field:this:0x00000014]
+    // RETURN: Return the chosen permutation axis index (result), or the passthrough a2 in the default case. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_44AF60(_DWORD *out, int table, int axis, int transposed) {
+    //     int result, v5, v6;
+    //     switch (axis) {
+    //       case 1: result = 0; v5 = 1; v6 = 2; break;
+    //       case 2: result = 1; v5 = 2; v6 = 0; break;
+    //       case 3: result = 2; v5 = 0; v6 = 1; break;
+    //       default: result = v5 = v6 = table; break;
+    //     }
+    //     if (transposed) {
+    //       out[0] = row(table, v5)[result];     out[1] = row(table, v5)[result + 1];
+    //       out[2] = row(table, v5)[v5];         out[3] = row(table, v6)[v5];
+    //       out[4] = row(table, v6)[v6];         out[5] = row(table, v6)[result + 1];
+    //     } else {
+    //       out[0] = row(table, result)[result]; out[1] = row(table, result)[result + 1];
+    //       out[2] = row(table, result)[v5];     out[3] = row(table, v6)[result + 1];
+    //       out[4] = row(table, v6)[v6];         out[5] = row(table, v6)[result];
+    //     }
+    //     return result;
+    //   }
+    //   // row(base, i) is the DWORD pointer stored at base + 4*i;
+    //   // element(k) is the DWORD at row + 8*k, each row element holding two DWORDs.
+    // UNRESOLVED: Table semantics of a2 (axis-direction/vertex table with 4-byte row pointers and 8-byte row elements) are caller-defined and not established here.
+    // UNRESOLVED: Whether the six gathered values are vertex coordinates or direction components depends on the callers.
+}

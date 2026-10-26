@@ -1,0 +1,19 @@
+int __stdcall sub_673875(int a1, int a2, int a3, _DWORD *a4, int a5)
+{
+  int v5; // edx
+  _DWORD *v6; // eax
+
+  v5 = 4 * a5;
+  if ( 4 * a5 )
+  {
+    v6 = a4;
+    do
+    {
+      *v6 = (int)*(float *)((char *)v6 + a3 - (_DWORD)a4);
+      ++v6;
+      --v5;
+    }
+    while ( v5 );
+  }
+  return (*(int (__stdcall **)(int, int, int, int))(*(_DWORD *)a1 + 444))(a1, a2, a3, a5);
+}

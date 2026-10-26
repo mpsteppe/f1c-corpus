@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "address": "0x004B3C60",
+  "proposed_name": "DeterministicHashPseudoRandomGenerator",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004B3C60"]
+  },
+  "summary": "Entropy-mixing pseudo-random DWORD generator. Reads the x86 RDTSC timestamp into v11 via RDTSCTimestampRead, updates a multiplicative accumulator at this+0x804 using the LCG-style step 219837*(this[513]+2), mixes in the timestamp, then indexes a float table inside this by an auto-incrementing byte counter (this+0x0) to obtain a noise sample. Combines that sample with GetTickCount (via a scaled CRTFtol term v12*-3499.01), an LCG call (RandLCGRandomNumberGenerator), and the accumulated timestamp, and returns (2*v9+1)*v7+v11. Called by RandomNoiseValueGenerator, AIDriverCountSetup, sub_4CB120, and TelemetryDataDump.",
+  "local_names": {
+    "this": "PRNG state object (noise counter at +0x0, accumulator at +0x804)",
+    "v2": "intermediate LCG step product",
+    "v3": "timestamp-mixed accumulator value",
+    "v4": "noise table counter read from this+0x0",
+    "v5": "float noise sample read inside this at counter-derived offset",
+    "v7": "GetTickCount minus scaled noise sample (floor)",
+    "v9": "LCG random value",
+    "v11": "RDTSC low-32 value / final term",
+    "v12": "float noise sample alias used in the scaled term"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Call RDTSCTimestampRead(v13, &v11) to capture the RDTSC timestamp; v11 receives the low 32 bits.",
+      "evidence_refs": ["callee:0x0055687B", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v2 = 219837 * (this[513] + 2), an LCG-style multiplicative step over the accumulator at this+0x804.",
+      "evidence_refs": ["field:this:0x00000804", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the new accumulator: this[513] = v2.",
+      "evidence_refs": ["field:this:0x00000804", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Mix the timestamp into the state: v11 = v2 + v11.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read the byte counter from this+0x0 as v4 and post-increment it (*this = v4 + 1).",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read a float noise sample from inside this at the counter-derived element (float at index (byte)v4+1) into v5/v12.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call GetTickCount via the __imp_GetTickCount import to obtain a system-timer seed.",
+      "evidence_refs": ["global:0x0059E0D4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call CRTFtol(v12 * -3499.01) to truncate the scaled noise sample to an integer.",
+      "evidence_refs": ["callee:0x00587BDC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v7 = TickCount - CRTFtol(v12 * -3499.01).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call RandLCGRandomNumberGenerator to obtain an additional LCG random value v9.",
+      "evidence_refs": ["callee:0x005884ED", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Combine the terms and return (2*v9 + 1) * v7 + v11.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "RDTSCTimestampRead(v13, &v11);",
+    "this[513] = 219837 * (this[513] + 2);",
+    "v11 += this[513];",
+    "v4 = this[0]++;",
+    "v12 = *(float*)(this + v4 + 1);",
+    "TickCount = GetTickCount();",
+    "v7 = TickCount - CRTFtol(v12 * -3499.01);",
+    "v9 = RandLCGRandomNumberGenerator();",
+    "return (2*v9 + 1) * v7 + v11;"
+  ],
+  "unresolved": [
+    "flt_5ACCF4 is listed as a read global but does not appear in the raw source text; its role here is unclear.",
+    "RandLCGRandomNumberGenerator is called with v8, which the decompiler leaves uninitialized; the actual seed argument is unclear.",
+    "Semantic meaning of the constants 219837 and -3499.01 is not established from this packet.",
+    "The float noise table read lands at an offset inside this computed from the counter, not a field listed in the packet."
+  ],
+  "unresolved_evidence_refs": ["global:0x005ACCF4"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

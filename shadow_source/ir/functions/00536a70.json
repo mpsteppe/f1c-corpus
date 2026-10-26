@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "address": "0x00536A70",
+  "proposed_name": "DeflateCompressionLoop",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": [
+      "function:0x00536A70",
+      "source:raw"
+    ]
+  },
+  "summary": "Deflate compression loop structurally twin to 005365D0, with extra match-quality heuristics and deferred-literal handling. Refills input via TextBufferDecompressor below 262 available bytes, inserts bytes into a hash chain, calls ZlibDeflateLongestMatch for LZ77 matching, and rejects short/expensive matches (length <= 5 with distance > 0x1000) in favour of literals. A pending-literal flag at a1+94 defers one byte across the loop, and HuffmanBitStreamEncoder plus BufferCopyWithSizeTracking flush output when the pending buffer reaches its limit.",
+  "local_names": {
+    "a1": "zlib compression state object",
+    "a2": "flush flag (equal to 4 for end-of-block marker)",
+    "v5": "available input byte count",
+    "v8": "hash key for chain insertion",
+    "v4": "previous hash-chain entry (candidate match offset)",
+    "v11": "candidate match length from longest-match search",
+    "v12": "previous match length saved at a1+110"
+  },
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Outer while(1) loop processes one symbol (literal or length/distance pair) per iteration; exits on exhausted input or a flush/buffer-full return.",
+      "evidence_refs": [
+        "function:0x00536A70",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "When the available byte count at a1+106 drops below 262, call TextBufferDecompressor(a1) to refill; if still below 262 with no flush (a2 == 0) return 0 for more input, and break when the count reaches zero.",
+      "evidence_refs": [
+        "callee:0x00536440",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "When the count is at least 3, compute the hash key v8 = state at a1+74 AND (input byte at a1+46 + pos + 2 XOR (previous hash at a1+62 shifted left by a1+78)) for hash-chain insertion, then store the chain entry and update the hash state.",
+      "evidence_refs": [
+        "source:raw",
+        "function:0x00536A70"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Save the prior match length to a1+110 and the prior distance to a1+90, then default the match length at a1+86 to 2 before attempting the longest-match search.",
+      "evidence_refs": [
+        "source:raw",
+        "function:0x00536A70"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If a chain entry v4 exists, the position is within the window (pos - v4 <= a1+34 - 262), and the mode at a1+126 is not 2, call ZlibDeflateLongestMatch(a1, v4).",
+      "evidence_refs": [
+        "callee:0x00536900",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Reject a short match: when the match length is at most 5 and (mode at a1+126 equals 1 or length equals 3 with distance > 0x1000), force a1+86 to 2 so the literal path is taken.",
+      "evidence_refs": [
+        "source:raw",
+        "function:0x00536A70"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Literal path when the previous match length a1+110 is below 3 or a1+86 exceeds it: if the pending-literal flag at a1+94 is set, emit the deferred byte and bump its frequency counter, flushing when the pending buffer reaches its limit; otherwise set a1+94 to 1 to defer the current byte.",
+      "evidence_refs": [
+        "source:raw",
+        "function:0x00536A70"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Buffer full during a literal emit: flush HuffmanBitStreamEncoder(count, 0) and drain the output stream with BufferCopyWithSizeTracking; return 0 if the stream reports full.",
+      "evidence_refs": [
+        "callee:0x005381F0",
+        "callee:0x00536160",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Match path: emit a length/distance pair (distance = pos minus a1+90 minus 1, length byte = match_len - 3) and update the length/distance frequency tables using byte_5B84F8, byte_5B83F8 and byte_5B82F8.",
+      "evidence_refs": [
+        "global:0x005B84F8",
+        "global:0x005B83F8",
+        "global:0x005B82F8",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Inner do-while loop advances hash-chain insertion per consumed byte while the remaining match length at a1+110 is decremented toward zero, then resets the pending-literal flag a1+94 to 0.",
+      "evidence_refs": [
+        "source:raw",
+        "function:0x00536A70"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "When the pending buffer reaches its limit after a match, flush HuffmanBitStreamEncoder(pending count, 0) and drain the output stream with BufferCopyWithSizeTracking; return 0 if the stream is full.",
+      "evidence_refs": [
+        "callee:0x005381F0",
+        "callee:0x00536160",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Loop-exit finalization: emit any remaining pending literal, then perform the final flush HuffmanBitStreamEncoder(pending count, a2 == 4) and drain with BufferCopyWithSizeTracking.",
+      "evidence_refs": [
+        "callee:0x005381F0",
+        "callee:0x00536160",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "Return code from the set 0, 1, 2, 3 encoding flush status: 0 when more input is needed or the output stream is full, otherwise 1 + 2*(a2 == 4) when the stream is still writable.",
+      "evidence_refs": [
+        "function:0x00536A70",
+        "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "int DeflateCompressionLoop(void* state, int flush) {",
+    "    int chain = 0;",
+    "    for (;;) {",
+    "        unsigned avail = read_avail(state);            // state+106",
+    "        if (avail < 262) {",
+    "            TextBufferDecompressor(state);",
+    "            avail = read_avail(state);",
+    "            if (avail < 262 && !flush) return 0;       // need more input",
+    "            if (avail == 0) break;",
+    "        }",
+    "        if (avail >= 3) {",
+    "            hash = mask(state) & (in[state + pos + 2] ^ (prev_hash << shift(state)));",
+    "            chain = lookup(hash);",
+    "            store_chain(state, pos & chain_mask(state), chain);",
+    "            store_pos(state, hash);",
+    "        }",
+    "        prev_len = read_len(state);                     // state+110",
+    "        prev_dist = read_dist(state);                  // state+90",
+    "        int match = 2;",
+    "        if (chain && within_window(state, chain)) match = ZlibDeflateLongestMatch(state, chain);",
+    "        if (match <= 5 && (mode(state) == 1 || (match == 3 && distance(state) > 0x1000))) match = 2;",
+    "        if (prev_len < 3 || match > prev_len) {",
+    "            if (pending(state)) { emit_literal(state, prev_byte); if (buffer_full(state)) flush(state); }",
+    "            else set_pending(state, in[state + pos]);",
+    "        } else {",
+    "            emit_length_distance(state, match);         // uses byte_5B82F8/5B83F8/5B84F8",
+    "            advance_hash_chain(state, match);",
+    "            clear_pending(state);",
+    "            if (buffer_full(state)) flush(state);",
+    "        }",
+    "    }",
+    "    if (pending(state)) emit_literal(state, prev_byte);",
+    "    HuffmanBitStreamEncoder(pending_count(state), flush == 4);",
+    "    BufferCopyWithSizeTracking(state->stream);",
+    "    return stream_full(state) ? (flush == 4 ? 2 : 0) : 1 + 2*(flush == 4);",
+    "}"
+  ],
+  "unresolved": [
+    "Canonical name InflateDecompressionLoop and ABI name FAIL_536a70 conflict with the raw code, which is a deflate compression loop (hash insertion, longest-match, length/distance emission) structurally a twin of 005365D0. Naming discrepancy is unresolved.",
+    "The many state offsets (106, 98, 62, 74, 78, 46, 34, 118, 126, 82, 86, 90, 94, 102, 110, 138, 1166, 2430, 5771, 5775, 5779, 5783) are treated as opaque; the packet provides no field evidence refs for them.",
+    "The exact semantics of the lookup tables byte_5B82F8, byte_5B83F8 and byte_5B84F8 (distance base, extra bits, length base) are DERIVED from the existing analysis of the twin function, not confirmed by the raw source."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

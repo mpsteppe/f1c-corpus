@@ -1,0 +1,47 @@
+__m128 *__stdcall sub_5B0AC8(__m128 *a1, const double *a2)
+{
+  __m128 *result; // eax
+  __m128 v3; // xmm0
+  __m128 v4; // xmm1
+  __m128 v5; // xmm3
+  __m128 v6; // xmm4
+  __m128 v7; // xmm1
+  float v8; // xmm5_4
+  __m128 v9; // xmm0
+  __m128 v10; // xmm4
+  __m128 v11; // xmm1
+  __m128 v12; // xmm0
+  __m128 v13; // xmm2
+  __m128 v14; // xmm1
+  __m128 v15; // xmm3
+  __m128 v16; // xmm2
+  __m128 v17; // xmm4
+  void *vars0; // [esp+10h] [ebp+0h]
+  void *retaddr; // [esp+18h] [ebp+8h]
+
+  vars0 = retaddr;
+  result = a1;
+  v3 = _mm_loadl_ps(a2);
+  v4 = _mm_and_ps((__m128)xmmword_905E20, v3);
+  v5 = (__m128)0x3F000000u;
+  v6 = _mm_mul_ps(v4, v4);
+  v7 = _mm_add_ps(v6, _mm_movehl_ps(v6, v6));
+  v8 = v7.m128_f32[0] + _mm_shuffle_ps(v7, v7, 1).m128_f32[0];
+  v7.m128_f32[0] = fsqrt(v8);
+  v5.m128_f32[0] = (float)(0.5 * (float)(1.0 / v7.m128_f32[0]))
+                 * (float)(3.0 - (float)((float)(v8 * (float)(1.0 / v7.m128_f32[0])) * (float)(1.0 / v7.m128_f32[0])));
+  v9 = _mm_mul_ps(v3, _mm_shuffle_ps(v5, v5, 0));
+  v10 = _mm_mul_ps((__m128)xmmword_905E30, v9);
+  v11 = v9;
+  v12 = _mm_add_ps(_mm_mul_ps(_mm_shuffle_ps(v9, v9, 0), v10), (__m128)xmmword_905E70);
+  v13 = v11;
+  v14 = _mm_add_ps(_mm_mul_ps(_mm_shuffle_ps(v11, v11, 255), v10), (__m128)xmmword_905E40);
+  v15 = v13;
+  v16 = _mm_add_ps(_mm_mul_ps(_mm_shuffle_ps(v13, v13, 170), v10), (__m128)xmmword_905E50);
+  v17 = _mm_add_ps(_mm_mul_ps(v10, _mm_shuffle_ps(v15, v15, 85)), (__m128)xmmword_905E60);
+  *a1 = v12;
+  a1[1] = v17;
+  a1[2] = v16;
+  a1[3] = v14;
+  return result;
+}

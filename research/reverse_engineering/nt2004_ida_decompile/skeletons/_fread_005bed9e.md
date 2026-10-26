@@ -1,0 +1,29 @@
+## _fread_005bed9e — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_5BED6F (005bed6f)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0x0 | RW | — | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x0: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 005c3359 | __filbuf | [LLM] |
+| 005c43d4 | __read | [LLM] |
+| 005c4620 | _memcpy_0 | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

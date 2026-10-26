@@ -1,0 +1,37 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00558A30
+// Canonical corpus name: sub_558A30
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_558A30_00558a30.c
+
+void UnknownObject::TextureSlotAllocate()
+{
+    // Allocates a texture/render slot by index in an allocation pool. Validates the active count against the capacity and the requested index against the capacity, computes the 128-byte-aligned slot from the base pointer at this+0x34, and rejects already-in-use slots. Two allocation modes are selected by the sign of the flags byte at this+0x20: a free-list mode that links the slot onto the chain headed at this+0x38 (prev/next links at slot+120 and slot+124), and a compact-array mode that copies row data into a backing buffer and registers the slot in the index array at this+0x3C. Both modes mark the slot in use (bit 0x40) and increment the active count at this+0x30.
+    // GUARD: If the active count *(this+0x30) is not below the capacity *(this+0x2C), or the requested index a2 is not below the capacity, skip allocation entirely. [field:this:0x00000030, field:this:0x0000002C, source:raw]
+    // CALCULATION: Compute the slot pointer v5 = *(this+0x34) + (a2 left-shifted by 7) (a 128-byte slot stride) and read the slot flags byte; if the in-use bit 0x40 is set the slot is already allocated and the function returns. [field:this:0x00000034, source:raw]
+    // GUARD: Branch on the signed flags byte at this+0x20: a value >= 0 selects the free-list allocation mode, otherwise the compact-array mode. [field:this:0x00000020, guard:0, source:raw]
+    // ASSIGNMENT: Free-list mode: read the free-list head at this+0x38 and walk its chain through the next links at +0x7C; append the new slot as the new tail (tail next link = v5), or make v5 the head when the list is empty. Then set the slot's prev link, zero its next link, and set the in-use bit 0x40. [field:this:0x00000038, field:*(this+0x38):0x0000007C, field:*(*(*(this+0x38)+0x7C)+0x7C):0x0000007C, source:raw]
+    // STATE_TRANSITION: Free-list mode: increment the active count at this+0x30. [field:this:0x00000030, source:raw]
+    // CALL: Compact-array mode: TextureAllocationWithFormatSizeFlags(0) is invoked before the data copy step. [callee:0x00558D10, source:raw]
+    // CALCULATION: Compact-array mode: read the sub-context at this+0x50 and its copy buffer at +0x20 and its row region base at +0xC; for each row (row count at this+0x24) copy 4 dwords from the source row region (offset by 36 rows times a2 times the row count) into the copy buffer (offset by the active count times the row count left-shifted by 6), advancing 16 dwords per iteration. [field:this:0x00000050, field:*(this+0x50):0x0000000C, field:*(this+0x50):0x00000020, field:this:0x00000024, source:raw]
+    // ASSIGNMENT: Compact-array mode: store the current count as the slot id (v5[1]), register the slot pointer in the index array at this+0x3C at index = count, set the in-use bit 0x40, and increment the active count at this+0x30. [field:this:0x0000003C, field:this:0x00000030, source:raw]
+    // RETURN: Return the caller's capacity/flag value v3 unchanged on the skipped paths, or the incremented count after a compact-array-mode allocation. [source:raw]
+    // CALL: Invoked from the circular-buffer slot allocation path CircularBufferSlotAlloc (004CB540). [caller:0x004CB540, source:raw]
+
+    // Conservative worker pseudocode:
+    //   // if (count >= capacity || a2 >= capacity) return capacity;
+    //   // v5 = *(this+0x34) + (a2 << 7);
+    //   // if (*(BYTE*)v5 & 0x40) return; // slot already in use
+    //   // if (*(char*)(this+0x20) >= 0) {
+    //   //   // free-list mode: walk head at this+0x38 via next links, append v5 as tail;
+    //   //   // set prev, clear next, set in-use bit; count++
+    //   // } else {
+    //   //   TextureAllocationWithFormatSizeFlags(0);
+    //   //   copy rows from *(*(this+0x50)+0xC) region into *(*(this+0x50)+0x20) buffer;
+    //   //   v5[1] = count; *(*(this+0x3C) + 4*count) = v5; set in-use bit; count++
+    //   // }
+    // UNRESOLVED: Whether the flags byte at this+0x20 selects two genuinely different slot representations (free-list chain vs compact array) or two container modes of one pool is DERIVED from structure, not confirmed.
+    // UNRESOLVED: The purpose of the TextureAllocationWithFormatSizeFlags(0) call on the compact-array path (allocation with a zero format argument before the data copy) is unresolved; it may guarantee a backing buffer for the copy.
+    // UNRESOLVED: The exact meaning of the slot id dword at slot+4 is only partially resolved: it serves as the copy-stride row offset and as the value stored into the index array.
+    // UNRESOLVED: The linked-list tail-walk field bases in the packet (*(this+0x38) and *(*(*(this+0x38)+0x7C)+0x7C) at offset 0x7C) are canonicalized evidence for the next-link reads/writes at node+0x7C; the chain depth is not a confirmed constant.
+}

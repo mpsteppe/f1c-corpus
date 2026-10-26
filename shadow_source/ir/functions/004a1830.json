@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "address": "0x004A1830",
+  "proposed_name": "WindowsMessagePumpWithSleep",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Windows message pump with optional pacing sleep. Peeks the message queue; if a message is present, enters a GetMessageA/TranslateMessage/DispatchMessageA loop and returns -1 when GetMessageA returns 0 (WM_QUIT). If no message is pending, returns 0 after sleeping for an InputClamp-derived duration unless the sleep is suppressed by byte_7CE2E4.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "PeekMessageA to test whether a message is pending without removing it.",
+      "evidence_refs": ["global:0x0059E25C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on PeekMessageA result: message present enters the dispatch loop, otherwise the no-message sleep path is taken.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Loop while GetMessageA returns nonzero (message retrieved and not WM_QUIT).",
+      "evidence_refs": ["global:0x0059E260", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "TranslateMessage on the retrieved message.",
+      "evidence_refs": ["global:0x0059E264", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "DispatchMessageA to route the message to its window procedure.",
+      "evidence_refs": ["global:0x0059E268", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return -1 when GetMessageA returns 0 (WM_QUIT received), aborting the pump.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "On the no-message path, skip sleeping when byte_7CE2E4 is nonzero (sleep suppressed).",
+      "evidence_refs": ["global:0x007CE2E4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Compute the sleep duration from byte_7CE498 via InputClamp.",
+      "evidence_refs": ["callee:0x004B1780", "global:0x007CE498", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Sleep only when InputClamp returns a non-negative duration.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call Sleep with the computed duration when no message is pending and sleep is not suppressed.",
+      "evidence_refs": ["global:0x0059E0DC", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 from the no-message path.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int WindowsMessagePumpWithSleep() {",
+    "  MSG msg;",
+    "  if (PeekMessageA(&msg, 0, 0, 0, 0)) {",
+    "    while (GetMessageA(&msg, 0, 0, 0)) {",
+    "      TranslateMessage(&msg);",
+    "      DispatchMessageA(&msg);",
+    "      if (!PeekMessageA(&msg, 0, 0, 0, 0)) break;",
+    "    }",
+    "    return -1;",
+    "  }",
+    "  if (!byte_7CE2E4) {",
+    "    int d = InputClamp(&byte_7CE498);",
+    "    if (d >= 0) Sleep(d);",
+    "  }",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "byte_7CE2E4 sleep-suppression flag semantics are DERIVED from the skeleton analysis, not independently confirmed.",
+    "InputClamp input/output relationship (byte_7CE498 interpreted as a config value) is DERIVED, not confirmed."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

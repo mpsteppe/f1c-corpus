@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "contract_id": "content_bootstrap_r2_mas_teardown_prune.packet_000.v1",
+  "subsystem": "content_bootstrap_r2_mas_teardown_prune",
+  "kind": "lifecycle",
+  "status": "STATIC_DERIVED",
+  "source_functions": ["0x0053CED0"],
+  "signature": {
+    "calling_convention": "unknown",
+    "return_type": "int",
+    "parameters": []
+  },
+  "layouts": [
+    {
+      "object": "list_node",
+      "offset": "0x114",
+      "width": 1,
+      "evidence_refs": ["func:0x0053CED0"]
+    },
+    {
+      "object": "list_node",
+      "offset": "0x12C",
+      "width": 4,
+      "evidence_refs": ["func:0x0053CED0"]
+    },
+    {
+      "object": "list_node",
+      "offset": "0x130",
+      "width": 4,
+      "evidence_refs": ["func:0x0053CED0"]
+    }
+  ],
+  "globals": [
+    {
+      "address": "0x008B8F14",
+      "width": 4,
+      "evidence_refs": ["global:0x008B8F14", "func:0x0053CED0"]
+    },
+    {
+      "address": "0x008B6AC0",
+      "width": 4,
+      "evidence_refs": ["global:0x008B6AC0", "func:0x0053CED0"]
+    }
+  ],
+  "preconditions": [
+    "dword_8B8F14 is either null or points to the first node of a doubly-linked list whose nodes link through +0x12C (prev) and +0x130 (next).",
+    "Every node reachable from the head has a readable flag byte at +0x114 and readable prev/next pointers at +0x12C/+0x130; each of the two link pointers may be null.",
+    "Each list node is a heap block releasable through FreeWrapper_7bcf (0x00587BCF).",
+    "dword_8B6AC0 reflects the number of live nodes in the list and is decremented once per removal."
+  ],
+  "postconditions": [
+    "Every node whose +0x114 flag has bit 3 (value 8) set has been unlinked via reciprocal +0x12C/+0x130 pointer patches, passed to DualFieldCleanupWithNullChecks (0x0055FE30), invoked on EmptyStub_7470 (0x00557470), freed via FreeWrapper_7bcf (0x00587BCF), and removed from the list.",
+    "dword_8B8F14 points to the successor of any removed head node, or is null if every node was removed.",
+    "dword_8B6AC0 is decremented by the number of removed nodes.",
+    "Nodes whose +0x114 flag does not have bit 3 set remain linked and are not freed.",
+    "The function returns 0."
+  ],
+  "side_effects": [
+    "Mutates the global list head dword_8B8F14 when the head node (no +0x12C prev) is removed.",
+    "Mutates the +0x12C and +0x130 link fields of the removed node's neighbors during unlink.",
+    "Decrements the global node count dword_8B6AC0 once per removal.",
+    "Frees each removed node's heap block via FreeWrapper_7bcf (0x00587BCF).",
+    "Invokes DualFieldCleanupWithNullChecks (0x0055FE30) and EmptyStub_7470 (0x00557470) on each removed node.",
+    "Returns 0 unconditionally; no error or status value is reported."
+  ],
+  "thread_requirement": "unknown",
+  "lifecycle": [
+    {
+      "phase": "bulk_prune_removal",
+      "owner": "list rooted at dword_8B8F14 (owner object type unknown)",
+      "evidence_refs": ["func:0x0053CED0", "global:0x008B8F14"]
+    },
+    {
+      "phase": "node_destruction",
+      "owner": "removed node heap block (released via FreeWrapper_7bcf 0x00587BCF)",
+      "evidence_refs": ["func:0x0053CED0"]
+    }
+  ],
+  "external_dependencies": [
+    {
+      "name": "FreeWrapper_7bcf (0x00587BCF): heap-block release; packet cut-edge disposition compiler_runtime",
+      "boundary": "crt"
+    }
+  ],
+  "evidence_refs": [
+    "packet:content_bootstrap_r2_mas_teardown_prune_000",
+    "func:0x0053CED0",
+    "global:0x008B8F14",
+    "global:0x008B6AC0"
+  ],
+  "candidate_refs": ["candidate_2"],
+  "disputes": [
+    {
+      "field": "list node owner type",
+      "description": "Raw C shows pointer fields at +0x12C/+0x130 and a flag byte at +0x114 but no owner object type is visible in the packet; no caller, constructor or direct-field evidence in this packet links the nodes to a concrete type."
+    },
+    {
+      "field": "flag semantics at +0x114",
+      "description": "Bit 3 (value 8) selects nodes for removal, but the meaning of the flag (which property marks a node for pruning) is not evidenced in this packet."
+    }
+  ],
+  "unresolved": [
+    "The list node owner object type and the list's overall purpose are not established by this packet; the packet notes prior analysis ties the list to vertex buffer resources, but that is not packet evidence.",
+    "The roles of offsets +0x12C (prev link), +0x130 (next link) and +0x114 (flag byte) are DERIVED from the traversal and unlink pattern in the raw C, not CONFIRMED by field-level evidence.",
+    "The calling convention of sub_53CED0 is unlabeled in the raw C; the signature is assumed int() with no this pointer, but the ABI is not confirmed.",
+    "dword_8B8F14 as list head and dword_8B6AC0 as node count are DERIVED labels, not CONFIRMED.",
+    "FreeWrapper_7bcf (0x00587BCF) is recorded here as a CRT/compiler-runtime heap-release boundary from the packet's cut-edge disposition; import_evidence is empty, so the underlying imported routine is not confirmed.",
+    "The traversal is look-ahead: the loop inspects each iterate's +0x12C predecessor, so the tail node is only tested by the trailing post-loop check; the reconstruction must preserve that exact removal ordering and coverage."
+  ],
+  "tests_required": [
+    "Unit test: build a doubly-linked list with mixed +0x114 flag values, run the prune, assert only bit-3 nodes are freed, surviving nodes keep consistent +0x12C/+0x130 links, head updated when removed, and dword_8B6AC0 decreased by the removal count.",
+    "Unit test: null head (dword_8B8F14 == 0) returns 0 with no side effects.",
+    "Unit test: single node with bit-3 flag is removed and dword_8B8F14 becomes null.",
+    "Unit test: head node removal promotes its successor into dword_8B8F14.",
+    "Unit test: tail node with bit-3 flag is removed by the trailing post-loop check.",
+    "Invariant: dword_8B6AC0 equals the number of live nodes before and after pruning."
+  ],
+  "dependencies": [
+    "content_bootstrap_r2_mas_level1.packet_000.v1",
+    "content_bootstrap_r2_mas_teardown_leaf.packet_000.v1"
+  ]
+}

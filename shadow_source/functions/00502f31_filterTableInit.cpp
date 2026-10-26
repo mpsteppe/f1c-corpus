@@ -1,0 +1,49 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00502F31
+// Canonical corpus name: sub_502F31
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_502F31_00502f31.c
+
+void UnknownObject::filterTableInit()
+{
+    // Builds three size-header-prefixed float filter tables whose dimensions come from the context-table pairs (*v2)[1046..1048] and v2[1][1046..1048], gated by flag bits 16, 17 and 18 of the options dword v1[2]. Allocates a slot array of 12-byte entries (count from [1048]) that tracks per-slot reference counts and an ownership pointer, plus a per-source array of 16-byte entries (count from [1046]) constructed through sub_5008C2 with constructor sub_5007EC. Two passes over the second table count cross-references and assign 16-byte float coefficient records per slot, pulling recycled records from a free list or allocating fresh record arrays. Per-entry vtable callbacks on the owning object drive a convolution accumulation that writes products of three floats into the 16-byte records, and slots whose reference count drops to one are finalized through another vtable callback and returned to the free list. Returns 0 on success, -2147467259 if a table allocation fails, or -2147024882 if a later allocation fails; working arrays are conditionally freed on every exit path.
+    // CALL: Initialize the structured exception handler frame for this function via SEHHandlerInit. [callee:0x0058A5D8]
+    // CALCULATION: Read the options dword v1[2] and derive three allocation booleans from flag bits 16, 17 and 18. [source:raw]
+    // CALL: Allocate the first float filter table via ComplexMemoryAllocationWithFloatComputation with dimensions (*v2)[1046] and v2[1][1046], gated on flag bit 16. [callee:0x00502C28]
+    // CALL: Allocate the second float filter table via ComplexMemoryAllocationWithFloatComputation with dimensions (*v2)[1047] and v2[1][1047], gated on flag bit 17. [callee:0x00502C28]
+    // CALL: Allocate the third float filter table via ComplexMemoryAllocationWithFloatComputation with dimensions (*v2)[1048] and v2[1][1048], gated on flag bit 18. [callee:0x00502C28]
+    // GUARD: If any of the three table allocations returned NULL, set the result to -2147467259 and skip to cleanup. [source:raw]
+    // CALL: Allocate the slot array with OperatorNewNhMallocWrapper(12 * count1048 + 4), store the count in its header, and zero-initialize the 12-byte entries through NTimeCallbackLoopWithSEH_a6eb using TripleDwordZeroInit and FreeWrapper. [callee:0x00587C03, callee:0x0058A6EB, global:0x00502C12, global:0x00502C1F]
+    // CALL: Allocate the per-source array with OperatorNewNhMallocWrapper(16 * count1046) and construct its 16-byte entries via sub_5008C2 with constructor callback sub_5007EC. [callee:0x00587C03, callee:0x005008C2, global:0x005007EC]
+    // LOOP: First pass over the second table: for each entry advance to its end via its size header and increment the 12-byte slot refcount (dword at slot+8) for every referenced index pair. [source:raw]
+    // LOOP: Second pass over the second table: for each referenced slot record, if its ownership pointer is NULL take a recycled record from the free list or allocate a fresh record array via OperatorNewNhMallocWrapper(16 * count1046 * count1047), construct it with sub_5008C2/sub_5007EC and zero it; allocation failure aborts to the error path. [callee:0x00587C03, callee:0x005008C2, global:0x005007EC]
+    // CALL: For each second-table entry invoke the owning object's vtable callback (*(**v2 + 4)) with the local slot indices. [source:raw]
+    // LOOP: Convolution accumulation: iterate first-table and second-table pairs; for each pair compute v41 as the product of three floats and accumulate it, scaled by the four coefficients of the per-source record, into the 16-byte float record addressed by slot base + 16 * index * count1046. [source:raw]
+    // LOOP: Finalize each slot record whose refcount decrements to one: invoke the owning object's vtable callback (*(*v2[1] + 8)) once per source index (count1047 iterations), then push the record onto the free list. [source:raw]
+    // ASSIGNMENT: On the success path set the result to 0. [source:raw]
+    // ASSIGNMENT: On an allocation failure inside the body set the result to -2147024882. [source:raw]
+    // CALL: Cleanup: conditionally free the slot array via ConditionalFree_2ee5 with flag 3 and release the three tables and per-source array via FreeWrapper_7bcf. [callee:0x00502EE5, callee:0x00587BCF]
+    // RETURN: Return the accumulated result code v47. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int filterTableInit(int** ctx, unsigned int flags) {
+    //     int* tabA = ComplexMemoryAllocationWithFloatComputation(ctx[0][1046], ctx[1][1046], !(flags & bit16));
+    //     int* tabB = ComplexMemoryAllocationWithFloatComputation(ctx[0][1047], ctx[1][1047], !(flags & bit17));
+    //     int* tabC = ComplexMemoryAllocationWithFloatComputation(ctx[0][1048], ctx[1][1048], !(flags & bit18));
+    //     if (!tabA || !tabB || !tabC) return -2147467259;
+    //     int* slots = OperatorNewNhMallocWrapper(12 * ctx[1][1048] + 4);
+    //     if (slots) { slots[0] = ctx[1][1048]; NTimeCallbackLoopWithSEH_a6eb(slots+1, 12, ctx[1][1048], TripleDwordZeroInit, FreeWrapper); }
+    //     int* src = OperatorNewNhMallocWrapper(16 * ctx[0][1046]);
+    //     if (src) sub_5008C2(src, 16, ctx[0][1046], sub_5007EC);
+    //     if (!slots || !src) return -2147024882;
+    //     // pass 1: count cross-references into each slot refcount (dword at slot+8)
+    //     // pass 2: assign 16-byte float records per slot (free list or fresh allocation)
+    //     // accumulation: v41 = float product of three table values, scaled into record
+    //     // finalize: slots whose refcount reaches one run a vtable callback and rejoin the free list
+    //     return 0;
+    //   }
+    // UNRESOLVED: The code address loc_59C41E is referenced as a data global but its exact role (e.g. a callback or vtable entry) is not established.
+    // UNRESOLVED: The vtable callbacks invoked through (*v2)+4 and (*v2[1])+8 have unknown signatures and semantics.
+    // UNRESOLVED: The dimension indices 1046/1047/1048 into the context tables and the flag bits 16/17/18 of the options dword have no authoritative meaning.
+    // UNRESOLVED: The LEGACY abi label 'Direct3D_Vertex_Buffer_Index_Buffer_Builder' conflicts with the observed filter-table semantics and was not adopted.
+}

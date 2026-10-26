@@ -1,0 +1,31 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005566D0
+// Canonical corpus name: InitializeAudioSystemChannels
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/InitializeAudioSystemChannels_005566d0.c
+
+void UnknownObject::InitializeAudioSystemChannels()
+{
+    // Stores the channel count 3 into dword_8B8E48, then initializes a fixed run of 35 (dword_8B8E48 + 32) audio channel objects in the array beginning at dword_8B6C28, calling sub_556260 on each element with the literal argument 1 and advancing 76 bytes per element. Returns the final count dword_8B8E48 + 32 (35).
+    // ASSIGNMENT: Write the channel count 3 into global dword_8B8E48. [global:0x008B8E48, source:raw]
+    // ASSIGNMENT: Initialize the loop counter v0 to 0 and base the element pointer v1 at the start of the channel array dword_8B6C28. [global:0x008B6C28, source:raw]
+    // LOOP: do-while loop that runs while v0 < dword_8B8E48 + 32, i.e. 35 iterations. [global:0x008B8E48, source:raw]
+    // CALL: Call sub_556260 on the current channel element with the literal argument 1; the element is treated as a 76-byte object. [callee:0x00556260, source:raw]
+    // CALCULATION: Increment v0 and advance the element pointer v1 by 76 bytes to the next channel object. [source:raw]
+    // RETURN: Return the computed count dword_8B8E48 + 32 (35). [global:0x008B8E48, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_5566D0() {
+    //     dword_8B8E48 = 3;
+    //     v0 = 0;
+    //     v1 = &dword_8B6C28;
+    //     do {
+    //       sub_556260(v1, 1);
+    //       ++v0;
+    //       v1 = (double*)((char*)v1 + 76);
+    //     } while (v0 < dword_8B8E48 + 32);
+    //     return dword_8B8E48 + 32;
+    //   }
+    // UNRESOLVED: The identity and role of the 76-byte channel object and of sub_556260's second argument (1) are not documented in this packet.
+    // UNRESOLVED: Relationship between the stored count 3 and the fixed loop bound 32 (i.e. why 35 objects) is unresolved.
+}

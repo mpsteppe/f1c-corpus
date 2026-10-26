@@ -1,0 +1,63 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C4BB0
+// Canonical corpus name: LinkedListSearchRemoval
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LinkedListSearchRemoval_004c4bb0.c
+
+void UnknownObject::LinkedListSearchRemoval()
+{
+    // Traverses a singly linked list of nodes whose data element is a vehicle index, and removes every node whose vehicle field (dword_8AC394 + 1060*index + 444) fails to match ALL of the filter criteria a2[0..a3-1]. Matching is decided by sub_566810(fieldAddr, criterion) which returns 0 on a match; a node is kept only when the inner loop reaches the end of the criteria list, otherwise it is unlinked (updating head this[2], tail this[3] and iteration pointer this[4]) and freed (node data too when the free-flag byte at node+8 is set). Returns the remaining node count this[5].
+    // GUARD: Guard: entry blocked unless *a2 (first filter criterion) is nonzero and a3 > 0 (filter count positive). [source:raw]
+    // ASSIGNMENT: Seed the iteration pointer this[4] = this[2] (head) before traversing. [field:this:0x00000010, field:this:0x00000008, source:raw]
+    // LOOP: Outer loop over list nodes: start from v5 = *head and advance through v5 = *v10 (node data/next) until the iteration pointer becomes null; a node's data element is a vehicle index. [field:*(this+0x8):0x00000000, field:*(this+0xC):0x00000000, source:raw]
+    // CALCULATION: Compute the vehicle field address v8 = dword_8AC394 + 1060 * vehicleIndex + 444 for the current node's vehicle. [global:0x008AC394, source:raw]
+    // LOOP: Inner criterion loop: while sub_566810(v8, a2[v7]) returns 0 (match) advance v7; when v7 reaches a3 (all criteria matched) advance this[4] past the node and jump to the keep-node path. [callee:0x00566810, field:this:0x00000010, source:raw]
+    // CALL: Removal path: walk the list from the head to find the node v12 whose data pointer equals v5, tracking predecessor v13; if no node is found reset this[4] to head and continue. [field:*(this+0xC):0x00000004, field:this:0x00000008, field:this:0x00000010, source:raw]
+    // STATE_TRANSITION: Unlink v12: if v12 is the iteration pointer this[4], advance it; re-link predecessor v13->next (or head this[2] when v13 is null) past v12; if v12 is the tail this[3], set tail to v13; decrement count this[5]. [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000014, source:raw]
+    // CALL: Free the removed node: if the free-flag byte at v12+8 is set, free its data pointer *(LPVOID*)v12 via FreeWrapper_7bcf, then free the node v12 itself. [callee:0x00587BCF, field:*(this+0xC):0x00000008, field:*(this+0xC):0x00000000, source:raw]
+    // RETURN: Return the remaining node count this[5] after the filter pass. [field:this:0x00000014, function:0x004C4BB0, source:raw]
+    // CALL: Invoked from sub_4C4D50 (0x004C4D50). [caller:0x004C4D50]
+
+    // Conservative worker pseudocode:
+    //   int LinkedListSearchRemoval(int *this, int *a2, int a3) {
+    //     if (!*a2 || a3 <= 0) return this[5];
+    //     int *it = (int *)this[2];
+    //     this[4] = (int)it;
+    //     while (it && *(int *)it) {
+    //       int node = *(int *)it;
+    //       if (this[4]) this[4] = *(int *)(this[4] + 4);
+    //       int i = 0;
+    //       int vehField = dword_8AC394 + 1060 * *(int *)node + 444;
+    //       while (!sub_566810(vehField, a2[i])) {
+    //         if (++i >= a3) {
+    //           if (this[4]) this[4] = *(int *)(this[4] + 4);
+    //           it = (int *)this[4];
+    //           goto next;
+    //         }
+    //       }
+    //       int cur = this[2], prev = 0;
+    //       if (cur) {
+    //         while (*(int **)cur != node) {
+    //           prev = cur;
+    //           cur = *(int *)(cur + 4);
+    //           if (!cur) { this[4] = this[2]; it = (int *)this[2]; goto next; }
+    //         }
+    //         if (cur == this[4]) this[4] = *(int *)(cur + 4);
+    //         if (prev) *(int *)(prev + 4) = *(int *)(cur + 4);
+    //         else this[2] = *(int *)(cur + 4);
+    //         if (this[3] == cur) this[3] = prev;
+    //         --this[5];
+    //         if (*(char *)(cur + 8)) FreeWrapper_7bcf(*(void **)cur);
+    //         FreeWrapper_7bcf((void *)cur);
+    //       }
+    //       this[4] = this[2];
+    //       it = (int *)this[2];
+    //     next:
+    //       if (!it) break;
+    //     }
+    //     return this[5];
+    //   }
+    // UNRESOLVED: The node structure (data pointer at +0, next at +4, free-flag byte at +8) is evidenced only through the tail-node fields *(this+0xC):0x0/0x4/0x8 but the traversal treats every node identically; the tail-specific field bases in the packet are the decompiler's naming, not distinct node types.
+    // UNRESOLVED: sub_566810's return convention (0 = match) is taken from the existing analysis; it is the inverted condition of the keep-loop and is DERIVED, not runtime-confirmed.
+    // UNRESOLVED: The vehicle-array stride 1060 and field offset +444 come directly from the source arithmetic (dword_8AC394 + 1060 * index + 444) but their semantic meaning (vehicle field at 0x1BC) is DERIVED from the existing analysis.
+}

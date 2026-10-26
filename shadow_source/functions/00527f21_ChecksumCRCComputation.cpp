@@ -1,0 +1,37 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00527F21
+// Canonical corpus name: ChecksumCRCComputation
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ChecksumCRCComputation_00527f21.c
+
+void UnknownObject::ChecksumCRCComputation()
+{
+    // CRC-style checksum over a byte buffer using two 16-bit accumulators seeded from a1 and the reduction constant 0xFFF1. Processes the buffer in chunks of up to 5552 bytes with a 16-byte unrolled inner loop plus a residual byte loop, folding both accumulators modulo 0xFFF1 between chunks, and returns (high accumulator << 16) | low accumulator. Returns 1 instead when the buffer pointer is null.
+    // ASSIGNMENT: Initialize the buffer pointer v3 to a2 and split the seed a1 into two 16-bit accumulators: v4 = (unsigned __int16)a1 (low) and v5 = HIWORD(a1) (high). [source:raw]
+    // GUARD: If the buffer pointer a2 is null, return 1 immediately. [source:raw]
+    // LOOP: Outer loop iterates while remaining byte count a3 is non-zero. [source:raw]
+    // CALCULATION: Per chunk, process min(a3, 5552) bytes (0x15B0): v7 defaults to 5552 and is clamped to a3 when a3 < 0x15B0, then a3 is decremented by v7. [source:raw]
+    // LOOP: When the chunk size is at least 16, run an unrolled 16-byte inner loop: a chain of additions folds each byte into the running v4/v5 accumulators, advancing the pointer by 16 per iteration and repeating v7 >> 4 times. [source:raw]
+    // LOOP: Residual bytes of the chunk (fewer than 16 after the unrolled loop) are folded one at a time: v4 += *v3++, then v5 += v4. [source:raw]
+    // CALCULATION: Reduce both accumulators modulo 0xFFF1: v4 %= 0xFFF1 at the end of each chunk body and v5 %= 0xFFF1 in the outer loop increment. [source:raw]
+    // RETURN: Return the combined 32-bit checksum v4 | (v5 << 16). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   v3 = a2;
+    //   v4 = (unsigned __int16)a1;
+    //   v5 = HIWORD(a1);
+    //   if (!a2) return 1;
+    //   while (a3) {
+    //     chunk = (a3 < 0x15B0) ? a3 : 5552;
+    //     a3 -= chunk;
+    //     if (chunk >= 16) {
+    //       blocks = chunk >> 4; chunk -= blocks * 16;
+    //       do { fold 16 bytes into v4/v5; v3 += 16; } while (--blocks);
+    //     }
+    //     while (chunk--) { v4 += *v3++; v5 += v4; }
+    //     v4 %= 0xFFF1u;
+    //   }
+    //   return v4 | (v5 << 16);
+    // UNRESOLVED: The ABI record FAIL_527f21 carries a LEGACY failure label with no attached prototype; the __cdecl (seed, data, length) signature used here comes from the raw source only.
+    // UNRESOLVED: Whether the 0xFFF1 modulus is used as a plain polynomial or a Fletcher-style fold is not decided here; only the literal arithmetic from the source is asserted.
+}

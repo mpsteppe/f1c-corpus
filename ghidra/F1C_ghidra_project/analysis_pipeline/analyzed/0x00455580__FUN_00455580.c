@@ -1,0 +1,303 @@
+// Function: FUN_00455580 @ 00455580
+// Size (bytes): 742
+
+
+uint __fastcall FUN_00455580(byte param_1,uint param_2)
+
+{
+  switch(param_1) {
+  case 0x83:
+    return 0x9f;
+  case 0xa1:
+    return 0xad;
+  case 0xa2:
+    return 0xbd;
+  case 0xa3:
+    return 0x9c;
+  case 0xa4:
+    return 0xcf;
+  case 0xa5:
+    return 0xbe;
+  case 0xa6:
+    return 0xb3;
+  case 0xa7:
+    return 0xf5;
+  case 0xa8:
+    return 0xf9;
+  case 0xa9:
+    return 0xb8;
+  case 0xaa:
+    return 0xa6;
+  case 0xab:
+    return 0xae;
+  case 0xac:
+    return 0xaa;
+  case 0xad:
+    return 0xf0;
+  case 0xae:
+    return 0xa9;
+  case 0xaf:
+    return 0xee;
+  case 0xb0:
+    return 0xf8;
+  case 0xb1:
+    return 0xf1;
+  case 0xb2:
+    return 0xfd;
+  case 0xb3:
+    return 0xfc;
+  case 0xb4:
+    return 0xef;
+  case 0xb5:
+    return 0xe6;
+  case 0xb6:
+    return 0xf4;
+  case 0xb7:
+    return 0xfa;
+  case 0xb8:
+    return 0xf7;
+  case 0xb9:
+    return 0xfb;
+  case 0xba:
+    return 0xa7;
+  case 0xbb:
+    return 0xaf;
+  case 0xbc:
+    return 0xac;
+  case 0xbd:
+    return 0xab;
+  case 0xbe:
+    return 0xf3;
+  case 0xbf:
+    return 0xa8;
+  case 0xc0:
+    return 0xb7;
+  case 0xc1:
+    return 0xb5;
+  case 0xc2:
+    return 0xb6;
+  case 0xc3:
+    return 199;
+  case 0xc4:
+    return 0x8e;
+  case 0xc5:
+    return 0x8f;
+  case 0xc6:
+    return 0x92;
+  case 199:
+    return 0x80;
+  case 200:
+    return 0xd4;
+  case 0xc9:
+    return 0x90;
+  case 0xca:
+    return 0xd2;
+  case 0xcb:
+    return 0xd3;
+  case 0xcc:
+    return 0xde;
+  case 0xcd:
+    return 0xd6;
+  case 0xce:
+    return 0xd7;
+  case 0xcf:
+    return 0xd8;
+  case 0xd0:
+    return 0xd1;
+  case 0xd1:
+    return 0xa5;
+  case 0xd2:
+    return 0xe3;
+  case 0xd3:
+    return 0xe0;
+  case 0xd4:
+    return 0xe2;
+  case 0xd5:
+    return 0xe5;
+  case 0xd6:
+    return 0x99;
+  case 0xd7:
+    return 0x9e;
+  case 0xd8:
+    return 0x9d;
+  case 0xd9:
+    return 0xeb;
+  case 0xda:
+    return 0xe9;
+  case 0xdb:
+    return 0xea;
+  case 0xdc:
+    return 0x9a;
+  case 0xdd:
+    return 0xed;
+  case 0xde:
+    return 0xe8;
+  case 0xdf:
+    return 0xe1;
+  case 0xe0:
+    return 0x85;
+  case 0xe1:
+    return 0xa0;
+  case 0xe2:
+    return 0x83;
+  case 0xe3:
+    return 0xc6;
+  case 0xe4:
+    return 0x84;
+  case 0xe5:
+    return 0x86;
+  case 0xe6:
+    return 0x91;
+  case 0xe7:
+    return 0x87;
+  case 0xe8:
+    return 0x8a;
+  case 0xe9:
+    return 0x82;
+  case 0xea:
+    return 0x88;
+  case 0xeb:
+    return 0x89;
+  case 0xec:
+    return 0x8d;
+  case 0xed:
+    return 0xa1;
+  case 0xee:
+    return 0x8c;
+  case 0xef:
+    return 0x8b;
+  case 0xf0:
+    return 0xd0;
+  case 0xf1:
+    return 0xa4;
+  case 0xf2:
+    return 0x95;
+  case 0xf3:
+    return 0xa2;
+  case 0xf4:
+    return 0x93;
+  case 0xf5:
+    return 0xe4;
+  case 0xf6:
+    return 0x94;
+  case 0xf7:
+    return 0xf6;
+  case 0xf8:
+    return 0x9b;
+  case 0xf9:
+    return 0x97;
+  case 0xfa:
+    return 0xa3;
+  case 0xfb:
+    return 0x96;
+  case 0xfc:
+    return 0x81;
+  case 0xfd:
+    return 0xec;
+  case 0xfe:
+    return 0xe7;
+  case 0xff:
+    return 0x98;
+  }
+  if ((char)(param_2 >> 8) < '\0') {
+    switch(param_2 & 0xfff) {
+    case 2:
+      return (byte)~(byte)(param_2 >> 0xb) & 0xffffff10 | 0x21;
+    case 3:
+      return 0x40;
+    case 4:
+      return (byte)~(byte)(param_2 >> 0xb) & 0xffffff10 | 0x23;
+    case 5:
+      return (byte)~(byte)(param_2 >> 0xb) & 0xffffff10 | 0x24;
+    case 6:
+      return (byte)~(byte)(param_2 >> 0xb) & 0xffffff10 | 0x25;
+    case 7:
+      return 0x5e;
+    case 8:
+      return 0x26;
+    case 9:
+      return 0x2a;
+    case 10:
+      return 0x28;
+    case 0xb:
+      return 0x29;
+    case 0xc:
+      return 0x5f;
+    case 0xd:
+      return 0x2b;
+    case 0x10:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x51;
+    case 0x11:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x57;
+    case 0x12:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x45;
+    case 0x13:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x52;
+    case 0x14:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x54;
+    case 0x15:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x59;
+    case 0x16:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x55;
+    case 0x17:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x49;
+    case 0x18:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x4f;
+    case 0x19:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x50;
+    case 0x1a:
+      return param_2 >> 10 & 0xffffff20 | 0x5b;
+    case 0x1b:
+      return param_2 >> 10 & 0xffffff20 | 0x5d;
+    case 0x1e:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x41;
+    case 0x1f:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x53;
+    case 0x20:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x44;
+    case 0x21:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x46;
+    case 0x22:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x47;
+    case 0x23:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x48;
+    case 0x24:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x4a;
+    case 0x25:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x4b;
+    case 0x26:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x4c;
+    case 0x27:
+      return (byte)~(byte)(param_2 >> 0xf) & 0xffffff01 | 0x3a;
+    case 0x28:
+      return 0x22;
+    case 0x29:
+      return 0x7e;
+    case 0x2b:
+      return param_2 >> 10 & 0xffffff20 | 0x5c;
+    case 0x2c:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x5a;
+    case 0x2d:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x58;
+    case 0x2e:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x43;
+    case 0x2f:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x56;
+    case 0x30:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x42;
+    case 0x31:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x4e;
+    case 0x32:
+      return (byte)~(byte)(param_2 >> 10) & 0xffffff20 | 0x4d;
+    case 0x33:
+      return param_2 >> 0xb & 0xffffff10 | 0x2c;
+    case 0x34:
+      return param_2 >> 0xb & 0xffffff10 | 0x2e;
+    case 0x35:
+      return param_2 >> 0xb & 0xffffff10 | 0x2f;
+    }
+  }
+  return (uint)param_1;
+}
+
+

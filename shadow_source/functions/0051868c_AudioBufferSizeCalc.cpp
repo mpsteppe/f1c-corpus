@@ -1,0 +1,38 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051868C
+// Canonical corpus name: AudioBufferSizeCalc
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AudioBufferSizeCalc_0051868c.c
+
+void UnknownObject::AudioBufferSizeCalc()
+{
+    // Computes buffer dimensions and allocates the output buffers for a media surface. Resets a state field, runs a color-transform pass, then computes scanline size and row counts either through a compressed/interlaced path (using the dword_5AFAA0 / dword_5AFABC tables indexed by this+0x114) or a direct path. Adjusts the bit depth from surface flags and compression-type fields, allocates two buffers via sub_517E92, zero-fills the second via MemsetWithByteFill, and sets a ready flag at this+0x5C.
+    // ASSIGNMENT: Reset this+0x68 to 0. [field:this:0x00000068, source:raw]
+    // CALL: Run TextureImageColorTransform on this. [callee:0x0051378B, source:raw]
+    // CALCULATION: Compressed/interlaced path (byte at this+0x113 set): scanline size this+0xC0 = (this+0xBC + 7) >> 3 when bit 1 of the flags at this+0x60 is clear; row count this+0xD0 = (this+0xB8 - dword_5AFAA0[this+0x114] + dword_5AFABC[this+0x114] - 1) / dword_5AFABC[this+0x114]; byte rows this+0xCC = ((rows * bit depth at this+0x119 + 7) >> 3) + 1. [field:this:0x00000113, field:this:0x00000060, field:this:0x000000BC, field:this:0x000000C0, field:this:0x000000B8, field:this:0x000000D0, field:this:0x000000CC, field:this:0x00000114, field:this:0x00000119, global:0x005AFAA0, global:0x005AFABC, source:raw]
+    // CALCULATION: Direct path: this+0xC0 = this+0xBC, this+0xD0 = this+0xB8, and this+0xCC = this+0xC8 + 1. [field:this:0x000000C0, field:this:0x000000BC, field:this:0x000000D0, field:this:0x000000B8, field:this:0x000000CC, field:this:0x000000C8, source:raw]
+    // CALCULATION: Adjust bit depth from this+0x119 using flags at this+0x60: force 8 when bit 2 is set and the filter byte at this+0x117 is below 8; when bit 0x1000 is set, apply compression type at this+0x116 (type 3 -> 8 * (word at this+0x10A != 0) + 24; type 2 with word set -> depth * 4 / 3; type 0 -> minimum 8 then double when the word is set); when bit 0x8000 is set, snap the depth to 32, or to 64/32 or 32/16 based on the compression type. [field:this:0x00000119, field:this:0x00000060, field:this:0x00000117, guard:1, field:this:0x00000116, field:this:0x0000010A, guard:0, source:raw]
+    // CALL: Allocate the main buffer: this+0xDC = sub_517E92(this, ((depth * ((this+0xB8 + 7) & 0xFFFFFFF8) + 7) >> 3) + ((depth + 7) >> 3) + 1). [callee:0x00517E92, field:this:0x000000DC, field:this:0x000000B8, field:this:0x00000119, source:raw]
+    // CALL: Allocate the temporary buffer: this+0xD8 = sub_517E92(this, this+0xC8 + 1). [callee:0x00517E92, field:this:0x000000D8, field:this:0x000000C8, source:raw]
+    // CALL: Zero-fill the temporary buffer with MemsetWithByteFill(flags at this+0x60, this, buffer at this+0xD8, 0, this+0xC8 + 1). [callee:0x00517F04, field:this:0x00000060, field:this:0x000000D8, field:this:0x000000C8, source:raw]
+    // ASSIGNMENT: Set the ready flag bit 0x40 in this+0x5C. [field:this:0x0000005C, source:raw]
+    // RETURN: Return the fill routine result. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char* sub_51868C(int this) {
+    //     this->state68 = 0;
+    //     TextureImageColorTransform(this);
+    //     // compute scanline size (this+0xC0), row count (this+0xD0), byte rows (this+0xCC)
+    //     // via compressed table path or direct path
+    //     int depth = adjust_depth(this->flags, this->compression, this->word266);
+    //     this->pMain = sub_517E92(this, stride_size(depth));
+    //     this->pTmp  = sub_517E92(this, this->c8 + 1);
+    //     char* result = MemsetWithByteFill(this->flags, this, this->pTmp, 0, this->c8 + 1);
+    //     this->flags5C |= 0x40;
+    //     return result;
+    //   }
+    // UNRESOLVED: The lookup tables dword_5AFAA0 and dword_5AFABC and the surface flag/compression enum meanings (bits 0x1000 and 0x8000, types 0/2/3) are read but their semantics are only inferred.
+    // UNRESOLVED: sub_517E92 is used as an allocation helper but its exact behavior is unverified.
+    // UNRESOLVED: The subsystem is labeled audio, yet the field set (width, stride, color transform, interlace) resembles an image/texture decoder; the exact media kind is unresolved.
+    // UNRESOLVED: The two static callers (ConditionalDispatchWithGuard, sub_511B7C) provide no frame-path evidence.
+}

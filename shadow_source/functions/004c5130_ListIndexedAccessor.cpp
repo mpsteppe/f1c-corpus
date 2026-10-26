@@ -1,0 +1,36 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C5130
+// Canonical corpus name: ListIndexedAccessor
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ListIndexedAccessor_004c5130.c
+
+void UnknownObject::ListIndexedAccessor()
+{
+    // Returns the data value at position `index` (this+0x18) of a singly linked list whose head is this+0x8 and count is this+0x14. When the index is in range it walks the list to that node and returns the value pointed to by the node's first dword; otherwise it resets the iterator this+0x10 to the head and returns the first element's value (or 0 when the list is empty).
+    // ASSIGNMENT: Read the index from this+0x18 into a local. [field:this:0x00000018, source:raw, function:0x004C5130]
+    // GUARD: Guard: proceed only when index >= 0 AND index < count (this+0x14); otherwise fall through to the out-of-range fallback. [field:this:0x00000014, field:this:0x00000018, source:raw]
+    // ASSIGNMENT: Load the head pointer from this+0x8 as the current node. [field:this:0x00000008, source:raw]
+    // LOOP: Walk the linked list: while the current node is non-null and index > 0, advance to the node's next pointer (node+4) and decrement index. [field:this:0x00000008, source:raw]
+    // GUARD: Guard: the reached node must be non-null and its first dword (data pointer) non-null before dereferencing. [field:*(this+0x8):0x00000000, source:raw]
+    // RETURN: Return the value pointed to by the node's first dword (the data pointer is dereferenced; this+0x8 -> node offset 0x0 is the read source). [field:*(this+0x8):0x00000000, source:raw]
+    // ASSIGNMENT: Out-of-range fallback: reset the iterator this+0x10 to the head pointer this+0x8. [field:this:0x00000010, field:this:0x00000008, source:raw]
+    // RETURN: Fallback return: if head is non-null and its first dword non-null, return the dereferenced value; otherwise return 0. [field:*(this+0x8):0x00000000, field:this:0x00000008, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int ListIndexedAccessor(int *this) {
+    //     int index = this[6];                      // this+0x18
+    //     if (index >= 0 && index < this[5]) {      // this+0x14 = count
+    //       int *node = (int *)this[2];             // this+0x8 = head
+    //       while (node && index > 0) {             // advance via node[1] (next)
+    //         node = (int *)node[1];
+    //         index--;
+    //       }
+    //       if (node && *node) return **(int **)node;
+    //     }
+    //     this[4] = this[2];                        // iterator reset to head (this+0x10)
+    //     return (this[2] && *(int *)this[2]) ? **(int **)this[2] : 0;
+    //   }
+    // UNRESOLVED: The node's first dword is dereferenced as a pointer before returning, implying nodes store a pointer to the value rather than the value inline; exact payload type is unconfirmed.
+    // UNRESOLVED: abi:lead provides only the legacy name 'List_Indexed_Accessor' with no prototype; used as a naming signal, not evidence of layout.
+    // UNRESOLVED: caller 0x00477680 (TrackSceneConfigLoader) is external context; the walk semantics inside this function do not depend on it.
+}

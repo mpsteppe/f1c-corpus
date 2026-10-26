@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "address": "0x00515D26",
+  "proposed_name": "AllocateAndCopyObjectBuffers",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Iterates an array of object descriptors (count at this+0x120, array at this+0x124). For each descriptor whose 130-byte buffer is not yet allocated, validates its type and source pool slot, allocates a buffer via the vtable allocator, copies 0x82 bytes from the source pool entry, and stores the buffer into the descriptor.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Skip the whole pass when the descriptor count at this+0x120 is not greater than 0.",
+      "evidence_refs": ["field:this:0x00000120", "guard:0"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate the descriptor array at this+0x124 from index 0 while the index is below the count at this+0x120.",
+      "evidence_refs": ["field:this:0x00000124", "field:this:0x00000120"]
+    },
+    {
+      "kind": "guard",
+      "description": "Per-entry check: only process descriptors whose buffer pointer (descriptor+0x4C) is null, i.e. not yet allocated.",
+      "evidence_refs": ["field:*(this+0x124):0x0000004C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the object type id from descriptor+0x10.",
+      "evidence_refs": ["field:*(this+0x124):0x00000010"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the type id is 4 or greater, or the source pool entry at this + 4*type + 144 is null, run the init path first.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write init markers: obj+0x14 = 51 and obj+0x18 = the type id.",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000014", "field:obj:0x00000018"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoke obj vtable entry 0 (the pointer at this+0x0) with this.",
+      "evidence_refs": ["field:obj:0x00000000", "field:this:0x00000000"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoke the allocator function at this+0x4 with (this, 1, 130) to allocate a buffer.",
+      "evidence_refs": ["field:this:0x00000004", "field:*(this+0x4):0x00000000"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy 0x82 bytes from the source pool entry at this + 4*type + 144 into the allocated buffer.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the allocated buffer into descriptor+0x4C, marking the entry as allocated.",
+      "evidence_refs": ["field:*(this+0x124):0x0000004C"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void sub_515D26(ObjectOwner* this) {",
+    "  int count = this->count;                             // this+0x120",
+    "  if (count <= 0) return;",
+    "  Desc* desc = this->descriptors;                      // this+0x124",
+    "  for (int i = 0; i < count; ++i, ++desc) {",
+    "    if (desc->buffer) continue;                        // descriptor+0x4C allocated",
+    "    unsigned int type = desc->type;                    // descriptor+0x10",
+    "    if (type >= 4 || !this->pool[type]) {              // this + 4*type + 144",
+    "      Dispatcher* obj = (Dispatcher*)*this;            // this+0x0",
+    "      obj->state = 51; obj->type = type;               // obj+0x14 / obj+0x18",
+    "      obj->init(this);                                 // obj vtable entry 0",
+    "    }",
+    "    void* buf = this->allocator(this, 1, 130);         // this+0x4",
+    "    memcpy(buf, this->pool[type], 0x82);",
+    "    desc->buffer = buf;                                // descriptor+0x4C",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The object type id semantics (values below 4) and the source pool layout at this+144 are not defined here.",
+    "The identities of the allocator (this+0x4) and the init callback (obj vtable entry 0) are caller-supplied."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

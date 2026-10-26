@@ -1,0 +1,8 @@
+// f1c  0x004dad50  size=36
+void __thiscall sub_4DAD50(int *this)
+{
+  int v2; // eax
+
+  v2 = sub_4D1B50((unsigned __int8 *)dword_8ACEE0, 0);
+  sub_4DAD30(this, (int)&unk_5EC6D8 + 18624 * v2);
+}

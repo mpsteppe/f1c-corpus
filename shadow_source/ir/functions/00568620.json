@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "address": "0x00568620",
+  "proposed_name": "StringSanitizeEncodeHexEscape",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00568620"]
+  },
+  "summary": "Sanitizes a string into an output buffer with a size budget. Returns 0 when either the input a1 or output a2 is null; otherwise clears the first output byte (this+0x0), and if the input is non-empty walks it with sub_5687F0 as the per-character 'needs encoding' test. Plain characters pass straight through via ASCIICharCodeValidation. A '+' (43) triggers special handling: if StringPrefixPatternCheck recognizes an existing '+~XX' escape, the 4-byte escape body is copied verbatim; otherwise the '+' is copied as a literal character. Characters are appended only while strlen(a2) stays under the a3 budget. When a character needs encoding, StringFormatWithBufferOverflowCheck formats it as the hex escape '%c%c%x%x' with prefix '+' (43) and '~' (126) plus the high and low nibbles, then appends. Returns 1 at end of input.",
+  "local_names": {
+    "a1": "input string to sanitize",
+    "a2": "output buffer receiving the sanitized text (first byte cleared to 0)",
+    "a3": "maximum output length budget",
+    "v3": "cursor into the input string",
+    "v5": "character code under test",
+    "v6": "second byte of an escape sequence after '+'",
+    "v13": "single-character staging buffer for plain or encoded characters",
+    "v14": "escape byte copied after the leading '+'",
+    "v15": "escape byte copied after the second char",
+    "v16": "escape byte copied after the third char",
+    "v17": "null terminator byte of the escape staging"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If a1 or a2 is null, return 0",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the first byte of the output buffer this+0x0 to 0 before writing",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "If the input is non-empty, iterate while sub_5687F0 reports the current character needs no encoding",
+      "evidence_refs": ["callee:0x005687F0", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "If ASCIICharCodeValidation accepts the current character, stage it verbatim for output",
+      "evidence_refs": ["callee:0x00568750", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the character is not '+' (43), stop the copy loop so the encoding path handles it",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "On a '+' (43): if StringPrefixPatternCheck recognizes an existing '+~XX' escape at the cursor, stage the 4 following bytes (v13, v14, v15, v16) verbatim and advance the cursor; otherwise treat the '+' as a literal character",
+      "evidence_refs": ["callee:0x005685B0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Append the staged text with strcat only while strlen(a2) plus the staged length stays below the a3 budget",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Advance the input cursor; return 1 when the null terminator is reached",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "When encoding is required, StringFormatWithBufferOverflowCheck renders the character into the staging buffer as '%c%c%x%x' with '+' (43), '~' (126), the high nibble and the low nibble, then the result is appended on the next pass",
+      "evidence_refs": ["callee:0x0058815F", "global:0x005E5184", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by settings, path and file-IO paths including SettingsCopySetupFileCopy, ConfigFileParser, PathBuilderWithBackslash, TextFileReader and AudioStreamOpen",
+      "evidence_refs": ["caller:0x00432220", "caller:0x004330D0", "caller:0x0046E600", "caller:0x00566B20", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (!a1 || !a2) return 0;",
+    "*a2 = 0;",
+    "if (*a1) {",
+    "  while (!sub_5687F0(v3)) {",
+    "    ch = *v3;",
+    "    if (ASCIICharCodeValidation(ch)) { v13 = ch; v14 = 0; }",
+    "    else {",
+    "      if (*v3 != 43) break;",
+    "      if (StringPrefixPatternCheck(v3)) { stage 4 escape bytes from v3; advance v3; }",
+    "      else { v13 = *v3; v14 = 0; }",
+    "    }",
+    "    append_stage:",
+    "    if (strlen(&v13) + strlen(a2) < a3) strcat(a2, &v13);",
+    "    if (!*++v3) return 1;",
+    "  }",
+    "  StringFormatWithBufferOverflowCheck(&v13, \"%c%c%x%x\", 43, 126, *v3 >> 4, *v3 & 0xF);",
+    "  goto append_stage;",
+    "}",
+    "return 1;"
+  ],
+  "unresolved": [
+    "sub_5687F0 and StringPrefixPatternCheck define the character classification and the escape-prefix grammar, but neither is defined in this packet",
+    "The exact '+~XX' prefix is DERIVED from the format string '%c%c%x%x' with literals 43 and 126, not confirmed by an independent source",
+    "The output buffer this+0x0 is treated as the start of a2; its real capacity is separate from the a3 budget and is not defined"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

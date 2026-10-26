@@ -1,0 +1,46 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004B6A10
+// Canonical corpus name: VehicleForceAerodynamicsComputation
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VehicleForceAerodynamicsComputation_004b6a10.c
+
+void UnknownObject::SerializedStateExport()
+{
+    // Serializes object/vehicle state into a conditional dispatch stream: writes two header values, two path strings (with fallback to a global empty string), two byte flags, a sub_4B5E30-derived count, then serializes 104 slot-list entries via sub_4B4FB0, a byte flag, and a linked list via FileStreamWriter. Finally walks a range-filtered list selecting nodes whose float value is in [a3, a4], sums their 16-bit values, and dispatches count/sum/range-span. Returns a success sentinel equal to (expected_count == serialized_slot_count) when the range walk succeeds, otherwise 0.
+    // CALL: Initialize the conditional dispatch stream with the stream key argument a2. [callee:0x00566D30]
+    // CALL: Dispatch 4 bytes of the global header value off_5D2434 to the stream. [callee:0x00566BD0, global:0x005D2434]
+    // CALL: Dispatch 4 bytes of the global float flt_5D2438 to the stream. [callee:0x00566BD0, global:0x005D2438]
+    // CALL: Read path string pointer at this+0x724 (falling back to global byte_5EA438 when null), dispatch its length then its bytes. [field:this:0x00000724, global:0x005EA438, callee:0x00566BD0]
+    // CALL: Read path string pointer at this+0x72C (falling back to global byte_5EA438 when null), dispatch its length then its bytes. [field:this:0x0000072C, global:0x005EA438, callee:0x00566BD0]
+    // CALL: Dispatch 1 byte of the flag at this+0xF1C. [field:this:0x00000F1C, callee:0x00566BD0]
+    // CALL: Dispatch 1 byte of the flag at this+0xF20. [field:this:0x00000F20, callee:0x00566BD0]
+    // CALL: Compute expected_count via sub_4B5E30(this) and dispatch it as 4 bytes. [callee:0x004B5E30, callee:0x00566BD0]
+    // LOOP: Iterate 104 slot lists anchored at this+0x48; for each list walk its entries (value at +0, next at +4) and serialize every entry through sub_4B4FB0, counting serialized entries in serialized_slot_count. [field:this:0x00000048, field:*(this+0x48):0x00000000, field:*(this+0x48):0x00000004, callee:0x004B4FB0]
+    // CALL: Dispatch 1 byte of the flag at this+0x6CC. [field:this:0x000006CC, callee:0x00566BD0]
+    // LOOP: Serialize the linked list whose head is at this+0x6C0: write each node through FileStreamWriter and advance the this+0x6C8 current pointer via the +4 next link until the list ends. [field:this:0x000006C0, field:this:0x000006C8, field:*(this+0x6C0):0x00000000, field:*(this+0x6C8):0x00000004, callee:0x004B41E0]
+    // CALCULATION: Set success_sentinel to 1 when expected_count equals serialized_slot_count, otherwise 0. [source:raw]
+    // ASSIGNMENT: Seed the range-filtered list current pointer at this+0x71C from its head pointer at this+0x714. [field:this:0x00000714, field:*(this+0x714):0x00000000, field:this:0x0000071C]
+    // LOOP: Walk the range-filtered list from this+0x71C: for each node, stop if its +0 float value exceeds a4; when the value is >= a3 record first/last in-range nodes, increment range_entry_count, accumulate the +8 unsigned 16-bit value into range_value_sum, and advance through the +4 next link. [field:*(*(this+0x714)+0x0):0x00000000, field:*(*(this+0x714)+0x0):0x00000008, field:*(this+0x71C):0x00000000, field:*(this+0x71C):0x00000004, field:this:0x0000071C]
+    // RETURN: Return 0 when the range walk produced no in-range node. [source:raw]
+    // CALL: Dispatch the range result to the stream: range_entry_count (4 bytes), range_value_sum (4 bytes), and the range span a4 - a3 (4 bytes). [callee:0x00566BD0]
+    // RETURN: Return success_sentinel as the final result. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   init_dispatch_stream(a2);
+    //   dispatch(off_5D2434, 4); dispatch(flt_5D2438, 4);
+    //   dispatch_str(path(this+0x724) or byte_5EA438);
+    //   dispatch_str(path(this+0x72C) or byte_5EA438);
+    //   dispatch(byte(this+0xF1C)); dispatch(byte(this+0xF20));
+    //   expected = sub_4B5E30(this); dispatch(expected);
+    //   for 104 slots: for each entry in list(this+0x48): sub_4B4FB0(entry, a2); ++serialized;
+    //   dispatch(byte(this+0x6CC));
+    //   for each node in list(this+0x6C0): FileStreamWriter(node, a2);
+    //   v17 = (expected == serialized) ? 1 : 0;
+    //   walk range list; if no in-range node: return 0;
+    //   dispatch(count); dispatch(sum); dispatch(a4 - a3);
+    //   return v17;
+    // UNRESOLVED: Object type owning this serialization state is unidentified; only the 'vehicle' subsystem tag and the canonical name are available.
+    // UNRESOLVED: Semantics of the per-slot serializer sub_4B4FB0 and the count producer sub_4B5E30 are not visible in this packet.
+    // UNRESOLVED: Meaning of the dispatched header values off_5D2434 / flt_5D2438 (version/format markers) is not confirmed.
+    // UNRESOLVED: The canonical name VehicleForceAerodynamicsComputation conflicts with the observed serialization behavior.
+}

@@ -1,0 +1,44 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0045D2D0
+// Canonical corpus name: sub_45D2D0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_45D2D0_0045d2d0.c
+
+void UnknownObject::GameListStateUpdateHandler()
+{
+    // Handles the network game-list session state machine. On a get-game-list request (a2 == 1) it sets the scene-refresh flag byte_7CD2A0, queries the current state via sub_563E70, selects and debug-logs the matching status message (done/getting/searching/querying) unless the session is a server (dword_7C569C == 5), copies the selected string into the message display buffer byte_5EC4CC through BinarySearchInStringTable, and passes it to PathRegistryCallWrapper. Other a2 values only warn about an unknown game list or return a2 unchanged.
+    // STATE_TRANSITION: On a get-game-list request (a2 == 1), set the scene-refresh flag byte_7CD2A0 to 1. [global:0x007CD2A0, source:raw]
+    // CALL: sub_563E70(a1) queries the current game-list state; the result selects a case through the jump table jpt_45D2FE. [callee:0x00563E70, global:0x0045D47C, source:raw]
+    // ASSIGNMENT: State 0 selects byte_5EA438 (default application directory) as the display message and, unless dword_7C569C is 5, logs 'Done updating game list' through StringSplitLoop and DebugLogWrite. [global:0x005EA438, global:0x005C5CC8, global:0x007C569C, global:0x008AD25C, global:0x005C5CE4, callee:0x004D7A50, callee:0x004D7AA0, source:raw]
+    // ASSIGNMENT: State 1 selects the 'Getting game list...' string and, unless dword_7C569C is 5, logs it through StringSplitLoop and DebugLogWrite. [global:0x005C5CB4, global:0x007C569C, global:0x008AD25C, global:0x005C5CE4, callee:0x004D7A50, callee:0x004D7AA0, source:raw]
+    // ASSIGNMENT: State 2 selects the 'Searching LAN...' string and, unless dword_7C569C is 5, logs it through StringSplitLoop and DebugLogWrite. [global:0x005C5CA0, global:0x007C569C, global:0x008AD25C, global:0x005C5CE4, callee:0x004D7A50, callee:0x004D7AA0, source:raw]
+    // ASSIGNMENT: State 3 selects the 'Querying games...' string and, unless dword_7C569C is 5, logs it through StringSplitLoop and DebugLogWrite. [global:0x005C5C90, global:0x007C569C, global:0x008AD25C, global:0x005C5CE4, callee:0x004D7A50, callee:0x004D7AA0, source:raw]
+    // ASSIGNMENT: Default state uses the fallback string asc_5C5C8C, copied byte-by-byte into the message display buffer byte_5EC4CC. [global:0x005C5C8C, global:0x005EC4CC, source:raw]
+    // CALL: BinarySearchInStringTable(byte_5EC4C0, selected, byte_5EC4CC) copies the selected message into byte_5EC4CC when found in the table. [callee:0x00423A00, global:0x005EC4C0, global:0x005EC4CC, source:raw]
+    // RETURN: PathRegistryCallWrapper((int)byte_5EC4CC) resolves the path named by the current message buffer and its result is returned. [callee:0x004630C0, global:0x005EC4CC, source:raw]
+    // GUARD: For any other a2 value (not 1 and not 2), when dword_7C569C is not 5, log the 'Unknown game list' message through StringSplitLoop and DebugLogWrite. [global:0x007C569C, global:0x008AD25C, global:0x005C5CE4, global:0x005C5C6C, callee:0x004D7A50, callee:0x004D7AA0, source:raw]
+    // RETURN: Return a2 unchanged on the non-get-game-list paths (including the a2 == 2 early return). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char GameListStateUpdateHandler(void *a1, int a2) {
+    //     if (a2 == 1) {
+    //       byte_7CD2A0 = 1;
+    //       switch (sub_563E70(a1)) {
+    //         case 0: msg = byte_5EA438;              // + log "Done updating game list"
+    //         case 1: msg = aGettingGameLis;           // + log "Getting game list..."
+    //         case 2: msg = aSearchingLan;             // + log "Searching LAN..."
+    //         case 3: msg = aQueryingGames;            // + log "Querying games..."
+    //         default: copy asc_5C5C8C into byte_5EC4CC; break;
+    //       }
+    //       if (BinarySearchInStringTable(byte_5EC4C0, msg, byte_5EC4CC)) strcpy(byte_5EC4CC, msg);
+    //       return PathRegistryCallWrapper((int)byte_5EC4CC);
+    //     }
+    //     if (a2 != 2 && dword_7C569C != 5 &&
+    //         StringSplitLoop(dword_8AD25C, 2, aDDevF119992002_1, 266))
+    //       return DebugLogWrite((int)dword_8AD25C, (int)aUnknownGamelis);
+    //     return a2;
+    //   }
+    // UNRESOLVED: dword_7CD25C (GameModuleManager per existing analysis) is listed as read but does not appear in the raw body; it is likely consumed by a callee (PathRegistryCallWrapper or sub_563E70).
+    // UNRESOLVED: The exact meaning of the a2 argument and the a1 object type are not grounded by the packet; a2 == 2 is an early-return path with no observable side effect in the raw body.
+    // UNRESOLVED: The debug-log line numbers (239, 244, 249, 254, 266) passed to StringSplitLoop are literal values whose purpose is not established.
+}

@@ -1,0 +1,2536 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_math_and_collision_02",
+  "scope": "math_and_collision",
+  "subsystem": {
+    "name": "MathAndCollision",
+    "responsibility": "Shared math and collision helpers: float 4x4 and float/double 3x3 rotation-matrix construction and composition (Euler angles, quaternion, angle-axis/Rodrigues), vector3 accumulation, matrix-vector transforms, a ray-triangle ride-height surface query, packed-array containers used by vehicle-physics joint-system loading, and two video-side array/check helpers. Most owners are UNKNOWN at the function-IR level; the rotation-math helpers are free-form math utilities, and the vehicle-physics joint-system cluster (VehiclePhysicsJointSystemLoader caller 0x0056D930) is the only internally connected group.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x004CEFE0",
+      "function:0x004D7BF0",
+      "function:0x004EC020",
+      "function:0x004EFBD0",
+      "function:0x004F9310",
+      "function:0x0053B240",
+      "function:0x0053B3B0",
+      "function:0x0053B4C0",
+      "function:0x0053D890",
+      "function:0x005414A0",
+      "function:0x00541CD0",
+      "function:0x00541D10",
+      "function:0x0054E100",
+      "function:0x0054E120",
+      "function:0x00567400",
+      "function:0x005698E0",
+      "function:0x0056BD40",
+      "function:0x0056BDE0",
+      "function:0x0056C020",
+      "function:0x0056CF70",
+      "function:0x0056D430",
+      "function:0x0056D880",
+      "function:0x00587460",
+      "source:raw"
+    ]
+  },
+  "summary": "Proposal for the math_and_collision slice of Wave 4. The functions fall into three groups. (1) Rotation/orientation math helpers: float 4x4 rotation-matrix construction (0x53B240 Euler build, 0x53B3B0 identity init), quaternion-to-matrix (0x53B4C0), float 3x3 Y-axis rotation with Euler extraction (0x567400), double 3x3 rotation matrices (0x56BD40 Euler, 0x56BDE0 angle-axis Rodrigues, 0x56C020 in-place Rodrigues compose), the two-pair matrix-vector transform (0x56CF70), and the orientation update utility pair (0x541CD0, 0x541D10). (2) Collision: a ray-triangle ride-height query (0x4EFBD0) built on the same 3-vector math (0x4EC020). (3) Containers/checks: a strided-array search with match callback (0x4CEFE0), an indexed dword read for scoring gates (0x4D7BF0), a bounds-checked 271-dword-slot array getter (0x53D890), an audio-side array accessor (0x5414A0), packed-array total-size and index-resolution (0x54E100, 0x54E120), the video 'CUBE' slot check with flag-word building (0x4F9310), the vehicle-physics joint-system helpers (0x56D430 bandwidth reduction, 0x56D880 zero-fill + joint init, 0x5698E0 buffer append) and a small allocate-and-init buffer descriptor (0x587460). Ownership is UNKNOWN for almost every function, so the class grouping is a DERIVED/GUESS proposal; the strongest layout evidence is the 3x3 double matrix (nine doubles at 0x0..0x40 shared by 0x56BD40/0x56BDE0/0x56C020) and the packed-array count/base pair at 0x118/0x11C shared by 0x54E100/0x54E120.",
+  "function_roles": [
+    {
+      "address": "0x004CEFE0",
+      "role": "Searches the strided element array (27 dwords / 108 bytes per element, count at this+0x10, base at this+0x14) for the first element whose second dword equals a2; on match calls the element processor (0x004CD8D0) with the element and a3 and returns its result, otherwise returns the examined count (or 0 when the count is not positive).",
+      "owner": "SearchStridedArrayContainer",
+      "evidence_refs": [
+        "function:0x004CEFE0",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "callee:0x004CD8D0",
+        "caller:0x004FCEE0"
+      ]
+    },
+    {
+      "address": "0x004D7BF0",
+      "role": "Trivial indexed dword read: returns the array element this[a2] from the caller's dword array with no guards, globals or callees; used as an indexed gate/score lookup by the scoring-gate selection path (caller 0x004D1AD0).",
+      "owner": "ScoringGateArray",
+      "evidence_refs": [
+        "function:0x004D7BF0",
+        "abi:lead",
+        "source:raw",
+        "caller:0x004D1AD0"
+      ]
+    },
+    {
+      "address": "0x004EC020",
+      "role": "In-place float vector3 accumulation: adds each component of a2 (a2+0/+4/+8) into the corresponding component of this (this+0/+4/+8) and returns the updated destination pointer; called by vehicle contact-force accumulation, wheel-contact transform and the ray-triangle query on the frame path.",
+      "owner": "Vector3",
+      "evidence_refs": [
+        "function:0x004EC020",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "caller:0x004EBC60",
+        "caller:0x004EF180",
+        "caller:0x004EFBD0"
+      ]
+    },
+    {
+      "address": "0x004EFBD0",
+      "role": "Ray-triangle ride-height query: selects a triangle vertex from a per-index vertex array, transforms it into world space via the 3x3 orientation matrix at 0x34B0..0x34D0 and the position offset at 0x34D4..0x34DC, computes two candidate ray-hit distances (plane intersection and helper-based), takes the larger, clamps to 0.025, and returns rest height (0x34AC) minus the clamped delta; returns the unmodified rest height when the intersection is behind the ray or beyond the clamp threshold.",
+      "owner": "RideHeightSurfaceProbe",
+      "evidence_refs": [
+        "function:0x004EFBD0",
+        "source:raw",
+        "field:this:0x000034AC",
+        "field:this:0x000034B0",
+        "field:this:0x000034B4",
+        "field:this:0x000034B8",
+        "field:this:0x000034BC",
+        "field:this:0x000034C0",
+        "field:this:0x000034C4",
+        "field:this:0x000034C8",
+        "field:this:0x000034CC",
+        "field:this:0x000034D0",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "callee:0x004EC020",
+        "callee:0x004ED710",
+        "callee:0x004ED750",
+        "callee:0x004ED7B0",
+        "callee:0x004EF680",
+        "callee:0x004EFEE0"
+      ]
+    },
+    {
+      "address": "0x004F9310",
+      "role": "Video 'CUBE' resource-slot check: builds a configuration flag word from player-display state (byte_5EC4A4), display mode (dword_5EC4B0 switch: 2/3/4/6/16 map to 0x20/0x100/0x40/0x400/0x100000) and an aux byte (byte_5EC4A6 adds 0x80), stores the caller index at dword_8AFE74, runs the array-slot conditional check (0x0055BFF0), and on failure composes a relocated path string and logs 'CUBE error : %s'; returns 1 early when dword_8AFE68 is zero, else 0.",
+      "owner": "VideoCubeCheckController",
+      "evidence_refs": [
+        "function:0x004F9310",
+        "source:raw",
+        "global:0x008AFE68",
+        "global:0x005EC4A4",
+        "global:0x008AFE7C",
+        "global:0x005EC4B0",
+        "global:0x005EC4A6",
+        "global:0x008AFE74",
+        "global:0x008AFE6C",
+        "global:0x005D6D60",
+        "global:0x005D6D64",
+        "global:0x005D6D68",
+        "global:0x008AFE78",
+        "global:0x008AD25C",
+        "global:0x005D6DC4",
+        "global:0x005D6DB4",
+        "callee:0x0055BFF0",
+        "callee:0x0053C5B0",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "caller:0x004FA000",
+        "guard:0"
+      ]
+    },
+    {
+      "address": "0x0053B240",
+      "role": "Builds a float 4x4 rotation matrix at this+0x28..0x54 from three Euler angles stored at this+0x10/0x14/0x18, computing sin/cos of each angle and the shared products, with an interrupt-dispatch call preceding each angle store; returns 0.",
+      "owner": "FloatRotationMatrix44",
+      "evidence_refs": [
+        "function:0x0053B240",
+        "source:raw",
+        "abi:lead",
+        "callee:0x0058957A",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000040",
+        "field:this:0x00000044",
+        "field:this:0x00000048",
+        "field:this:0x0000004C",
+        "field:this:0x00000050",
+        "field:this:0x00000054"
+      ]
+    },
+    {
+      "address": "0x0053B3B0",
+      "role": "Constructor-style initializer: zeroes the 16-dword block at this+0x28, writes 1.0f onto the identity diagonal (this+0x28/0x3C/0x50/0x64), sets the scalar at this+0x0 to 1, and returns 1.0f.",
+      "owner": "FloatRotationMatrix44",
+      "evidence_refs": [
+        "function:0x0053B3B0",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000028",
+        "field:this:0x0000003C",
+        "field:this:0x00000050",
+        "field:this:0x00000064",
+        "caller:0x0053B130",
+        "caller:0x005573A0",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x0053B4C0",
+      "role": "Converts the stored quaternion (this+0..0xC) into a 3x3 rotation matrix written to the caller's 11-float output array (stride-4 columns, indices 3 and 7 unused); builds double-precision products of doubled components and returns the output array pointer.",
+      "owner": "QuaternionOrientation",
+      "evidence_refs": [
+        "function:0x0053B4C0",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "caller:0x00551210",
+        "caller:0x00551390"
+      ]
+    },
+    {
+      "address": "0x0053D890",
+      "role": "Bounds-checked array element getter: returns a pointer to element a2 of the array rooted at element index 3 (271 dwords per element) only when a2 < count at this+0x8, otherwise 0; used by video/texture code paths.",
+      "owner": "IndexedTextureArray",
+      "evidence_refs": [
+        "function:0x0053D890",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x00000008",
+        "caller:0x004FA000",
+        "caller:0x00550080",
+        "caller:0x00552470",
+        "caller:0x0055BE80"
+      ]
+    },
+    {
+      "address": "0x005414A0",
+      "role": "Array element accessor on the container: loads the base pointer at this+0x114C and, when non-null, computes the element address (index at this+0x1148, 36-byte stride) and delegates (this, element) to the arithmetic handler (0x00540F90).",
+      "owner": "AudioBufferArrayContainer",
+      "evidence_refs": [
+        "function:0x005414A0",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x00001148",
+        "field:this:0x0000114C",
+        "callee:0x00540F90",
+        "caller:0x005613E0"
+      ]
+    },
+    {
+      "address": "0x00541CD0",
+      "role": "Two-step rotation helper: builds a random rotation matrix from three Euler-angle floats via RandomRotationMatrixFromEulerAngles (0x00541DB0, result ignored), then runs the orientation/rotation matrix update (0x00541D10) and returns its result; widely called from camera, car-selection, scene-loader and sound paths.",
+      "owner": "OrientationRotationUtility",
+      "evidence_refs": [
+        "function:0x00541CD0",
+        "source:raw",
+        "callee:0x00541DB0",
+        "callee:0x00541D10"
+      ]
+    },
+    {
+      "address": "0x00541D10",
+      "role": "Stores the orientation input vector at this+0x24/0x28/0x2C, transforms it through the 3x3 rotation matrix at this+0x15C..0x184 into this+0x18C/0x190/0x194, writes the constant 1.0f at this+0x198, and returns the raw bit pattern (LODWORD) of a4.",
+      "owner": "OrientationRotationUtility",
+      "evidence_refs": [
+        "function:0x00541D10",
+        "source:raw",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x0000015C",
+        "field:this:0x00000160",
+        "field:this:0x00000164",
+        "field:this:0x0000016C",
+        "field:this:0x00000170",
+        "field:this:0x00000174",
+        "field:this:0x0000017C",
+        "field:this:0x00000180",
+        "field:this:0x00000184",
+        "field:this:0x0000018C",
+        "field:this:0x00000190",
+        "field:this:0x00000194",
+        "field:this:0x00000198"
+      ]
+    },
+    {
+      "address": "0x0054E100",
+      "role": "Packed-array total size: sums each entry's size field at +8 over the packed array (count at this+0x118, base at this+0x11C, 64-byte entry stride) and returns the total; returns 0 when the element count is not positive.",
+      "owner": "PackedArrayContainer",
+      "evidence_refs": [
+        "function:0x0054E100",
+        "source:raw",
+        "field:this:0x00000118",
+        "field:this:0x0000011C",
+        "field:this:0x00000124"
+      ]
+    },
+    {
+      "address": "0x0054E120",
+      "role": "Packed-array index lookup: walks cumulative entry sizes (64-byte stride, size field at entry+8) to find which entry contains global index a2, then returns a pointer to the sub-element at offset a2 - entryStart within that entry (sub-element stride 48, payload header at entry+12); returns 0 when the count is non-positive or a2 falls outside every entry's cumulative range.",
+      "owner": "PackedArrayContainer",
+      "evidence_refs": [
+        "function:0x0054E120",
+        "source:raw",
+        "field:this:0x00000118",
+        "field:this:0x0000011C",
+        "caller:0x0040E1F0",
+        "caller:0x004C9FB0",
+        "caller:0x004FBD70"
+      ]
+    },
+    {
+      "address": "0x00567400",
+      "role": "Right-multiplies the 3x3 row-major float matrix at this+0x0..0x20 by a rotation about the Y axis by angle a2 (touching only the X/Z column pairs), normalizes via FloatConvertWrapper (0x00588570), then extracts Euler angles into the output buffer a3 (yaw at a3, pitch at a3+4, roll at a3+8) with a gimbal-lock singularity branch on fabs(this[5]) == 1.0.",
+      "owner": "FloatRotationMatrix33",
+      "evidence_refs": [
+        "function:0x00567400",
+        "source:raw",
+        "callee:0x00588570",
+        "global:0x0059E420",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x00000020"
+      ]
+    },
+    {
+      "address": "0x005698E0",
+      "role": "Appends a 132-byte constraint entry to the buffer described by this (entry base this[142] + 132 * this[141]++, count post-incremented), writes metadata a5 at +120 and a3 at +124 plus a byte flag a4 at +128, initializes the matrix block via 0x0056C3A0 at entry offsets 24/48, and returns the new entry base pointer.",
+      "owner": "VehiclePhysicsJointSystem",
+      "evidence_refs": [
+        "function:0x005698E0",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x00000234",
+        "field:this:0x00000238",
+        "callee:0x0056C3A0",
+        "caller:0x0056D930"
+      ]
+    },
+    {
+      "address": "0x0056BD40",
+      "role": "Builds a row-major 3x3 double rotation matrix at this+0x0..0x40 (nine doubles) from the three Euler angles in a2 using the standard sin/cos composition with precomputed combined terms; purely mathematical, returns the input angle pointer.",
+      "owner": "Double33RotationMatrix",
+      "evidence_refs": [
+        "function:0x0056BD40",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "field:this:0x00000028",
+        "field:this:0x00000030",
+        "field:this:0x00000038",
+        "field:this:0x00000040",
+        "caller:0x00435410",
+        "caller:0x004389B0",
+        "caller:0x00439210",
+        "caller:0x0043E4B0",
+        "caller:0x005691D0",
+        "caller:0x0056F100"
+      ]
+    },
+    {
+      "address": "0x0056BDE0",
+      "role": "Converts the angle-axis vector a2 (three doubles) into a 3x3 rotation matrix at this+0x0..0x40 via Rodrigues' formula, applied only when the squared norm of a2 is positive; when the optional output pointer a3 is non-null extracts Euler angles with a gimbal-lock branch (sine-term magnitude == 1.0).",
+      "owner": "Double33RotationMatrix",
+      "evidence_refs": [
+        "function:0x0056BDE0",
+        "source:raw",
+        "callee:0x00588570",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "field:this:0x00000028",
+        "field:this:0x00000030",
+        "field:this:0x00000040"
+      ]
+    },
+    {
+      "address": "0x0056C020",
+      "role": "Right-multiplies the 3x3 double rotation matrix at this+0x0..0x40 by the Rodrigues matrix built from the axis-angle vector a2; normalizes the axis, derives sin/cos and axis-product terms, and composes each matrix row from the prior row entries; does nothing when the axis squared norm is not positive.",
+      "owner": "Double33RotationMatrix",
+      "evidence_refs": [
+        "function:0x0056C020",
+        "source:raw",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x00000010",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "field:this:0x00000028",
+        "field:this:0x00000030",
+        "field:this:0x00000038",
+        "field:this:0x00000040",
+        "caller:0x0045AE00",
+        "caller:0x00569C10",
+        "caller:0x00569DE0"
+      ]
+    },
+    {
+      "address": "0x0056CF70",
+      "role": "Applies two independent 3x3 matrix-vector products: loads (matrix block, vector buffer) pointer pairs from this+0x4/0x8 and this+0xC/0x10, writes each product into buffer offsets 3..5 (matrix data read from block+28..+68, dot of matrix columns with buffer[0..2]), and returns the second vector buffer pointer.",
+      "owner": "MatrixVectorTransformPair",
+      "evidence_refs": [
+        "function:0x0056CF70",
+        "source:raw",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "caller:0x00439210",
+        "caller:0x0056D930",
+        "caller:0x0056EC00"
+      ]
+    },
+    {
+      "address": "0x0056D430",
+      "role": "Bandwidth-reduction pass over the sparse constraint system: sums the three per-type counts (this+0x8/0x10/0x18) into a total size, builds an undirected adjacency list over the constraint endpoint ids read from the three entry arrays (48-byte body entries via this+0xC/0x14, 72-byte wheel/joint entries via this+0x1C), allocates two working edge arrays (0x00587C03), initializes identity/class-tag ordering arrays, then iteratively refines the ordering (class-bucket rotation plus adjacent-node swaps, scored by summed squared position deltas) until no improvement, frees the arrays (0x00587BCF) and writes cumulative offsets back at entry +44 (bodies) and +68 (wheel/joints); returns the total node count.",
+      "owner": "VehiclePhysicsJointSystem",
+      "evidence_refs": [
+        "function:0x0056D430",
+        "source:raw",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "callee:0x00587C03",
+        "callee:0x00587BCF",
+        "caller:0x0056D930"
+      ]
+    },
+    {
+      "address": "0x0056D880",
+      "role": "Zero-fills arrays of 8-byte elements behind each pointer in the a2 pointer list (a3 pointers, a3 elements of 8 bytes each per pointer), then calls the joint-struct initializer (0x00568FB0) on each vehicle-physics joint struct in the this[1] array (stride 580), passing a2 as the second argument.",
+      "owner": "VehiclePhysicsJointSystem",
+      "evidence_refs": [
+        "function:0x0056D880",
+        "abi:lead",
+        "source:raw",
+        "guard:0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "callee:0x00568FB0",
+        "caller:0x0056D930"
+      ]
+    },
+    {
+      "address": "0x00587460",
+      "role": "Allocate-and-init helper for a small buffer descriptor ({buffer, count, capacity}): zeroes offsets 0x0/0x4/0x8, allocates a2 elements through the checked allocator (0x005874D0) into offset 0x0 when a2 > 0, records the count at 0x4, and returns the receiver.",
+      "owner": "ArrayStructAllocatorDescriptor",
+      "evidence_refs": [
+        "function:0x00587460",
+        "abi:lead",
+        "source:raw",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "callee:0x005874D0",
+        "caller:0x0057BA10",
+        "caller:0x00586700",
+        "caller:0x00587030"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "SearchStridedArrayContainer",
+      "responsibility": "Container owning a strided element array (27 dwords / 108 bytes per element) with an element count at this+0x10 and array base at this+0x14. Searches for the first element whose second dword equals a key and invokes the element processor on a match, returning the matched index or the full count.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004CEFE0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "element_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "array_base",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004CEFE0",
+        "abi:lead",
+        "callee:0x004CD8D0",
+        "caller:0x004FCEE0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ScoringGateArray",
+      "responsibility": "Indexed dword array accessor used by the scoring-gate selection path (caller 0x004D1AD0). Returns element a2 of the caller's array; no bounds checks, no side effects. The semantic meaning of the indexed element depends on the unknown owning object.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004D7BF0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004D7BF0",
+        "abi:lead",
+        "caller:0x004D1AD0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "Vector3",
+      "responsibility": "Three-component float vector with in-place accumulation. F_3DVectorAddition adds each component of the source into the destination and returns the destination pointer; the component order (X/Y/Z) is not proven.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004EC020"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004EC020",
+        "caller:0x004EBC60",
+        "caller:0x004EF180",
+        "caller:0x004EFBD0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RideHeightSurfaceProbe",
+      "responsibility": "Surface-geometry probe that answers the ray-triangle ride-height query against an oriented triangle mesh. Uses the 3x3 orientation matrix at 0x34B0..0x34D0 and the position offset at 0x34D4..0x34DC to transform a selected triangle vertex into world space, computes two candidate ray-hit distances, and returns rest_height (0x34AC) minus the delta clamped to 0.025.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004EFBD0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000034AC",
+          "name": "rest_height",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034B0",
+          "name": "orientation_row0_col0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034B4",
+          "name": "orientation_row0_col1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034B8",
+          "name": "orientation_row0_col2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034BC",
+          "name": "orientation_row1_col0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034BC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034C0",
+          "name": "orientation_row1_col1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034C0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034C4",
+          "name": "orientation_row1_col2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034C8",
+          "name": "orientation_row2_col0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034C8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034CC",
+          "name": "orientation_row2_col1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034CC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034D0",
+          "name": "orientation_row2_col2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034D4",
+          "name": "position_offset_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034D4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034D8",
+          "name": "position_offset_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034D8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000034DC",
+          "name": "position_offset_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000034DC"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004EFBD0",
+        "callee:0x004EC020",
+        "callee:0x004ED710",
+        "callee:0x004ED750",
+        "callee:0x004ED7B0",
+        "callee:0x004EF680",
+        "callee:0x004EFEE0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VideoCubeCheckController",
+      "responsibility": "Video 'CUBE' resource-slot check driven by display/mode globals. Builds a flag word from player-display state (byte_5EC4A4), display mode (dword_5EC4B0) and an aux byte (byte_5EC4A6), stores the caller-supplied index at dword_8AFE74, runs the array-slot conditional check (0x0055BFF0), and on failure composes and logs a relocated 'CUBE error' string through the debug-message buffer.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004F9310"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004F9310",
+        "global:0x005EC4A4",
+        "global:0x005EC4A6",
+        "global:0x005EC4B0",
+        "global:0x008AFE68",
+        "global:0x008AFE6C",
+        "global:0x008AFE74",
+        "global:0x008AFE78",
+        "global:0x008AFE7C",
+        "global:0x005D6D60",
+        "global:0x005D6D64",
+        "global:0x005D6D68",
+        "global:0x005D6DB4",
+        "global:0x005D6DC4",
+        "global:0x008AD25C",
+        "callee:0x0055BFF0",
+        "callee:0x0053C5B0",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "caller:0x004FA000",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FloatRotationMatrix44",
+      "responsibility": "Float 4x4 rotation-matrix construction helpers: builds the matrix at this+0x28..0x54 from three Euler angles (0x53B240) and initializes it to identity with a scalar flag (0x53B3B0, diagonal at 0x28/0x3C/0x50/0x64). The two functions share the 4x4 layout at offset 0x28; the shared-owner claim is GUESS.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0053B240",
+        "0x0053B3B0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "scalar_flag",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "angle_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "angle_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "angle_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "m00",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "m01",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "m02",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "m03",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000034"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "m10",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000038"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "m11",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000003C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "m12",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000040"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "m13",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000044"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000048",
+          "name": "m20",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000048"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "m21",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000004C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "m22",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000050"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "m23",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000054"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "identity_extra_diagonal",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000064"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0053B240",
+        "function:0x0053B3B0",
+        "callee:0x0058957A",
+        "caller:0x0053B130",
+        "caller:0x005573A0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "QuaternionOrientation",
+      "responsibility": "Quaternion orientation storage (four floats at this+0..0xC). QuaternionToRotationMatrix converts it to a 3x3 rotation matrix written to a caller-supplied 11-float output array with stride-4 column spacing (indices 3 and 7 unused).",
+      "trust": "GUESS",
+      "methods": [
+        "0x0053B4C0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "w",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0053B4C0",
+        "abi:lead",
+        "caller:0x00551210",
+        "caller:0x00551390",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IndexedTextureArray",
+      "responsibility": "Bounds-checked getter for a container's element array rooted at element index 3 with 271 dwords per element and count at offset 0x8. Returns a pointer to element a2 or 0 when a2 >= count. Used by video/texture code paths including VidMan_Enter and D3D texture creation.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0053D890"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "element_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0053D890",
+        "abi:lead",
+        "caller:0x004FA000",
+        "caller:0x00550080",
+        "caller:0x00552470",
+        "caller:0x0055BE80",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AudioBufferArrayContainer",
+      "responsibility": "Container holding a 36-byte-stride element array (base at this+0x114C, index at this+0x1148). ArrayElementAccessor resolves the indexed element address and delegates (this, element) to the arithmetic handler (0x00540F90). Structural twin of the AudioBufferClear function at 0x541470 per cluster-copy prelabel evidence.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005414A0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00001148",
+          "name": "element_index",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001148"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000114C",
+          "name": "array_base",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000114C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005414A0",
+        "abi:lead",
+        "callee:0x00540F90",
+        "caller:0x005613E0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "OrientationRotationUtility",
+      "responsibility": "Orientation/rotation update helpers. OrientationRotationMatrixUpdate (0x541D10) stores an input vector at 0x24/0x28/0x2C, rotates it through the 3x3 matrix at 0x15C..0x184, writes the result at 0x18C/0x190/0x194 and a homogeneous 1.0 at 0x198. RotationMatrixRandomEulerUpdate (0x541CD0) combines a random-Euler matrix build (0x541DB0) with the orientation update. The two functions' this-pointers are not proven identical.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00541CD0",
+        "0x00541D10"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "orientation_input_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "orientation_input_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "orientation_input_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000015C",
+          "name": "rot_row0_col0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000015C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000160",
+          "name": "rot_row1_col0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000160"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000164",
+          "name": "rot_row2_col0",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000164"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000016C",
+          "name": "rot_row0_col1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000016C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000170",
+          "name": "rot_row1_col1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000170"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000174",
+          "name": "rot_row2_col1",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000174"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000017C",
+          "name": "rot_row0_col2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000017C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000180",
+          "name": "rot_row1_col2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000180"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000184",
+          "name": "rot_row2_col2",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000184"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000018C",
+          "name": "result_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000018C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000190",
+          "name": "result_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000190"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000194",
+          "name": "result_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000194"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000198",
+          "name": "homogeneous_w",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000198"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00541CD0",
+        "function:0x00541D10",
+        "callee:0x00541DB0",
+        "callee:0x00541D10",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PackedArrayContainer",
+      "responsibility": "Packed array container with element count at 0x118, base pointer at 0x11C and 64-byte entry stride. PackedArrayTotalSize sums each entry's size field at +8; PackedArrayIndexLookup walks cumulative entry sizes to resolve a global index into a sub-element (48-byte sub-element stride, payload header at entry+12).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0054E100",
+        "0x0054E120"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000118",
+          "name": "element_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000118"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000011C",
+          "name": "array_base",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000011C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000124",
+          "name": "cursor_offset",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000124"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0054E100",
+        "function:0x0054E120",
+        "caller:0x0040E1F0",
+        "caller:0x004C9FB0",
+        "caller:0x004FBD70",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FloatRotationMatrix33",
+      "responsibility": "Float 3x3 row-major rotation matrix (elements at 0x0..0x20) supporting in-place Y-axis right-multiplication and Euler extraction. RotationMatrixY rotates the X/Z column pairs by a Y angle, normalizes via FloatConvertWrapper, and writes yaw/pitch/roll to the output buffer, handling the gimbal-lock singularity.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00567400"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "m00",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "m01",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "m02",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "m10",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "m11",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "m12",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "m20",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "m21",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "m22",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00567400",
+        "callee:0x00588570",
+        "global:0x0059E420",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehiclePhysicsJointSystem",
+      "responsibility": "Helper cluster of the vehicle-physics joint system (caller VehiclePhysicsJointSystemLoader 0x0056D930). SparseMatrixBandwidthReduce (0x56D430) computes a bandwidth-reducing ordering over the three constraint endpoint arrays and writes cumulative offsets back into the entries; ZeroFillArraysAndCallInitRoutineRepeatedly (0x56D880) zero-fills pointer arrays and initializes the joint structs; BufferEntryAppendWithMatrixInit (0x5698E0) appends 132-byte constraint entries and initializes a matrix block. The three functions operate on distinct sub-objects of the loader context; the distinct field bases below respect that and equal offsets across bases are not merged.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0056D430",
+        "0x0056D880",
+        "0x005698E0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "body_a_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "body_a_entries",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "body_b_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "body_b_entries",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "wheel_joint_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "wheel_joint_entries",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "joint_struct_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "joint_struct_array",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000234",
+          "name": "entry_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000234"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000238",
+          "name": "entry_array_base",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000238"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0056D430",
+        "function:0x0056D880",
+        "function:0x005698E0",
+        "callee:0x00587C03",
+        "callee:0x00587BCF",
+        "callee:0x00568FB0",
+        "callee:0x0056C3A0",
+        "caller:0x0056D930",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "Double33RotationMatrix",
+      "responsibility": "Double-precision 3x3 row-major rotation matrix (nine doubles at this+0x0..0x40) with construction from Euler angles (0x56BD40), from an angle-axis vector via Rodrigues' formula (0x56BDE0), and in-place right-multiplication by a Rodrigues rotation (0x56C020). Used on vehicle-physics orientation paths. 0x56BDE0 optionally extracts Euler angles into a caller-supplied output buffer with a gimbal-lock branch.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0056BD40",
+        "0x0056BDE0",
+        "0x0056C020"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "m00",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "m01",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "m02",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "m10",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "m11",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "m12",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "m20",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "m21",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000038"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "m22",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000040"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0056BD40",
+        "function:0x0056BDE0",
+        "function:0x0056C020",
+        "callee:0x00588570",
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "caller:0x00435410",
+        "caller:0x004389B0",
+        "caller:0x00439210",
+        "caller:0x0043E4B0",
+        "caller:0x0045AE00",
+        "caller:0x005691D0",
+        "caller:0x00569C10",
+        "caller:0x00569DE0",
+        "caller:0x0056F100",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "MatrixVectorTransformPair",
+      "responsibility": "Applies two independent 3x3 matrix-vector products: each pair loads a matrix block pointer and a vector buffer pointer from the receiver and writes the product into the buffer at offsets 3..5. The pointed-to matrix/vector buffer layouts (block+28 header plus nine doubles) are not evidenced in the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0056CF70"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "matrix_block_1",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "vector_buffer_1",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "matrix_block_2",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "vector_buffer_2",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0056CF70",
+        "caller:0x00439210",
+        "caller:0x0056D930",
+        "caller:0x0056EC00",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ArrayStructAllocatorDescriptor",
+      "responsibility": "Small buffer descriptor ({buffer, count, capacity}) with allocate-and-init: zeroes the three leading dwords, allocates a2 elements via the checked allocator (0x005874D0) into offset 0x0 when a2 > 0, and records the count at 0x4. The third dword at 0x8 is zeroed but never otherwise touched.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00587460"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "buffer",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "capacity_reserved",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00587460",
+        "abi:lead",
+        "callee:0x005874D0",
+        "caller:0x0057BA10",
+        "caller:0x00586700",
+        "caller:0x00587030",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "EulerExtractionGimbalLockSelector",
+      "owner": "RotationMatrixEulerExtraction",
+      "states": [
+        "general_extraction",
+        "gimbal_lock_singularity"
+      ],
+      "transitions": [
+        {
+          "from": "general_extraction",
+          "to": "gimbal_lock_singularity",
+          "condition": "fabs(sine-term element) == 1.0: singularity path computes the pitch from atan2 and zeroes the roll component"
+        },
+        {
+          "from": "gimbal_lock_singularity",
+          "to": "general_extraction",
+          "condition": "fabs(sine-term element) != 1.0: general path uses two atan2 computations for pitch and roll"
+        }
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000014",
+        "field:this:0x00000028",
+        "field:this:0x00000030",
+        "global:0x0059E420",
+        "function:0x00567400",
+        "function:0x0056BDE0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DisplayModeFlagSelector",
+      "owner": "VideoCubeCheckController",
+      "states": [
+        "mode_2",
+        "mode_3",
+        "mode_4",
+        "mode_6",
+        "mode_16",
+        "other"
+      ],
+      "transitions": [
+        {
+          "from": "any",
+          "to": "mode_2",
+          "condition": "dword_5EC4B0 == 2: OR 0x20 into the flag word"
+        },
+        {
+          "from": "any",
+          "to": "mode_3",
+          "condition": "dword_5EC4B0 == 3: OR 0x100 into the flag word"
+        },
+        {
+          "from": "any",
+          "to": "mode_4",
+          "condition": "dword_5EC4B0 == 4: OR 0x40 into the flag word"
+        },
+        {
+          "from": "any",
+          "to": "mode_6",
+          "condition": "dword_5EC4B0 == 6: OR 0x400 into the flag word"
+        },
+        {
+          "from": "any",
+          "to": "mode_16",
+          "condition": "dword_5EC4B0 == 16: OR 0x100000 into the flag word"
+        },
+        {
+          "from": "any",
+          "to": "other",
+          "condition": "dword_5EC4B0 not in {2,3,4,6,16}: no mode bit is ORed"
+        }
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x005EC4B0",
+        "function:0x004F9310",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "IRayTriangleSurfaceQuery",
+      "purpose": "Contract for ray-triangle ride-height queries against an oriented triangle mesh: given a ray and a per-index vertex array, return the rest height minus a delta clamped to [0, 0.025]; negative deltas (intersections behind the ray) return the rest height unchanged.",
+      "functions": [
+        "0x004EFBD0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004EFBD0",
+        "field:this:0x000034AC",
+        "field:this:0x000034B0",
+        "field:this:0x000034D4",
+        "callee:0x004ED710",
+        "callee:0x004ED750",
+        "callee:0x004ED7B0",
+        "callee:0x004EF680",
+        "callee:0x004EFEE0",
+        "callee:0x004EC020",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IRotationMatrixBuilder",
+      "purpose": "Contract for building a 3x3 rotation matrix from Euler angles, an angle-axis vector, or a stored quaternion. Implementations write a row-major 3x3 matrix at the receiver (float 3x3 at 0x0 or double 3x3 at 0x0..0x40) and may extract Euler angles into a caller-supplied output buffer.",
+      "functions": [
+        "0x0053B4C0",
+        "0x0056BD40",
+        "0x0056BDE0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0053B4C0",
+        "function:0x0056BD40",
+        "function:0x0056BDE0",
+        "field:this:0x00000000",
+        "field:this:0x00000040",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IPackedArrayIndexResolver",
+      "purpose": "Contract for resolving a global index into the packed array using the same count (0x118) and base (0x11C) fields: total-size accumulation over the 64-byte-stride entries and index-to-sub-element resolution with per-entry size fields.",
+      "functions": [
+        "0x0054E100",
+        "0x0054E120"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0054E100",
+        "function:0x0054E120",
+        "field:this:0x00000118",
+        "field:this:0x0000011C",
+        "caller:0x0040E1F0",
+        "caller:0x004C9FB0",
+        "caller:0x004FBD70",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "RideHeightSurfaceProbe",
+      "to": "Vector3",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004EC020",
+        "caller:0x004EFBD0",
+        "function:0x004EC020"
+      ]
+    },
+    {
+      "from": "RideHeightSurfaceProbe",
+      "to": "Vec3AddHelper",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004ED710"
+      ]
+    },
+    {
+      "from": "RideHeightSurfaceProbe",
+      "to": "F3DCrossProductHelper",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004ED750"
+      ]
+    },
+    {
+      "from": "RideHeightSurfaceProbe",
+      "to": "F33MatrixVectorMultiplyHelper",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004ED7B0"
+      ]
+    },
+    {
+      "from": "RideHeightSurfaceProbe",
+      "to": "RideHeightDelta",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004EF680"
+      ]
+    },
+    {
+      "from": "RideHeightSurfaceProbe",
+      "to": "SignedDistanceAlongRayHelper",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x004EFEE0"
+      ]
+    },
+    {
+      "from": "SearchStridedArrayContainer",
+      "to": "ElementProcessor",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x004CD8D0",
+        "function:0x004CEFE0"
+      ]
+    },
+    {
+      "from": "SearchStridedArrayContainer",
+      "to": "0x4FCEE0Caller",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004FCEE0"
+      ]
+    },
+    {
+      "from": "VideoCubeCheckController",
+      "to": "ArraySlotConditionalCheck",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0055BFF0",
+        "global:0x008AFE6C",
+        "global:0x005D6D60",
+        "global:0x005D6D64",
+        "global:0x005D6D68",
+        "global:0x008AFE78"
+      ]
+    },
+    {
+      "from": "VideoCubeCheckController",
+      "to": "StringRelocationCopier",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0053C5B0"
+      ]
+    },
+    {
+      "from": "VideoCubeCheckController",
+      "to": "DebugLogWriter",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004D7AA0",
+        "callee:0x004D7A50",
+        "global:0x008AD25C",
+        "global:0x005D6DC4",
+        "global:0x005D6DB4"
+      ]
+    },
+    {
+      "from": "VideoCubeCheckController",
+      "to": "VidMan_Enter",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004FA000"
+      ]
+    },
+    {
+      "from": "OrientationRotationUtility",
+      "to": "RandomRotationMatrixFromEulerAngles",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00541DB0"
+      ]
+    },
+    {
+      "from": "OrientationRotationUtility",
+      "to": "OrientationRotationMatrixUpdate",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00541D10",
+        "function:0x00541D10"
+      ]
+    },
+    {
+      "from": "FloatRotationMatrix44",
+      "to": "InterruptDispatch",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0058957A"
+      ]
+    },
+    {
+      "from": "FloatRotationMatrix44",
+      "to": "IdentityInitCallers",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0053B130",
+        "caller:0x005573A0"
+      ]
+    },
+    {
+      "from": "QuaternionOrientation",
+      "to": "OrientationQuaternionConsumers",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00551210",
+        "caller:0x00551390"
+      ]
+    },
+    {
+      "from": "IndexedTextureArray",
+      "to": "VideoTextureCallers",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004FA000",
+        "caller:0x00550080",
+        "caller:0x00552470",
+        "caller:0x0055BE80"
+      ]
+    },
+    {
+      "from": "AudioBufferArrayContainer",
+      "to": "ArithmeticComparisonHandler",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x00540F90"
+      ]
+    },
+    {
+      "from": "AudioBufferArrayContainer",
+      "to": "0x5613E0Caller",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x005613E0"
+      ]
+    },
+    {
+      "from": "PackedArrayContainer",
+      "to": "GlobalVectorOffsetUpdate",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0040E1F0"
+      ]
+    },
+    {
+      "from": "PackedArrayContainer",
+      "to": "ParticleCollisionSpawn",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004C9FB0"
+      ]
+    },
+    {
+      "from": "PackedArrayContainer",
+      "to": "CameraViewportRenderSetup",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004FBD70"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsJointSystem",
+      "to": "JointStructInitializer",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00568FB0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsJointSystem",
+      "to": "MatrixBlockInitializer",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0056C3A0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsJointSystem",
+      "to": "CheckedAllocator",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03",
+        "callee:0x005874D0"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsJointSystem",
+      "to": "HeapFree",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsJointSystem",
+      "to": "VehiclePhysicsJointSystemLoader",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0056D930"
+      ]
+    },
+    {
+      "from": "Double33RotationMatrix",
+      "to": "FloatConvertWrapper",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x00588570"
+      ]
+    },
+    {
+      "from": "Double33RotationMatrix",
+      "to": "SuspensionSetupSectionReader",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00435410"
+      ]
+    },
+    {
+      "from": "Double33RotationMatrix",
+      "to": "SuspensionDataCopyToPhysicsEngine",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004389B0"
+      ]
+    },
+    {
+      "from": "Double33RotationMatrix",
+      "to": "VehiclePhysicsInitializer",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00439210"
+      ]
+    },
+    {
+      "from": "Double33RotationMatrix",
+      "to": "RigidBodyConstraintSolve",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0043E4B0"
+      ]
+    },
+    {
+      "from": "Double33RotationMatrix",
+      "to": "RotationTensorAndJointCallers",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x005691D0",
+        "caller:0x0056F100"
+      ]
+    },
+    {
+      "from": "Double33RotationMatrix",
+      "to": "PerFrameComposeCallers",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0045AE00",
+        "caller:0x00569C10",
+        "caller:0x00569DE0"
+      ]
+    },
+    {
+      "from": "MatrixVectorTransformPair",
+      "to": "VehiclePhysicsInitializer",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x00439210"
+      ]
+    },
+    {
+      "from": "MatrixVectorTransformPair",
+      "to": "VehiclePhysicsJointSystemLoader",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0056D930"
+      ]
+    },
+    {
+      "from": "MatrixVectorTransformPair",
+      "to": "BatchProcessingLoop3Passes",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0056EC00"
+      ]
+    },
+    {
+      "from": "ScoringGateArray",
+      "to": "ScoringGateSelector",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004D1AD0"
+      ]
+    },
+    {
+      "from": "ArrayStructAllocatorDescriptor",
+      "to": "CheckedAllocator",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005874D0"
+      ]
+    },
+    {
+      "from": "ArrayStructAllocatorDescriptor",
+      "to": "ObjectInitPaths",
+      "kind": "called_by",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x0057BA10",
+        "caller:0x00586700",
+        "caller:0x00587030"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "RideHeightClampContract",
+      "category": "math_semantics",
+      "description": "The ray-triangle ride-height query (0x004EFBD0) returns rest_height at object+0x34AC when the intersection is behind the ray (negative delta), and rest_height minus the delta clamped to a maximum of 0.025 when within range. A replacement must preserve the 0.025 clamp constant and the negative-delta miss behavior.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x000034AC",
+        "function:0x004EFBD0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "EulerExtractionOutputLayoutContract",
+      "category": "math_semantics",
+      "description": "Euler-extraction helpers write their outputs with fixed layouts: 0x00567400 writes yaw/pitch/roll as floats at a3+0/+4/+8; 0x0056BDE0 writes to a3+0/+8/+16 as doubles with the negated sine term at a3+0. Both apply a gimbal-lock special case when the sine-term magnitude equals 1.0 (roll zeroed / computed from atan2).",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00567400",
+        "function:0x0056BDE0",
+        "global:0x0059E420",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PackedArrayGeometryContract",
+      "category": "data_layout",
+      "description": "The packed array holds element count at this+0x118 and base pointer at this+0x11C with a 64-byte entry stride; each entry carries a size field at +8, a payload header at +12, and 48-byte sub-elements. Global indices resolve by cumulative entry sizes. Both 0x54E100 and 0x54E120 depend on this geometry.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "field:this:0x00000118",
+        "field:this:0x0000011C",
+        "function:0x0054E100",
+        "function:0x0054E120",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "Double33MatrixLayoutContract",
+      "category": "data_layout",
+      "description": "Vehicle-physics orientation code relies on a row-major 3x3 double rotation matrix at offsets 0x0..0x40, written by the Euler-angle builder (0x56BD40), the angle-axis/Rodrigues builder (0x56BDE0) and the in-place Rodrigues compose (0x56C020). A replacement must keep the nine doubles at those offsets.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0056BD40",
+        "function:0x0056BDE0",
+        "function:0x0056C020",
+        "field:this:0x00000000",
+        "field:this:0x00000040",
+        "caller:0x00439210",
+        "caller:0x0043E4B0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "CubeCheckFlagWordContract",
+      "category": "enum_semantics",
+      "description": "The video CUBE slot check builds a flag word: base 1 or 2 from byte_5EC4A4==0; display mode dword_5EC4B0 adds 0x20 (mode 2), 0x100 (mode 3), 0x40 (mode 4), 0x400 (mode 6), 0x100000 (mode 16); aux byte_5EC4A6 adds 0x80. The array-slot conditional check (0x0055BFF0) with the dword_5D6D60/5D6D64/5D6D68 array globals and the 'CUBE error : %s' log through dword_8AD25C are part of the contract.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x005EC4A4",
+        "global:0x005EC4A6",
+        "global:0x005EC4B0",
+        "global:0x008AFE68",
+        "global:0x008AFE74",
+        "global:0x008AFE7C",
+        "callee:0x0055BFF0",
+        "global:0x005D6D60",
+        "global:0x005D6D64",
+        "global:0x005D6D68",
+        "global:0x005D6DB4",
+        "global:0x005D6DC4",
+        "global:0x008AD25C",
+        "callee:0x0053C5B0",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "function:0x004F9310",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "Matrix44FloatLayoutContract",
+      "category": "data_layout",
+      "description": "Float 4x4 matrix at this+0x28, built from three Euler angles (0x53B240 writes the twelve non-trivial elements at 0x28..0x54 plus zero row-four elements) or initialized to identity (0x53B3B0 writes 1.0f on the diagonal at 0x28/0x3C/0x50/0x64 and a scalar 1 at this+0x0).",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0053B240",
+        "function:0x0053B3B0",
+        "field:this:0x00000028",
+        "field:this:0x00000054",
+        "field:this:0x00000064",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RotationMatrixYContract",
+      "category": "math_semantics",
+      "description": "Y-axis right-multiplication on a 3x3 float row-major matrix (0x00567400) touches only the X/Z column pairs at (0,0/0,2), (1,0/1,2), (2,0/2,2); the Y column is unchanged, then FloatConvertWrapper normalizes the matrix before Euler extraction.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00567400",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "callee:0x00588570",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "QuaternionToMatrixOutputContract",
+      "category": "data_layout",
+      "description": "QuaternionToRotationMatrix (0x53B4C0) reads w/x/y/z at this+0..0xC and writes the 3x3 result into a caller-provided 11-float array with stride-4 columns (indices 3 and 7 unused); callers 0x551210 and 0x551390 consume this layout.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0053B4C0",
+        "field:this:0x00000000",
+        "field:this:0x0000000C",
+        "caller:0x00551210",
+        "caller:0x00551390",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "Ownership is UNKNOWN for nearly every function in the packet; the class grouping is a DERIVED/GUESS proposal, not a confirmed identity set.",
+    "The physics constants flt_59E440 and flt_59E87C referenced by 0x004EFBD0 are not consumed by its visible raw source; they are likely used inside RideHeightDelta (0x004EF680) or the signed-distance helper (0x004EFEE0).",
+    "The a2 input structure of 0x004EFBD0 is only partially mapped: offsets 20 and 36..56 are read but their field names and the per-index vertex array layout are unknown.",
+    "flt_59E43C (0x0059E43C) is flagged as a read global by packet facts for 0x0053B4C0 but appears nowhere in its raw source.",
+    "dbl_5B8960 (0x005B8960) is a read-only double not consumed by the visible raw source of 0x0053B240; possibly a degree/radian constant.",
+    "dbl_59E428 (0x0059E428) is recorded by deterministic facts as a NaN sentinel referenced by 0x0056BDE0 but is not observable in the raw source.",
+    "dword_8AFE64 is flagged as a read global by packet facts for 0x004F9310 but never appears in its raw decompiled source.",
+    "The strided element types are unknown: 27-dword slots (0x004CEFE0), 271-dword slots (0x0053D890), 36-byte slots (0x005414A0) and 8-byte slots (0x0056D880) have no identified element structures.",
+    "Fields this+0x18..0x68 of 0x0056CF70 are pipeline-derived offsets into the pointed-to matrix/vector buffers; the raw source dereferences only through this[1..4], so the header-plus-nine-doubles mapping is not independently grounded.",
+    "The column-major reading of the 3x3 matrix-vector product in 0x0056CF70 (output component n is the dot of matrix column n) is inferred from the index pattern, not proven.",
+    "The three VehiclePhysicsJointSystem functions operate on distinct sub-objects of the loader context; equal offsets across the different this-bases (e.g. 0x8 in bandwidth_ctx vs the joint init context) are not claimed identical.",
+    "SparseMatrixBandwidthReduce's exact ordering algorithm (Cuthill-McKee-like rotation versus plain swap search) is DERIVED from loop structure; the +4/+12 endpoint-id fields and the +44/+68 write-back slots depend on the constraint entry layout owned by VehiclePhysicsJointSystemLoader, which is not in this packet.",
+    "The InterruptDispatch (0x0058957A) calls in 0x0053B240, once per angle, cannot be distinguished as a caller threading contract or a decompiler artifact.",
+    "Whether the identity-matrix memset block at 0x28..0x64 in 0x0053B3B0 is a row-major 4x4 and whether this+0x0 is a scalar/flag is DERIVED and not proven by the packet.",
+    "The output buffer layout of 0x0053B4C0 skips indices 3 and 7; the unused slots are not written and their meaning is undefined.",
+    "The Euler angle order and intrinsic/extrinsic convention in 0x0056BD40 and 0x0053B240 cannot be established from the packet alone.",
+    "OrientationRotationUtility's two functions (0x541CD0, 0x541D10) are grouped under one class, but their this-pointers are not proven identical; the wide caller set (camera, car selection, scene loading, sound) is noted in packet prose without allowed caller refs.",
+    "Return-value oddities are unexplained: 0x00541D10 returns the raw LODWORD of a4, 0x0053B3B0 returns the 1.0f constant, 0x0056BD40 returns the angle pointer, 0x0056C020 returns nothing on a non-positive axis norm.",
+    "The a2 argument of 0x005698E0 is never referenced in its decompiled body; its intended role (base/index argument) is unknown.",
+    "The exact values of dbl_59E420/dbl_59E430 are not in the packet (existing analysis DERIVEs 1.0 and a zero sentinel); they are constant-folded in the raw source.",
+    "Whether a3 in 0x00587460 is an element count or a byte size, and the element size assumed by OperatorNewWithResultCheck, are external to the function."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000018",
+    "field:this:0x00000058",
+    "field:this:0x00000060",
+    "field:this:0x00000068",
+    "global:0x0059E440",
+    "global:0x0059E87C",
+    "global:0x0059E43C",
+    "global:0x005B8960",
+    "global:0x0059E428",
+    "global:0x008AFE64",
+    "caller:0x00439210",
+    "caller:0x0056D930",
+    "caller:0x0056EC00",
+    "caller:0x0053B130",
+    "caller:0x005573A0",
+    "abi:lead",
+    "guard:0"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

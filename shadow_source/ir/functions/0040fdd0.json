@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "address": "0x0040FDD0",
+  "proposed_name": "ArrayOfObjectsDestructor",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Destructor for an array of 198-dword objects, or a single such object, selected by flag bits in a2. Bit 2 selects the array path: reads the element count from the header dword at this-1, walks the array backward overwriting each vtable pointer with off_59E720 and calling MultiFieldCleanupDestructor on the sub-object at +53 dwords, then returns the header pointer. The single-object path applies the same vtable/sub-object cleanup to this itself. Bit 1 in a2 additionally frees the backing block via FreeWrapper_7bcf.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Branch on flag bit 2 of a2: if (a2 & 2) != 0 take the array path, otherwise the single-object path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Array path: read the element count v3 from the header dword at this-1 and set v4 to the header pointer (this-1).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Array path: compute v5 = this + 198*v3 (pointer one element past the last 198-dword element).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Array path: guard on (v3 - 1) >= 0; when the count is zero the walk is skipped entirely.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Array path: do-while loop walking the elements backward (v5 -= 198 dwords each iteration) for v3 iterations.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Array path, per element: overwrite the element vtable pointer (field this 0x0 relative to element base) with &off_59E720.",
+      "evidence_refs": ["source:raw", "field:this:0x00000000", "global:0x0059E720"]
+    },
+    {
+      "kind": "call",
+      "description": "Array path, per element: call MultiFieldCleanupDestructor on the sub-object at element base + 53 dwords (0xD4).",
+      "evidence_refs": ["source:raw", "callee:0x00568E60"]
+    },
+    {
+      "kind": "guard",
+      "description": "Array path: guard on flag bit 1 of a2: if (a2 & 1) != 0 free the block.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Array path: call FreeWrapper_7bcf on the header pointer v4 (this-1) when the free flag is set.",
+      "evidence_refs": ["source:raw", "callee:0x00587BCF"]
+    },
+    {
+      "kind": "return",
+      "description": "Array path: return the header pointer v4 (this-1).",
+      "evidence_refs": ["source:raw", "function:0x0040FDD0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Single-object path: overwrite this's own vtable pointer (field this 0x0) with &off_59E720.",
+      "evidence_refs": ["source:raw", "field:this:0x00000000", "global:0x0059E720"]
+    },
+    {
+      "kind": "call",
+      "description": "Single-object path: call MultiFieldCleanupDestructor on the sub-object at this + 53 dwords (0xD4).",
+      "evidence_refs": ["source:raw", "callee:0x00568E60"]
+    },
+    {
+      "kind": "guard",
+      "description": "Single-object path: guard on flag bit 1 of a2: if (a2 & 1) != 0 free the block.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Single-object path: call FreeWrapper_7bcf on this when the free flag is set.",
+      "evidence_refs": ["source:raw", "callee:0x00587BCF"]
+    },
+    {
+      "kind": "return",
+      "description": "Single-object path: return this.",
+      "evidence_refs": ["source:raw", "function:0x0040FDD0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "DWORD* sub_40FDD0(DWORD* this, char a2) {",
+    "  if (a2 & 2) {",
+    "    DWORD count = *(this - 1);",
+    "    DWORD* head = this - 1;",
+    "    DWORD* p = &this[198 * count];",
+    "    for (int i = count - 1; i >= 0; --i) {",
+    "      p -= 198;",
+    "      p[0] = (DWORD)&off_59E720;",
+    "      MultiFieldCleanupDestructor(p + 53);",
+    "    }",
+    "    if (a2 & 1) FreeWrapper_7bcf(head);",
+    "    return head;",
+    "  }",
+    "  this[0] = (DWORD)&off_59E720;",
+    "  MultiFieldCleanupDestructor(this + 53);",
+    "  if (a2 & 1) FreeWrapper_7bcf(this);",
+    "  return this;",
+    "}"
+  ],
+  "unresolved": [
+    "The element count header at this-1 is outside the packet's listed field evidence (only field this 0x0 is tracked).",
+    "Layout and ownership of the 53-dword sub-object destroyed by MultiFieldCleanupDestructor is unknown.",
+    "Meaning of the two flag bits in a2 (bit 2 = array/single mode, bit 1 = free) is inferred from control flow, not confirmed by an external contract.",
+    "Caller GraphicsResourceDestructor (0x0040FB30) usage that selects these flags is unexamined."
+  ],
+  "unresolved_evidence_refs": ["caller:0x0040FB30", "abi:lead"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

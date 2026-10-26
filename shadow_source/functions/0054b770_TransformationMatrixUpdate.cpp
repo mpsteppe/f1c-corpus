@@ -1,0 +1,37 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0054B770
+// Canonical corpus name: TransformationMatrixUpdate
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TransformationMatrixUpdate_0054b770.c
+
+void UnknownObject::TransformationMatrixUpdate()
+{
+    // Updates a scene-node world transform matrix. When a parent node pointer exists at this+0x40, the local matrix at this+0xD4 is concatenated with the parent world matrix (parent+0x114) through the D3D wrapper vtable stored at dword_8B8F24, writing the result to this+0x114; with no parent, the local matrix is copied to this+0x114 when the local-transform flag (this+0x3C bit 0) is set. When the scaling flag (this+0x3C bit 14, 0x4000) is set, the matrix columns are scaled by per-axis factors at this+0x194/0x198/0x19C before being composed with either the parent world matrix or the inverse-local transform at this+0x94, and the final matrix is stored at this+0x1A0; otherwise this+0x114 is copied to this+0x1A0.
+    // GUARD: Branches on the parent node pointer this+0x40: non-null selects the world-matrix composition path, null selects the copy path gated by this+0x3C bit 0 [field:this:0x00000040, field:this:0x0000003C, source:raw]
+    // CALL: Indirect call through the D3D wrapper vtable at dword_8B8F24 (slot +8) concatenating the local matrix at this+212 with the parent world matrix (parent+276), writing the composed world matrix to this+276 [global:0x008B8F24, field:this:0x00000040, source:raw]
+    // ASSIGNMENT: When the parent pointer is null and this+0x3C bit 0 is set, copies the 0x40-byte local matrix from this+212 to the world matrix slot this+276 [field:this:0x00000040, field:this:0x0000003C, source:raw]
+    // GUARD: Scaling path gated on this+0x3C bit 14 (0x4000): when set, the local matrix is copied to a working buffer and column-scaled; when clear, this+276 is copied straight to the output at this+416 [field:this:0x0000003C, source:raw]
+    // CALCULATION: Scales the working matrix columns by the per-axis factors at this+404 (X, columns 0-2), this+408 (Y, columns 4-6) and this+412 (Z, columns 8-10) [field:this:0x00000194, field:this:0x00000198, field:this:0x0000019C, source:raw]
+    // CALL: Indirect vtable calls through dword_8B8F24 composing the scaled matrix with the parent world matrix (parent+276) when a parent exists, or with the transform at this+148 when this+0x3C bit 0 is set, writing the final matrix to this+416 [global:0x008B8F24, field:this:0x00000040, field:this:0x0000003C, source:raw]
+    // ASSIGNMENT: Root-node fallbacks: the scaled working matrix is copied directly to this+416 when there is no parent and this+0x3C bit 0 is clear; the unscaled world matrix this+276 is copied to this+416 when the scaling flag is clear [field:this:0x00000040, field:this:0x0000003C, source:raw]
+    // RETURN: Returns the parent-node-derived result value (this+0x40, or zero for a root node) [field:this:0x00000040, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (this+64 != 0) {
+    //       vtable(dword_8B8F24)->compose(this+212, parent(this+64)+276, this+276);
+    //   } else if (this+60 & 1) {
+    //       memcpy(this+276, this+212, 64);
+    //   }
+    //   if (this+60 & 0x4000) {
+    //       copy 16 floats from this+212 into working matrix;
+    //       scale X column by this+404, Y column by this+408, Z column by this+412;
+    //       if (parent exists) compose(working, parent+276, this+416);
+    //       else if (this+60 & 1) compose(compose(working, this+148), parent-absent, this+416);
+    //       else memcpy(this+416, working, 64);
+    //   } else {
+    //       memcpy(this+416, this+276, 64);
+    //   }
+    // UNRESOLVED: The D3D wrapper at dword_8B8F24 is reached only through its vtable slot +8; the concrete wrapper class and the semantics of slot +8 (matrix multiply vs. concat) are not established by this packet
+    // UNRESOLVED: this+0x94 (148) is used as an alternate transform input for the bit-0 path; its owner and precomposition semantics are unknown
+    // UNRESOLVED: The meaning of this+0x3C bit 0 (local transform present) vs. bit 14 (scaling enabled) is taken from the prior fill and is DERIVED, not proven by this packet
+}

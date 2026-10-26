@@ -1,0 +1,31 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005477F0
+// Canonical corpus name: ArithmeticComparisonBinarySearch
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ArithmeticComparisonBinarySearch_005477f0.c
+
+void UnknownObject::ArithmeticComparisonBinarySearch()
+{
+    // thiscall linked-list string search. Reads the list head pointer at this+0x24 (this[9]); if it is null the list is empty and 0 is returned. Otherwise walks the list, comparing each node's string against the key a2 with strcmp and following the next pointer stored at node+192 (0xC0) until a match or the end of the chain, returning the matched node pointer or 0. Used for name-based resource lookup by mesh and texture loading paths.
+    // ASSIGNMENT: Read the linked-list head pointer from this+0x24 (this[9]) into v2. [field:this:0x00000024, source:raw]
+    // GUARD: If the head pointer is null the list is empty: return 0 immediately. [field:this:0x00000024, source:raw]
+    // LOOP: while-loop that continues as long as the current node's string compares non-equal to a2 via strcmp. [source:raw]
+    // CALL: Compare the current node's string against the search key a2 using strcmp. [source:raw]
+    // CALCULATION: Advance to the next node by reading the pointer at node+192 (0xC0); the packet resolves node offsets through base *(this+0xE4). [field:*(this+0xE4):0x000000C0, source:raw]
+    // GUARD: If the next pointer is null the traversal ends without a match: return 0. [source:raw]
+    // RETURN: Return the matched node pointer, or 0 for an empty list or an exhausted traversal. [source:raw]
+    // CALL: Invoked by resource-loading paths (DirectXMeshVertexBufferParsingAndLoading, D3DTextureResourceCreation, sub_54C510) for name-based lookup of loaded resources. [caller:0x00547B40, caller:0x00548190, caller:0x0054C510]
+
+    // Conservative worker pseudocode:
+    //   int sub_5477F0(_DWORD *this, const char *a2) {
+    //     int node = this[9];
+    //     if (!node) return 0;
+    //     while (strcmp((const char *)node, a2)) {
+    //       node = *(_DWORD *)(node + 192);
+    //       if (!node) return 0;
+    //     }
+    //     return node;
+    //   }
+    // UNRESOLVED: The node object layout is undefined here; the packet names the traversal base as *(this+0xE4) while the raw source reads the next pointer directly from the walked node pointer.
+    // UNRESOLVED: Which bytes of each node form the compared string is not established by this packet.
+}

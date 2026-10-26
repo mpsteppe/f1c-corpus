@@ -1,0 +1,2093 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_generic_runtime_objects_12",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Heterogeneous runtime-object layer: float-to-packed-field encoders (color, fixed-point, bitfield control words) used by vehicle orientation/lighting paths, a pit-stall circular buffer pool with worker assignment and drain-to-list processing, small-struct zero-init wrappers, a global-data-backed object initializer, a deterministic hash PRNG, a scaled stream-value reader, a steering interpolation queue with mode flag and animation-phase dispatch, and a render-toggle wrapper.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x004B21F0",
+      "function:0x004B2310",
+      "function:0x004B25D0",
+      "function:0x004B2750",
+      "function:0x004B2840",
+      "function:0x004B2930",
+      "function:0x004B29B0",
+      "function:0x004B2A40",
+      "function:0x004B2B10",
+      "function:0x004B3C60",
+      "function:0x004B4360",
+      "function:0x004B4450",
+      "function:0x004B4460",
+      "function:0x004B4F50",
+      "function:0x004B4F70",
+      "function:0x004B6130",
+      "function:0x004B6190",
+      "function:0x004B6360",
+      "function:0x004B71E0",
+      "function:0x004B7860",
+      "function:0x004B8790",
+      "function:0x004B87A0",
+      "function:0x004B8C40",
+      "function:0x004B97E0",
+      "function:0x004B9A00",
+      "function:0x004B9A10",
+      "source:raw"
+    ]
+  },
+  "summary": "A heterogeneous set of runtime objects and packers. PitStallBufferPool (0x004B71E0 init, 0x004B6130 cleanup, 0x004B6190 worker assignment, 0x004B7860 drain-to-list, 0x004B6360 alignment comparator) owns a circular buffer of 176-byte pit-stall entries at +0x9B0 (count +0x9B4 chosen from enum +0x9A4, write/read indices +0x9B8/+0x9BC reset to -1), a file-stream node list at +0x6C0..+0x6D0, a working list at +0x30 and a doubly-linked result list at +0x714..+0x720. A family of float-to-packed-field encoders writes packed color (PackedColorChannelWriter 0x004B21F0), packed vertex shorts (PackedVertexShortWriter 0x004B2310), fixed-point scalars (FixedPointParameterEncoder 0x004B25D0/0x004B2750), indexed bytes/shorts (IndexedFixedPointEncoder 0x004B2840) and three bit ranges of the control dword at +0x2C plus a 10-bit field at +0x30 (PackedBitfieldControlWord 0x004B2930/0x004B29B0/0x004B2A40/0x004B2B10); the shared caller set (0x004B2DD0, 0x004B32A0, 0x004C71C0) suggests a vehicle orientation/lighting parameter object but ownership is UNKNOWN. DeterministicHashPRNG (0x004B3C60) is an LCG/RDTSC/GetTickCount mixing PRNG with accumulator at +0x804. ScaledStreamValueReader (0x004B4360) reads a header, then a raw or scaled float value plus a payload. SmallStructZeroInitializer (0x004B4450/0x004B4460) zeroes a 10-byte struct. GlobalDataInitializedObject (0x004B4F50/0x004B4F70) initializes a sub-object at +0x90 and writes sentinel 0xF49C952E to +0x84/+0x88/+0x8C. SteeringInterpolationObject (0x004B8790 getter, 0x004B87A0 queue peek, 0x004B9A00 mode flag, 0x004B9A10 progress ratio) reads queue fields +0xF30/+0xF34/+0xF38 and the +0xF81 mode flag / +0xF84 offset, feeding SteeringAckermannComputation; AnimationPhaseUpdater (0x004B8C40) dispatches phase updates through FloatGetter. RenderToggleDispatcher (0x004B97E0) forwards a render toggle into sub_4B7500. All packet owners are UnknownObject/UNKNOWN; class groupings here are DERIVED/GUESS synthesis.",
+  "function_roles": [
+    {
+      "address": "0x004B21F0",
+      "role": "Packed RGB color writer: clamps three float channels to [-65535.988, 65535.988] (flt_5ACC88/flt_5ACC8C), scales in-range channels by 32768.0 (flt_5ACC84), truncates to int, and packs a 40-bit color across word +0x0, word +0x4 and byte +0x8; returns the top byte of the third channel.",
+      "owner": "PackedColorChannelWriter",
+      "evidence_refs": [
+        "function:0x004B21F0",
+        "global:0x005ACC84",
+        "global:0x005ACC88",
+        "global:0x005ACC8C",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B2310",
+      "role": "Packed vertex short writer: copies three dwords from a2 into this+0x0/+0x4/+0x8, then converts three float inputs into signed 16-bit values at +0xC/+0xE/+0x10 with clamp to -32767/0x7FFF (flt_5ACC90/flt_5ACC94) and scale 2048.0 (flt_59E714); returns the final converted value.",
+      "owner": "PackedVertexShortWriter",
+      "evidence_refs": [
+        "function:0x004B2310",
+        "global:0x0059E714",
+        "global:0x005ACC90",
+        "global:0x005ACC94",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x0000000E",
+        "field:this:0x00000010",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B25D0",
+      "role": "Float-to-fixed-point converter with clamp: a2[0] to byte +0x24 (scale 20.0 flt_59E8EC, clamp globals flt_5ACCA0/flt_5ACCA4), a2[1] to short +0x26 (scale 500.0 flt_59E91C, clamp globals flt_5ACCA8/flt_5ACCAC), a2[2] to byte +0x25 (returned); out-of-range clamps to signed sentinels.",
+      "owner": "FixedPointParameterEncoder",
+      "evidence_refs": [
+        "function:0x004B25D0",
+        "caller:0x004B2DD0",
+        "caller:0x004B32A0",
+        "caller:0x004C71C0",
+        "global:0x0059E8EC",
+        "global:0x0059E91C",
+        "global:0x005ACCA0",
+        "global:0x005ACCA4",
+        "global:0x005ACCA8",
+        "global:0x005ACCAC",
+        "field:this:0x00000024",
+        "field:this:0x00000025",
+        "field:this:0x00000026",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B2750",
+      "role": "Float-to-short clamped converter: converts a2[0] (scale 512.0 flt_5ACCB4, clamp flt_5ACCB8/flt_5ACCBC to 0x7FFF/-32767) into short +0x28 and a2[2] into short +0x2A (returned); the middle element a2[1] is not read.",
+      "owner": "FixedPointParameterEncoder",
+      "evidence_refs": [
+        "function:0x004B2750",
+        "caller:0x004B2DD0",
+        "caller:0x004B32A0",
+        "caller:0x004C71C0",
+        "global:0x005ACCB4",
+        "global:0x005ACCB8",
+        "global:0x005ACCBC",
+        "field:this:0x00000028",
+        "field:this:0x0000002A",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B2840",
+      "role": "Indexed fixed-point encoder: clamps a3 to [-0.49599999, 0.49599999], scales by 256.0 and stores a byte at this[a2 + 18]; clamps a4 to [-327.67001, 327.67001], scales by 100.0 and stores a 16-bit value at this[2*a2 + 22]; returns that encoded short. Used by SetupCarLightingAndRender (0x004C71C0).",
+      "owner": "IndexedFixedPointEncoder",
+      "evidence_refs": [
+        "function:0x004B2840",
+        "caller:0x004C71C0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B2930",
+      "role": "Bitfield packer (bits 17-31): multiplies the input float by 10.0 (flt_59E5FC), truncates, clamps to [0, 0x7FFF], shifts left 17 and merges into bits 17-31 of the dword at this+0x2C preserving the low 17 bits; returns the packed value.",
+      "owner": "PackedBitfieldControlWord",
+      "evidence_refs": [
+        "function:0x004B2930",
+        "global:0x0059E5FC",
+        "field:this:0x0000002C",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B29B0",
+      "role": "Bitfield insert (bits 12-16): multiplies the input float by 31.0 (flt_5ACCD0), truncates to unsigned 8-bit, shifts left 12 and XOR-merges a 5-bit value into bits 12-16 (mask 0x1F000) of the dword at this+0x2C preserving all other bits; returns the computed field value.",
+      "owner": "PackedBitfieldControlWord",
+      "evidence_refs": [
+        "function:0x004B29B0",
+        "global:0x005ACCD0",
+        "field:this:0x0000002C",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B2A40",
+      "role": "Bitfield encoder (bits 0-6): multiplies the input float by 63.0 (flt_5ACCD8), truncates to unsigned 8-bit, subtracts the 64 bias and masks to 7 bits, then merges the biased signed value into bits 0-6 of the dword at this+0x2C clearing bits 0-6 and preserving bits 7-31; returns the new dword.",
+      "owner": "PackedBitfieldControlWord",
+      "evidence_refs": [
+        "function:0x004B2A40",
+        "global:0x005ACCD8",
+        "field:this:0x0000002C",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B2B10",
+      "role": "10-bit packer (bits 22-31): scales the input float by 3.0 (flt_59E478), truncates, shifts left 22 into bits 22-31 of the dword at this+0x30 while preserving the lower 22 bits (mask 0xFF3FFFFF); stores and returns the updated dword. Invoked by SetupCarLightingAndRender (0x004C71C0).",
+      "owner": "PackedBitfieldControlWord",
+      "evidence_refs": [
+        "function:0x004B2B10",
+        "caller:0x004C71C0",
+        "global:0x0059E478",
+        "field:this:0x00000030",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B3C60",
+      "role": "Deterministic entropy-mixing PRNG: updates the multiplicative accumulator at this+0x804 with the LCG step 219837*(this[513]+2), mixes in the RDTSC timestamp (0x0055687B), reads a float noise sample via the auto-incrementing byte counter at this+0x0, combines GetTickCount (0x0059E0D4) via CRTFtol (0x00587BDC), RandLCGRandomNumberGenerator (0x005884ED) and the accumulated timestamp; returns (2*v9+1)*v7+v11.",
+      "owner": "DeterministicHashPRNG",
+      "evidence_refs": [
+        "function:0x004B3C60",
+        "callee:0x0055687B",
+        "callee:0x00587BDC",
+        "callee:0x005884ED",
+        "global:0x0059E0D4",
+        "field:this:0x00000000",
+        "field:this:0x00000804",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B4360",
+      "role": "Stream-value reader with conditional scaling: calls FileWriteWithBackendDispatch (0x00566C00) to populate a 4-byte header; based on header bits either stores the incoming float a2 raw or scales a single stream byte by dbl_5ACD28 (0.0001670000056037679) into v3+4; then reads a payload of (header >> 8) & 0x3FF bytes into v3+8 and returns 0.",
+      "owner": "ScaledStreamValueReader",
+      "evidence_refs": [
+        "function:0x004B4360",
+        "caller:0x004B9000",
+        "caller:0x004B9510",
+        "callee:0x00566C00",
+        "global:0x005ACD28",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B4450",
+      "role": "Pass-through wrapper: invokes SmallStructZeroInit (0x004B4460) with no arguments for its side effect and returns the incoming this pointer unchanged; its four callers (allocation/audio helpers) call it for the zero-init effect.",
+      "owner": "SmallStructZeroInitializer",
+      "evidence_refs": [
+        "function:0x004B4450",
+        "caller:0x004B9000",
+        "caller:0x004B9510",
+        "caller:0x004BAAC0",
+        "caller:0x004BB200",
+        "callee:0x004B4460",
+        "abi:lead"
+      ]
+    },
+    {
+      "address": "0x004B4460",
+      "role": "Unconditional 10-byte struct zero-initializer: writes 0 to the dword at +0x0, the dword at +0x4 and the word at +0x8; always returns 0. Called by the wrapper and buffer-transfer helpers.",
+      "owner": "SmallStructZeroInitializer",
+      "evidence_refs": [
+        "function:0x004B4460",
+        "caller:0x004B4450",
+        "caller:0x004B5F60",
+        "caller:0x004B7860",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B4F50",
+      "role": "Construction wrapper: initializes the sub-object at this+144 via PassthroughWrapper_f670 (0x004FF670), then calls StructInitWithGlobalData (0x004B4F70) on this and returns this.",
+      "owner": "GlobalDataInitializedObject",
+      "evidence_refs": [
+        "function:0x004B4F50",
+        "caller:0x004BAA50",
+        "caller:0x004BAFC0",
+        "callee:0x004FF670",
+        "callee:0x004B4F70",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B4F70",
+      "role": "Struct init from global data: delegates sub-struct initialization at this+0x90 to ThunkWithStructInitSubCalls (0x004FFFA0), zeroes four byte fields (+0x0, +0x1, +0x41, +0x61), then writes the sentinel dword -190986834 (0xF49C952E, flt_5ACD10) into +0x84, +0x88 and +0x8C; returns the sentinel.",
+      "owner": "GlobalDataInitializedObject",
+      "evidence_refs": [
+        "function:0x004B4F70",
+        "callee:0x004FFFA0",
+        "global:0x005ACD10",
+        "field:this:0x00000000",
+        "field:this:0x00000001",
+        "field:this:0x00000041",
+        "field:this:0x00000061",
+        "field:this:0x00000084",
+        "field:this:0x00000088",
+        "field:this:0x0000008C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B6130",
+      "role": "Overlay/sprite array cleanup: frees the heap array of 176-byte entries stored at this + 0x9B0, reading the count from the header dword at (array - 4), walking backward calling QuadrupleListCleanup (0x004B46F0) per entry, freeing the header block via FreeWrapper_7bcf (0x00587BCF), then zeroing +0x9B0 and +0x9B4; returns the freed pointer value (zero on the normal path).",
+      "owner": "PitStallBufferPool",
+      "evidence_refs": [
+        "function:0x004B6130",
+        "caller:0x004B5A30",
+        "caller:0x004B71E0",
+        "callee:0x004B46F0",
+        "callee:0x00587BCF",
+        "field:this:0x000009B0",
+        "field:this:0x000009B4",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B6190",
+      "role": "Pit crew worker allocation for driver a2: skips when the vehicle slot dword_5EF9A0[4656*a2] is inactive (-1); per worker slot (4 iterations) scans the pit-stall circular buffer (176-byte entries at +0x9B0) via CircularBufferCheck/HashTableLookup collecting up to 12 matches, marks with BitfieldSetter_4800, sorts with MultiStageAlignmentComparator (0x004B6360), and assigns via sub_4B4A30 when at least 9 match; returns i + 1.",
+      "owner": "PitStallBufferPool",
+      "evidence_refs": [
+        "function:0x004B6190",
+        "global:0x005EF9A0",
+        "callee:0x004B68C0",
+        "callee:0x004B4840",
+        "callee:0x004B4800",
+        "callee:0x004B6360",
+        "callee:0x004B4A30",
+        "field:this:0x000009B0",
+        "field:this:0x000009B4",
+        "field:this:0x000009B8",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B6360",
+      "role": "Multi-stage alignment comparator: validates the header words of *a2 (top-bit tag and reserved bit mask), optionally compares 14 flag bits of a2[2] against a4[2] via BitTest (0x004B2AD0) when the difficulty selector at this+0x9AC is 3 or 4, populates comparison intermediates (0x004B3A90, 0x004B2420), then runs stage 0 (per-component scalar differences through LapSpeedComparisonWithSwitchSelectableThresholds 0x004B66E0) and stage 1 (wrapped per-axis angle differences through SteeringAlignmentToleranceCheck 0x004B67D0); returns 1 when all pass, else 0.",
+      "owner": "PitStallBufferPool",
+      "evidence_refs": [
+        "function:0x004B6360",
+        "callee:0x004B2AD0",
+        "callee:0x004B3A90",
+        "callee:0x004B2420",
+        "callee:0x00500210",
+        "callee:0x004B66E0",
+        "callee:0x004B67D0",
+        "field:this:0x000009AC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B71E0",
+      "role": "Buffer-pool reinitialization: transfers the linked buffer (0x004B5F60), runs the companion setup (0x004B5E50), tears down and clears the file-stream node list at +0x6C0..+0x6D0, rebuilds the list at +0xF38/+0xF3C (0x004B52A0), resets write/read indices +0x9B8/+0x9BC to -1, sets the counter at +0xF8C to 5, runs overlay-list cleanup, selects the entry count from the enum at +0x9A4 (0=16, 1=24, 2=32, 3=48, 4=96) into +0x9B4, allocates the 176-byte-entry circular buffer (176*count+4) at +0x9B0 and zero-initializes each 44-byte sub-entry.",
+      "owner": "PitStallBufferPool",
+      "evidence_refs": [
+        "function:0x004B71E0",
+        "callee:0x004B5F60",
+        "callee:0x004B5E50",
+        "callee:0x004B52A0",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "field:*(*(this+0x6C0)+0x0):0x00000004",
+        "field:*(*(this+0x6C0)+0x4):0x00000004",
+        "field:*(this+0x6C0):0x00000000",
+        "field:*(this+0x6C0):0x0000000C",
+        "field:*(this+0x9A4):0x00000000",
+        "field:this:0x000006C0",
+        "field:this:0x000006C4",
+        "field:this:0x000006C8",
+        "field:this:0x000006CC",
+        "field:this:0x000006D0",
+        "field:this:0x000009A4",
+        "field:this:0x000009B0",
+        "field:this:0x000009B4",
+        "field:this:0x000009B8",
+        "field:this:0x000009BC",
+        "field:this:0x00000F38",
+        "field:this:0x00000F3C",
+        "field:this:0x00000F8C",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B7860",
+      "role": "Circular-buffer drain to doubly-linked result list: entry guard on the buffer count (+0x9B4), loops the working list at +0x30 feeding the 176-byte slot selected at +0x9B0 by the read index +0x9BC into CollisionObjectListManagement (0x004B4B50), accumulates +0xF24/+0xF28, appends 16-byte result nodes to the list at +0x714..+0x720, synthesizes nodes via the working list when empty, then advances the read index via RingBufferCounterWithWrap (0x004B69D0) and returns 1 (or 0 when the buffer was not ready).",
+      "owner": "PitStallBufferPool",
+      "evidence_refs": [
+        "function:0x004B7860",
+        "caller:0x004B6940",
+        "caller:0x004B7A00",
+        "callee:0x004B68C0",
+        "callee:0x004B4B50",
+        "callee:0x004B4460",
+        "callee:0x00587C03",
+        "callee:0x004BAAC0",
+        "callee:0x004BB150",
+        "callee:0x004BB6B0",
+        "callee:0x004BA780",
+        "callee:0x004B69D0",
+        "callee:0x00587BCF",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x00000040",
+        "field:*(this+0x30):0x00000000",
+        "field:*(this+0x30):0x00000008",
+        "field:this:0x00000714",
+        "field:this:0x00000718",
+        "field:this:0x0000071C",
+        "field:this:0x00000720",
+        "field:this:0x000009B0",
+        "field:this:0x000009B4",
+        "field:this:0x000009BC",
+        "field:this:0x00000F24",
+        "field:this:0x00000F28",
+        "guard:0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B8790",
+      "role": "Float getter: reads element index 974 (byte offset 0xF38) of the float array referenced by this and returns it as double; no side effects, no branches. Shared field accessor called by eight helpers (StateTriggerCheck, Delegation, FloatAccumulator, ConditionalMultiPathDispatcher and neighbors).",
+      "owner": "SteeringInterpolationObject",
+      "evidence_refs": [
+        "function:0x004B8790",
+        "field:this:0x00000F38",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B87A0",
+      "role": "Non-destructive queue peek: copies this[972] (+0xF30) into *a2 and this[973] (+0xF34) into *a3, returns constant 1; never writes the source. Five helpers (0x004B70B0, 0x004B9A10, 0x004B9C80, 0x004B9E40, 0x004BA1F0) read the two queued values.",
+      "owner": "SteeringInterpolationObject",
+      "evidence_refs": [
+        "function:0x004B87A0",
+        "caller:0x004B70B0",
+        "caller:0x004B9A10",
+        "caller:0x004B9C80",
+        "caller:0x004B9E40",
+        "caller:0x004BA1F0",
+        "field:this:0x00000F30",
+        "field:this:0x00000F34",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B8C40",
+      "role": "Animation/simulation phase update dispatcher: switches on the mode value a2 through jump table global:0x004B8D8C, each mode fetches the base float via FloatGetter (0x004B8790), adds/subtracts the cooling-rate global dbl_8AFE90 with per-mode scalars (1.0, 0.083333336, 3.3399999) or applies a floor clamp, runs AngleClampWrap (0x004B86E0), writes phase identifiers 4-7 and scale factors; modes 0/2/3/4 fall through to ShortComputation_8d70 (0x004C8D70) and GuardedVirtualCall (0x004C8DC0), mode 1 returns ArithmeticComparison_8d60 (0x004C8D60) early.",
+      "owner": "AnimationPhaseUpdater",
+      "evidence_refs": [
+        "function:0x004B8C40",
+        "caller:0x004B8AE0",
+        "caller:0x004BA180",
+        "global:0x004B8D8C",
+        "global:0x008AC494",
+        "global:0x008AFE90",
+        "callee:0x004B8790",
+        "callee:0x004B86E0",
+        "callee:0x004C8D60",
+        "callee:0x004C8D70",
+        "callee:0x004C8DC0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B97E0",
+      "role": "Render toggle refresh wrapper: forwards the object's first dword and the boolean (dword_7D0038 != 0) into sub_4B7500 and returns the callee's result directly.",
+      "owner": "RenderToggleDispatcher",
+      "evidence_refs": [
+        "function:0x004B97E0",
+        "caller:0x004BA740",
+        "callee:0x004B7500",
+        "global:0x007D0038",
+        "field:this:0x00000000",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B9A00",
+      "role": "Angle clamp mode flag reader: dereferences the pointer at this+0 to reach the object, reads the byte at object offset 0xF81 (3969) and returns it; zero = wrap, non-zero = hard clamp (interpretation from existing analysis, not confirmed by this function).",
+      "owner": "SteeringInterpolationObject",
+      "evidence_refs": [
+        "function:0x004B9A00",
+        "field:this:0x00000000",
+        "field:obj:0x00000F81",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B9A10",
+      "role": "Normalised progress ratio compute: dereferences this to the object, reads the range lower/upper bounds via QueuePeek (0x004B87A0), branches on the mode flag at obj+0xF81: clamp mode uses dbl_8AFEA0 minus obj+0xF84, wrap mode uses the range width; calls Delegation (0x004B9CE0) and returns (value - v8) / v9, or 0.0 when the range is <= 0. Feeds SteeringAckermannComputation (0x004DB170).",
+      "owner": "SteeringInterpolationObject",
+      "evidence_refs": [
+        "function:0x004B9A10",
+        "caller:0x004DB170",
+        "callee:0x004B87A0",
+        "callee:0x004B9CE0",
+        "field:this:0x00000000",
+        "field:obj:0x00000F81",
+        "field:obj:0x00000F84",
+        "global:0x008AFEA0",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "PitStallBufferPool",
+      "responsibility": "Owns the pit-stall circular buffer of 176-byte entries: initializes it from an entry-count enum and a file-stream node list (0x004B71E0), cleans it up entry-by-entry (0x004B6130), allocates pit crew workers over its entries (0x004B6190), sorts/compares entries through the multi-stage alignment comparator (0x004B6360), and drains a slot into a doubly-linked result list (0x004B7860).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004B71E0",
+        "0x004B6130",
+        "0x004B6190",
+        "0x004B6360",
+        "0x004B7860"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "working_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "field:*(this+0x30):0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "working_list_next",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000034"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "working_list_current",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000038"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "working_list_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000003C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "secondary_list_head",
+          "type_guess": "void*",
+          "trust": "UNKNOWN",
+          "access": "unknown",
+          "evidence_refs": [
+            "field:this:0x00000040"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006C0",
+          "name": "filestream_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000006C0",
+            "field:*(this+0x6C0):0x00000000",
+            "field:*(this+0x6C0):0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006C4",
+          "name": "filestream_list_tail",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000006C4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006C8",
+          "name": "filestream_list_node",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000006C8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006CC",
+          "name": "filestream_list_cursor",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000006CC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006D0",
+          "name": "filestream_list_flag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000006D0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000714",
+          "name": "result_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000714"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000718",
+          "name": "result_list_tail",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000718"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000071C",
+          "name": "result_list_head_lo",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000071C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000720",
+          "name": "result_list_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000720"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000009A4",
+          "name": "buffer_entry_count_selector",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000009A4",
+            "field:*(this+0x9A4):0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000009AC",
+          "name": "difficulty_selector",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000009AC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000009B0",
+          "name": "buffer_array",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000009B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000009B4",
+          "name": "buffer_entry_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000009B4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000009B8",
+          "name": "buffer_write_index",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000009B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000009BC",
+          "name": "buffer_read_index",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000009BC"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F24",
+          "name": "processed_total",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000F24"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F28",
+          "name": "processed_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000F28"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F38",
+          "name": "rebuilt_list_head",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000F38"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F3C",
+          "name": "rebuilt_list_tail",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000F3C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F8C",
+          "name": "counter_or_phase",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000F8C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B71E0",
+        "function:0x004B6130",
+        "function:0x004B6190",
+        "function:0x004B6360",
+        "function:0x004B7860",
+        "callee:0x004B5F60",
+        "callee:0x004B5E50",
+        "callee:0x004B52A0",
+        "callee:0x004B46F0",
+        "callee:0x004B68C0",
+        "callee:0x004B4840",
+        "callee:0x004B4800",
+        "callee:0x004B4A30",
+        "callee:0x004B4B50",
+        "callee:0x004B4460",
+        "callee:0x004B2420",
+        "callee:0x004B3A90",
+        "callee:0x004B66E0",
+        "callee:0x004B67D0",
+        "callee:0x004B69D0",
+        "callee:0x004BA780",
+        "callee:0x004BAAC0",
+        "callee:0x004BB150",
+        "callee:0x004BB6B0",
+        "callee:0x00500210",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "global:0x005EF9A0",
+        "guard:0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PackedBitfieldControlWord",
+      "responsibility": "Writes the packed bitfield dwords of a per-vehicle render/orientation parameter object: bits 17-31 (15-bit, 0x004B2930), bits 12-16 (5-bit, 0x004B29B0), bits 0-6 (7-bit biased, 0x004B2A40) of the dword at +0x2C, and bits 22-31 (10-bit, 0x004B2B10) of the dword at +0x30.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004B2930",
+        "0x004B29B0",
+        "0x004B2A40",
+        "0x004B2B10"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "packed_control_word",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "packed_control_word_2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B2930",
+        "function:0x004B29B0",
+        "function:0x004B2A40",
+        "function:0x004B2B10",
+        "caller:0x004C71C0",
+        "global:0x0059E478",
+        "global:0x0059E5FC",
+        "global:0x005ACCD0",
+        "global:0x005ACCD8",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "FixedPointParameterEncoder",
+      "responsibility": "Converts float triples/pairs into clamped fixed-point scalar fields of a parameter object (byte +0x24/+0x25, short +0x26/+0x28/+0x2A); called by VehicleOrientationFromEulerAngles, sub_4B32A0 and SetupCarLightingAndRender.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B25D0",
+        "0x004B2750"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "byte_param_a",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000025",
+          "name": "byte_param_b",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000025"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000026",
+          "name": "short_param_a",
+          "type_guess": "short",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000026"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "short_param_b",
+          "type_guess": "short",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000028"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002A",
+          "name": "short_param_c",
+          "type_guess": "short",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002A"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B25D0",
+        "function:0x004B2750",
+        "caller:0x004B2DD0",
+        "caller:0x004B32A0",
+        "caller:0x004C71C0",
+        "global:0x0059E8EC",
+        "global:0x0059E91C",
+        "global:0x005ACCA0",
+        "global:0x005ACCA4",
+        "global:0x005ACCA8",
+        "global:0x005ACCAC",
+        "global:0x005ACCB4",
+        "global:0x005ACCB8",
+        "global:0x005ACCBC",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PackedColorChannelWriter",
+      "responsibility": "Packs three float color channels into a 40-bit RGB representation spread across word +0x0, word +0x4 and byte +0x8, with clamp to [-65535.988, 65535.988] and scale 32768.0.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B21F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "packed_word_0",
+          "type_guess": "word",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "packed_word_1",
+          "type_guess": "word",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "packed_byte_2",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B21F0",
+        "global:0x005ACC84",
+        "global:0x005ACC88",
+        "global:0x005ACC8C",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PackedVertexShortWriter",
+      "responsibility": "Copies three dwords verbatim into +0x0/+0x4/+0x8 then converts three floats into clamped signed 16-bit values at +0xC/+0xE/+0x10 (scale 2048.0); candidate packed vertex/vector writer.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B2310"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "copied_dword_0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "copied_dword_1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "copied_dword_2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "short_0",
+          "type_guess": "short",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000E",
+          "name": "short_1",
+          "type_guess": "short",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000E"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "short_2",
+          "type_guess": "short",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B2310",
+        "global:0x0059E714",
+        "global:0x005ACC90",
+        "global:0x005ACC94",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IndexedFixedPointEncoder",
+      "responsibility": "Encodes a clamped/scaled byte and short into an index-offset buffer (byte at this[a2+18], short at this[2*a2+22]) for indexed parameter packing by SetupCarLightingAndRender.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B2840"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004B2840",
+        "caller:0x004C71C0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "DeterministicHashPRNG",
+      "responsibility": "Entropy-mixing pseudo-random DWORD generator: LCG step over the accumulator at +0x804 mixed with RDTSC, a float noise table sample indexed by the byte counter at +0x0, GetTickCount and an internal LCG call.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B3C60"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "sample_byte_counter",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000804",
+          "name": "accumulator",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000804"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B3C60",
+        "callee:0x0055687B",
+        "callee:0x00587BDC",
+        "callee:0x005884ED",
+        "global:0x0059E0D4",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ScaledStreamValueReader",
+      "responsibility": "Reads a header then either a raw float or a byte scaled by dbl_5ACD28 plus a payload block from a backend stream (0x00566C00), writing header/value/payload into a caller buffer.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B4360"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004B4360",
+        "caller:0x004B9000",
+        "caller:0x004B9510",
+        "callee:0x00566C00",
+        "global:0x005ACD28",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SmallStructZeroInitializer",
+      "responsibility": "Zeroes a 10-byte struct (dword +0x0, dword +0x4, word +0x8); 0x004B4460 is the zero-initializer proper, 0x004B4450 a pass-through wrapper invoking it for its side effect on behalf of allocation/audio callers.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004B4460",
+        "0x004B4450"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "dword_field_0",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "dword_field_1",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "word_field",
+          "type_guess": "word",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B4460",
+        "function:0x004B4450",
+        "callee:0x004B4460",
+        "caller:0x004B4450",
+        "caller:0x004B5F60",
+        "caller:0x004B7860",
+        "caller:0x004B9000",
+        "caller:0x004B9510",
+        "caller:0x004BAAC0",
+        "caller:0x004BB200",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "GlobalDataInitializedObject",
+      "responsibility": "Initializes an object from global data: construction wrapper 0x004B4F50 initializes the sub-object at +0x90 (via 0x004FF670) then runs 0x004B4F70, which initializes the sub-struct at +0x90 (via 0x004FFFA0), zeroes byte fields +0x0/+0x1/+0x41/+0x61 and writes sentinel 0xF49C952E (flt_5ACD10) to +0x84/+0x88/+0x8C.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004B4F50",
+        "0x004B4F70"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "enable_flag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000001",
+          "name": "flag_byte_1",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000001"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000041",
+          "name": "flag_byte_2",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000041"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000061",
+          "name": "flag_byte_3",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000061"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000084",
+          "name": "sentinel_dword",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000084",
+            "global:0x005ACD10"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000088",
+          "name": "sentinel_dword_2",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000088",
+            "global:0x005ACD10"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000008C",
+          "name": "sentinel_dword_3",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000008C",
+            "global:0x005ACD10"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B4F50",
+        "function:0x004B4F70",
+        "caller:0x004BAA50",
+        "caller:0x004BAFC0",
+        "callee:0x004FF670",
+        "callee:0x004FFFA0",
+        "global:0x005ACD10",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SteeringInterpolationObject",
+      "responsibility": "Steering/animation interpolation state: exposes the float at +0xF38 (0x004B8790), two queued range values at +0xF30/+0xF34 (0x004B87A0), the angle clamp mode flag at obj+0xF81 (0x004B9A00) and the normalised progress ratio over that range (0x004B9A10, feeding SteeringAckermannComputation).",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B8790",
+        "0x004B87A0",
+        "0x004B9A00",
+        "0x004B9A10"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000F30",
+          "name": "queue_value_lower",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000F30"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F34",
+          "name": "queue_value_upper",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000F34"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F38",
+          "name": "float_field",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000F38"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000F81",
+          "name": "mode_flag_byte",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000F81"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000F84",
+          "name": "offset_float",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000F84"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B8790",
+        "function:0x004B87A0",
+        "function:0x004B9A00",
+        "function:0x004B9A10",
+        "caller:0x004DB170",
+        "callee:0x004B87A0",
+        "callee:0x004B9CE0",
+        "global:0x008AFEA0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AnimationPhaseUpdater",
+      "responsibility": "Dispatches an animation/simulation phase update by a mode value: adjusts the base float read via FloatGetter by the cooling-rate global dbl_8AFE90 with per-mode scalars, clamps the angle, and writes phase identifiers and scale factors; mode 1 returns early via ArithmeticComparison_8d60.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B8C40"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x004B8C40",
+        "caller:0x004B8AE0",
+        "caller:0x004BA180",
+        "global:0x004B8D8C",
+        "global:0x008AC494",
+        "global:0x008AFE90",
+        "callee:0x004B8790",
+        "callee:0x004B86E0",
+        "callee:0x004C8D60",
+        "callee:0x004C8D70",
+        "callee:0x004C8DC0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RenderToggleDispatcher",
+      "responsibility": "Thin wrapper forwarding the object's first dword and the dword_7D0038 boolean into sub_4B7500 as a render toggle / scene refresh operation.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B97E0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "first_dword",
+          "type_guess": "dword",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B97E0",
+        "caller:0x004BA740",
+        "callee:0x004B7500",
+        "global:0x007D0038",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "AnimationPhaseDispatch",
+      "owner": "AnimationPhaseUpdater",
+      "states": [
+        "PHASE_0",
+        "PHASE_1",
+        "PHASE_2",
+        "PHASE_3",
+        "PHASE_4"
+      ],
+      "transitions": [
+        {
+          "from": "mode_value",
+          "to": "PHASE_0",
+          "condition": "LODWORD(a2)==0: v19 = FloatGetter(this) - dbl_8AFE90 with floor clamp, phase id 4 written, falls through to shared tail"
+        },
+        {
+          "from": "mode_value",
+          "to": "PHASE_1",
+          "condition": "LODWORD(a2)==1: v14 = FloatGetter(this), returns ArithmeticComparison_8d60 early, phase id 5"
+        },
+        {
+          "from": "mode_value",
+          "to": "PHASE_2",
+          "condition": "LODWORD(a2)==2: v15 = FloatGetter(this) + dbl_8AFE90, phase id 6, falls through to shared tail"
+        },
+        {
+          "from": "mode_value",
+          "to": "PHASE_3",
+          "condition": "LODWORD(a2)==3: v16 = FloatGetter(this) + dbl_8AFE90*0.083333336, scale 1056964608, phase id 6, falls through to shared tail"
+        },
+        {
+          "from": "mode_value",
+          "to": "PHASE_4",
+          "condition": "LODWORD(a2)==4: v17 = FloatGetter(this) + dbl_8AFE90*3.3399999, scale 1070973583, phase id 7, falls through to shared tail"
+        }
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004B8C40",
+        "global:0x004B8D8C",
+        "global:0x008AFE90",
+        "callee:0x004B8790"
+      ]
+    },
+    {
+      "name": "CircularBufferDrainState",
+      "owner": "PitStallBufferPool",
+      "states": [
+        "READY",
+        "EMPTY"
+      ],
+      "transitions": [
+        {
+          "from": "EMPTY",
+          "to": "READY",
+          "condition": "entry guard passes (buffer count equals this[621] at +0x9B4, or force flag a2 set, and count > 0)"
+        },
+        {
+          "from": "READY",
+          "to": "READY",
+          "condition": "one slot drained via CollisionObjectListManagement and the read index advanced by RingBufferCounterWithWrap (0x004B69D0)"
+        },
+        {
+          "from": "READY",
+          "to": "EMPTY",
+          "condition": "CollisionObjectListManagement returns <= 0, loop breaks"
+        }
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004B7860",
+        "callee:0x004B69D0",
+        "callee:0x004B4B50",
+        "field:this:0x000009B4",
+        "field:this:0x000009BC"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "IPackedFieldEncoder",
+      "purpose": "Float-to-packed-field encoder family: clamps, scales and packs float inputs into fixed-point bytes/shorts or bitfield dwords of a per-vehicle orientation/lighting parameter object. Shared caller set: VehicleOrientationFromEulerAngles (0x004B2DD0), sub_4B32A0 (0x004B32A0) and SetupCarLightingAndRender (0x004C71C0).",
+      "functions": [
+        "0x004B21F0",
+        "0x004B2310",
+        "0x004B25D0",
+        "0x004B2750",
+        "0x004B2840",
+        "0x004B2930",
+        "0x004B29B0",
+        "0x004B2A40",
+        "0x004B2B10"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004B21F0",
+        "function:0x004B2310",
+        "function:0x004B25D0",
+        "function:0x004B2750",
+        "function:0x004B2840",
+        "function:0x004B2930",
+        "function:0x004B29B0",
+        "function:0x004B2A40",
+        "function:0x004B2B10",
+        "caller:0x004B2DD0",
+        "caller:0x004B32A0",
+        "caller:0x004C71C0"
+      ]
+    },
+    {
+      "name": "IPitStallBufferPool",
+      "purpose": "Lifecycle of the 176-byte-entry pit-stall circular buffer: initialization (0x004B71E0), cleanup (0x004B6130), pit crew worker allocation (0x004B6190) and slot drain into a result list (0x004B7860).",
+      "functions": [
+        "0x004B71E0",
+        "0x004B6130",
+        "0x004B6190",
+        "0x004B7860"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B71E0",
+        "function:0x004B6130",
+        "function:0x004B6190",
+        "function:0x004B7860",
+        "caller:0x004B71E0"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x004B4450",
+      "to": "0x004B4460",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B4460"
+      ]
+    },
+    {
+      "from": "0x004B7860",
+      "to": "0x004B4460",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B4460",
+        "caller:0x004B7860"
+      ]
+    },
+    {
+      "from": "0x004B4F50",
+      "to": "0x004B4F70",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B4F70"
+      ]
+    },
+    {
+      "from": "0x004B4F50",
+      "to": "0x004FF670",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FF670"
+      ]
+    },
+    {
+      "from": "0x004B4F70",
+      "to": "0x004FFFA0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004FFFA0"
+      ]
+    },
+    {
+      "from": "0x004B6130",
+      "to": "0x004B46F0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B46F0"
+      ]
+    },
+    {
+      "from": "0x004B6130",
+      "to": "0x00587BCF",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "0x004B6190",
+      "to": "0x004B6360",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B6360"
+      ]
+    },
+    {
+      "from": "0x004B6190",
+      "to": "0x004B68C0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B68C0"
+      ]
+    },
+    {
+      "from": "0x004B6190",
+      "to": "0x004B4840",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B4840"
+      ]
+    },
+    {
+      "from": "0x004B6190",
+      "to": "0x004B4800",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B4800"
+      ]
+    },
+    {
+      "from": "0x004B6190",
+      "to": "0x004B4A30",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B4A30"
+      ]
+    },
+    {
+      "from": "0x004B71E0",
+      "to": "0x004B6130",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004B71E0",
+        "function:0x004B6130"
+      ]
+    },
+    {
+      "from": "0x004B71E0",
+      "to": "0x004B5F60",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B5F60"
+      ]
+    },
+    {
+      "from": "0x004B71E0",
+      "to": "0x004B5E50",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B5E50"
+      ]
+    },
+    {
+      "from": "0x004B71E0",
+      "to": "0x004B52A0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B52A0"
+      ]
+    },
+    {
+      "from": "0x004B7860",
+      "to": "0x004B68C0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B68C0"
+      ]
+    },
+    {
+      "from": "0x004B7860",
+      "to": "0x004B4B50",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B4B50"
+      ]
+    },
+    {
+      "from": "0x004B7860",
+      "to": "0x004B69D0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B69D0"
+      ]
+    },
+    {
+      "from": "0x004B7860",
+      "to": "0x00587C03",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "from": "0x004B7860",
+      "to": "0x004BA780",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BA780"
+      ]
+    },
+    {
+      "from": "0x004B7860",
+      "to": "0x004BB6B0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004BB6B0"
+      ]
+    },
+    {
+      "from": "0x004B6360",
+      "to": "0x004B3A90",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B3A90"
+      ]
+    },
+    {
+      "from": "0x004B6360",
+      "to": "0x004B2420",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B2420"
+      ]
+    },
+    {
+      "from": "0x004B6360",
+      "to": "0x004B66E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B66E0"
+      ]
+    },
+    {
+      "from": "0x004B6360",
+      "to": "0x004B67D0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B67D0"
+      ]
+    },
+    {
+      "from": "0x004B6360",
+      "to": "0x004B2AD0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B2AD0"
+      ]
+    },
+    {
+      "from": "0x004B6360",
+      "to": "0x00500210",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00500210"
+      ]
+    },
+    {
+      "from": "0x004B8C40",
+      "to": "0x004B8790",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B8790"
+      ]
+    },
+    {
+      "from": "0x004B8C40",
+      "to": "0x004B86E0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B86E0"
+      ]
+    },
+    {
+      "from": "0x004B8C40",
+      "to": "0x004C8D60",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004C8D60"
+      ]
+    },
+    {
+      "from": "0x004B8C40",
+      "to": "0x004C8D70",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004C8D70"
+      ]
+    },
+    {
+      "from": "0x004B8C40",
+      "to": "0x004C8DC0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004C8DC0"
+      ]
+    },
+    {
+      "from": "0x004B97E0",
+      "to": "0x004B7500",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B7500"
+      ]
+    },
+    {
+      "from": "0x004B9A10",
+      "to": "0x004B87A0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B87A0"
+      ]
+    },
+    {
+      "from": "0x004B9A10",
+      "to": "0x004B9CE0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x004B9CE0"
+      ]
+    },
+    {
+      "from": "0x004B3C60",
+      "to": "0x0055687B",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0055687B"
+      ]
+    },
+    {
+      "from": "0x004B3C60",
+      "to": "0x00587BDC",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00587BDC"
+      ]
+    },
+    {
+      "from": "0x004B3C60",
+      "to": "0x005884ED",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005884ED"
+      ]
+    },
+    {
+      "from": "0x004B4360",
+      "to": "0x00566C00",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00566C00"
+      ]
+    },
+    {
+      "from": "0x004B6190",
+      "to": "global:0x005EF9A0",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x005EF9A0",
+        "function:0x004B6190"
+      ]
+    },
+    {
+      "from": "0x004B97E0",
+      "to": "global:0x007D0038",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x007D0038",
+        "function:0x004B97E0"
+      ]
+    },
+    {
+      "from": "0x004B8C40",
+      "to": "global:0x008AFE90",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFE90",
+        "function:0x004B8C40"
+      ]
+    },
+    {
+      "from": "0x004B9A10",
+      "to": "global:0x008AFEA0",
+      "kind": "reads_global",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "global:0x008AFEA0",
+        "function:0x004B9A10"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "PackedColorFormatContract",
+      "category": "data",
+      "description": "The 40-bit packed color output must preserve the channel encoding of 0x004B21F0: each of three float channels clamped to [-65535.988, 65535.988] (flt_5ACC88/flt_5ACC8C) with INT_MIN/INT_MAX saturation, scaled by 32768.0 (flt_5ACC84), then bit-packed as word +0x0, word +0x4 and byte +0x8; the top byte of the third channel is the function result.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B21F0",
+        "global:0x005ACC84",
+        "global:0x005ACC88",
+        "global:0x005ACC8C",
+        "field:this:0x00000000",
+        "field:this:0x00000008"
+      ]
+    },
+    {
+      "name": "PitStallBufferLayoutContract",
+      "category": "data",
+      "description": "The pit-stall buffer pool must keep its circular buffer of 176-byte entries at +0x9B0 with the entry count at +0x9B4 selected from the enum at +0x9A4 (0=16, 1=24, 2=32, 3=48, 4=96), write/read indices at +0x9B8/+0x9BC reset to -1 on init, allocation size 176*count+4 with the count header at (array-4), and cleanup walking the entries backward via QuadrupleListCleanup before freeing the header block.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B71E0",
+        "function:0x004B6130",
+        "field:this:0x000009A4",
+        "field:this:0x000009B0",
+        "field:this:0x000009B4",
+        "field:this:0x000009B8",
+        "field:this:0x000009BC"
+      ]
+    },
+    {
+      "name": "BitfieldControlWordContract",
+      "category": "data",
+      "description": "The packed control dword at +0x2C must preserve three independently written bit ranges: bits 0-6 hold a 64-biased 7-bit value (0x004B2A40), bits 12-16 a 5-bit value (0x004B29B0), bits 17-31 a 15-bit value (0x004B2930); the dword at +0x30 carries a 10-bit field at bits 22-31 with mask 0xFF3FFFFF (0x004B2B10). Writers preserve the bits they do not own.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B2930",
+        "function:0x004B29B0",
+        "function:0x004B2A40",
+        "function:0x004B2B10",
+        "field:this:0x0000002C",
+        "field:this:0x00000030"
+      ]
+    },
+    {
+      "name": "InitSentinelContract",
+      "category": "data",
+      "description": "Object initialization must zero the byte fields at +0x0/+0x1/+0x41/+0x61, initialize the sub-object at +0x90 (via 0x004FF670 and ThunkWithStructInitSubCalls 0x004FFFA0), and write the sentinel 0xF49C952E (flt_5ACD10) into the three consecutive dwords at +0x84/+0x88/+0x8C.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B4F70",
+        "function:0x004B4F50",
+        "callee:0x004FF670",
+        "callee:0x004FFFA0",
+        "global:0x005ACD10",
+        "field:this:0x00000084",
+        "field:this:0x0000008C"
+      ]
+    },
+    {
+      "name": "SmallStructZeroContract",
+      "category": "data",
+      "description": "The 10-byte struct cleared by SmallStructZeroInitializer must have its dwords at +0x0 and +0x4 and its word at +0x8 zeroed; 0x004B4460 is the unconditional initializer, 0x004B4450 the pass-through wrapper invoking it.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B4460",
+        "function:0x004B4450",
+        "callee:0x004B4460",
+        "field:this:0x00000000",
+        "field:this:0x00000008"
+      ]
+    },
+    {
+      "name": "StreamValueHeaderContract",
+      "category": "data",
+      "description": "The stream-value reader (0x004B4360) must preserve the header/value/payload buffer contract: a 4-byte header read from the backend at v3, a float value at v3+4 (either a2 raw or a stream byte scaled by dbl_5ACD28 = 0.0001670000056037679 plus a2), and a payload of (header >> 8) & 0x3FF bytes read into v3+8.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B4360",
+        "callee:0x00566C00",
+        "global:0x005ACD28"
+      ]
+    }
+  ],
+  "unresolved": [
+    "All packet owners are UnknownObject/UNKNOWN; every class grouping (PitStallBufferPool, PackedBitfieldControlWord, FixedPointParameterEncoder, SteeringInterpolationObject, etc.) is worker synthesis at DERIVED/GUESS, not packet evidence. Equal byte offsets on distinct this bases are NOT merged into one class unless the shared layout is argued.",
+    "PitStallBufferPool is formed by merging 0x004B71E0, 0x004B6130, 0x004B6190, 0x004B6360 and 0x004B7860 on the shared circular-buffer fields (+0x9B0/+0x9B4/+0x9B8/+0x9BC/+0x9A4) and the direct call chain 0x004B71E0->SpriteOverlayListCleanup and 0x004B6190->0x004B6360; this union is defensible but the class name and the pit-stall meaning of the 176-byte stride are inferred, not proven.",
+    "Offset overlaps on distinct this objects remain unmerged: +0xF38 is read as a float by FloatGetter (0x004B8790) yet cleared as a rebuilt-list head by BufferPoolAllocatorInitialization (0x004B71E0); +0xF8C is set to 5 by 0x004B71E0 while AnimationPhaseUpdater (0x004B8C40) writes phase identifiers at object+3980 (decimal 0xF8C) via uninitialized register bases. Common ownership is unproven, so SteeringInterpolationObject, PitStallBufferPool and AnimationPhaseUpdater stay separate.",
+    "PackedColorChannelWriter (+0x0/+0x4/+0x8) and PackedVertexShortWriter (+0x0/+0x4/+0x8) share equal offsets on the same this base; two classes are retained because 0x004B21F0 writes +0x8 as a byte while 0x004B2310 copies a dword there, so a common layout is not proven.",
+    "The bitfield packers 0x004B2930/0x004B29B0/0x004B2A40 share the +0x2C dword and are grouped; whether they share the object with 0x004B2B10 (+0x30), the fixed-point writers (+0x24..+0x2A), the color writer or the vertex writer is unknown - all are UNKNOWN-owner singletons or small groups in one parameter-object hypothesis.",
+    "In 0x004B71E0 the named calls SpriteOverlayListCleanup, OperatorNewNhMallocWrapper and StructZeroInit_46b0 have no callee records; the SpriteOverlayListCleanup call is mapped to 0x004B6130 only through the caller:0x004B71E0/function:0x004B6130 pair, not a direct callee ref.",
+    "The pit stall entry layout (176 bytes) and the worker-slot meaning of the 4-iteration loop in 0x004B6190 are inferred from caller names; the collection-size thresholds 9 and 12 and the sort comparator semantics of 0x004B6360 are not evidenced in this packet.",
+    "In 0x004B6360 the jump table jpt_4B6380 and the double dbl_59E890 are recorded as read but appear nowhere in the raw body; the a2/a4 header-word semantics, the 14-bit flag comparison, the misattributed AudioSamplePlaybackWithPitchModulationAndStereoP call, and the dword-indexed sub-object offsets +734/+736/+626/+628 (0xB78/0xB80/0x9C8/0x9D0) are unresolved.",
+    "In 0x004B3C60: flt_5ACCF4 is a listed read global absent from the raw text; RandLCGRandomNumberGenerator is called with an uninitialized v8 seed; the constants 219837 and -3499.01 are unexplained; and the float noise table read lands at an offset inside this computed from the counter, not a packet field.",
+    "In 0x004B4360 the callee is named FileWriteWithBackendDispatch yet reads stream data here; the bitmask selection (0xE0000000 vs 0x20000000, 0xFC0000) between raw-float and scaled-byte storage is only structurally inferred; the header/value/payload buffer meaning, the unused a1 parameter and the 0x3FF (max 1023) payload size are unknown.",
+    "In 0x004B8C40 the +3976/+3980 writes use uninitialized register-sourced base pointers, so the target object and field offsets are not established; phase identifiers 4-7 and scale factors 1065353216/1056964608/1070973583 are numeric literals whose semantics are inferred; the role of byte_8AC494 and the ArithmeticComparison_8d60 vs ShortComputation_8d70 distinction are undocumented; flt_5ACB58 and flt_5ACD64 are flagged reads absent from the raw body.",
+    "0x004B8790 returns double while the read is an element of a float array at +0xF38: whether +0xF38 holds a true double member or two adjacent floats re-read as 8 bytes is unresolved.",
+    "0x004B87A0 returns the constant 1 rather than a value derived from the source; the meaning of the two queued values (+0xF30/+0xF34) is unknown.",
+    "0x004B9A00 reaches the flag byte at obj+0xF81 through a double dereference; the flag semantics (wrap vs hard clamp) rest on existing-analysis prose and are not proven by the accessor itself.",
+    "The global clamp/scale constants for 0x004B2840 (flt_59E6F8, flt_59F10C, flt_5ACCC0, flt_5ACCC4, flt_5ACCC8, flt_5ACCCC) and the read-only globals flt_5ACB58/flt_5ACD64 (0x004B8C40), flt_5ACD38 (0x004B6190), flt_5ACCF4 (0x004B3C60), flt_59E440 (0x004B9A10) are flagged by packet facts but do not appear in the raw decompiled sources; their bindings are unverifiable from this packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E6F8",
+    "global:0x0059F10C",
+    "global:0x005ACCC0",
+    "global:0x005ACCC4",
+    "global:0x005ACCC8",
+    "global:0x005ACCCC",
+    "global:0x005ACCF4",
+    "global:0x005ACD38",
+    "global:0x004B66C0",
+    "global:0x0059E890",
+    "global:0x005ACB58",
+    "global:0x005ACD64",
+    "global:0x0059E440"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "LOW"
+  }
+}

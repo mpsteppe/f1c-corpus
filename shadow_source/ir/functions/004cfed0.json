@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "address": "0x004CFED0",
+  "proposed_name": "Post",
+  "owner": {
+    "type": "SpecialFX",
+    "trust": "DERIVED",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Special-effects teardown. Optionally logs entry via a debug-log gate, then frees every allocated array (a 60-byte-stride emitter array and two 108-byte-stride arrays, each with a count word stored 4 bytes before the pointer), cleans the collision tree nodes, and zeroes all twelve fields. Called from Game_Post when leaving the game session.",
+  "local_names": {
+    "v5": "array cursor into 60-byte-stride emitter array",
+    "v9": "array cursor into 108-byte-stride array (FreeIfNonNull path)",
+    "v15": "array cursor into 108-byte-stride array (sub_4CA410 path)",
+    "v3": "running element index over this+0x14 array",
+    "result": "loop bound read from this+0x10; also carries last free return value"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Debug-log gate: if StringSplitLoop(2, aDDevF119992002_25, 3371) is nonzero, run the entry log write.",
+      "evidence_refs": ["global:0x005D3624", "callee:0x004D7A50", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "DebugLogWrite(&dword_8AD25C, aEnteredSpecial_3) writes the 'entered special' message to the global log channel.",
+      "evidence_refs": ["callee:0x004D7AA0", "global:0x008AD25C", "global:0x005D39F0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero this+0x0, the emitter count field.",
+      "evidence_refs": ["field:this:0x00000000"]
+    },
+    {
+      "kind": "guard",
+      "description": "If this+0x4 is non-null, the 60-byte-stride array is live and is freed.",
+      "evidence_refs": ["field:this:0x00000004"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the 60-byte-stride emitter array backwards (count stored at ptr-4, element i at ptr + 60*i), calling sub_4CA280 on each element as a per-element destructor/cleanup.",
+      "evidence_refs": ["field:this:0x00000004", "callee:0x004CA280"]
+    },
+    {
+      "kind": "call",
+      "description": "FreeWrapper_7bcf(ptr-4) releases the count-header buffer of the emitter array, then this+0x4 is zeroed.",
+      "evidence_refs": ["callee:0x00587BCF", "field:this:0x00000004"]
+    },
+    {
+      "kind": "call",
+      "description": "CollisionTreeNodeCleanup((int)dbl_7C9360) tears down the collision tree node pool referenced by the global.",
+      "evidence_refs": ["callee:0x0044C470", "global:0x007C9360"]
+    },
+    {
+      "kind": "guard",
+      "description": "If this+0xC is non-null, the first 108-byte-stride array is live and is freed.",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the 108-byte-stride array backwards (27 dwords per element), calling FreeIfNonNull on each element.",
+      "evidence_refs": ["field:this:0x0000000C", "callee:0x00499AE0"]
+    },
+    {
+      "kind": "call",
+      "description": "FreeWrapper_7bcf(ptr-4) releases the count-header buffer of the first 108-byte-stride array.",
+      "evidence_refs": ["callee:0x00587BCF", "field:this:0x0000000C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Before the element loop this+0x8 and this+0xC are zeroed (count fields for the 108-byte arrays).",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x0000000C"]
+    },
+    {
+      "kind": "loop",
+      "description": "For this+0x10 iterations, call MultiFieldFree on each 108-byte-stride element of the array whose base is this+0x14.",
+      "evidence_refs": ["field:this:0x00000010", "field:this:0x00000014", "callee:0x004CB4F0"]
+    },
+    {
+      "kind": "guard",
+      "description": "If this+0x14 is non-null, the second 108-byte-stride array is live and is freed.",
+      "evidence_refs": ["field:this:0x00000014"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk the 108-byte-stride array backwards calling sub_4CA410 on each element as a per-element destructor.",
+      "evidence_refs": ["field:this:0x00000014", "callee:0x004CA410"]
+    },
+    {
+      "kind": "call",
+      "description": "FreeWrapper_7bcf(ptr-4) releases the count-header buffer of the second 108-byte-stride array.",
+      "evidence_refs": ["callee:0x00587BCF", "field:this:0x00000014"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Zero the remaining fields this+0x14, 0x10, 0x18, 0x1C, 0x20, 0x24, 0x28, 0x2C, resetting the special-effects system to a pristine state.",
+      "evidence_refs": ["field:this:0x00000014", "field:this:0x00000010", "field:this:0x00000018", "field:this:0x0000001C", "field:this:0x00000020", "field:this:0x00000024", "field:this:0x00000028", "field:this:0x0000002C"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the value carried through by the last FreeWrapper_7bcf call (result).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// SpecialFX::Post - teardown of the special-effects system.",
+    "if (StringSplitLoop(2, aDDevF119992002_25, 3371))",
+    "    DebugLogWrite(&dword_8AD25C, aEnteredSpecial_3);",
+    "this->count_emitter = 0;                 // this+0x00",
+    "if (this->pArray60) {                    // this+0x04, 60-byte stride",
+    "    for (i = count; i > 0; --i) sub_4CA280(&this->pArray60[(i-1)*15]);",
+    "    FreeWrapper_7bcf((char*)this->pArray60 - 4);",
+    "    this->pArray60 = 0;",
+    "}",
+    "CollisionTreeNodeCleanup(dbl_7C9360);",
+    "if (this->pArray108a) {                  // this+0x0C, 108-byte stride",
+    "    for (i = count; i > 0; --i) FreeIfNonNull(&this->pArray108a[(i-1)*27]);",
+    "    FreeWrapper_7bcf((char*)this->pArray108a - 4);",
+    "}",
+    "this->pArray108a = 0; this->count108a = 0; // this+0x0C, this+0x08",
+    "for (i = 0; i < this->count108b; ++i)       // this+0x10 count, this+0x14 base",
+    "    MultiFieldFree(&this->pArray108b[i*27]);",
+    "if (this->pArray108b) {                  // this+0x14",
+    "    for (i = count; i > 0; --i) sub_4CA410(&this->pArray108b[(i-1)*27]);",
+    "    FreeWrapper_7bcf((char*)this->pArray108b - 4);",
+    "}",
+    "this->pArray108b = 0; this->count108b = 0;",
+    "this->field_0x18 = this->field_0x1C = this->field_0x20 = 0;",
+    "this->field_0x24 = this->field_0x28 = this->field_0x2C = 0;"
+  ],
+  "unresolved": [
+    "sub_4CA280 and sub_4CA410 per-element destructors have unknown semantics (likely different emitter sub-types).",
+    "The count word stored 4 bytes before each array pointer suggests a custom counted allocation layout that is not independently confirmed.",
+    "Field this+0x8 is only observed being zeroed; its role as a count is inferred from the surrounding free loops.",
+    "Field this+0x10 is read as the loop bound but its writer is elsewhere."
+  ],
+  "unresolved_evidence_refs": ["caller:0x0042DA30", "function:0x004CFED0"],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

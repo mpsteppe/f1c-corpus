@@ -1,0 +1,41 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051177C
+// Canonical corpus name: sub_51177C
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_51177C_0051177c.c
+
+void UnknownObject::sub_51177C()
+{
+    // Initializes a vtable-plus-config struct pointed to by a1 (a _DWORD/function-pointer array). Slots 0..4 receive the method pointers ArithmeticComparison_166b, ReferenceCountedResourceAccessRelease, VtableDispatchThunk, FormatStringWithArgs and ResettableStateClear; slot 28 (offset 0x70) receives the off_5ADE98 table pointer and slot 29 (offset 0x74) receives element count 119; slots 5, 26, 27, 30, 31 and 32 (offsets 0x14, 0x68, 0x6C, 0x78, 0x7C, 0x80) are cleared to 0. Returns the struct pointer. Called by ImageTextureDecompressor (00501722).
+    // ASSIGNMENT: Preserve the struct pointer a1 as the return value [source:raw]
+    // ASSIGNMENT: Write method pointer ArithmeticComparison_166b into slot 0 (offset 0x0) [field:this:0x00000000, global:0x0051166B, source:raw]
+    // ASSIGNMENT: Write method pointer ReferenceCountedResourceAccessRelease into slot 1 (offset 0x4) [field:this:0x00000004, global:0x005116A3, source:raw]
+    // ASSIGNMENT: Write method pointer VtableDispatchThunk into slot 2 (offset 0x8) [field:this:0x00000008, global:0x00511686, source:raw]
+    // ASSIGNMENT: Write method pointer FormatStringWithArgs into slot 3 (offset 0xC) [field:this:0x0000000C, global:0x005116D4, source:raw]
+    // ASSIGNMENT: Write method pointer ResettableStateClear into slot 4 (offset 0x10) [field:this:0x00000010, global:0x0051176B, source:raw]
+    // ASSIGNMENT: Clear slots 5, 26 and 27 (offsets 0x14, 0x68, 0x6C) to 0 [field:this:0x00000014, field:this:0x00000068, field:this:0x0000006C, source:raw]
+    // ASSIGNMENT: Write the off_5ADE98 table pointer into slot 28 (offset 0x70) [field:this:0x00000070, global:0x005ADE98, source:raw]
+    // ASSIGNMENT: Write element count 119 into slot 29 (offset 0x74) [field:this:0x00000074, source:raw]
+    // ASSIGNMENT: Clear slots 30, 31 and 32 (offsets 0x78, 0x7C, 0x80) to 0 [field:this:0x00000078, field:this:0x0000007C, field:this:0x00000080, source:raw]
+    // RETURN: Return the initialized struct pointer a1 [source:raw]
+    // CALL: Invoked by ImageTextureDecompressor (00501722) to install the vtable/format-string-manager struct [caller:0x00501722]
+
+    // Conservative worker pseudocode:
+    //   a1[0] = ArithmeticComparison_166b;
+    //   a1[1] = ReferenceCountedResourceAccessRelease;
+    //   a1[2] = VtableDispatchThunk;
+    //   a1[3] = FormatStringWithArgs;
+    //   a1[4] = ResettableStateClear;
+    //   a1[26] = 0;
+    //   a1[27] = 0;
+    //   a1[5] = 0;
+    //   a1[28] = (funcptr)off_5ADE98;
+    //   a1[29] = (funcptr)119;
+    //   a1[30] = 0;
+    //   a1[31] = 0;
+    //   a1[32] = 0;
+    //   return a1;
+    // UNRESOLVED: The struct role (whether a1 is a live vtable or a data/config table) is not established; slot 29 holds the literal 119 cast to a pointer, so the element count / pointer interpretation is ambiguous
+    // UNRESOLVED: The off_5ADE98 table content and the meaning of the paired pointer (offset 0x70) plus count (offset 0x74) are not resolved by this packet
+    // UNRESOLVED: Whether the cleared slots 0x14/0x68/0x6C/0x78/0x7C/0x80 are state fields or unused vtable padding is unresolved
+}

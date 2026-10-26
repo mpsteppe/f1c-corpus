@@ -1,0 +1,23 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0047B1B0
+// Canonical corpus name: TripleVirtualCallDispatch
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/TripleVirtualCallDispatch_0047b1b0.c
+
+void UnknownObject::TripleVirtualCallDispatch()
+{
+    // Dispatches three virtual calls in sequence: zeroes a DWORD field at this+0x104, invokes vtable+64 with argument 0, invokes vtable+44 as (this, 1), then returns the result of invoking vtable+156 on this.
+    // ASSIGNMENT: Write zero to DWORD field at this+0x104 before dispatch [field:this:0x00000104]
+    // CALL: Invoke virtual function at vtable offset 64 (obj+0x40) with argument 0 [field:obj:0x00000040, field:this:0x00000000]
+    // CALL: Invoke virtual function at vtable offset 44 (obj+0x2C) with arguments (this, 1) [field:obj:0x0000002C, field:this:0x00000000]
+    // CALL: Invoke virtual function at vtable offset 156 (obj+0x9C) on this [field:obj:0x0000009C, field:this:0x00000000]
+    // RETURN: Return the result of the vtable offset 156 dispatch [field:obj:0x0000009C, field:this:0x00000000]
+
+    // Conservative worker pseudocode:
+    //   v2 = *this;
+    //   this[0x104] = 0;
+    //   call(v2[0x40])(0);
+    //   call((*this)[0x2C])(this, 1);
+    //   return call((*this)[0x9C])(this);
+    // UNRESOLVED: Semantics of each virtual dispatch target are unknown; all three are indirect calls with no static callee evidence.
+}

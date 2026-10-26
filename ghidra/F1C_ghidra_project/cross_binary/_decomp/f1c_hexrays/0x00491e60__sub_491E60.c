@@ -1,0 +1,7 @@
+// f1c  0x00491e60  size=25
+void *__thiscall sub_491E60(void *this, char a2)
+{
+  if ( (a2 & 1) != 0 )
+    sub_587BCF(this);
+  return this;
+}

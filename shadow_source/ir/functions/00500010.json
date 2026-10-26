@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "address": "0x00500010",
+  "proposed_name": "CollisionStateUpdate",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Updates stored collision surface contact state: skips redundant writes when the incoming value lies in the tolerance band [current - 5.0, current], passes FloatComparisonCheck, and carries the same 3-bit contact type; otherwise stores the new value and type and, depending on the 0xFC0000 flag bits of the incoming descriptor, either converts Euler angles to a vehicle orientation (VehicleOrientationFromEulerAngles or sub_4B32A0) or stores comparison data via ArithmeticComparison_3a90.",
+  "local_names": {
+    "v13": "incoming_collision_value",
+    "v5": "incoming_descriptor_byte",
+    "v7": "contact_type_bits"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Early return 0 when incoming value v13 is within [current - 5.0, current], FloatComparisonCheck(this) passes, and the 3-bit type v7 equals the stored type at this+0x4.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "callee:0x005001F0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store incoming collision value v13 to this+0x0 (current contact value).",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the 3-bit contact type v7 (v5 & 7) to this+0x4.",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on descriptor flag bits (a3 & 0xFC0000) != 0 to select the orientation path versus the arithmetic comparison path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "FloatComparisonCheck(this) decides which orientation routine to run on the flag path.",
+      "evidence_refs": ["callee:0x005001F0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "VehicleOrientationFromEulerAngles(a3+8, this+2, a3+4) converts Euler angles to a vehicle orientation when the check passes.",
+      "evidence_refs": ["callee:0x004B2DD0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_4B32A0(a3+8, this+2, a3+4) performs the alternative orientation/state update when the check fails.",
+      "evidence_refs": ["callee:0x004B32A0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 after the orientation-path update.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ArithmeticComparison_3a90(this+2, a3) stores comparison data on the non-orientation path.",
+      "evidence_refs": ["callee:0x004B3A90", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 1 after the arithmetic-path update.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char CollisionStateUpdate(float *this, int a2, int a3, int a4) {",
+    "  float incoming = *(float*)(a3 + 4);",
+    "  int type_bits = (*(BYTE*)(a3 + 3)) & 7;",
+    "  if (incoming <= *this && *this - 5.0 <= incoming &&",
+    "      FloatComparisonCheck(this) && type_bits == *((DWORD*)this + 1)) return 0;",
+    "  *this = incoming; *((DWORD*)this + 1) = type_bits;",
+    "  if ((*(DWORD*)a3 & 0xFC0000) != 0) {",
+    "    if (FloatComparisonCheck(this))",
+    "      VehicleOrientationFromEulerAngles((char*)(a3 + 8), this + 2, *(int*)(a3 + 4));",
+    "    else sub_4B32A0((char*)(a3 + 8), this + 2, *(int*)(a3 + 4));",
+    "    return 1;",
+    "  }",
+    "  ArithmeticComparison_3a90((DWORD*)this + 2, (DWORD*)a3);",
+    "  return 1;",
+    "}"
+  ],
+  "unresolved": [
+    "flt_5AD358 is listed as read but is not referenced directly in the raw body; it is likely consumed inside FloatComparisonCheck (0x005001F0) or an earlier caller.",
+    "Semantics of the incoming descriptor layout at a3+0, a3+3, a3+4 and the a2/a4 arguments are not grounded by the packet."
+  ],
+  "unresolved_evidence_refs": ["global:0x005AD358"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

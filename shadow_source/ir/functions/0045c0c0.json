@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "address": "0x0045C0C0",
+  "proposed_name": "FileScannerPopulate",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "caller:0x0045C240"]
+  },
+  "summary": "Iterates directory entries from a global iterator list, builds a full path for each entry, dispatches to a filter check selected by argument a4 (or a mode byte at this+1), and appends accepted entries as 12-byte linked-list nodes to the caller-supplied struct whose head/tail live at this+4 / this+8. Returns the last iterated entry pointer.",
+  "local_names": {
+    "this": "result list container (head this+4, tail this+8, cached tail this+12, count this+16)",
+    "lpFileName": "directory/pattern to enumerate",
+    "a3": "base path prefix concatenated with each entry name",
+    "a4": "filter mode selector (1, 2, or fallback)",
+    "v6": "accepted flag from the selected check function",
+    "v7": "pointer to final path component after backslash trim",
+    "v8": "raw result of first 12-byte allocation (result node)",
+    "v9": "result node after null check",
+    "v10": "copied check output v12 stored at v9[2]",
+    "v11": "linked-list wrapper node",
+    "v12": "output value (byref) filled by the check function",
+    "v13": "512-byte stack buffer holding the formatted path"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Initialize directory search: sub_565F80(lpFileName, 1, (int)a3, 1) sets up iteration over lpFileName with pattern prefix a3; return value ignored.",
+      "evidence_refs": ["callee:0x00565F80"]
+    },
+    {
+      "kind": "call",
+      "description": "Pop the front node from the directory-iterator linked list at global 0x008AD3B0.",
+      "evidence_refs": ["callee:0x00565F50", "global:0x008AD3B0"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate directory entries: while DirectoryEntryIterator(&unk_8AD3B0) returns a non-null result, process each entry; exit when it returns null.",
+      "evidence_refs": ["callee:0x005662D0", "global:0x008AD3B0"]
+    },
+    {
+      "kind": "call",
+      "description": "Format the full path into the 512-byte stack buffer v13 with StringFormatWithBufferOverflowCheck(v13, \"%s%s\", a3, result), concatenating base path a3 with the current entry name; the format literal is the global string at 0x005BE860.",
+      "evidence_refs": ["callee:0x0058815F", "global:0x005BE860"]
+    },
+    {
+      "kind": "guard",
+      "description": "If a4 == 1, run the file validation check sub_45C400(v13, &v12); a non-zero v6 accepts the entry.",
+      "evidence_refs": ["callee:0x0045C400"]
+    },
+    {
+      "kind": "guard",
+      "description": "Else if a4 == 2, run DataFileCheckSizeQuery(v13, &v12); a non-zero v6 accepts the entry.",
+      "evidence_refs": ["callee:0x0045C650"]
+    },
+    {
+      "kind": "call",
+      "description": "Fallback when a4 is neither 1 nor 2: UtilityFunction_8a60(*(unsigned byte)(this+1), &v12) selects behavior via the mode byte at this+1; a non-zero v6 accepts the entry.",
+      "evidence_refs": ["callee:0x00568A60", "field:this:0x00000001"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the selected check returned non-zero (v6), accept the entry: walk backward from the end of v13 while the byte at v7 is not 92 ('\\\\'), trimming to the final path component after the last backslash.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the 12-byte result node via OperatorNewNhMallocWrapper(12); on success initialize *v8 = 0, v8[1] = -1, copy the trimmed filename through StringCopyWithBufferRealloc(v7), then store the check output v10 = v12 at v9[2]; on allocation failure v9 = 0.",
+      "evidence_refs": ["callee:0x00587C03", "callee:0x00566650", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "If the result node v9 is non-null, allocate the 12-byte linked-list node v11 via OperatorNewNhMallocWrapper(12); on success set v11[0] = v9 (data), v11[1] = 0 (next), and byte v11[8] = 1 (flag); on allocation failure v11 = 0.",
+      "evidence_refs": ["callee:0x00587C03", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Append v11 to the caller struct's linked list: if head (this+4) is null, set this+4 = v11 and cached tail this+12 = v11; otherwise link the previous tail's next pointer *(*(this+8) + 4) = v11.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x0000000C", "field:this:0x00000008", "field:*(this+0x8):0x00000004"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set the tail pointer this+8 = v11 (new last node).",
+      "evidence_refs": ["field:this:0x00000008"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Increment the item count at this+16.",
+      "evidence_refs": ["field:this:0x00000010"]
+    },
+    {
+      "kind": "call",
+      "description": "Peek the next iterator node with LinkedListNodePeek(&unk_8AD3B0); break out of the loop if the peek returns null.",
+      "evidence_refs": ["callee:0x00565F20", "global:0x008AD3B0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the last DirectoryEntryIterator / LinkedListNodePeek result (null when the iterator list is exhausted, a node pointer otherwise).",
+      "evidence_refs": ["function:0x0045C0C0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "sub_565F80(lpFileName, 1, (int)a3, 1);",
+    "LinkedListPopFront_5f50(&dirIteratorList);",
+    "while ((entry = DirectoryEntryIterator(&dirIteratorList)) != NULL) {",
+    "  StringFormatWithBufferOverflowCheck(pathBuf, \"%s%s\", a3, entry);",
+    "  if (a4 == 1) ok = sub_45C400(pathBuf, &out);",
+    "  else if (a4 == 2) ok = DataFileCheckSizeQuery(pathBuf, &out);",
+    "  else ok = UtilityFunction_8a60(*(byte*)(this + 1), &out);",
+    "  if (ok) {",
+    "    trim pathBuf to the component after the last '\\\\';",
+    "    node = alloc(12);",
+    "    if (node) { node->f0 = 0; node->f1 = -1; copyComponent(node); node->f2 = out; }",
+    "    if (node) {",
+    "      listNode = alloc(12);",
+    "      if (listNode) { listNode->data = node; listNode->next = 0; listNode->flags = 1; }",
+    "      if (!head) { head = this + 4; tail = this + 12; } else { oldTail->next = listNode; }",
+    "      this + 8 = listNode;",
+    "      ++count;",
+    "    }",
+    "  }",
+    "  if (!LinkedListNodePeek(&dirIteratorList)) break;",
+    "}",
+    "return lastEntry;"
+  ],
+  "unresolved": [
+    "Exact meaning of sub_565F80's argument tuple (lpFileName, 1, a3, 1) and what state it establishes in the global iterator list at 0x008AD3B0.",
+    "Semantics of the byref check output v12 (size, handle, or id) and why it is stored at v9[2].",
+    "Meaning of the result-node initializers *v8 = 0 and v8[1] = -1, and StringCopyWithBufferRealloc's exact signature and destination.",
+    "Role of the mode byte at this+1 in the fallback UtilityFunction_8a60 path.",
+    "Whether the caller (FileScanner 0x0045C240) consumes the returned entry pointer or only the appended list.",
+    "The value/meaning of the flag byte at v11[8] = 1 and the v11[1] = 0 next pointer initialization."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "address": "0x00531830",
+  "proposed_name": "AudioMixerFloatingPointTo16BitPCMConversion",
+  "owner": {
+    "type": "AudioMixer",
+    "trust": "DERIVED",
+    "evidence_refs": ["abi:lead", "field:this:0x000024BC", "source:raw"]
+  },
+  "summary": "Audio mixer output stage that converts floating-point MDCT-transformed audio samples into 16-bit PCM. Advances a 4-bit phase counter at this+9404 (0x24BC), reads the channel count at this+9420 (0x24CC), and per channel calls F_32PointMDCTAudioTransform on the phase-selected float buffer. When the output buffer a2 is non-null it mixes the transformed samples against the coefficient table unk_5B666C (two 16-tap dot-product passes, the second negated), clamps each result to the signed 16-bit range, and writes interleaved 16-bit samples strided by 2*channelCount. Shared by CompressedAudioDecoder (0x0052E6F0) and TextureDecompression_1250 (0x00531250).",
+  "local_names": {
+    "this": "audio mixer object whose byte at +9404 is a 4-bit phase counter and whose dword at +9420 is the channel/sample count",
+    "a2": "output 16-bit PCM buffer; when null the MDCT transform still runs but mixing/clamping/output is skipped",
+    "a3": "step-size argument forwarded unchanged to F_32PointMDCTAudioTransform",
+    "v31": "channel loop bound read from this+9420",
+    "v37": "parity-derived term (notEven + phase) used to offset the coefficient table base"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Read the phase counter byte at this+9404 (0x24BC), decrement it and store it back masked to the low 4 bits; derive a parity flag (low bit) and its complement which select which half of the channel data this call mixes.",
+      "evidence_refs": ["field:this:0x000024BC", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read the channel/sample stride count at this+9420 (0x24CC) into the loop bound v31.",
+      "evidence_refs": ["field:this:0x000024CC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Skip the entire processing loop when the count at this+9420 (0x24CC) is not positive.",
+      "evidence_refs": ["field:this:0x000024CC", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For each of v31 channels, call F_32PointMDCTAudioTransform on the channel's float buffer: the transform input sits at this+4 advanced by 4*(288*even + ((even + phase) & 0xF)), the destination at this+4 + 1152*notEven + 4*v37; per iteration the channel base advances by 2304 bytes and a3 by 128.",
+      "evidence_refs": ["callee:0x00531B50", "field:this:0x000024BC", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "When the output PCM buffer a2 is non-null, mix the transformed float samples against the coefficient table unk_5B666C, with the coefficient base offset by -4*v37; the mix is two 16-tap dot products (first with alternating signs, then all-positive signs).",
+      "evidence_refs": ["global:0x005B666C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clamp each mixed 32-bit result to the signed 16-bit range (bounds 0x7FFF and -32768, low word written as 0x8000) and store interleaved 16-bit PCM samples at the output buffer; the second pass writes the negated mix. Output writes advance by 2*v31 to interleave channels.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "The conversion runs two fixed-count passes over the 32 transformed bands: 16 iterations of the alternating-sign mix, then 15 iterations of the negated all-positive mix, advancing the coefficient and sample pointers by 32 and 16 floats each step.",
+      "evidence_refs": ["global:0x005B666C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "This conversion is invoked from CompressedAudioDecoder (0x0052E6F0) and TextureDecompression_1250 (0x00531250) as a shared audio mixer output stage.",
+      "evidence_refs": ["caller:0x0052E6F0", "caller:0x00531250", "function:0x00531830"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the channel loop countdown (v31 - 1, derived from this+9420); when the guard skips processing the return is 0.",
+      "evidence_refs": ["field:this:0x000024CC", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_531830(this, a2, a3) {",
+    "  int phase = (this[9404] - 1) & 0xF;",
+    "  this[9404] = phase;",
+    "  int even = phase & 1;",
+    "  int notEven = 1 - even;",
+    "  int channels = this[9420];",
+    "  int v37 = notEven + phase;",
+    "  int base = this + 4;",
+    "  if (channels > 0) {",
+    "    for (int ch = 0; ch < channels; ++ch) {",
+    "      float* dst = (float*)(base + 1152 * notEven);",
+    "      float* src = (float*)(base + 4 * (288 * even + ((even + phase) & 0xF)));",
+    "      F_32PointMDCTAudioTransform(src, dst, a3);",
+    "      if (a2) {",
+    "        // 16-tap alternating-sign mix + 15-tap negated mix against unk_5B666C;",
+    "        // clamp to 0x7FFF / -32768; write 16-bit samples strided 2*channels",
+    "      }",
+    "      base += 2304;",
+    "      a3 += 128;",
+    "    }",
+    "  }",
+    "  return channels - 1;",
+    "}"
+  ],
+  "unresolved": [
+    "Meaning of the 4-bit phase counter at this+0x24BC (which alternates which half of the 32 bands a call mixes) and the exact object owning this+0x24BC/0x24CC: the AudioMixer owner is DERIVED from the legacy ABI name only, not runtime-proven.",
+    "The layout and values of the unk_5B666C coefficient table (stride 32 floats, two 16-tap phases) beyond its role as a mixing matrix are not evidenced.",
+    "Return-value contract (channel count minus 1, or 0 when skipped) for the two callers is not demonstrated in this packet.",
+    "Whether a2's per-channel advance of one _WORD combined with the 2*v31 interleave stride describes mono, stereo or downmix output is not resolvable from this body alone."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

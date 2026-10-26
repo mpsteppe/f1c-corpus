@@ -1,0 +1,42 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0048E250
+// Canonical corpus name: UIStringComparison_e250
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/UIStringComparison_e250_0048e250.c
+
+void UnknownObject::BinkVideoRenderOrReload()
+{
+    // Compares the expected path string (this+0xB0, falling back to global byte_5EA438) against the currently loaded path string (this+0xE8, same fallback). When the paths match and the video is not yet loaded (this+0xE4 null) while the resource handle (this+0xE0) is non-null, it obtains a render context via GlobalAccessor_5150(&unk_7CDE00), renders one Bink video frame at the stored coordinates (this+0xC, this+0x4) via BinkVideoFrameRender with the constant 32, and signals a content change through vtable slot offset 44 with argument 1. When the paths differ, it calls vtable slot offset 160 to reload/reinitialize the video. Returns 0 on every path.
+    // ASSIGNMENT: Load the expected path pointer from this+0xB0; when null substitute the global default byte_5EA438. [field:this:0x000000B0, global:0x005EA438]
+    // ASSIGNMENT: Load the currently loaded path pointer from this+0xE8; when null substitute byte_5EA438. [field:this:0x000000E8, global:0x005EA438]
+    // GUARD: strcmp the two path strings; equal paths take the render branch, differing paths take the reload branch. [source:raw]
+    // GUARD: The render branch requires this+0xE4 (video loaded-state pointer) to be null; when already loaded it skips rendering and returns 0. [field:this:0x000000E4]
+    // GUARD: The render branch also requires this+0xE0 (video resource handle) to be non-null. [field:this:0x000000E0]
+    // CALL: GlobalAccessor_5150(&unk_7CDE00) returns the render surface/context for the frame draw. [callee:0x00495150, global:0x007CDE00]
+    // CALL: BinkVideoFrameRender(context, this+0xC, this+0x4, 32) draws one Bink video frame at the stored render coordinates. [callee:0x00551CF0, field:this:0x0000000C, field:this:0x00000004]
+    // CALL: Invoke the vtable slot at offset 44 (dispatched through the this+0x0 vtable) as a __thiscall with argument 1 to signal that content changed. [field:obj:0x0000002C, field:this:0x00000000]
+    // RETURN: Return 0 after the render branch. [source:raw]
+    // CALL: Invoke the vtable slot at offset 160 (dispatched through the this+0x0 vtable) with no extra argument to reload/reinitialize the video. [field:obj:0x000000A0, field:this:0x00000000]
+    // RETURN: Return 0 after the reload branch. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_48E250() {
+    //     expected = this[44]; if (!expected) expected = byte_5EA438;
+    //     current = this[58]; if (!current) current = byte_5EA438;
+    //     if (strcmp(current, expected) == 0) {
+    //       if (!this[57] && this[56]) {
+    //         ctx = GlobalAccessor_5150(&unk_7CDE00);
+    //         BinkVideoFrameRender(ctx, this[3], this[1], 32);
+    //         vtable44(this, 1);
+    //       }
+    //       return 0;
+    //     } else {
+    //       vtable160(this);
+    //       return 0;
+    //     }
+    //   }
+    // UNRESOLVED: Identity of the owning object and the meaning of its vtable slots at offsets 44 and 160 is unknown.
+    // UNRESOLVED: Meaning of the constant 32 passed to BinkVideoFrameRender (bit depth or flags) is unresolved.
+    // UNRESOLVED: When this+0xE4 is already non-null the matching branch renders nothing and returns 0; whether that is intentional is unresolved.
+    // UNRESOLVED: Which path string is the requested resource and which is the actually loaded one is inferred, not confirmed.
+}

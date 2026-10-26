@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "address": "0x00551210",
+  "proposed_name": "InterpolateAnimationTracks",
+  "owner": {
+    "type": "AnimationTrackInterpolator",
+    "trust": "DERIVED",
+    "evidence_refs": ["source:raw", "caller:0x005514C0", "caller:0x004A2840"]
+  },
+  "summary": "Advances an animation state by a time fraction: converts the requested time into an integer start frame and a following frame, then walks every active animation track and interpolates its keyframes. Rotation is interpolated with quaternion spherical interpolation; translation and scale components are lerped. Marks the animation state as dirty and clears a caller-supplied bitmask.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load the animation descriptor pointer from this + 0x1C; it supplies duration, frame count, and keyframe table base.",
+      "evidence_refs": ["field:this:0x0000001C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clamp the requested time to the animation duration stored at this + 0x1C + 8 (this + 0x24).",
+      "evidence_refs": ["field:this:0x00000024"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Convert the time fraction into an integer start frame via CRTFtol and store it into this + 0x8; frame count is read from this + 0x1C + 20 (this + 0x30).",
+      "evidence_refs": ["callee:0x00587BDC", "field:this:0x00000008", "field:this:0x00000030"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Step the start frame to produce the following frame: increment below frameCount - 1, decrement when at frameCount, and write the result back to this + 0x8.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000030"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Load the active track list base from this + 0x18.",
+      "evidence_refs": ["field:this:0x00000018"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate over tracks: loop counter runs up to the track count at this + 0x14, advancing the track pointer by 136 bytes per element.",
+      "evidence_refs": ["field:this:0x00000014"]
+    },
+    {
+      "kind": "guard",
+      "description": "Skip inactive tracks: when the track state byte read from the this + 0x18 list is 255, the interpolation body is not executed.",
+      "evidence_refs": ["guard:0", "field:this:0x00000018"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the keyframe array base for the track: 44 bytes per track entry offset from this + 0x1C + 16 (this + 0x2C) plus 40; keyframe stride is 32 bytes.",
+      "evidence_refs": ["field:this:0x0000002C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the interpolation factor from the surrounding keyframe times; when the frame times are equal the factor defaults to zero (the zero sentinel global).",
+      "evidence_refs": ["global:0x0059E430"]
+    },
+    {
+      "kind": "call",
+      "description": "Initialize the output quaternion buffer to identity via IdentityFunction_b490.",
+      "evidence_refs": ["callee:0x0053B490"]
+    },
+    {
+      "kind": "call",
+      "description": "Spherical interpolation between the previous and following keyframe quaternions using the computed factor.",
+      "evidence_refs": ["callee:0x0053B5B0"]
+    },
+    {
+      "kind": "call",
+      "description": "Copy the interpolated quaternion into the track's rotation slot via sub_53B4C0.",
+      "evidence_refs": ["callee:0x0053B4C0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Linearly interpolate the track translation/scale components into track offsets +52, +56 and +60.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call the empty stub after each interpolated track.",
+      "evidence_refs": ["callee:0x0053B4A0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Mark the animation state dirty by setting the 0x10000 flag on this + 0x4.",
+      "evidence_refs": ["field:this:0x00000004"]
+    },
+    {
+      "kind": "call",
+      "description": "When the caller argument a2 is nonzero, clear a 64-bit bitmask at offset 312 of the object pointed to by a2 via BitmaskClear with width 32.",
+      "evidence_refs": ["callee:0x0054B330"]
+    },
+    {
+      "kind": "return",
+      "description": "Void return after the track loop and flag update.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void InterpolateAnimationTracks(AnimState *s, void *a2, float t) {",
+    "  AnimData *d = (AnimData *)s->data;           // this + 0x1C",
+    "  if (t > d->duration) t = d->duration;",
+    "  int f0 = CRTFtol(t / d->duration * d->frameCount);",
+    "  s->frame0 = f0;                              // this + 0x8",
+    "  int f1 = f0;",
+    "  if (f0 >= d->frameCount - 1) { if (f0 == d->frameCount) s->frame0 = --f1; }",
+    "  else ++f1;",
+    "  Track *trk = (Track *)s->tracks;             // this + 0x18",
+    "  for (int i = 0; i < s->trackCount; ++i) {    // this + 0x14",
+    "    if (*(unsigned char *)trk != 255) {",
+    "      float *k0 = keyframes(trk, f1);",
+    "      float *k1 = keyframes(trk, s->frame0);",
+    "      float u = (*k0 == *k1) ? 0.0f : (t - *k1) / (*k0 - *k1);",
+    "      float q[4];",
+    "      IdentityFunction_b490(q);",
+    "      QuaternionSphericalInterpolation(q, k1 + 4, k0 + 4, u);",
+    "      sub_53B4C0(q, trk + 4);",
+    "      trk->pos[0] = (k0[1] - k1[1]) * u + k1[1];",
+    "      trk->pos[1] = (k0[2] - k1[2]) * u + k1[2];",
+    "      trk->pos[2] = (k0[3] - k1[3]) * u + k1[3];",
+    "      EmptyStub_b4a0();",
+    "    }",
+    "    trk = (Track *)((char *)trk + 136);",
+    "  }",
+    "  s->flags |= 0x10000;                         // this + 0x4",
+    "  if (a2) BitmaskClear(*(void **)((char *)a2 + 312), 64, 32, 0);",
+    "}"
+  ],
+  "unresolved": [
+    "Packet lists writes to this + 0x4C, +0x50 and +0x54 (interpolated rotation quaternion), but the raw source routes rotation through a local buffer and track offsets +4; the relationship to the listed fields is unclear.",
+    "Meaning of the caller bitmask at a2 + 312 and the exact type of a2 depend on the callers.",
+    "The 136-byte track element layout and the 44-byte track descriptor stride are read from the raw arithmetic and not independently confirmed."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x0000004C",
+    "field:this:0x00000050",
+    "field:this:0x00000054"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

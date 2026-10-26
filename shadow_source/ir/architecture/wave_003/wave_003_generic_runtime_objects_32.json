@@ -1,0 +1,2159 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_003_generic_runtime_objects_32",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "GenericRuntimeObjects",
+    "responsibility": "Heterogeneous low-level runtime objects and helpers: texture-atlas region allocation from horizontal/vertical free-space lists, audio emitters and sound-manager instance lists, camera projection/view matrix updates, surface and resource locking with release helpers, bitmap file location and loading, scene-node release and recursive activity checks, and shadow-texture resource array lifecycle. The largest shared anchor is the global context object dword_8B78A0, which is passed as the first argument to surface, composition, resource-loading and sound calls and also carries a sub-buffer descriptor freed by SubBufferFree.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x00540940",
+      "function:0x00540D40",
+      "function:0x00540F90",
+      "function:0x005410F0",
+      "function:0x00541420",
+      "function:0x00541810",
+      "function:0x005418B0",
+      "function:0x00541B70",
+      "function:0x00541CA0",
+      "function:0x005426A0",
+      "function:0x005427D0",
+      "function:0x005429B0",
+      "function:0x00542E50",
+      "function:0x00543050",
+      "function:0x00543130",
+      "function:0x00543230",
+      "function:0x00543540",
+      "function:0x005437E0",
+      "function:0x00543A80",
+      "function:0x00544740",
+      "function:0x00544E20",
+      "global:0x008B78A0",
+      "source:raw"
+    ]
+  },
+  "summary": "DERIVED grouping of 21 validated IR functions around a few runtime object families. (1) Texture-atlas allocation (0x00540940) draws rectangular regions from sorted horizontal/vertical free-space lists, allocating 36-byte and 28-byte region nodes via OperatorNewNhMallocWrapper and validating placements through 0x00540DF0 / 0x00540FC0. (2) An audio-emitter family (0x005426A0 / 0x00542E50) plus a texture-surface-set creator (0x005429B0), a two-phase stream allocator with fallback emitters (0x00543A80), and a sound-manager instance-list updater (0x00541810) all route through the global dword_8B78A0. (3) A graphics/resource object acquires buffer and surface-blit locks by flag bits (0x00540D40), with two mirror release helpers (0x00540F90 / 0x005410F0) invoking a virtual method at vtable offset +48. (4) Camera projection/view updates (0x00541B70), a bit-3 flag setter on this+0x80 (0x00541CA0), a rect-clip helper (0x00543540), and a constructor-style initializer (0x005418B0). (5) Bitmap location/loading (0x005427D0 / 0x00543050 / 0x00543130) and an argument-reordering dispatch wrapper (0x00543230). (6) Scene-graph helpers: node release (0x005437E0) and recursive activity check (0x00544E20), plus shadow-texture resource management (0x00544740) which tears down the dword_8B78A0 sub-buffer via 0x00541420. Owners are almost entirely UNKNOWN in the packet; AudioEmitter is the only DERIVED named owner. Contradiction kept explicit: dword_8B78A0 is labeled SoundManager in existing fills (DERIVED) yet is used as the rendering/resource context for surface, composition and bitmap calls, so it is modeled both as the SoundManager class base and as a RenderResourceContext interface.",
+  "function_roles": [
+    {
+      "address": "0x00540940",
+      "role": "Allocates rectangular regions in a texture atlas from sorted horizontal/vertical free-space lists: allocates 36-byte horizontal and 28-byte vertical region nodes via OperatorNewNhMallocWrapper, links them into doubly-linked lists keyed by remaining space, consumes space on fit, and reports aErrorCreatingV through 0x0053C590 with return -1 on validation failure; returns 0 on success.",
+      "owner": "TextureAtlasAllocator",
+      "evidence_refs": [
+        "function:0x00540940",
+        "callee:0x00587C03",
+        "callee:0x00540DF0",
+        "callee:0x00540FC0",
+        "callee:0x0053C590",
+        "global:0x005DBD40",
+        "field:this:0x00001150",
+        "field:this:0x00001154",
+        "field:this:0x00001158",
+        "field:this:0x00001160",
+        "field:this:0x00001164",
+        "field:this:0x0000118C",
+        "field:this:0x000013DC",
+        "caller:0x0054CA00",
+        "caller:0x00557670",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00540D40",
+      "role": "Flag-driven lock acquisition on a graphics/resource object: when a2 bit 4 is set allocates a buffer lock via 0x00540F00(a1[7], a2, a1[11], a1[2]) stored at a1[8]; when a2 bit 8 is set allocates a surface blit lock via 0x00541090(a1[9], a2, a1[12], a1[4]) stored at a1[10]; the two branches are independent; no-op when a1 is null.",
+      "owner": "SurfaceLockOwner",
+      "evidence_refs": [
+        "function:0x00540D40",
+        "callee:0x00540F00",
+        "callee:0x00541090",
+        "field:this:0x00000008",
+        "field:this:0x00000010",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "caller:0x00557670",
+        "caller:0x00558310",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00540F90",
+      "role": "Release helper: when a2 and the object pointer at a2+32 are non-null, invokes the virtual __stdcall method at vtable offset +48, stores the return into *this, and decrements the counter at a2+20 when the return is zero.",
+      "owner": "LockReleaseHelper",
+      "evidence_refs": [
+        "function:0x00540F90",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005410F0",
+      "role": "Release helper mirror of 0x00540F90: when a2 and the object pointer at a2+24 are non-null, invokes the virtual __stdcall method at vtable offset +48, stores the return into *this, and decrements the counter at a2+12 when the return is zero.",
+      "owner": "LockReleaseHelper",
+      "evidence_refs": [
+        "function:0x005410F0",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00541420",
+      "role": "Frees the sub-buffer descriptor at this+0x114C: resets the base allocation and base+36 via 0x00540EB0, frees the descriptor memory via FreeWrapper_7bcf at pointer-minus-4, and nulls the field; returns the last freed or read pointer. Shared teardown for 0x00544740 and 0x00544AF0.",
+      "owner": "SubBufferOwner",
+      "evidence_refs": [
+        "function:0x00541420",
+        "callee:0x00540EB0",
+        "callee:0x00587BCF",
+        "field:this:0x0000114C",
+        "caller:0x00544740",
+        "caller:0x00544AF0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00541810",
+      "role": "Updates the sound instance ID list of a sound-manager object: when flag this+0x13D8 is non-zero, clears every existing instance (count this+0x155C, array this+0x1560) via the vtable method at *(this+0x1100)+0xB8 with flag 0, then repopulates the array from a 56-byte-strided source (IDs at *(*(a3))+4) using the same vtable method with flag 1; returns the new instance count.",
+      "owner": "SoundManager",
+      "evidence_refs": [
+        "function:0x00541810",
+        "field:this:0x000013D8",
+        "field:this:0x0000155C",
+        "field:this:0x00001560",
+        "field:this:0x00001100",
+        "field:*(this+0x1100):0x000000B8",
+        "field:this:0x00000000",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005418B0",
+      "role": "Constructor-style initializer: calls GlobalZeroInit_c2a0 to zero the whole object, then explicitly re-zeroes dwords at 0x80, 0x19C, 0x1B4 and 0x1B8 before returning this. Callers span unrelated subsystems so the owning object type is unknown.",
+      "owner": "UnknownObject",
+      "evidence_refs": [
+        "function:0x005418B0",
+        "callee:0x0053C2A0",
+        "field:this:0x00000080",
+        "field:this:0x0000019C",
+        "field:this:0x000001B4",
+        "field:this:0x000001B8",
+        "caller:0x00544E90",
+        "caller:0x00548AD0",
+        "caller:0x00553700",
+        "caller:0x00560C10",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00541B70",
+      "role": "Builds camera projection (orthographic when a2 bit 0x10 set, perspective otherwise) and view matrices gated by a2 bits (4=projection, 2=view, 8=additional sub_55CC20 update): reads near/far planes (this+4, this+8), fov (this+28), aspect (this+32) and a flag byte at this+128, and uploads matrices through EnumToVTableCallMapper (0x0055CA40).",
+      "owner": "Camera",
+      "evidence_refs": [
+        "function:0x00541B70",
+        "callee:0x0053AC70",
+        "callee:0x0055CA40",
+        "callee:0x0055CC20",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000080",
+        "global:0x0059E420",
+        "global:0x008B78A0",
+        "global:0x008B8F24",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00541CA0",
+      "role": "Flag setter that sets or clears bit 3 (0x8) of the dword at this+0x80 based on boolean a2, stores the updated value back and returns it; invoked on render, scene-loading and subsystem-init paths.",
+      "owner": "RenderStateFlags",
+      "evidence_refs": [
+        "function:0x00541CA0",
+        "field:this:0x00000080",
+        "caller:0x00408DE0",
+        "caller:0x00409970",
+        "caller:0x00466300",
+        "caller:0x0048E8D0",
+        "caller:0x00548AD0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005426A0",
+      "role": "Constructor-style initializer for an audio emitter: zero-initializes via GlobalZeroInit_c2a0, explicitly clears fourteen dwords at offsets 0x0..0x34, sets non-zero defaults this[11]=1 (0x2C) and this[12]=6 (0x30), and returns this.",
+      "owner": "AudioEmitter",
+      "evidence_refs": [
+        "function:0x005426A0",
+        "callee:0x0053C2A0",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005427D0",
+      "role": "Searches for a bitmap file on behalf of texture creation: copies and normalizes the path (truncating to 0x300 bytes), tests it directly via 0x00543130, then each registered data-directory entry (byte_8B5A3C, stride 132, dword_8B8E30) formatted with a %s path, and finally an object linked list headed by dword_8B8F14 via 0x0055FE70; when the found count differs from dword_8B6AC0 it logs 'Could not locate bitmap file %s' through 0x0053C590 and returns -1.",
+      "owner": "BitmapResourceLoader",
+      "evidence_refs": [
+        "function:0x005427D0",
+        "callee:0x00589901",
+        "callee:0x00543130",
+        "callee:0x0055FE70",
+        "callee:0x0058815F",
+        "callee:0x0053C590",
+        "global:0x008B5A3C",
+        "global:0x008B8E30",
+        "global:0x008B8F14",
+        "global:0x008B6AC0",
+        "global:0x005DBD94",
+        "global:0x005C2D64",
+        "field:this:0x000002FF",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005429B0",
+      "role": "Creates a texture surface set on this from an audio-emitter-backed source using the global context dword_8B78A0: gated on (a6 & 0xF), allocates and configures primary/secondary AudioEmitter objects, binds bitmap or stream sources, registers them with the sound manager, generates MIP-level filenames, and creates one DirectX surface per set channel mode via 0x0053FD40; returns 0 on success and -1 after cleanup on every failure path.",
+      "owner": "TextureSurfaceSet",
+      "evidence_refs": [
+        "function:0x005429B0",
+        "callee:0x00587C03",
+        "callee:0x005426A0",
+        "callee:0x005435C0",
+        "callee:0x00589901",
+        "callee:0x00542EC0",
+        "callee:0x0053F720",
+        "callee:0x0053FC30",
+        "callee:0x00542E50",
+        "callee:0x0058815F",
+        "callee:0x005426E0",
+        "callee:0x0053FD40",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "global:0x008B78A0",
+        "global:0x00800000",
+        "global:0x005DBDB4",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x0000002C",
+        "field:this:0x00000034",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00542E50",
+      "role": "Destructor/reset path for an audio emitter: unregisters from the global context dword_8B78A0 via 0x0053FB80 (logging 'Error deallocating' through 0x0053C590 and returning -1 on failure), drains and frees the buffer at field 0x4, zeroes all state fields, resets the mode field 0x30 to 6 and returns 0.",
+      "owner": "AudioEmitter",
+      "evidence_refs": [
+        "function:0x00542E50",
+        "callee:0x0053FB80",
+        "callee:0x0053C590",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "global:0x008B78A0",
+        "global:0x005DBDC4",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "field:this:0x00000024",
+        "field:this:0x00000028",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00543050",
+      "role": "Loads a bitmap file into a freshly allocated buffer and hands the raw bytes to RenderingCompositionSetup (0x0053FED0) on the global context dword_8B78A0; returns 0 on success, -1 on setup failure, and -2 with 'Error opening bitmap file %s' logged through 0x0053C590 when the file cannot be opened.",
+      "owner": "BitmapResourceLoader",
+      "evidence_refs": [
+        "function:0x00543050",
+        "callee:0x00587DB0",
+        "callee:0x00587F64",
+        "callee:0x0058ACE6",
+        "callee:0x00587C03",
+        "callee:0x0058803F",
+        "callee:0x00587D02",
+        "callee:0x0053FED0",
+        "callee:0x00587BCF",
+        "callee:0x0058815F",
+        "callee:0x0053C590",
+        "global:0x005BE828",
+        "global:0x005DBDEC",
+        "global:0x008B78A0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00543130",
+      "role": "Structural twin of BitmapFileLoader: loads a file into an allocated buffer and hands it to ResourceLoadWithOutput (0x00540050) on the global context dword_8B78A0 where a2/a3/a4 are output parameters; returns 0 on success, -1 on load failure, and -2 with 'Error opening bitmap file %s' through 0x0053C590 when the file cannot be opened.",
+      "owner": "BitmapResourceLoader",
+      "evidence_refs": [
+        "function:0x00543130",
+        "callee:0x00587DB0",
+        "callee:0x00587F64",
+        "callee:0x0058ACE6",
+        "callee:0x00587C03",
+        "callee:0x0058803F",
+        "callee:0x00587D02",
+        "callee:0x00540050",
+        "callee:0x00587BCF",
+        "callee:0x0058815F",
+        "callee:0x0053C590",
+        "global:0x005BE828",
+        "global:0x005DBDEC",
+        "global:0x008B78A0",
+        "caller:0x005427D0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00543230",
+      "role": "Argument-reordering wrapper: forwards this (as int) and a3/a2 swapped to BitmaskVirtualDispatch (0x00540150) and returns the dispatch result unchanged; the global dword_8B78A0 is read somewhere in the dispatch path but not in this function's visible body.",
+      "owner": "BitmaskDispatcher",
+      "evidence_refs": [
+        "function:0x00543230",
+        "callee:0x00540150",
+        "global:0x008B78A0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00543540",
+      "role": "Thiscall rectangle-clipping helper: clips two coordinate/extent pairs (a2 with a4, a3 with a5) against surface bounds read from this+0x1C and this+0x20, folding negative coordinates into extents and clamping so coordinate plus extent stays within the bound; returns a5.",
+      "owner": "RectClipOwner",
+      "evidence_refs": [
+        "function:0x00543540",
+        "field:this:0x0000001C",
+        "field:this:0x00000020",
+        "caller:0x00543250",
+        "caller:0x005432F0",
+        "caller:0x00543440",
+        "caller:0x005434A0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005437E0",
+      "role": "Releases a scene-graph node: unconditionally calls 0x0053CAF0 on the child-node pointer at this+0x110, then calls the no-op stub; called from MutexSemaphoreCleanup (0x005461B0).",
+      "owner": "SceneNode",
+      "evidence_refs": [
+        "function:0x005437E0",
+        "callee:0x0053CAF0",
+        "field:this:0x00000110",
+        "caller:0x005461B0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00543A80",
+      "role": "Two-phase audio emitter allocation with fallback: when flag this+0xEC bit 0x4 is clear, allocates and registers two 60-byte AudioEmitter objects into globals dword_8B8DBC/dword_8B8DC0 via 0x00542950, runs primary stream init via 0x0055B6B0, retaining the fallbacks (OR bit 0x10800 into this+0xEC) when primary init fails or releasing them when it succeeds.",
+      "owner": "AudioStreamAllocator",
+      "evidence_refs": [
+        "function:0x00543A80",
+        "callee:0x00587C03",
+        "callee:0x005426A0",
+        "callee:0x00542950",
+        "callee:0x0055B6B0",
+        "callee:0x00542E50",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "global:0x008B8DBC",
+        "global:0x008B8DC0",
+        "global:0x008B8DF4",
+        "global:0x008B8DF8",
+        "field:this:0x000000EC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00544740",
+      "role": "Manages the lifecycle of a shadow-texture resource array on this: gated by flag bit 0x100000 of this+0xEC (must be clear) and a positive requested count at this+0x158, destroys existing 96-byte items (count this+0x160, array this+0x164) before reallocation, names each item SHADOWTEXnnn, creates its surface via 0x00542950, submits the array via 0x00547860, then drains two dependent-object priority queues (heads this+0x100, this+0x108) and a flag-check list (head this+0x148); also tears down the dword_8B78A0 sub-buffer via 0x00541420.",
+      "owner": "ShadowTextureResourceAllocator",
+      "evidence_refs": [
+        "function:0x00544740",
+        "callee:0x0055C9B0",
+        "callee:0x005502C0",
+        "callee:0x005478B0",
+        "callee:0x00541420",
+        "callee:0x0055C440",
+        "callee:0x00587C03",
+        "callee:0x0054FE10",
+        "callee:0x0058815F",
+        "callee:0x0054FE50",
+        "callee:0x00542950",
+        "callee:0x005435C0",
+        "callee:0x00557470",
+        "callee:0x00587BCF",
+        "callee:0x00547860",
+        "callee:0x00541340",
+        "callee:0x00544DB0",
+        "callee:0x005575F0",
+        "global:0x008B78A0",
+        "global:0x005DBE0C",
+        "global:0x008B8DF4",
+        "global:0x008B8DF8",
+        "global:0x008B8DBC",
+        "global:0x008B8DC0",
+        "field:this:0x000000EC",
+        "field:this:0x00000100",
+        "field:this:0x00000108",
+        "field:this:0x00000148",
+        "field:this:0x00000158",
+        "field:this:0x00000160",
+        "field:this:0x00000164",
+        "guard:0",
+        "guard:1",
+        "caller:0x0053EB70",
+        "caller:0x00543FA0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00544E20",
+      "role": "Recursive tree-activity check: recurses on child pointers at this+0x44 and (gated by flag a2) this+0x4C, walks a sibling list headed at this+0x204 following the next pointer at node+0x10, and returns -1 when a sibling node satisfies SceneNodeChildrenClear (0x0054D030) or a recursion reports true; returns 0 when the list is exhausted.",
+      "owner": "SceneNode",
+      "evidence_refs": [
+        "function:0x00544E20",
+        "callee:0x00544E20",
+        "callee:0x0054D030",
+        "field:this:0x00000044",
+        "field:this:0x0000004C",
+        "field:this:0x00000204",
+        "field:*(this+0x214):0x00000010",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "TextureAtlasAllocator",
+      "responsibility": "Allocates rectangular regions in a texture atlas from sorted horizontal/vertical free-space lists; keeps list heads, a secondary dimension, a request anchor and an allocator-enabled flag. Node layout ownership is ambiguous so region-node fields are modeled on the deterministic derived bases.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00540940"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00001150",
+          "name": "horizontalFreeListHeadDefault",
+          "type_guess": "AtlasFreeListNode*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001150",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001154",
+          "name": "horizontalFreeListHead",
+          "type_guess": "AtlasFreeListNode*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001154",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001158",
+          "name": "horizontalFreeListHeadAlternate",
+          "type_guess": "AtlasFreeListNode*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001158",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001160",
+          "name": "secondaryDimension",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001160",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001164",
+          "name": "verticalFreeListHead",
+          "type_guess": "AtlasFreeListNode*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001164",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000118C",
+          "name": "requestAnchor",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000118C",
+            "field:*(this+0x118C):0x00000014",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000013DC",
+          "name": "allocatorEnabledFlag",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000013DC",
+            "function:0x00540940"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00540940",
+        "callee:0x00587C03",
+        "callee:0x00540DF0",
+        "callee:0x00540FC0",
+        "callee:0x0053C590",
+        "global:0x005DBD40",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AtlasFreeListNode",
+      "responsibility": "Free-space region node used by the atlas allocator's horizontal/vertical lists: carries next/back links, a bound, a current offset and a region id. Layout is ambiguous from the packet; offsets are kept on the deterministic base *(this+0x1154) as GUESS.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x0000001C",
+          "name": "listHeadNextLink",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x0000001C",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x00000028",
+          "name": "verticalNodeNextLinkA",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x00000028",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x0000002C",
+          "name": "verticalNodeNextLinkB",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x0000002C",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x00000038",
+          "name": "verticalNodeNextLinkC",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x00000038",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x00000054",
+          "name": "nodeBound",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x00000054",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x00000058",
+          "name": "tailBackLink",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x00000058",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x0000005C",
+          "name": "tailForwardLink",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x0000005C",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x00000060",
+          "name": "currentOffset",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x00000060",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x00000064",
+          "name": "regionId",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x00000064",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(this+0x1154)",
+          "offset": "0x00000074",
+          "name": "nodeNextLink",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1154):0x00000074",
+            "function:0x00540940"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00540940",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AtlasRequestNode",
+      "responsibility": "Request-side region node anchored through *(this+0x118C)+0x14: carries flags, a width and a height for the requested atlas region plus a next link. Base is the deterministic derived anchor; the packet does not prove this is the same type as the free-list nodes.",
+      "trust": "GUESS",
+      "methods": [],
+      "fields": [
+        {
+          "base": "*(*(this+0x118C)+0x14)",
+          "offset": "0x00000000",
+          "name": "flags",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(*(this+0x118C)+0x14):0x00000000",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(*(this+0x118C)+0x14)",
+          "offset": "0x00000004",
+          "name": "width",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(*(this+0x118C)+0x14):0x00000004",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(*(this+0x118C)+0x14)",
+          "offset": "0x00000008",
+          "name": "height",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(*(this+0x118C)+0x14):0x00000008",
+            "function:0x00540940"
+          ]
+        },
+        {
+          "base": "*(*(this+0x118C)+0x14)",
+          "offset": "0x00000018",
+          "name": "nextLink",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x118C)+0x14):0x00000018",
+            "function:0x00540940"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00540940",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AudioEmitter",
+      "responsibility": "Audio emitter object: constructed via GlobalZeroInit with a non-zero default on 0x2C and a mode default of 6 on 0x30; on teardown it unregisters from the global context dword_8B78A0, drains/frees its buffer at 0x4 and zeroes its state fields. The only named DERIVED owner in the packet.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x005426A0",
+        "0x00542E50"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "flags",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "buffer",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "defaultOnValue",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x005426A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "mode",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "stateField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "function:0x005426A0",
+            "function:0x00542E50"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005426A0",
+        "function:0x00542E50",
+        "callee:0x0053C2A0",
+        "callee:0x0053FB80",
+        "callee:0x0053C590",
+        "global:0x008B78A0",
+        "global:0x005DBDC4",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SoundManager",
+      "responsibility": "Sound-manager object owning a sound engine pointer (this+0x1100), an instance-update enable flag (this+0x13D8), and an instance-count / instance-ID-array pair (this+0x155C / this+0x1560); updates its instance list through a vtable method at *(this+0x1100)+0xB8. The identity of this object with the global dword_8B78A0 is not proven; the packet only anchors instance-list behavior here.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00541810"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "lastCallResult",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00541810"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001100",
+          "name": "soundEngine",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001100",
+            "field:*(this+0x1100):0x000000B8",
+            "function:0x00541810"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000013D8",
+          "name": "instanceUpdateEnabled",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000013D8",
+            "function:0x00541810"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000155C",
+          "name": "instanceCount",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000155C",
+            "function:0x00541810"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001560",
+          "name": "instanceIdArray",
+          "type_guess": "int*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001560",
+            "function:0x00541810"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00541810",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "Camera",
+      "responsibility": "Camera object with near/far planes, field of view, aspect and a flag byte; builds projection (orthographic/perspective) and view matrices and uploads them through the matrix upload dispatcher. The view matrix read at this+348 is described by the packet but carries no field evidence ref, so no field entry is made for it.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00541B70"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "nearPlane",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x00541B70"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "farPlane",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x00541B70"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "fieldOfView",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x00541B70"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "aspectRatio",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x00541B70"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "cameraFlags",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000080",
+            "function:0x00541B70"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00541B70",
+        "callee:0x0053AC70",
+        "callee:0x0055CA40",
+        "callee:0x0055CC20",
+        "global:0x0059E420",
+        "global:0x008B78A0",
+        "global:0x008B8F24",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RenderStateFlags",
+      "responsibility": "Object exposing a bitmask flag field at this+0x80 whose bit 3 is toggled by callers across render, scene-loading and subsystem-init paths. The offset 0x80 is shared with the Camera flag byte but common ownership is not proven, so this is modeled separately.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00541CA0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000080",
+          "name": "flags",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000080",
+            "function:0x00541CA0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00541CA0",
+        "abi:lead",
+        "caller:0x00408DE0",
+        "caller:0x00409970",
+        "caller:0x00466300",
+        "caller:0x0048E8D0",
+        "caller:0x00548AD0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SurfaceLockOwner",
+      "responsibility": "Graphics/resource object holding a buffer pointer, a surface pointer, lock control/sizing fields and the lock-result slots; acquires buffer and surface-blit locks based on flag bits of the requested mask.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00540D40"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "buffer",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x00540D40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "surface",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x00540D40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "bufferLockControl",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x00540D40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "bufferLock",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x00540D40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "surfaceBlitControl",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "function:0x00540D40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "surfaceBlitLock",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "function:0x00540D40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "bufferLockSizing",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x00540D40"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "surfaceBlitSizing",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "function:0x00540D40"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00540D40",
+        "callee:0x00540F00",
+        "callee:0x00541090",
+        "caller:0x00557670",
+        "caller:0x00558310",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "LockReleaseHelper",
+      "responsibility": "Release helpers that invoke a virtual __stdcall method at vtable offset +48 on a wrapped object and decrement a counter when it returns zero, storing the return into the caller's result slot. The two variants differ in wrapped-object offset (+32 and counter +20 versus +24 and counter +12) so their a2 layouts are treated as distinct.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00540F90",
+        "0x005410F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "resultSlot",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x00540F90",
+            "function:0x005410F0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00540F90",
+        "function:0x005410F0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SubBufferOwner",
+      "responsibility": "Object carrying a sub-buffer descriptor at this+0x114C; SubBufferFree resets its base allocation and base+36 then frees the descriptor memory and nulls the field. Called with the global context dword_8B78A0 as this, suggesting the global itself owns a sub-buffer.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00541420"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000114C",
+          "name": "subBuffer",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000114C",
+            "function:0x00541420"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00541420",
+        "callee:0x00540EB0",
+        "callee:0x00587BCF",
+        "caller:0x00544740",
+        "caller:0x00544AF0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "BitmapResourceLoader",
+      "responsibility": "Locates and loads bitmap files: normalizes and tests candidate paths across data directories and a global object list, loads file bytes into allocated buffers, and hands them to rendering-composition or resource-load consumers; shares the 'Error opening bitmap file %s' and 'Could not locate bitmap file %s' diagnostic paths through the error reporter.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005427D0",
+        "0x00543050",
+        "0x00543130"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x005427D0",
+        "function:0x00543050",
+        "function:0x00543130",
+        "callee:0x0053FED0",
+        "callee:0x00540050",
+        "callee:0x0053C590",
+        "global:0x008B78A0",
+        "global:0x008B5A3C",
+        "global:0x008B8E30",
+        "global:0x008B8F14",
+        "global:0x008B6AC0",
+        "global:0x005DBD94",
+        "global:0x005DBDEC",
+        "global:0x005BE828",
+        "global:0x005C2D64",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "TextureSurfaceSet",
+      "responsibility": "Texture surface set created from an audio-emitter-backed source: commits flags (this+0x18), dimensions (this+0x1C, this+0x20), MIP count (this+0x2C) and an audio source field (this+0x34), and drives per-channel DirectX surface creation. Field roles are DERIVED from usage only.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x005429B0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "flags",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x005429B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "width",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x005429B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "height",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x005429B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "mipCount",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x005429B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "audioSourceField",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "function:0x005429B0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005429B0",
+        "callee:0x005426A0",
+        "callee:0x0053F720",
+        "callee:0x0053FC30",
+        "callee:0x0053FD40",
+        "callee:0x00542EC0",
+        "callee:0x00542E50",
+        "callee:0x00587C03",
+        "global:0x008B78A0",
+        "global:0x00800000",
+        "global:0x005DBDB4",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "BitmaskDispatcher",
+      "responsibility": "Thin argument-reordering dispatcher that forwards to BitmaskVirtualDispatch (0x00540150); the wrapper swaps its second and third parameters before dispatch.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00543230"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x00543230",
+        "callee:0x00540150",
+        "global:0x008B78A0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RectClipOwner",
+      "responsibility": "Object exposing surface bounds (width this+0x1C, height this+0x20) used to clip rectangle coordinates/extents; roles carried over from existing fills as DERIVED, not independently proven.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00543540"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "width",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x00543540"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "height",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x00543540"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00543540",
+        "caller:0x00543250",
+        "caller:0x005432F0",
+        "caller:0x00543440",
+        "caller:0x005434A0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SceneNode",
+      "responsibility": "Scene-graph node with child pointers (this+0x44, this+0x4C), a released child-node pointer (this+0x110), and a sibling list headed at this+0x204 whose nodes carry a next pointer at +0x10. Grouping the release function and the activity check into one class is structural inference, not proven common ownership.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005437E0",
+        "0x00544E20"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "childA",
+          "type_guess": "SceneNode*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "function:0x00544E20"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "childB",
+          "type_guess": "SceneNode*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "function:0x00544E20"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000110",
+          "name": "childNode",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000110",
+            "function:0x005437E0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000204",
+          "name": "siblingListHead",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000204",
+            "function:0x00544E20"
+          ]
+        },
+        {
+          "base": "*(this+0x214)",
+          "offset": "0x00000010",
+          "name": "siblingNext",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x214):0x00000010",
+            "function:0x00544E20"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005437E0",
+        "function:0x00544E20",
+        "callee:0x0053CAF0",
+        "callee:0x0054D030",
+        "caller:0x005461B0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "AudioStreamAllocator",
+      "responsibility": "Allocates audio emitter streams with a fallback pair of globally-held emitters (dword_8B8DBC/dword_8B8DC0), gated by flag bits of this+0xEC; retains the fallbacks when primary stream initialization fails.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00543A80"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000000EC",
+          "name": "flags",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "function:0x00543A80"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00543A80",
+        "callee:0x005426A0",
+        "callee:0x00542950",
+        "callee:0x0055B6B0",
+        "callee:0x00542E50",
+        "callee:0x00587C03",
+        "global:0x008B8DBC",
+        "global:0x008B8DC0",
+        "global:0x008B8DF4",
+        "global:0x008B8DF8",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ShadowTextureResourceAllocator",
+      "responsibility": "Manages a shadow-texture resource array on this: gated by flag bit 0x100000 of this+0xEC and the requested count at this+0x158, allocates 96-byte items with a count header, names and creates their surfaces, submits them to the renderer, and drains two dependent-object priority queues and a flag-check list.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00544740"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000000EC",
+          "name": "flags",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "function:0x00544740"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000100",
+          "name": "priorityQueueListA",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000100",
+            "function:0x00544740"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000108",
+          "name": "priorityQueueListB",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000108",
+            "function:0x00544740"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000148",
+          "name": "flagCheckList",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000148",
+            "function:0x00544740"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000158",
+          "name": "requestedCount",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000158",
+            "function:0x00544740"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000160",
+          "name": "itemCount",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000160",
+            "function:0x00544740"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000164",
+          "name": "itemArray",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000164",
+            "function:0x00544740"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00544740",
+        "callee:0x00541420",
+        "callee:0x00541340",
+        "callee:0x00547860",
+        "callee:0x005478B0",
+        "callee:0x00542950",
+        "callee:0x00544DB0",
+        "callee:0x005575F0",
+        "callee:0x0055C9B0",
+        "callee:0x0054FE10",
+        "callee:0x0054FE50",
+        "callee:0x005502C0",
+        "callee:0x00587C03",
+        "global:0x008B78A0",
+        "global:0x005DBE0C",
+        "global:0x008B8DF4",
+        "global:0x008B8DF8",
+        "guard:0",
+        "guard:1",
+        "caller:0x0053EB70",
+        "caller:0x00543FA0",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "ShadowResourceLifecycle",
+      "owner": "ShadowTextureResourceAllocator",
+      "states": [
+        "Unloaded",
+        "Loaded"
+      ],
+      "transitions": [
+        "Teardown clears flag bit 0x100000 of this+0xEC, returning the allocator to Unloaded",
+        "Commit sets flag bit 0x100000 of this+0xEC after the array survives, entering Loaded",
+        "Allocation requires the flag bit clear and this+0x158 > 0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:this:0x000000EC",
+        "field:this:0x00000158",
+        "function:0x00544740",
+        "guard:0"
+      ]
+    },
+    {
+      "name": "AudioStreamFallbackState",
+      "owner": "AudioStreamAllocator",
+      "states": [
+        "FallbackEmittersAllocated",
+        "FallbackEmittersReleased"
+      ],
+      "transitions": [
+        "When primary init returns 0, OR bit 0x10800 into this+0xEC and retain both fallback emitters",
+        "On primary success, release and free each fallback emitter handle and zero the globals"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:this:0x000000EC",
+        "function:0x00543A80",
+        "global:0x008B8DBC",
+        "global:0x008B8DC0"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "RenderResourceContext",
+      "purpose": "Global rendering/resource context object (dword_8B78A0) passed as the first argument to surface-creation, composition-setup and resource-loading calls. Its identity as SoundManager is contested (see summary); this interface records only the observed first-argument contract.",
+      "functions": [
+        "0x0053FED0",
+        "0x00540050",
+        "0x0053FD40"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x008B78A0",
+        "callee:0x0053FED0",
+        "callee:0x00540050",
+        "callee:0x0053FD40"
+      ]
+    },
+    {
+      "name": "MatrixUploadDispatcher",
+      "purpose": "Uploads matrices to the renderer through an enum-to-vtable mapping: EnumToVTableCallMapper(4, matrix) for the projection matrix and EnumToVTableCallMapper(2, matrix) for the view matrix.",
+      "functions": [
+        "0x0055CA40"
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0055CA40",
+        "function:0x00541B70"
+      ]
+    },
+    {
+      "name": "VirtualReleaseSlot",
+      "purpose": "Virtual __stdcall method at vtable offset +48 invoked by the release helpers on their wrapped object; its return value being zero triggers a counter decrement. No concrete address is evidenced in the packet.",
+      "functions": [],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00540F90",
+        "function:0x005410F0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "BitmaskDispatch",
+      "purpose": "Bitmask-driven virtual dispatch entry point (BitmaskVirtualDispatch 0x00540150) reached through argument-reordering wrappers such as 0x00543230; the dispatch semantics selected by the bitmask are unknown.",
+      "functions": [
+        "0x00540150"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x00540150",
+        "function:0x00543230"
+      ]
+    },
+    {
+      "name": "SoundEngineInstanceList",
+      "purpose": "Vtable method at *(this+0x1100)+0xB8 that manages sound instance IDs: mode flag 0 removes/clears an instance, mode flag 1 adds/starts an instance. Concrete address not evidenced.",
+      "functions": [],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:*(this+0x1100):0x000000B8",
+        "function:0x00541810",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "TextureSurfaceSet",
+      "to": "AudioEmitter",
+      "kind": "constructs",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005429B0",
+        "callee:0x005426A0",
+        "callee:0x00542E50"
+      ]
+    },
+    {
+      "from": "TextureSurfaceSet",
+      "to": "RenderResourceContext",
+      "kind": "uses_context",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005429B0",
+        "global:0x008B78A0",
+        "callee:0x0053FD40"
+      ]
+    },
+    {
+      "from": "AudioEmitter",
+      "to": "RenderResourceContext",
+      "kind": "unregisters_from",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00542E50",
+        "callee:0x0053FB80",
+        "global:0x008B78A0"
+      ]
+    },
+    {
+      "from": "BitmapResourceLoader",
+      "to": "RenderResourceContext",
+      "kind": "uses_context",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00543050",
+        "function:0x00543130",
+        "global:0x008B78A0"
+      ]
+    },
+    {
+      "from": "ShadowTextureResourceAllocator",
+      "to": "RenderResourceContext",
+      "kind": "uses_context",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00544740",
+        "global:0x008B78A0"
+      ]
+    },
+    {
+      "from": "ShadowTextureResourceAllocator",
+      "to": "0x00541420",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00544740",
+        "callee:0x00541420",
+        "global:0x008B78A0"
+      ]
+    },
+    {
+      "from": "0x00544740",
+      "to": "0x00541420",
+      "kind": "frees_sub_buffer",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00541420",
+        "global:0x008B78A0"
+      ]
+    },
+    {
+      "from": "0x00543A80",
+      "to": "0x005426A0",
+      "kind": "constructs_emitter",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x005426A0",
+        "global:0x008B8DBC",
+        "global:0x008B8DC0"
+      ]
+    },
+    {
+      "from": "0x00540940",
+      "to": "0x00540DF0",
+      "kind": "validates_placement",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00540DF0",
+        "function:0x00540940"
+      ]
+    },
+    {
+      "from": "0x00540940",
+      "to": "0x00540FC0",
+      "kind": "validates_placement",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00540FC0",
+        "function:0x00540940"
+      ]
+    },
+    {
+      "from": "0x00540D40",
+      "to": "0x00540F00",
+      "kind": "allocates_lock",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00540F00",
+        "function:0x00540D40"
+      ]
+    },
+    {
+      "from": "0x00540D40",
+      "to": "0x00541090",
+      "kind": "allocates_lock",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00541090",
+        "function:0x00540D40"
+      ]
+    },
+    {
+      "from": "Camera",
+      "to": "MatrixUploadDispatcher",
+      "kind": "uploads_matrix",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0055CA40",
+        "function:0x00541B70"
+      ]
+    },
+    {
+      "from": "SoundManager",
+      "to": "SoundEngineInstanceList",
+      "kind": "invokes_vtable",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "field:*(this+0x1100):0x000000B8",
+        "function:0x00541810"
+      ]
+    },
+    {
+      "from": "LockReleaseHelper",
+      "to": "VirtualReleaseSlot",
+      "kind": "invokes_vtable",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00540F90",
+        "function:0x005410F0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "BitmaskDispatcher",
+      "to": "BitmaskDispatch",
+      "kind": "dispatches",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x00540150",
+        "function:0x00543230"
+      ]
+    },
+    {
+      "from": "0x005427D0",
+      "to": "0x00543130",
+      "kind": "tests_path",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00543130",
+        "function:0x005427D0"
+      ]
+    },
+    {
+      "from": "0x00543050",
+      "to": "0x0053FED0",
+      "kind": "init_composition",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0053FED0",
+        "global:0x008B78A0"
+      ]
+    },
+    {
+      "from": "0x00543130",
+      "to": "0x00540050",
+      "kind": "loads_resource",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00540050",
+        "global:0x008B78A0"
+      ]
+    },
+    {
+      "from": "0x00543230",
+      "to": "0x00540150",
+      "kind": "dispatches",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x00540150",
+        "function:0x00543230"
+      ]
+    },
+    {
+      "from": "0x00544E20",
+      "to": "0x0054D030",
+      "kind": "tests_children",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0054D030",
+        "function:0x00544E20"
+      ]
+    },
+    {
+      "from": "0x00541B70",
+      "to": "0x0055CC20",
+      "kind": "additional_camera_update",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0055CC20",
+        "function:0x00541B70"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "TextureAllocationErrorConvention",
+      "category": "error_handling",
+      "description": "Texture and resource creation returns 0 on success and -1 on any allocation, file, registration or surface-creation failure; bitmap loaders additionally return -2 when the file cannot be opened, after logging 'Error opening bitmap file %s' (string 0x005DBDEC) through the error reporter 0x0053C590. A replacement must preserve these distinct failure codes.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005429B0",
+        "function:0x00543050",
+        "function:0x00543130",
+        "callee:0x0053C590",
+        "global:0x005DBDEC"
+      ]
+    },
+    {
+      "name": "AtlasAllocationContract",
+      "category": "allocation",
+      "description": "Texture-atlas allocation allocates regions from horizontal and vertical free-space lists and validates placements with 0x00540DF0 / 0x00540FC0; when a placement validation fails the allocator reports the aErrorCreatingV message (string 0x005DBD40) through the error reporter and returns -1, otherwise 0.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00540940",
+        "callee:0x00540DF0",
+        "callee:0x00540FC0",
+        "callee:0x0053C590",
+        "global:0x005DBD40"
+      ]
+    },
+    {
+      "name": "SoundInstanceListContract",
+      "category": "interface",
+      "description": "Sound-manager instance lists are updated by clearing all existing entries (vtable method at *(this+0x1100)+0xB8 with mode flag 0) and repopulating from a 56-byte-strided source taking each ID at +4 (mode flag 1); the instance count lives at this+0x155C and the ID array at this+0x1560, gated by the flag at this+0x13D8.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00541810",
+        "field:this:0x0000155C",
+        "field:this:0x00001560",
+        "field:*(this+0x1100):0x000000B8",
+        "field:this:0x000013D8"
+      ]
+    },
+    {
+      "name": "LockReleaseContract",
+      "category": "resource_lifecycle",
+      "description": "Release helpers call a virtual __stdcall method at vtable offset +48 on a wrapped object; when the call returns zero the owning counter is decremented (a2+20 in the buffer variant, a2+12 in the guarded variant) and the call result is stored into the caller's result slot at this+0.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00540F90",
+        "function:0x005410F0",
+        "field:this:0x00000000"
+      ]
+    },
+    {
+      "name": "ShadowResourceGateContract",
+      "category": "state_gating",
+      "description": "Shadow-texture array allocation is gated by flag bit 0x100000 of this+0xEC (clear to allocate, set marks resources loaded) and by a positive requested count at this+0x158; the loaded flag and item count at this+0x160 are committed together after successful array submission.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00544740",
+        "field:this:0x000000EC",
+        "field:this:0x00000158",
+        "field:this:0x00000160"
+      ]
+    }
+  ],
+  "unresolved": [
+    "Read-only allocator fields at this+0x1178, this+0x117C and this+0x1180 are not referenced by any visible decompiled body; their role in the atlas allocator/request object is unknown.",
+    "The exact atlas node layout (which offsets belong to the horizontal 36-byte node versus the vertical 28-byte node versus the list heads) is ambiguous; the deterministic bases *(*(this+0x118C)+0x14) and *(this+0x1154) were kept as-is and modeled as separate GUESS classes.",
+    "The meaning of the flag bits in the lock-acquisition mask (4 = buffer lock, 8 = surface blit lock) and of the other bits of a2 is not documented in the packet.",
+    "The vtable method at offset +48 invoked by 0x00540F90 and 0x005410F0 has no concrete address; the two helpers also use different wrapped-object layouts (+32/counter+20 versus +24/counter+12) so their a2 structures are treated as distinct even though the helpers are mirror twins.",
+    "Four dereferenced-field facts from the deterministic store are not visible in the raw decompiled body of 0x00544740: *(*(this+0x1EC)+0x4C), *(this+0x154)+0x4C, *(this+0x1B0)+0x68 and *(this+0x204)+0x104. The last resembles the +104 next-pointer walk of the flag-check list, but its base (this+0x204) differs from the list head at this+0x148, so it is not assigned to an operation.",
+    "The identity of the global context dword_8B78A0 is contested: existing fills label it SoundManager (DERIVED), yet it is passed as the rendering/resource context to surface, composition, resource-loading and sound calls and carries the sub-buffer descriptor freed by 0x00541420. It is modeled both as the SoundManager class base and as a RenderResourceContext interface; this contradiction is not resolved by the packet.",
+    "Globals 0x0059E420 (double 1.0), 0x008B78A0 and 0x008B8F24 are read by 0x00541B70 per the fact table, but the read sites are not visible in the Hex-Rays pseudocode.",
+    "The Camera view matrix read at this + 348 is described by the packet summary but carries no field evidence reference, so no class field entry is made for it.",
+    "The owning object of 0x005418B0 (constructor initializer) is unknown; its four caller addresses span unrelated subsystems and the semantic role of the four re-zeroed fields beyond GlobalZeroInit is not established.",
+    "0x00543540 parameter roles (which of a2/a3/a4/a5 are x/y/width/height and which pair is source versus destination) and its unusual returning of a5 while using it as an output pointer are not established.",
+    "The 0x00541CA0 bit-3 flag and the Camera flag byte both live at this+0x80 but common ownership is not proven; they are modeled as separate classes (RenderStateFlags vs Camera).",
+    "The shared this+0xEC flag field used by 0x00543A80 (bits 0x4, 0x10800) and 0x00544740 (bit 0x100000) suggests a possible common owner with multiple flag bits, but the packet does not prove it; they are kept in separate classes.",
+    "The trigger for allocating the fallback emitters (this+0xEC bit 0x4) is read by 0x00543A80 but its writers are outside the function; both fallback emitters are registered with the same parameter set (dword_8B8DF4 twice, dword_8B8DF8, constant 262152).",
+    "The object linked list headed by dword_8B8F14 walked by 0x005427D0 and the exact roles of its a2/a3/a4 parameters and the expected count dword_8B6AC0 are not established.",
+    "The role of the count-header/pointer-minus-4 free base in the sub-buffer descriptor (0x00541420) and what the two ObjectResetWithVirtualRelease targets at +0 and +36 represent are inferred only from the sibling call pattern.",
+    "EmptyStub_0170 invoked by 0x005437E0 is referenced only by name in the raw source; the packet records no address for it. The concrete contract of 0x0053CAF0 (refcount decrement versus free) is not established.",
+    "The exact matrix-element semantics of the D3D projection convention (row versus column major) are not resolved from the packet alone.",
+    "The success/failure convention of 0x005429B0 (0 on success, -1 on error) is observed only locally and is not corroborated by caller context in this packet.",
+    "The v8/v10 emitter object layout used by 0x005429B0 (flag dword at index 6, stream/connect fields at indices 7, 8, 11, 12) is not a packet field; the per-bit meanings of the a6 flags (0x800, 0x800000, 0x4000, 0x1000000) are inferred from usage rather than evidenced."
+  ],
+  "unresolved_evidence_refs": [
+    "field:*(*(this+0x1EC)+0x4C):0x0000004C",
+    "field:*(this+0x154):0x0000004C",
+    "field:*(this+0x1B0):0x00000068",
+    "field:*(this+0x204):0x00000104",
+    "field:this:0x000001EC",
+    "field:this:0x00001178",
+    "field:this:0x0000117C",
+    "field:this:0x00001180"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

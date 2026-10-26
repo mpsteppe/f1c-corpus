@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "address": "0x0052156F",
+  "proposed_name": "LookupScaled3DNowTransform",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0052156F"]
+  },
+  "summary": "Straight-line 3DNow! transform builder. Queries a 12-byte precomputed entry through sub_5262C2 using selector a2, scales the input float a3 by 0.5 via the packed constant 0x3F0000003F000000, expands the scaled value across both lanes with PackedFloatingPointMath, then multiplies the lookup entry halves by the lane-expanded components and writes the two resulting packed values into the output __m64 pair a1[0] and a1[1].",
+  "local_names": {
+    "this": "implicit/returned output; write target a1",
+    "a2": "lookup selector index for the precomputed entry",
+    "a3": "scalar input scaled by 0.5 before lane expansion",
+    "v3": "scaled input after 0.5 multiply, held in mm0",
+    "v5": "high doubleword lane of v3 expanded across both lanes",
+    "v6": "combined second output half (low-lane multiply of v8 by v5, merged with v3)",
+    "v7": "first half of the 12-byte lookup entry (m64 pair base)",
+    "v8": "trailing scalar of the lookup entry used as an additional multiplier"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Reset MMX/3DNow state with _m_femms at function entry",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_5262C2 fills the local lookup entry (v7 m64 pair plus trailing v8 scalar) from index a2",
+      "evidence_refs": ["callee:0x005262C2", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Scale a3 by 0.5: _m_pfmul of the converted a3 against the packed constant 0x3F0000003F000000 (0.5 in both 32-bit halves)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "PackedFloatingPointMath performs component setup/expansion for the 3DNow arithmetic",
+      "evidence_refs": ["callee:0x005295E0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Lane expansion: v5 = _m_punpckhdq(v3, v3) spreads the high lane into both lanes; v6 = _m_punpckldq(_m_pfmul(convert(v8), v5), v3) combines the trailing lookup scalar multiplied by v5 with v3",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Multiply the first lookup m64 (v7) by v5 and store into the first output element a1[0]",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the combined v6 value into the second output element a1[1]",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Reset MMX/3DNow state with a trailing _m_femms before returning",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the output pointer a1",
+      "evidence_refs": ["function:0x0052156F"]
+    }
+  ],
+  "clean_pseudocode": [
+    "femms();",
+    "sub_5262C2(&v7, a2);   // fills 12-byte lookup entry (v7 pair + v8 scalar)",
+    "v3 = pfmul(convert_i32_to_m64(a3), 0x3F0000003F000000);  // a3 * 0.5 in both lanes",
+    "PackedFloatingPointMath();",
+    "v5 = punpckhdq(v3, v3);",
+    "v6 = punpckldq(pfmul(convert_i32_to_m64(v8), v5), v3);",
+    "a1[0] = pfmul(v7, v5);",
+    "a1[1] = v6;",
+    "femms();",
+    "return a1;"
+  ],
+  "unresolved": [
+    "Global qword_5AF990 appears in the deterministic packet facts but is absent from the raw decompiled source, so its exact role cannot be attributed from this packet",
+    "The layout and producer of the 12-byte lookup entry (which transform data it encodes) is not documented by this function",
+    "The side effects of PackedFloatingPointMath beyond component expansion are not visible here",
+    "The semantic meaning of the this+0x8 field versus the a1[1] element write is not resolved from the packet field list"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005AF990"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

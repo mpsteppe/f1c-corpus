@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "address": "0x00541090",
+  "proposed_name": "SurfaceBlitLockWithFlagCheck",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Surface lock helper: takes a surface/object a2 and, when present, reads its lock sub-object at a2+24 and invokes that sub-object's __stdcall vtable method at offset +44 with doubled dimensions (2*a4, 2*a5), a status out-slot v10 and a flags word that is 2064 (0x810) when bit 0 of a2's first byte is set, otherwise 2048 (0x800). The call result is stored into this+0; on a nonzero (failed) result it returns 0, otherwise it increments a lock/ref counter at a2+12 and returns the out-slot v10. Doubling of a4/a5 suggests the lock covers a scaled blit region.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize the out-slot v10 = 0 and the default lock flags v6 = 2048 (0x800).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when a2 is null, skip the entire lock path and fall through to return v10.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the lock sub-object pointer v7 = *(DWORD*)(a2 + 24).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when v7 is null, skip the lock call and fall through to return v10.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Flag check: when bit 0 of *(BYTE*)a2 is set, use lock flags 2064 (0x810) instead of 2048 (0x800).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call the __stdcall method at vtable offset +44 of sub-object v7: v8 = (*(...**)(*v7 + 44))(v7, 2*a4, 2*a5, &v10, v6). The locked status/region is written through the out-slot v10.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the call result into the this field: *this = v8.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: when the call returned nonzero (lock failed), return 0 immediately.",
+      "evidence_refs": ["function:0x00541090", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Increment the lock/ref counter: ++*(DWORD*)(a2 + 12).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v10 (the lock status/out-slot value, zero on the early-fail path).",
+      "evidence_refs": ["function:0x00541090", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_541090(int *this, int a2, int a3, int a4, int a5) {",
+    "  int flags = 2048;",
+    "  int v10 = 0;",
+    "  if (a2) {",
+    "    int v7 = *(DWORD*)(a2 + 24);",
+    "    if (v7) {",
+    "      if ((*(BYTE*)a2 & 1) != 0) flags = 2064;",
+    "      int v8 = (*(int (__stdcall **)(int,int,int,int*,int))(*v7 + 44))(v7, 2*a4, 2*a5, &v10, flags);",
+    "      *this = v8;",
+    "      if (v8) return 0;",
+    "      ++*(DWORD*)(a2 + 12);",
+    "    }",
+    "  }",
+    "  return v10;",
+    "}"
+  ],
+  "unresolved": [
+    "The vtable method at sub-object offset +44 is an indirect __stdcall call; no static callee is recorded in the packet, so its identity and the lock contract are unresolved.",
+    "The meaning of the value written to this+0 and of the returned v10 (locked region vs status word) is unestablished.",
+    "The a2 object layout (byte 0 flag bit, +12 counter, +24 lock sub-object) and the reason dimensions a4/a5 are doubled are DERIVED from the packet body only; no field evidence exists for the a2 dereferences."
+  ],
+  "unresolved_evidence_refs": [
+    "abi:lead",
+    "caller:0x0053EB70",
+    "caller:0x00540D40"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

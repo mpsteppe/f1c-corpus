@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "address": "0x004A5330",
+  "proposed_name": "CopyPitPartState",
+  "owner": {
+    "type": "Pit_Part_State_Copy",
+    "trust": "DERIVED",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Copies pit-stop part state from a source vehicle state (a2) into a destination pit-stop state struct (this): bulk part data blocks, tire brand lookup, compound index search over the valid-part list, scoring interval computation (fixed 1024/2048/3072 slots, or CRTFtol-based cumulative distances when the scoring scale is non-zero), session-dependent compound override, and finally the pit-stop callback chains. Returns the result of PitstopStateTransition on the first callback list.",
+  "local_names": {
+    "this": "destination pit-stop state struct being populated",
+    "a2": "source vehicle state struct",
+    "v3": "tire brand lookup result",
+    "v7": "search index into the valid-part list",
+    "v8": "compound index of the source vehicle's current part"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Bulk-copy part state from the source into this: qmemcpy 0x40 bytes from a2+3248 to this+88; clear byte this+117 (field 0x75); copy a2+6340 into this+108 (field 0x6C); qmemcpy 0x40 bytes from a2+4720 to this+216; copy this+236 into this+240 (fields 0xEC/0xF0); clear byte this+245 (field 0xF5).",
+      "evidence_refs": [
+        "field:this:0x0000006C", "field:this:0x00000075", "field:this:0x000000EC",
+        "field:this:0x000000F0", "field:this:0x000000F5", "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Resolve the tire brand with TireBrandLookup(a2+112) and store it in this+344 (field 0x158). If the previous this+348 value (field 0x15C) is negative and the session type (dword_7C56A4) is 5..7, check the compound at CompoundIndexLookup(a2+3012): if its byte at +20 is clear, override this+348 with a2+3012.",
+      "evidence_refs": [
+        "callee:0x004D7880", "callee:0x004D7570", "global:0x007C56A4",
+        "field:this:0x00000158", "field:this:0x0000015C", "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Search the valid-part list: call FindZeroResultIndex(this), read the part count at this+168 (field 0xA8), then scan v7 from 0 while v7 < count looking for NthValidPartLookup(v7) == CompoundIndexLookup(a2+3012). Write v7 to this+172 (field 0xAC); if no match was found (v7 reached count), set this+172 to 1.",
+      "evidence_refs": [
+        "callee:0x004A57F0", "callee:0x004A5820", "callee:0x004D7570",
+        "field:this:0x000000A8", "field:this:0x000000AC", "source:raw"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Advance the pit-stop state machinery with ArithmeticComparison_5660(0) and StateTransition(0), then copy the scoring base a2+6276 into this+352 (field 0x160) and the scoring scale double a2+6548 into this+380 (field 0x17C) as a float.",
+      "evidence_refs": [
+        "callee:0x004A5660", "callee:0x004A56B0",
+        "field:this:0x00000160", "field:this:0x0000017C", "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the three scoring intervals. When the scale a2+6548 is 0.0: write fixed (start, value) pairs (1024, a2+6340), (2048, a2+6404), (3072, a2+6468) into this+356/360, this+364/368, this+372/376 (fields 0x164/0x168, 0x16C/0x170, 0x174/0x178). Otherwise compute cumulative CRTFtol distances: ((double)(a2+3268) * (double)(a2+3256) + (double)(a2+3248)) * a2+6548, then the next two from the a2+6320/6328/6340 and a2+6384/6392/6404 triples, each minus dword_7D0374; store the running totals and the source values (a2+6340/6404/6468) into the same six slots.",
+      "evidence_refs": [
+        "callee:0x00587BDC", "global:0x007D0374",
+        "field:this:0x00000164", "field:this:0x00000168", "field:this:0x0000016C",
+        "field:this:0x00000170", "field:this:0x00000174", "field:this:0x00000178", "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Run the callback chains: zero this+388/392/396 (fields 0x184/0x188/0x18C), then if *(this+12) (field 0xC) is non-null invoke FlagBasedLoopConditionalCall on it, and likewise for *(this+16) (field 0x10). Return PitstopStateTransition(*(this+12)).",
+      "evidence_refs": [
+        "callee:0x004A3440", "callee:0x004A5600",
+        "field:this:0x0000000C", "field:this:0x00000010",
+        "field:this:0x00000184", "field:this:0x00000188", "field:this:0x0000018C",
+        "caller:0x004E5F60", "function:0x004A5330", "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "memcpy(this+88,  a2+3248, 0x40); this+0x75 = 0; this+0x6C = *(a2+6340);",
+    "memcpy(this+216, a2+4720, 0x40); this+0xF0 = *(this+0xEC); this+0xF5 = 0;",
+    "this+0x158 = TireBrandLookup(a2+112);",
+    "if (*(this+0x15C) < 0 && session in 5..7 && !*(byte)(CompoundIndexLookup(a2+3012)+20))",
+    "    *(this+0x15C) = *(a2+3012);",
+    "FindZeroResultIndex(this);",
+    "i = 0; this+0xAC = 0;",
+    "while (i < this+0xA8) { if (NthValidPartLookup(i) == CompoundIndexLookup(a2+3012)) break; i++; }",
+    "this+0xAC = i; if (i >= this+0xA8) this+0xAC = 1;",
+    "ArithmeticComparison_5660(0); StateTransition(0);",
+    "this+0x160 = *(a2+6276); this+0x17C = (float)*(double*)(a2+6548);",
+    "if (*(a2+6548) == 0.0) {",
+    "    (this+0x164, this+0x168) = (1024, a2+6340);",
+    "    (this+0x16C, this+0x170) = (2048, a2+6404);",
+    "    (this+0x174, this+0x178) = (3072, a2+6468);",
+    "} else {",
+    "    s = CRTFtol((a2+3268)*(a2+3256) + (a2+3248)) * a2+6548;",
+    "    (this+0x164, this+0x168) = (s - dword_7D0374, a2+6340);",
+    "    (this+0x16C, this+0x170) = (s + CRTFtol((a2+6340)*(a2+6328) + (a2+6320))*a2+6548 - dword_7D0374, a2+6404);",
+    "    (this+0x174, this+0x178) = (running + CRTFtol((a2+6404)*(a2+6392) + (a2+6384))*a2+6548 - dword_7D0374, a2+6468);",
+    "}",
+    "this+0x184 = this+0x188 = this+0x18C = 0;",
+    "if (*(this+0xC)) FlagBasedLoopConditionalCall(*(this+0xC));",
+    "if (*(this+0x10)) FlagBasedLoopConditionalCall(*(this+0x10));",
+    "return PitstopStateTransition(*(this+0xC));"
+  ],
+  "unresolved": [
+    "The read-only globals dbl_59E430 and dword_8AD254 are listed as referenced but do not appear directly in the decompiled body; their role here is unconfirmed.",
+    "Owner identity is DERIVED from the LEGACY ABI lead Pit_Part_State_Copy; no confirmed class symbol is present in the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E430",
+    "global:0x008AD254"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

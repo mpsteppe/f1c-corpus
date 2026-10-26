@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "address": "0x00587D33",
+  "proposed_name": "closeCrtFile",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "MSVC CRT file-close internals. When the state flags at a1+0xC have any of bits 0x83 set (file open/writeable state), it flushes buffered writes via BufferFlushWrite, releases the stream lock via sub_58C411, closes the OS file handle at a1+0x10 through sub_58C331, and on success frees the heap-allocated buffer pointer stored at a1+0x1C via sub_58AA6F, clearing it to 0. On failure the default -1 is returned. The state flags at a1+0xC are unconditionally reset to 0 before returning.",
+  "local_names": {
+    "v1": "close result: the OS close status, or -1 on failure"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Initialize v1 to -1 as the default close result.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the file state at a1+0xC: (flags & 0x83) != 0 selects the open-file close path.",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "call",
+      "description": "BufferFlushWrite(a1) flushes any buffered writes to the OS before the handle is closed.",
+      "evidence_refs": ["callee:0x0058A05A"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_58C411(a1) releases the stream lock held on the file object.",
+      "evidence_refs": ["callee:0x0058C411"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on the OS handle at a1+0x10: sub_58C331(handle) must return >= 0 for the close to succeed; otherwise v1 stays -1.",
+      "evidence_refs": ["field:this:0x00000010", "callee:0x0058C331"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_58AA6F(a1+0x1C) frees the heap-allocated internal buffer when the pointer is non-zero.",
+      "evidence_refs": ["callee:0x0058AA6F", "field:this:0x0000001C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the buffer pointer at a1+0x1C to 0 after freeing it.",
+      "evidence_refs": ["field:this:0x0000001C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Reset the file state flags at a1+0xC to 0 unconditionally before returning.",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v1: the OS close result, or -1 when the file was not in an open state or the close failed.",
+      "evidence_refs": ["function:0x00587D33", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by the locked close wrapper FileCloseWithLock.",
+      "evidence_refs": ["caller:0x00587D02"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int closeCrtFile(int stream) {",
+    "  int result = -1;",
+    "  if ((*(byte*)(stream + 12) & 0x83) != 0) {",
+    "    result = BufferFlushWrite(stream);",
+    "    sub_58C411(stream);",
+    "    if (sub_58C331(*(dword*)(stream + 16)) >= 0) {",
+    "      if (*(dword*)(stream + 28)) {",
+    "        sub_58AA6F(*(dword*)(stream + 28));",
+    "        *(dword*)(stream + 28) = 0;",
+    "      }",
+    "    } else {",
+    "      result = -1;",
+    "    }",
+    "  }",
+    "  *(dword*)(stream + 12) = 0;",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "The exact meaning of each flag bit in 0x83 at a1+0xC is not decomposed here beyond 'open/writeable state'.",
+    "The object type of the file stream is unknown; offsets 0xC, 0x10 and 0x1C are treated as state, OS handle and buffer pointer respectively."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

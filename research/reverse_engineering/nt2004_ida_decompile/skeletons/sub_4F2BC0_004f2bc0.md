@@ -1,0 +1,48 @@
+## sub_4F2BC0_004f2bc0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_4F5EE0 (004f5ee0)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0xC | R | — | [LLM] |
+| this | 0x10 | R | — | [LLM] |
+| this | 0x14 | R | — | [LLM] |
+| this | 0x50 | R | — | [LLM] |
+| this | 0x54 | R | — | [LLM] |
+| this | 0x5C | R | — | [LLM] |
+| this | 0x60 | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 005d54dc | flt_5D54DC | R | [LLM] |
+| 005d54f8 | flt_5D54F8 | R | [LLM] |
+| 005d56f4 | flt_5D56F4 | R | [LLM] |
+| 005d5afc | flt_5D5AFC | R | [LLM] |
+| 005ea81c | flt_5EA81C | R | [LLM] |
+| 00760b48 | dbl_760B48 | R | [LLM] |
+| 007d3c50 | dword_7D3C50 | RW | [LLM] |
+| 007d3c54 | flt_7D3C54 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 0044e990 | sub_44E990 | [LLM] |
+| 004f2ae0 | sub_4F2AE0 | [LLM] |
+| 005b0b40 | TextureLayerFlagSet [structural] | [LLM] |
+| 005b0b90 | ArrayElementFlagSetWithBoundsCheck [exact] | [LLM] |
+| 005b0c30 | BoundsCheckedArrayWrite [exact] | [LLM] |
+
+**Guard conditions (deterministic — field vs literal):**
+
+| Base | Offset | Test | Value | Field / meaning |
+|------|--------|------|-------|-----------------|
+| this | 0x60 | > | 0 | [LLM] |
+
+**Guard interpretation:** [LLM: from the table — what PASSES vs what is BLOCKED]

@@ -1,0 +1,195 @@
+{
+  "schema_version": 1,
+  "address": "0x004F1C40",
+  "proposed_name": "VehicleYawRotationRecoveryController",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Per-frame vehicle yaw-recovery controller. Detects sustained excessive yaw rotation or loss of ground contact and restores the vehicle: accumulates a rotation timer, and on timeout resets vehicle dynamics state, recomputes orientation from atan2 of the forward-axis components, rebuilds the rotation matrix and snaps the vehicle back to the racing line via path tracking. Also counts wheels in ground contact and, when too few (or all) wheels have lost contact, restores the stored position or applies corrective contact forces for partial ground loss. Runs only when the yaw-rotation state counter is at most 1 and the control-mode flag is set.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Gate the whole recovery path: read the yaw-rotation state counter at this+0x32BC; proceed only when it is <= 1 AND the control-mode flag (bit 8) is set on the vehicle control/input object referenced through the postProcessInput pointer at this+0x0 at offset 0x48BC.",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004F1C40",
+        "caller:0x0042C690",
+        "field:this:0x000032BC",
+        "field:this:0x00000000",
+        "field:obj:0x000048BC",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Check the recovery-enabled global flag byte_7D0AF8; the rotation-timer logic below only runs when it equals 1.",
+      "evidence_refs": [
+        "global:0x007D0AF8",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If the elapsed-time field at this+0x34C0 is >= 0.70710677 (cos(pi/4), i.e. yaw beyond a half-turn), reset the recovery accumulator this+0x3FF4 to 0; otherwise accumulate it: v23 = a2 + *(this+0x3FF4), written back to this+0x3FF4.",
+      "evidence_refs": [
+        "field:this:0x000034C0",
+        "field:this:0x00003FF4",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "When the accumulated rotation timer v23 exceeds 5.0 (or 3.0 when a player/AI input flag byte_7C749F or byte_7C74A3 is set and the yaw counter is 0), trigger full recovery: call VehicleDynamicsStateReset, compute the yaw angle from atan2(*(this+0x34B8), *(this+0x34D0)), set the Euler angles this+0x34E0 = 0, this+0x34E4 = yaw, this+0x34E8 = 0, rebuild the rotation matrix via EulerToRotationMatrix, then transform and re-anchor the vehicle to the racing line via F_3DTransformWithMatrixMultiplication and AIVehiclePathPositionTracking.",
+      "evidence_refs": [
+        "global:0x007C749F",
+        "global:0x007C74A3",
+        "callee:0x004F2320",
+        "field:this:0x000034B8",
+        "field:this:0x000034D0",
+        "field:this:0x000034E0",
+        "field:this:0x000034E4",
+        "field:this:0x000034E8",
+        "callee:0x00566E40",
+        "callee:0x004EFB20",
+        "callee:0x004EF7C0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate the 4 wheel contact entries: for each wheel at this+0x828 (stride 296 bytes), count active wheels whose contact byte at +64 (this+0x868 on the first wheel) is non-zero into v10, and wheels that are in contact but have no stored contact state (this+0x3668 array, stride 62 dwords) into v9.",
+      "evidence_refs": [
+        "field:this:0x00000828",
+        "field:this:0x00000868",
+        "field:this:0x00003668",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "If any wheel lost contact (v9 != 0) or fewer than 2 wheels remain in contact (v10 <= 2): when all in-contact wheels lack stored state (v9 == v10), reset dynamics, copy the stored position (this+0x4008/0x400C/0x4010) into the position fields this+0x34D4/0x34D8/0x34DC, and re-anchor via F_3DTransformWithMatrixMultiplication + AIVehiclePathPositionTracking.",
+      "evidence_refs": [
+        "callee:0x004F2320",
+        "field:this:0x00004008",
+        "field:this:0x0000400C",
+        "field:this:0x00004010",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "callee:0x004EFB20",
+        "callee:0x004EF7C0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Partial ground loss with more than one affected wheel (v9 > 1): compute the movement delta between the stored position (this+0x34D4/0x34D8/0x34DC) and the current one (this+0x4008/0x400C/0x4010), normalize the motion direction (with identity fallback), probe the geometry via VehicleGeometryProximityTest, clamp the sink value, then build a corrective force vector and apply it through VehicleContactForceAccumulation and VehicleTelemetryPositionAccumulator.",
+      "evidence_refs": [
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "field:this:0x00004008",
+        "field:this:0x0000400C",
+        "field:this:0x00004010",
+        "callee:0x004ED420",
+        "callee:0x004EBC60",
+        "callee:0x004EC080",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "When the contact count is healthy (v9 == 0 and v10 > 2), latch the current position this+0x4008/0x400C/0x4010 into the stored position fields this+0x34D4/0x34D8/0x34DC for the next frame's delta computation.",
+      "evidence_refs": [
+        "field:this:0x00004008",
+        "field:this:0x0000400C",
+        "field:this:0x00004010",
+        "field:this:0x000034D4",
+        "field:this:0x000034D8",
+        "field:this:0x000034DC",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Finish the frame by invoking sub_4F1FE0 with the elapsed time a2 (per-frame steering/tracking update after recovery handling).",
+      "evidence_refs": [
+        "callee:0x004F1FE0",
+        "source:raw"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "void __thiscall sub_4F1C40(int this, float a2) {",
+    "  unsigned int yawCounter = *(unsigned int*)(this + 0x32BC);",
+    "  if (yawCounter <= 1 && (*(unsigned int*)(*(unsigned int*)this + 0x48BC) & 8)) {",
+    "    if (byte_7D0AF8 == 1) {",
+    "      if (*(float*)(this + 0x34C0) >= 0.70710677f) {",
+    "        *(this + 0x3FF4) = 0;",
+    "      } else {",
+    "        float t = a2 + *(float*)(this + 0x3FF4);",
+    "        *(float*)(this + 0x3FF4) = t;",
+    "        if (t > 5.0f || (yawCounter == 0 && (byte_7C749F || byte_7C74A3) && t > 3.0f)) {",
+    "          VehicleDynamicsStateReset(this);",
+    "          float yaw = atan2(*(float*)(this + 0x34B8), *(float*)(this + 0x34D0));",
+    "          *(this + 0x34E0) = 0;",
+    "          *(this + 0x34E8) = 0;",
+    "          *(float*)(this + 0x34E4) = yaw;",
+    "          EulerToRotationMatrix(this + 0x34E0, this + 0x34B0);",
+    "          F_3DTransformWithMatrixMultiplication((float*)this, v28, &v25);",
+    "          AIVehiclePathPositionTracking(this, v28, &v25);",
+    "        }",
+    "      }",
+    "      int noState = 0, inContact = 0;",
+    "      for (int w = 0; w < 4; ++w) {",
+    "        int* wheel = (int*)(this + 0x828 + 296*w);",
+    "        if (*wheel && *(BYTE*)(wheel + 16)) {",
+    "          ++inContact;",
+    "          if (!*(this + 0x3668 + 62*w)) ++noState;",
+    "        }",
+    "      }",
+    "      if (noState || inContact <= 2) {",
+    "        if (noState == inContact) {",
+    "          VehicleDynamicsStateReset(this);",
+    "          Copy(this + 0x4008, this + 0x34D4);",
+    "          F_3DTransformWithMatrixMultiplication((float*)this, &v25, v28);",
+    "          AIVehiclePathPositionTracking(this, &v25, v28);",
+    "        } else if (noState > 1) {",
+    "          float delta = this + 0x4008 - this + 0x34D4;",
+    "          NormalizeMotionDirection(delta);",
+    "          VehicleGeometryProximityTest((float*)this, v30, &v31, &v23, &v24, 0);",
+    "          if (v23 > 0.0f) v23 = 0.0f;",
+    "          float force[5] = { -v23/v24, 0.5f, 10, 0, 0 };",
+    "          VehicleContactForceAccumulation(this, force, 0);",
+    "          VehicleTelemetryPositionAccumulator(this, force);",
+    "        }",
+    "      } else {",
+    "        Copy(this + 0x34D4, this + 0x4008);",
+    "      }",
+    "    }",
+    "    sub_4F1FE0(a2);",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "The exact semantics of the wheel contact state array at this+0x3668 (stride 62 dwords) and the contact byte at this+0x828+296*w+64 are inferred from the contact-counting loop.",
+    "sub_4F1FE0's role is unverified beyond receiving the elapsed time; the flt_ globals are read-only constants folded into the comparison literals (0.70710677, 5.0, 3.0, 0.1) and cannot be attributed to individual operations from the raw source alone.",
+    "The control/input object layout at offset 0x48BC (bit 8 gate) is DERIVED from the single read site."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E478",
+    "global:0x0059E7EC",
+    "global:0x0059E84C",
+    "global:0x0059E8A0",
+    "global:0x005AD1C4"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

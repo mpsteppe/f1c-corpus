@@ -1,0 +1,50 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0056E970
+// Canonical corpus name: sub_56E970
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_56E970_0056e970.c
+
+void UnknownObject::ResetAndFreeMemberArrays()
+{
+    // Teardown/reset of an owner object that holds four counted arrays plus three optional pointers. Zeros all pointer slots, frees each counted array element (running a member destructor on 580-byte elements, or freeing per-element pointers for the 48- and 72-byte element arrays), frees each array container and the three optional pointers, then frees a trailing four-pointer block via QuadPointerFree.
+    // ASSIGNMENT: Clear field at offset 0x0 (this[0]) to 0. [field:this:0x00000000, source:raw]
+    // GUARD: If this[1] (offset 0x4) is non-null, a counted array of 580-byte elements is anchored at it with the element count stored in the header at array-4. [field:this:0x00000004, source:raw]
+    // LOOP: For each of the count elements, walk the array backwards and call MultiFieldCleanupDestructor on each 580-byte element. [field:this:0x00000004, callee:0x00568E60, source:raw]
+    // CALL: Free the counted-array container (header at array pointer minus 4) via FreeWrapper_7bcf. [field:this:0x00000004, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Set this[1] (offset 0x4) back to 0. [field:this:0x00000004, source:raw]
+    // ASSIGNMENT: Clear field at offset 0x8 (this[2]) to 0. [field:this:0x00000008, source:raw]
+    // GUARD: If this[3] (offset 0xC) is non-null, it anchors a counted array of 48-byte elements, each element holding a pointer. [field:this:0x0000000C, source:raw]
+    // LOOP: Walk the 48-byte-stride array backwards and free each element's contained pointer via FreeWrapper_7bcf when non-null. [field:this:0x0000000C, callee:0x00587BCF, source:raw]
+    // CALL: Free the pointer-array container at this[3] via FreeWrapper_7bcf. [field:this:0x0000000C, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Set this[3] (offset 0xC) back to 0. [field:this:0x0000000C, source:raw]
+    // ASSIGNMENT: Clear field at offset 0x10 (this[4]) to 0. [field:this:0x00000010, source:raw]
+    // GUARD: If this[5] (offset 0x14) is non-null, it anchors another counted array of 48-byte pointer elements. [field:this:0x00000014, source:raw]
+    // LOOP: Walk the 48-byte-stride array backwards and free each element's contained pointer via FreeWrapper_7bcf when non-null. [field:this:0x00000014, callee:0x00587BCF, source:raw]
+    // CALL: Free the pointer-array container at this[5] via FreeWrapper_7bcf. [field:this:0x00000014, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Set this[5] (offset 0x14) back to 0. [field:this:0x00000014, source:raw]
+    // ASSIGNMENT: Clear field at offset 0x18 (this[6]) to 0. [field:this:0x00000018, source:raw]
+    // GUARD: If this[7] (offset 0x1C) is non-null, it anchors a counted array of 72-byte elements, each element holding a pointer. [field:this:0x0000001C, source:raw]
+    // LOOP: Walk the 72-byte-stride array backwards (element index scaled by 9 dwords) and free each element's contained pointer via FreeWrapper_7bcf when non-null. [field:this:0x0000001C, callee:0x00587BCF, source:raw]
+    // CALL: Free the pointer-array container at this[7] via FreeWrapper_7bcf. [field:this:0x0000001C, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Set this[7] (offset 0x1C) back to 0. [field:this:0x0000001C, source:raw]
+    // GUARD: If this[9] (offset 0x24) is non-null, free it and conditionally free this[10] (offset 0x28) and this[11] (offset 0x2C) when non-null. [field:this:0x00000024, field:this:0x00000028, field:this:0x0000002C, source:raw]
+    // CALL: Free the optional pointers at offsets 0x24, 0x28 and 0x2C via FreeWrapper_7bcf. [field:this:0x00000024, field:this:0x00000028, field:this:0x0000002C, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Clear fields at offsets 0x20 (this[8]), 0x24, 0x28, 0x2C and 0x30 (this[12]) to 0. [field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, field:this:0x0000002C, field:this:0x00000030, source:raw]
+    // RETURN: Return the result of QuadPointerFree on the four-pointer block at this+13 (offset 0x34). [source:raw, function:0x0056E970]
+
+    // Conservative worker pseudocode:
+    //   this[0] = 0;
+    //   if (this[1]) { for (i = count(this[1]); i > 0; --i) MultiFieldCleanupDestructor(elem580(i)); FreeWrapper_7bcf(header(this[1])); this[1] = 0; }
+    //   this[2] = 0;
+    //   if (this[3]) { for (i = count(this[3]); i > 0; --i) { p = elemp48(i); if (p) FreeWrapper_7bcf(p); } FreeWrapper_7bcf(header(this[3])); this[3] = 0; }
+    //   this[4] = 0;
+    //   if (this[5]) { for (i = count(this[5]); i > 0; --i) { p = elemp48(i); if (p) FreeWrapper_7bcf(p); } FreeWrapper_7bcf(header(this[5])); this[5] = 0; }
+    //   this[6] = 0;
+    //   if (this[7]) { for (i = count(this[7]); i > 0; --i) { p = elemp72(i); if (p) FreeWrapper_7bcf(p); } FreeWrapper_7bcf(header(this[7])); this[7] = 0; }
+    //   if (this[9]) { FreeWrapper_7bcf(this[9]); if (this[10]) FreeWrapper_7bcf(this[10]); if (this[11]) FreeWrapper_7bcf(this[11]); }
+    //   this[8] = this[9] = this[10] = this[11] = this[12] = 0;
+    //   return QuadPointerFree(&this[13]);
+    // UNRESOLVED: QuadPointerFree appears only as a name in the raw source text with no address in the packet evidence; its target address could not be referenced.
+    // UNRESOLVED: Element types of the four counted arrays (580-, 48-, 48- and 72-byte strides) are not identified by any packet evidence.
+    // UNRESOLVED: The prelabel template categorized this as ctor_init, but the body performs teardown/freeing; the ctor_init label is a false lead.
+}

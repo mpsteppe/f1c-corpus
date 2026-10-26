@@ -1,0 +1,7 @@
+// f1c  0x0050b813  size=24
+_DWORD *__thiscall sub_50B813(_DWORD *this, int a2)
+{
+  sub_50AFE2((int)this, a2);
+  *this = &off_5ADE0C;
+  return this;
+}

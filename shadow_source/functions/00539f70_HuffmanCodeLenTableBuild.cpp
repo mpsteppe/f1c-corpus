@@ -1,0 +1,41 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00539F70
+// Canonical corpus name: sub_539F70
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_539F70_00539f70.c
+
+void UnknownObject::HuffmanCodeLenTableBuild()
+{
+    // Builds a Huffman decode table for the 19-element code-length alphabet used by DEFLATE dynamic Huffman blocks. Allocates a working table through an object vtable (a5+32, size 19 entries of 4 bytes), calls sub_53A020 to construct the table from the code lengths, and reports oversubscribed or incomplete code sets by installing an error string into a5+24 and returning -3. Returns -4 when allocation fails.
+    // ASSIGNMENT: v6 = *(a5 + 40): read the allocator/pool handle from the object context. [source:raw]
+    // ASSIGNMENT: v12 = 0: initialize the out parameter to zero before use. [source:raw]
+    // CALL: Indirect allocation call through the object vtable slot at a5+32: (*(a5+32))(v6, 19, 4), requesting a 19-element table of 4-byte entries; result stored in v7. [source:raw]
+    // GUARD: If v7 is zero (allocation failed), return -4 immediately. [source:raw]
+    // CALL: Call sub_53A020(19, 0, 0, a3, a2, a4, &v12, v7) to build the Huffman decode table from the code-length array a2; result stored in v9/v10. [callee:0x0053A020, source:raw]
+    // GUARD: If v9 == -3 (oversubscribed code set), set the error string slot *(a5+24) = aOversubscribed_2, release the table via the vtable slot at a5+36, and return -3. [global:0x005DBAC4, source:raw]
+    // GUARD: If v9 == -5 or the first code-length entry (a2[0], mapped as field this+0x0) is zero (incomplete dynamic header), set *(a5+24) = aIncompleteDyna_0 and force the result v10 to -3. [field:this:0x00000000, global:0x005DBAA0, source:raw]
+    // CALL: Release the table through the object vtable slot at a5+36, passing the pool handle *(a5+40) and the table v7. [source:raw]
+    // RETURN: Return v10: -4 on allocation failure, -3 on oversubscribed/incomplete, otherwise the sub_53A020 result. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_539F70(int a1, int *a2, int a3, int a4, char *a5) {
+    //     int v12 = 0;
+    //     int v7 = (*(int (__fastcall **)(int,int,int))(a5 + 32))(*(int*)(a5 + 40), 19, 4);
+    //     if (!v7) return -4;
+    //     int v10 = sub_53A020(19, 0, 0, a3, a2, a4, &v12, v7);
+    //     if (v10 == -3) {
+    //       *(int*)(a5 + 24) = (int)aOversubscribed_2;
+    //       (*(void (__fastcall **)(int,int))(a5 + 36))(*(int*)(a5 + 40), v7);
+    //       return -3;
+    //     }
+    //     if (v10 == -5 || !*a2) {
+    //       *(int*)(a5 + 24) = (int)aIncompleteDyna_0;
+    //       v10 = -3;
+    //     }
+    //     (*(void (__fastcall **)(int,int))(a5 + 36))(*(int*)(a5 + 40), v7);
+    //     return v10;
+    //   }
+    // UNRESOLVED: Role of arguments a1, a3, a4 and the out parameter v12 (bit buffer / stream state) is only defined by the inflate caller sub_537110 (0x00537110).
+    // UNRESOLVED: The object context a5 (vtable slots +24/+32/+36/+40 and the pool handle) belongs to an unknown inflate/stream object.
+    // UNRESOLVED: The existing analysis labels this function HuffmanCodeLenTableBuild for the DEFLATE 19-length alphabet; this is DERIVED from the call pattern and error strings, not confirmed.
+}

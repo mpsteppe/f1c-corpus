@@ -1,0 +1,88 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0042D8A0
+// Canonical corpus name: GamePostMainLoop
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/GamePostMainLoop_0042d8a0.c
+
+void UnknownObject::GamePostMainLoop()
+{
+    // Main per-frame game loop. Initializes the loop phase field *this to 5, then loops: runs ConditionalInit(&unk_8AFE18), and when SessionStateCheck(&dword_7CD25C) == 1 marks v2=1 and runs the body; otherwise reads the restart gate (v1 = RestartGate(&unk_7CE24D), v2 = byte_7CE254) and breaks out when v1 != 5. The body dispatches the conditional pipeline (ConditionalMultiPathDispatcher / ConditionalStateUpdate / TwoPathDispatch on dword_8AB6E4), updates the session manager (sub_463CA0, SessionScoringUpdate, CollisionResponseStatus on dword_7CD25C), resets buffers, runs the multi-phase state machine on dword_5EA2C0, broadcasts collision updates, ticks the main game (MainGameTickUpdate on unk_5EC6D0, IterateVehicles on dword_83EE60) and, depending on v2, either runs only WeatherParticleUpdate or the full camera/render/telemetry path (MainCameraDirectorUpdate, WeatherParticleUpdate, RenderScreenSave, ShortComputation_f070). Closes with ConditionalStateReset, RenderTickUpdate, sub_4FA7E0, sub_4FCEE0 and sub_4A1830; returns 0 when the session state is 1. After the loop, returns 0 for v1 == 4, logs "NextStateDWasN" for any other v1 != 6, and returns 1 otherwise. Called by GameMainEntry (0045B200).
+    // ASSIGNMENT: Initialize the loop phase/state counter: *this = 5. [source:raw, field:this:0x00000000]
+    // LOOP: Outer infinite while(1) loop whose exit is decided by the restart gate and the session-state check. [source:raw]
+    // CALL: ConditionalInit(&unk_8AFE18) opens the per-frame conditional block. [source:raw, callee:0x004F9F00, global:0x008AFE18]
+    // GUARD: When SessionStateCheck(&dword_7CD25C) == 1 set v2 = 1 and jump straight into the loop body. [source:raw, callee:0x00461CD0, global:0x007CD25C]
+    // CALL: v1 = RestartGate(&unk_7CE24D) and v2 = byte_7CE254; when v1 != 5 break out of the loop (post-loop exit handling follows). [source:raw, callee:0x004A0FD0, global:0x007CE24D, global:0x007CE254]
+    // CALL: ConditionalMultiPathDispatcher(&dword_8AB6E4) dispatches the conditional multi-path state. [source:raw, callee:0x004BA180, global:0x008AB6E4]
+    // CALL: sub_463CA0(&dword_7CD25C) updates the session manager. [source:raw, callee:0x00463CA0, global:0x007CD25C]
+    // CALL: ConditionalStateUpdate(&dword_8AB6E4) advances the conditional state. [source:raw, callee:0x004BA150, global:0x008AB6E4]
+    // CALL: BufferReset(&dword_7D2E50) clears the message buffer. [source:raw, callee:0x004B3B40, global:0x007D2E50]
+    // CALL: MultiPhaseProcessingStateMachine((int)dword_5EA2C0) runs the multi-phase simulation state machine. [source:raw, callee:0x00404460, global:0x005EA2C0]
+    // CALL: sub_4D4580(&dword_8ACEE0) processes the module output list. [source:raw, callee:0x004D4580, global:0x008ACEE0]
+    // CALL: CollisionGlobalUpdateBroadcast(&ppvOut) broadcasts collision updates to module outputs. [source:raw, callee:0x00455E50, global:0x007CA590]
+    // CALL: MainGameTickUpdate(&unk_5EC6D0) ticks the main game state. [source:raw, callee:0x0042C690, global:0x005EC6D0]
+    // CALL: IterateVehicles(&dword_83EE60) iterates the active vehicle slots. [source:raw, callee:0x004B3BA0, global:0x0083EE60]
+    // CALL: SessionScoringUpdate(&dword_7CD25C) updates session scoring. [source:raw, callee:0x004643C0, global:0x007CD25C]
+    // CALL: CollisionResponseStatus(&dword_7CD25C) processes the collision response state. [source:raw, callee:0x00463CD0, global:0x007CD25C]
+    // CALL: TwoPathDispatch(&dword_8AB6E4) completes the conditional two-path dispatch. [source:raw, callee:0x004BA6C0, global:0x008AB6E4]
+    // CALL: BufferReset(&dword_83EE60) clears the vehicle iteration buffer. [source:raw, callee:0x004B3B40, global:0x0083EE60]
+    // GUARD: Branch on v2: when set, run only WeatherParticleUpdate; otherwise run the full camera/render/telemetry path. [source:raw]
+    // CALL: v2-set path: WeatherParticleUpdate(&dword_8ACEA0) updates weather particles only. [source:raw, callee:0x004CFCC0, global:0x008ACEA0]
+    // CALL: Full path: MainCameraDirectorUpdate((int)&dword_5EA510), WeatherParticleUpdate(&dword_8ACEA0), RenderScreenSave(&byte_8AB678) and ShortComputation_f070(&dword_7CE048). [source:raw, callee:0x0040CA30, callee:0x004CFCC0, callee:0x004B40A0, callee:0x0049F070, global:0x005EA510, global:0x008ACEA0, global:0x008AB678, global:0x007CE048]
+    // CALL: ConditionalStateReset(&unk_8AFE18) closes the per-frame conditional block. [source:raw, callee:0x004F9F30, global:0x008AFE18]
+    // CALL: RenderTickUpdate(&byte_8AC494) advances the render tick state. [source:raw, callee:0x004C8B70, global:0x008AC494]
+    // CALL: sub_4FA7E0(&unk_8AFE18) finalizes the conditional block context. [source:raw, callee:0x004FA7E0, global:0x008AFE18]
+    // CALL: sub_4FCEE0(&unk_8AFEC0) updates the second conditional context. [source:raw, callee:0x004FCEE0, global:0x008AFEC0]
+    // CALL: sub_4A1830(&unk_7CE2A4) processes the session transition/phase context. [source:raw, callee:0x004A1830, global:0x007CE2A4]
+    // GUARD: When SessionStateCheck(&dword_7CD25C) == 1 at the end of the body, return 0 immediately. [source:raw, callee:0x00461CD0, global:0x007CD25C]
+    // RETURN: Post-loop exit: return 0 for v1 == 4; when v1 != 6, StringSplitLoop(1, aDDevF119992002_11, 628) gates DebugLogWrite(&dword_8AD25C, aNextStateDWasN); return 1. [source:raw, callee:0x004D7A50, callee:0x004D7AA0, global:0x005C3590, global:0x005C3670, global:0x008AD25C]
+    // CALL: Invoked by GameMainEntry (0045B200) as the main per-frame game loop. [caller:0x0045B200]
+
+    // Conservative worker pseudocode:
+    //   int sub_42D8A0(_DWORD* this) {
+    //     *this = 5;
+    //     int v1; char v2;
+    //     for (;;) {
+    //       ConditionalInit(&unk_8AFE18);
+    //       if (SessionStateCheck(&dword_7CD25C) == 1) { v2 = 1; goto body; }
+    //       v1 = RestartGate(&unk_7CE24D);
+    //       v2 = byte_7CE254;
+    //       if (v1 != 5) break;
+    //   body:
+    //       ConditionalMultiPathDispatcher(&dword_8AB6E4);
+    //       sub_463CA0(&dword_7CD25C);
+    //       ConditionalStateUpdate(&dword_8AB6E4);
+    //       BufferReset(&dword_7D2E50);
+    //       MultiPhaseProcessingStateMachine((int)dword_5EA2C0);
+    //       sub_4D4580(&dword_8ACEE0);
+    //       CollisionGlobalUpdateBroadcast(&ppvOut);
+    //       MainGameTickUpdate(&unk_5EC6D0);
+    //       IterateVehicles(&dword_83EE60);
+    //       SessionScoringUpdate(&dword_7CD25C);
+    //       CollisionResponseStatus(&dword_7CD25C);
+    //       TwoPathDispatch(&dword_8AB6E4);
+    //       BufferReset(&dword_83EE60);
+    //       if (v2) {
+    //         WeatherParticleUpdate(&dword_8ACEA0);
+    //       } else {
+    //         MainCameraDirectorUpdate((int)&dword_5EA510);
+    //         WeatherParticleUpdate(&dword_8ACEA0);
+    //         RenderScreenSave(&byte_8AB678);
+    //         ShortComputation_f070(&dword_7CE048);
+    //       }
+    //       ConditionalStateReset(&unk_8AFE18);
+    //       RenderTickUpdate(&byte_8AC494);
+    //       sub_4FA7E0(&unk_8AFE18);
+    //       sub_4FCEE0(&unk_8AFEC0);
+    //       sub_4A1830(&unk_7CE2A4);
+    //       if (SessionStateCheck(&dword_7CD25C) == 1) return 0;
+    //     }
+    //     if (v1 == 4) return 0;
+    //     if (v1 != 6 && (unsigned __int8)StringSplitLoop(1, aDDevF119992002_11, 628))
+    //       DebugLogWrite(&dword_8AD25C, aNextStateDWasN);
+    //     return 1;
+    //   }
+    // UNRESOLVED: Field *this is set to 5 on entry and treated as a loop phase counter; its broader use by other subsystems is not visible here.
+    // UNRESOLVED: The exact meaning of the restart-gate values (5 = continue, 4/6 = exit paths) and of byte_7CE254 (flag selecting the reduced per-frame path) is DERIVED from the control flow, not named by the packet.
+    // UNRESOLVED: Roles of the unnamed helpers sub_463CA0, sub_4D4580, sub_4FA7E0, sub_4FCEE0 and sub_4A1830 are inferred from their position in the loop, not confirmed by the packet.
+    // UNRESOLVED: Several argument globals (unk_5EC6D0, dword_7D2E50, dword_83EE60, unk_8AFEC0) are passed by address; their internal layouts are undefined here.
+}

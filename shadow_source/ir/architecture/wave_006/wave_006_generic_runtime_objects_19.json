@@ -1,0 +1,604 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_006_generic_runtime_objects_19",
+  "scope": "generic_runtime_objects",
+  "subsystem": {
+    "name": "JpegPngImageDecoding",
+    "responsibility": "Image decoding over callback-driven byte streams: JPEG marker parsing and state-dispatch, JPEG APP-marker dispatch-table setup, PNG chunk parsing, IDAT row decompression/filtering, pass-aware post-processing, pixel-format conversion, plus shared guarded-dispatch (setjmp/longjmp) and format-table string infrastructure.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x00511060",
+      "function:0x005110FC",
+      "function:0x005111D3",
+      "function:0x0051126A",
+      "function:0x00511457",
+      "function:0x005114D5",
+      "function:0x005115EE",
+      "function:0x005116A3",
+      "function:0x005116D4",
+      "function:0x0051176B",
+      "function:0x0051177C",
+      "function:0x0051184F",
+      "function:0x00511869",
+      "function:0x0051189C",
+      "function:0x005119E9",
+      "function:0x00511B7C",
+      "function:0x0051234D",
+      "function:0x0051249F",
+      "function:0x005126D9",
+      "function:0x00512E1A",
+      "function:0x00513BF9"
+    ]
+  },
+  "summary": "DERIVED reconstruction of an image/JPEG/PNG decoding subsystem. The JPEG side is a stream decoder context (JpegStreamDecoder) that keeps a current marker byte at this+0x178, a callback-refilled byte-stream read-state at this+0x14, a 92-byte per-marker APP dispatch table at this+0x190, and a pointer to a state-dispatched object (StateDispatcher) reached through this+0x0. Seven functions implement marker reading (segment size, byte-stuffed bitstream tokens, SOI validation), the main marker dispatch loop, restart-marker handling, marker classification, and APP-table allocation/initialization. The PNG/row side is a second context (ImageDecodeContext) that parses PNG chunks (signature, chunk-type dispatch, IDAT termination, chunk-state validation), inflates and filters rows, runs pass-aware Huffman post-decoding and an optional callback. A separate FormatStateManager object carries a five-slot vtable, a stored format index plus eight stored format arguments, an access limit/counter pair, and a primary/alternate format-string table range; it is installed by sub_51177C. GuardedCallWithLongjmp is a shared setjmp/longjmp recovery trampoline reused by 15 callers. Owner identities of all these contexts are UNKNOWN at the C++ level; class boundaries here are DERIVED from overlapping offsets and shared callers, with uncertain objects kept in unresolved.",
+  "function_roles": [
+    {
+      "address": "0x00511060",
+      "role": "Reads a 2-byte big-endian segment size from the stream, parameterized-dispatches state 90 via the dispatcher, and skips the remaining segment bytes; installed as APP-table slot 3 handler.",
+      "owner": "JpegStreamDecoder",
+      "evidence_refs": ["function:0x00511060", "field:this:0x00000014", "field:this:0x00000178", "field:obj:0x00000014", "source:raw"]
+    },
+    {
+      "address": "0x005110FC",
+      "role": "Shared bitstream marker reader: consumes bytes with 0xFF byte-stuffing (0xFF 0x00 escapes, consecutive 0xFF skipped) until a marker byte, accumulating a byte counter at this+0x1E8 and dispatching state 112 through the dispatcher.",
+      "owner": "JpegStreamDecoder",
+      "evidence_refs": ["function:0x005110FC", "field:this:0x00000014", "field:this:0x00000178", "field:this:0x000001E8", "field:obj:0x00000014", "source:raw"]
+    },
+    {
+      "address": "0x005111D3",
+      "role": "Reads and validates the JPEG SOI marker (0xFF 0xD8); on mismatch dispatches error state 52 with the two unexpected bytes; stores the second byte as the current marker at this+0x178.",
+      "owner": "JpegStreamDecoder",
+      "evidence_refs": ["function:0x005111D3", "field:this:0x00000014", "field:this:0x00000178", "field:obj:0x00000014", "source:raw"]
+    },
+    {
+      "address": "0x0051126A",
+      "role": "Main JPEG marker dispatch loop mapping the current marker at this+0x178 to decoder states (59/67/84/91 via dispatcher vfuncs) or to per-marker handlers (APP table at this+0x190, COM handler at this+0x19C); resets the marker slot after each dispatch.",
+      "owner": "JpegStreamDecoder",
+      "evidence_refs": ["function:0x0051126A", "field:this:0x00000178", "field:this:0x00000190", "field:this:0x0000019C", "callee:0x005110FC", "callee:0x005111D3", "source:raw"]
+    },
+    {
+      "address": "0x00511457",
+      "role": "Matches the current marker against the expected restart marker ((this+0x190 value)+84 plus 208), dispatching state 97 with the counter value and incrementing the counter modulo 8; delegates mismatches to an alternative stream-object handler.",
+      "owner": "JpegStreamDecoder",
+      "evidence_refs": ["function:0x00511457", "field:this:0x00000178", "field:this:0x00000190", "callee:0x005110FC", "source:raw"]
+    },
+    {
+      "address": "0x005114D5",
+      "role": "Marker classification loop relative to a reference counter: drives decoder states 117 (init) and 96 (per-iteration) through the dispatcher, classifying the marker into expected/skip/acceptable categories and re-reading via the bitstream marker reader on skip.",
+      "owner": "JpegStreamDecoder",
+      "evidence_refs": ["function:0x005114D5", "field:this:0x00000178", "field:obj:0x00000014", "callee:0x005110FC", "source:raw"]
+    },
+    {
+      "address": "0x005115EE",
+      "role": "Allocates a 92-byte JPEG APP-marker dispatch table via the allocator vfunc at this+0x4, stores it at this+0x190, fills slots (StateReset, CommandDispatchStateMachine, restart-marker, segment-size reader, defaults, APP0/APP14 overrides), then calls StateReset; called from sub_50F632.",
+      "owner": "JpegStreamDecoder",
+      "evidence_refs": ["function:0x005115EE", "field:this:0x00000190", "field:*(this+0x4):0x00000000", "callee:0x005115C4", "caller:0x0050F632", "source:raw"]
+    },
+    {
+      "address": "0x005116A3",
+      "role": "FormatStateManager vfunc slot 1: resource access/release gated by the limit at obj+0x68 and the concurrent count at obj+0x6C, invoking the release callback at obj+0x8 on the indexed or unconditional path.",
+      "owner": "FormatStateManager",
+      "evidence_refs": ["function:0x005116A3", "field:obj:0x00000068", "field:obj:0x0000006C", "field:obj:0x00000008", "source:raw"]
+    },
+    {
+      "address": "0x005116D4",
+      "role": "FormatStateManager vfunc slot 3: selects a format string by index from the primary/alternate format tables, falls back to the first primary string, and forwards stored arguments to StringFormatWithBufferOverflowCheck (0x58815F) using varargs or va_list form based on a '%s' scan.",
+      "owner": "FormatStateManager",
+      "evidence_refs": ["function:0x005116D4", "field:obj:0x00000014", "field:obj:0x00000070", "field:obj:0x00000074", "field:obj:0x00000078", "field:obj:0x0000007C", "field:obj:0x00000080", "callee:0x0058815F", "source:raw"]
+    },
+    {
+      "address": "0x0051176B",
+      "role": "FormatStateManager vfunc slot 4: partial state reset clearing the format index (obj+0x14) and the concurrent access counter (obj+0x6C) on the struct reached through the a1 handle.",
+      "owner": "FormatStateManager",
+      "evidence_refs": ["function:0x0051176B", "field:obj:0x00000014", "field:obj:0x0000006C", "source:raw"]
+    },
+    {
+      "address": "0x0051177C",
+      "role": "FormatStateManager installer/constructor: fills the five-slot vtable (ArithmeticComparison_166b, ReferenceCountedResourceAccessRelease, VtableDispatchThunk, FormatStringWithArgs, ResettableStateClear), sets the primary format table base (off_5ADE98) and count (119), and clears state slots; called by ImageTextureDecompressor (0x501722).",
+      "owner": "FormatStateManager",
+      "evidence_refs": ["function:0x0051177C", "global:0x0051166B", "global:0x005116A3", "global:0x00511686", "global:0x005116D4", "global:0x0051176B", "global:0x005ADE98", "caller:0x00501722", "source:raw"]
+    },
+    {
+      "address": "0x0051184F",
+      "role": "Sets three receiver fields from three parameters with remapping (a2 to this+0x48, a3 to this+0x40, a4 to this+0x44), returning the receiver pointer.",
+      "owner": "GuardedCallbackContext",
+      "evidence_refs": ["function:0x0051184F", "field:this:0x00000048", "field:this:0x00000040", "field:this:0x00000044", "caller:0x005118E6", "source:raw"]
+    },
+    {
+      "address": "0x00511869",
+      "role": "Shared guarded callback dispatch trampoline: loads the callback at a1+0x40, invokes it with (a1,a2) when non-null, unwinds through LongjmpMSVCCRT (0x58A770), then dispatches to CallbackDispatch as the return value; reused by 15 callers across stream and buffer code.",
+      "owner": "GuardedCallbackContext",
+      "evidence_refs": ["function:0x00511869", "field:this:0x00000040", "callee:0x0058A770", "caller:0x005118E6", "caller:0x005119E9", "caller:0x00511B7C", "source:raw"]
+    },
+    {
+      "address": "0x0051189C",
+      "role": "Two-stage buffer/context init: calls sub_5117C8(a1,a2) then GuardedCallWithLongjmp(a1, v3) with a local 80-byte longjmp scratch buffer, propagating the guarded-call result.",
+      "owner": "GuardedCallbackContext",
+      "evidence_refs": ["function:0x0051189C", "callee:0x005117C8", "callee:0x00511869", "source:raw"]
+    },
+    {
+      "address": "0x005119E9",
+      "role": "PNG chunk parser: validates the 8-byte signature (fetching missing bytes via CallbackDispatchWithNullGuard, comparing with BoundedMemcmpAgainstReference), iterates 4-byte chunk lengths/types dispatching IHDR/PLTE/IEND/gAMA/sRGB/tRNS/unknown to per-chunk handlers, terminates on IDAT, validates chunk-state flags (indexed color requires PLTE before IDAT), and records the IDAT size; longjmp error reporting for signature/PLTE/IHDR violations.",
+      "owner": "ImageDecodeContext",
+      "evidence_refs": ["function:0x005119E9", "field:this:0x00000058", "field:this:0x000000FC", "field:this:0x0000010C", "field:this:0x0000011C", "callee:0x00513BD1", "callee:0x00513C38", "callee:0x00511869", "caller:0x0050210E", "source:raw"]
+    },
+    {
+      "address": "0x00511B7C",
+      "role": "Image row decode: refills IDAT chunks, inflates rows via sub_517ADC, verifies stream completion, copies pixel-format bytes, computes row geometry, unpacks/filters the row, runs optional post-processing and pass-aware horizontal stretch plus a2/a3 Huffman decode passes, finalizes via sub_519019, and invokes an optional callback at this+0x16C; pass index (this+0x114) drives a 7-way switch.",
+      "owner": "ImageDecodeContext",
+      "evidence_refs": ["function:0x00511B7C", "field:this:0x00000058", "field:this:0x000000FC", "field:this:0x00000114", "field:this:0x0000016C", "callee:0x00517ADC", "callee:0x00511869", "callee:0x00519019", "caller:0x00511F23", "source:raw"]
+    },
+    {
+      "address": "0x0051234D",
+      "role": "Selects 1 (single mode) or 7 (multi-session selector) from the byte flag at this+0x113, OR-setting bit 2 of the flags DWORD at this+0x60 for the multi path. Shares offsets 0x113/0x60 with the row-decode pass logic; ownership tentatively assigned to ImageDecodeContext.",
+      "owner": "ImageDecodeContext",
+      "evidence_refs": ["function:0x0051234D", "field:this:0x00000113", "field:this:0x00000060", "source:raw"]
+    },
+    {
+      "address": "0x0051249F",
+      "role": "Stores two double camera-rotation parameters as floats (a3 to this+0x130, a2 to this+0x134) and raises bit 5 of the flags byte at this+0x61 when the product deviates from 1.0 by more than 0.05; called from sub_50210E.",
+      "owner": "CameraRotationState",
+      "evidence_refs": ["function:0x0051249F", "field:this:0x00000130", "field:this:0x00000134", "field:this:0x00000061", "global:0x0059E420", "global:0x005AF428", "caller:0x0050210E", "source:raw"]
+    },
+    {
+      "address": "0x005126D9",
+      "role": "Pixel bit-depth down-conversion (2/4/8/16 bpp) driven by a parameter block (count, buffer size, mode byte, input bit depth) and a per-channel shift lookup table; skips conversion when the mode byte is 3; called by sub_51389E.",
+      "owner": "PixelConversionParams",
+      "evidence_refs": ["function:0x005126D9", "field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x00000009", "caller:0x0051389E", "source:raw"]
+    },
+    {
+      "address": "0x00512E1A",
+      "role": "Two-phase bit-packed indexed texture decoder: phase 1 (guarded on this+0x8 == 3) unpacks 4/2/1-bit planar fields to one byte per pixel and sets this+0x9 = 8; phase 2 (guarded on this+0x9 == 8) looks bytes up in an RGB palette with optional alpha table, recording output format in this+0x8/0xA/0xB and byte count in this+0x4; called by sub_51389E.",
+      "owner": "IndexedTextureDecodeState",
+      "evidence_refs": ["function:0x00512E1A", "field:this:0x00000008", "field:this:0x00000009", "field:this:0x00000004", "caller:0x0051389E", "source:raw"]
+    },
+    {
+      "address": "0x00513BF9",
+      "role": "Configures a data-read callback: stores the user-data pointer (this+0x54) and read callback (this+0x50); if a write callback was already present at this+0x4C it is cleared and a conflict is reported through CallbackDispatch (0x511887); clears this+0x120 and returns the read callback.",
+      "owner": "DataCallbackContext",
+      "evidence_refs": ["function:0x00513BF9", "field:this:0x0000004C", "field:this:0x00000050", "field:this:0x00000054", "field:this:0x00000120", "callee:0x00511887", "caller:0x0050210E", "caller:0x005118E6", "source:raw"]
+    }
+  ],
+  "classes": [
+    {
+      "name": "JpegStreamDecoder",
+      "responsibility": "JPEG/bitstream stream decoder context. Holds the current marker byte (this+0x178), the callback-refilled byte-stream read-state (this+0x14), the 92-byte per-marker APP dispatch table plus decoder config (this+0x190), the COM handler pointer (this+0x19C), and the state-dispatcher pointer (this+0x0). Marker reading, SOI validation, restart handling, marker dispatch and APP-table setup operate on this object. The concrete C++ type is unknown; ownership is DERIVED from overlapping offsets across the seven functions.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00511060",
+        "0x005110FC",
+        "0x005111D3",
+        "0x0051126A",
+        "0x00511457",
+        "0x005114D5",
+        "0x005115EE"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "dispatcher_ptr", "type_guess": "StateDispatcher*", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000000", "source:raw"]},
+        {"base": "this", "offset": "0x00000004", "name": "allocator_vfunc", "type_guess": "void*(*)(void*,int,int)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004", "field:*(this+0x4):0x00000000", "source:raw"]},
+        {"base": "this", "offset": "0x00000014", "name": "stream_read_state", "type_guess": "ByteStreamReadState*", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000014", "field:*(this+0x14):0x00000000", "source:raw"]},
+        {"base": "this", "offset": "0x00000178", "name": "current_marker", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000178", "source:raw"]},
+        {"base": "this", "offset": "0x00000190", "name": "app_dispatch_table", "type_guess": "JpegAppDispatchTable*", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000190", "field:*(this+0x190):0x00000004", "source:raw"]},
+        {"base": "this", "offset": "0x0000019C", "name": "com_handler_ptr", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000019C", "source:raw"]},
+        {"base": "this", "offset": "0x000001E0", "name": "byte_stuffing_flag", "type_guess": "char", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001E0", "source:raw"]},
+        {"base": "this", "offset": "0x000001E4", "name": "restart_marker_counter", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x000001E4", "source:raw"]},
+        {"base": "this", "offset": "0x000001E8", "name": "byte_counter", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x000001E8", "source:raw"]}
+      ],
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000014", "field:this:0x00000178", "field:this:0x00000190", "field:this:0x000001E8", "source:raw"]
+    },
+    {
+      "name": "StateDispatcher",
+      "responsibility": "State-dispatched call object reached through the decoder's this+0x0. Receives (state code, arg1, arg2) at obj+0x14/0x18/0x1C and dispatches through vfunc slot 0 (obj+0x0, error/state dispatch) or slot 1 (obj+0x4, parameterized dispatch). Observed state codes: 52, 59, 67, 84, 90, 91, 96, 97, 112, 117. Vfunc targets are caller-supplied and unresolved.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {"base": "obj", "offset": "0x00000000", "name": "vfunc_error_dispatch", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:obj:0x00000000", "source:raw"]},
+        {"base": "obj", "offset": "0x00000004", "name": "vfunc_parameterized_dispatch", "type_guess": "void(*)(void*,int)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:obj:0x00000004", "source:raw"]},
+        {"base": "obj", "offset": "0x00000014", "name": "state_code", "type_guess": "int", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:obj:0x00000014", "source:raw"]},
+        {"base": "obj", "offset": "0x00000018", "name": "state_arg1", "type_guess": "int", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:obj:0x00000018", "source:raw"]},
+        {"base": "obj", "offset": "0x0000001C", "name": "state_arg2", "type_guess": "int", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:obj:0x0000001C", "source:raw"]}
+      ],
+      "evidence_refs": ["field:obj:0x00000000", "field:obj:0x00000004", "field:obj:0x00000014", "source:raw"]
+    },
+    {
+      "name": "ByteStreamReadState",
+      "responsibility": "Callback-refilled byte stream read-state pointed to by the decoder's this+0x14. Packet prose: word 0 = current read pointer, word 1 = remaining byte count, word 3 = refill callback, plus 16 = skip callback. Only offset 0x0 has a formal field evidence ref in this packet; the remaining words are unresolved.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {"base": "*(this+0x14)", "offset": "0x00000000", "name": "read_pointer", "type_guess": "unsigned char*", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:*(this+0x14):0x00000000", "source:raw"]}
+      ],
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "field:this:0x00000014"]
+    },
+    {
+      "name": "JpegAppDispatchTable",
+      "responsibility": "92-byte per-marker dispatch table stored at this+0x190, allocated and filled by JpegAppDispatchTableInit. Slot 0 = StateReset, slot 1 = CommandDispatchStateMachine, slot 2 = restart-marker handler, slot 3 = segment-size reader, slots 4..18 default to StreamingDataReader with slot 4 (APP0) overridden to JPEGMarkerParsing and slot 18 (APP14) to AdobePSDHeaderParser. The table tail also holds decoder config: +0x50 byte-stuffing flag, +0x54 restart counter, +0x58 byte counter (accessed on the outer object as this+0x1E0/0x1E4/0x1E8).",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {"base": "*(this+0x190)", "offset": "0x00000004", "name": "slot1_command_dispatch", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0x190):0x00000004", "global:0x0051126A", "source:raw"]},
+        {"base": "*(this+0x190)", "offset": "0x00000008", "name": "slot2_restart_marker", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0x190):0x00000008", "global:0x00511457", "source:raw"]},
+        {"base": "*(this+0x190)", "offset": "0x0000000C", "name": "slot3_segment_size_reader", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0x190):0x0000000C", "global:0x00511060", "source:raw"]},
+        {"base": "*(this+0x190)", "offset": "0x00000010", "name": "slot4_app0_jfif_handler", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0x190):0x00000010", "global:0x005105BF", "source:raw"]},
+        {"base": "*(this+0x190)", "offset": "0x00000048", "name": "slot18_app14_adobe_handler", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0x190):0x00000048", "global:0x005107FB", "source:raw"]}
+      ],
+      "evidence_refs": ["field:this:0x00000190", "field:*(this+0x190):0x00000004", "field:*(this+0x190):0x00000048", "global:0x005115C4", "source:raw"]
+    },
+    {
+      "name": "FormatStateManager",
+      "responsibility": "Format-string manager object installed by sub_51177C. Five-slot vtable (slots 0..4: ArithmeticComparison_166b, ReferenceCountedResourceAccessRelease, VtableDispatchThunk, FormatStringWithArgs, ResettableStateClear), a stored format index (obj+0x14), eight stored format arguments (obj+0x18..0x34), an access limit/counter pair (obj+0x68/0x6C) used by the resource access/release vfunc, and a primary/alternate format-table range (base obj+0x70, count obj+0x74, alternate start obj+0x78, alternate base obj+0x7C, alternate end obj+0x80). Reached through a pointer-to-pointer handle in 0x116A3/0x116D4/0x1176B (the struct is 'this' in the installer 0x1177C).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x005116A3",
+        "0x005116D4",
+        "0x0051176B",
+        "0x0051177C"
+      ],
+      "fields": [
+        {"base": "obj", "offset": "0x00000000", "name": "vtable_slot0", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000", "field:obj:0x00000000", "global:0x0051166B", "source:raw"]},
+        {"base": "obj", "offset": "0x00000004", "name": "vtable_slot1", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004", "field:obj:0x00000004", "global:0x005116A3", "source:raw"]},
+        {"base": "obj", "offset": "0x00000008", "name": "vtable_slot2", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000008", "field:obj:0x00000008", "global:0x00511686", "source:raw"]},
+        {"base": "this", "offset": "0x0000000C", "name": "vtable_slot3", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000000C", "global:0x005116D4", "source:raw"]},
+        {"base": "this", "offset": "0x00000010", "name": "vtable_slot4", "type_guess": "void(*)(void*)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000010", "global:0x0051176B", "source:raw"]},
+        {"base": "obj", "offset": "0x00000014", "name": "stored_format_index", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000014", "field:obj:0x00000014", "source:raw"]},
+        {"base": "obj", "offset": "0x00000018", "name": "stored_arg0", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:obj:0x00000018", "source:raw"]},
+        {"base": "obj", "offset": "0x0000001C", "name": "stored_arg1", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:obj:0x0000001C", "source:raw"]},
+        {"base": "obj", "offset": "0x00000020", "name": "stored_arg2", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:obj:0x00000020", "source:raw"]},
+        {"base": "obj", "offset": "0x00000024", "name": "stored_arg3", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:obj:0x00000024", "source:raw"]},
+        {"base": "obj", "offset": "0x00000028", "name": "stored_arg4", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:obj:0x00000028", "source:raw"]},
+        {"base": "obj", "offset": "0x0000002C", "name": "stored_arg5", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:obj:0x0000002C", "source:raw"]},
+        {"base": "obj", "offset": "0x00000030", "name": "stored_arg6", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:obj:0x00000030", "source:raw"]},
+        {"base": "obj", "offset": "0x00000034", "name": "stored_arg7", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:obj:0x00000034", "source:raw"]},
+        {"base": "obj", "offset": "0x00000068", "name": "access_limit", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000068", "field:obj:0x00000068", "source:raw"]},
+        {"base": "obj", "offset": "0x0000006C", "name": "concurrent_access_count", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000006C", "field:obj:0x0000006C", "source:raw"]},
+        {"base": "obj", "offset": "0x00000070", "name": "primary_format_table_base", "type_guess": "char**", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000070", "field:obj:0x00000070", "field:*(obj+0x70):0x00000000", "global:0x005ADE98", "source:raw"]},
+        {"base": "obj", "offset": "0x00000074", "name": "primary_format_table_count", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000074", "field:obj:0x00000074", "source:raw"]},
+        {"base": "obj", "offset": "0x00000078", "name": "alternate_range_start", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000078", "field:obj:0x00000078", "source:raw"]},
+        {"base": "obj", "offset": "0x0000007C", "name": "alternate_table_base", "type_guess": "char**", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000007C", "field:obj:0x0000007C", "source:raw"]},
+        {"base": "obj", "offset": "0x00000080", "name": "alternate_range_end", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000080", "field:obj:0x00000080", "source:raw"]}
+      ],
+      "evidence_refs": ["global:0x0051166B", "global:0x005116A3", "global:0x00511686", "global:0x005116D4", "global:0x0051176B", "global:0x005ADE98", "field:obj:0x00000070", "field:obj:0x0000006C", "source:raw"]
+    },
+    {
+      "name": "GuardedCallbackContext",
+      "responsibility": "Context holding a guarded callback at this+0x40 invoked under setjmp/longjmp recovery (GuardedCallWithLongjmp) before delegation to a common dispatcher. TripleFieldSetter writes the 0x40/0x44/0x48 slot group; DoubleBufferInit runs a first init stage then the guarded call on the same a1. The trampoline is shared by 15 callers across stream/buffer code, so a single owner type is not established.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051184F",
+        "0x00511869",
+        "0x0051189C"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000040", "name": "guarded_callback", "type_guess": "void(*)(void*,void*)", "trust": "GUESS", "access": "read_write", "evidence_refs": ["field:this:0x00000040", "source:raw"]},
+        {"base": "this", "offset": "0x00000044", "name": "set_field_b", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000044", "source:raw"]},
+        {"base": "this", "offset": "0x00000048", "name": "set_field_c", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000048", "source:raw"]}
+      ],
+      "evidence_refs": ["field:this:0x00000040", "callee:0x0058A770", "callee:0x005117C8", "source:raw"]
+    },
+    {
+      "name": "ImageDecodeContext",
+      "responsibility": "Image/PNG decode context: PNG chunk parsing, IDAT-chunk row decompression, filtering and pass-aware post-processing. Flag words at this+0x58 (chunk-state flags: IHDR bit0, PLTE bit1, IDAT bit2), 0x5C and 0x60 gate chunk-state validation and decode passes; chunk length at 0xFC and chunk-type tag at 0x10C drive the chunk loop; row buffers/geometry live at 0x64..0x11C; optional post-decode callback at 0x16C. FlagBasedSessionModeSelector shares offsets 0x113/0x60 and is tentatively owned here (GUESS).",
+      "trust": "DERIVED",
+      "methods": [
+        "0x005119E9",
+        "0x00511B7C",
+        "0x0051234D"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000058", "name": "chunk_state_flags", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000058", "source:raw"]},
+        {"base": "this", "offset": "0x0000005C", "name": "init_decompress_flags", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000005C", "source:raw"]},
+        {"base": "this", "offset": "0x00000060", "name": "feature_flags", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000060", "source:raw"]},
+        {"base": "this", "offset": "0x00000064", "name": "current_inflate_ptr", "type_guess": "unsigned char*", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000064", "source:raw"]},
+        {"base": "this", "offset": "0x00000068", "name": "active_chunk_remaining", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000068", "source:raw"]},
+        {"base": "this", "offset": "0x00000070", "name": "output_row_ptr", "type_guess": "unsigned char*", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x00000070", "source:raw"]},
+        {"base": "this", "offset": "0x00000074", "name": "rows_remaining", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000074", "source:raw"]},
+        {"base": "this", "offset": "0x0000007C", "name": "error_message_ptr", "type_guess": "const char*", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000007C", "source:raw"]},
+        {"base": "this", "offset": "0x0000009C", "name": "chunk_data_base", "type_guess": "unsigned char*", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000009C", "source:raw"]},
+        {"base": "this", "offset": "0x000000A0", "name": "chunk_data_size", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000A0", "source:raw"]},
+        {"base": "this", "offset": "0x000000B8", "name": "pass_threshold", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000B8", "source:raw"]},
+        {"base": "this", "offset": "0x000000C8", "name": "bytes_per_row", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000C8", "source:raw"]},
+        {"base": "this", "offset": "0x000000CC", "name": "total_row_count", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000CC", "source:raw"]},
+        {"base": "this", "offset": "0x000000D0", "name": "samples_per_row", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000D0", "source:raw"]},
+        {"base": "this", "offset": "0x000000D4", "name": "pass_bitmask", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000D4", "source:raw"]},
+        {"base": "this", "offset": "0x000000D8", "name": "prev_row_size", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000D8", "source:raw"]},
+        {"base": "this", "offset": "0x000000DC", "name": "row_buffer", "type_guess": "unsigned char*", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000DC", "field:*(this+0xDC):0x00000000", "source:raw"]},
+        {"base": "this", "offset": "0x000000F0", "name": "row_samples", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x000000F0", "source:raw"]},
+        {"base": "this", "offset": "0x000000F4", "name": "row_byte_size", "type_guess": "int", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x000000F4", "source:raw"]},
+        {"base": "this", "offset": "0x000000F8", "name": "pixel_format_byte0", "type_guess": "unsigned char", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x000000F8", "source:raw"]},
+        {"base": "this", "offset": "0x000000F9", "name": "pixel_format_byte1", "type_guess": "unsigned char", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x000000F9", "source:raw"]},
+        {"base": "this", "offset": "0x000000FA", "name": "pixel_format_byte2", "type_guess": "unsigned char", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x000000FA", "source:raw"]},
+        {"base": "this", "offset": "0x000000FB", "name": "pixel_format_byte3", "type_guess": "unsigned char", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:this:0x000000FB", "source:raw"]},
+        {"base": "this", "offset": "0x000000FC", "name": "current_chunk_length", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x000000FC", "source:raw"]},
+        {"base": "this", "offset": "0x0000010C", "name": "chunk_type_tag", "type_guess": "char[4]", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000010C", "source:raw"]},
+        {"base": "this", "offset": "0x00000113", "name": "pass_byte_flag", "type_guess": "unsigned char", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000113", "source:raw"]},
+        {"base": "this", "offset": "0x00000114", "name": "pass_index", "type_guess": "int", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000114", "source:raw"]},
+        {"base": "this", "offset": "0x00000116", "name": "color_type_byte", "type_guess": "unsigned char", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000116", "source:raw"]},
+        {"base": "this", "offset": "0x00000117", "name": "bpp_byte1", "type_guess": "unsigned char", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000117", "source:raw"]},
+        {"base": "this", "offset": "0x00000119", "name": "bytes_per_pixel", "type_guess": "unsigned char", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000119", "source:raw"]},
+        {"base": "this", "offset": "0x0000011A", "name": "bpp_byte2", "type_guess": "unsigned char", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000011A", "source:raw"]},
+        {"base": "this", "offset": "0x0000011C", "name": "signature_bytes_consumed", "type_guess": "int", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000011C", "source:raw"]},
+        {"base": "this", "offset": "0x0000016C", "name": "post_decode_callback", "type_guess": "void*(*)(void*,int,int)", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000016C", "source:raw"]}
+      ],
+      "evidence_refs": ["field:this:0x00000058", "field:this:0x000000FC", "field:this:0x0000010C", "field:this:0x00000114", "global:0x005AF22C", "global:0x005AF248", "source:raw"]
+    },
+    {
+      "name": "CameraRotationState",
+      "responsibility": "Holds two float camera-rotation parameters (this+0x130/0x134) and a flags byte (this+0x61) whose bit 5 records a non-unit rotation-product deviation. Kept as a separate object from ImageDecodeContext despite sharing caller 0x50210E; the invariant meaning is unresolved.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0051249F"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000061", "name": "rotation_flags", "type_guess": "unsigned char", "trust": "GUESS", "access": "read_write", "evidence_refs": ["field:this:0x00000061", "global:0x0059E420", "global:0x005AF428", "source:raw"]},
+        {"base": "this", "offset": "0x00000130", "name": "rotation_a", "type_guess": "float", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000130", "source:raw"]},
+        {"base": "this", "offset": "0x00000134", "name": "rotation_b", "type_guess": "float", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000134", "source:raw"]}
+      ],
+      "evidence_refs": ["field:this:0x00000061", "global:0x0059E420", "global:0x005AF428"]
+    },
+    {
+      "name": "PixelConversionParams",
+      "responsibility": "Parameter block for pixel bit-depth conversion (0x5126D9): *a1 element count, a1[1] buffer size, byte +8 mode byte (3 skips conversion; bit 1 planar vs interleaved; bit 2 extra fourth channel), byte +9 input bit depth. Destination buffer and per-channel shift table are passed separately.",
+      "trust": "GUESS",
+      "methods": [
+        "0x005126D9"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "element_count", "type_guess": "int", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000000", "source:raw"]},
+        {"base": "this", "offset": "0x00000004", "name": "buffer_size", "type_guess": "int", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000004", "source:raw"]},
+        {"base": "this", "offset": "0x00000008", "name": "mode_byte", "type_guess": "unsigned char", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000008", "source:raw"]},
+        {"base": "this", "offset": "0x00000009", "name": "input_bit_depth", "type_guess": "unsigned char", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000009", "source:raw"]}
+      ],
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000009"]
+    },
+    {
+      "name": "IndexedTextureDecodeState",
+      "responsibility": "Two-phase bit-packed indexed texture decode state (0x512E1A): phase marker at +0x8 (3 selects the unpack phase; output format code 6=RGBA / 2=RGB after phase 2), bit depth/state byte at +0x9 (4/2/1 unpacked to 8), output bytes-per-pixel at +0xA (4/3), output stride at +0xB (32/24), pixel count / output byte count at +0x4. Palette stride (2 bytes per index) is inferred from address arithmetic.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00512E1A"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "pixel_source", "type_guess": "const void*", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000000", "source:raw"]},
+        {"base": "this", "offset": "0x00000004", "name": "pixel_count", "type_guess": "int", "trust": "GUESS", "access": "read_write", "evidence_refs": ["field:this:0x00000004", "source:raw"]},
+        {"base": "this", "offset": "0x00000008", "name": "format_code", "type_guess": "int", "trust": "GUESS", "access": "read_write", "evidence_refs": ["field:this:0x00000008", "source:raw"]},
+        {"base": "this", "offset": "0x00000009", "name": "bit_depth_state", "type_guess": "unsigned char", "trust": "GUESS", "access": "read_write", "evidence_refs": ["field:this:0x00000009", "source:raw"]},
+        {"base": "this", "offset": "0x0000000A", "name": "bytes_per_pixel", "type_guess": "unsigned char", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x0000000A", "source:raw"]},
+        {"base": "this", "offset": "0x0000000B", "name": "output_stride", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x0000000B", "source:raw"]}
+      ],
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000009"]
+    },
+    {
+      "name": "DataCallbackContext",
+      "responsibility": "Structure with a read-data callback (this+0x50) plus user-data pointer (this+0x54) and an optional write callback (this+0x4C); read/write callback coexistence is rejected via CallbackDispatch. A state field at this+0x120 is cleared on configuration. Owner type unknown; callers are 0x50210E and 0x5118E6.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00513BF9"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x0000004C", "name": "write_callback", "type_guess": "void(*)(void*)", "trust": "GUESS", "access": "read_write", "evidence_refs": ["field:this:0x0000004C", "source:raw"]},
+        {"base": "this", "offset": "0x00000050", "name": "read_callback", "type_guess": "void(*)(void*)", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000050", "source:raw"]},
+        {"base": "this", "offset": "0x00000054", "name": "read_user_data", "type_guess": "void*", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000054", "source:raw"]},
+        {"base": "this", "offset": "0x00000120", "name": "state_field", "type_guess": "int", "trust": "GUESS", "access": "write", "evidence_refs": ["field:this:0x00000120", "source:raw"]}
+      ],
+      "evidence_refs": ["field:this:0x00000050", "field:this:0x0000004C", "callee:0x00511887"]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "JpegMarkerDispatchLoop",
+      "owner": "JpegStreamDecoder",
+      "states": ["idle: marker slot this+0x178 zero, read next marker", "reading: marker read via bitstream marker reader or SOI marker reader", "dispatching: branch on marker value", "error_dispatch: state codes 59/67 via dispatcher vfunc slot 0", "parameterized_dispatch: state codes 84/91 via dispatcher vfunc slot 1", "app_table_dispatch: markers 224..239 via table at this+0x190, 254 via this+0x19C", "per_marker: markers 192..204/219/220/221 to decoder handlers"],
+      "transitions": ["marker slot reset to 0 after every dispatch forces a new read", "reader return 0 aborts the loop with 0", "marker 217 dispatches state 84 and returns 2", "unrecognized markers fall to error dispatch state 67"],
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x0051126A", "field:this:0x00000178", "field:this:0x00000190", "field:obj:0x00000014"]
+    },
+    {
+      "name": "RestartMarkerCounter",
+      "owner": "JpegStreamDecoder",
+      "states": ["expect_next_restart: marker expected at counter+208", "matched: dispatch state 97 with counter, clear marker, increment (c+1)&7", "mismatch: delegate to alternative stream-object handler", "unreadable: no marker and handler rejects, return 0"],
+      "transitions": ["match -> counter increment modulo 8 and return 1", "alternative handler acceptance -> same counter increment and return 1", "no marker -> return 0"],
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x00511457", "field:this:0x00000178", "field:this:0x00000190", "field:obj:0x00000014"]
+    },
+    {
+      "name": "MarkerClassificationLoop",
+      "owner": "JpegStreamDecoder",
+      "states": ["init: state 117 dispatched with current marker", "classify: category 1 expected-marker / 2 skip / 3 acceptable-stop", "per_iteration: state 96 dispatched with marker and category"],
+      "transitions": ["category 1 -> reset this+0x178 and return 1", "category 2 -> read next marker via bitstream reader, repeat; reader fail -> return 0", "category 3 -> return 1"],
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x005114D5", "field:this:0x00000178", "field:obj:0x00000014", "callee:0x005110FC"]
+    },
+    {
+      "name": "PngChunkParseLoop",
+      "owner": "ImageDecodeContext",
+      "states": ["signature_validate: consume up to 8 signature bytes, compare via bounded memcmp", "read_length: fetch 4-byte chunk length, decode to int", "read_type: copy 4-byte chunk-type tag to this+0x10C", "dispatch: per-chunk handler for IHDR/PLTE/IEND/gAMA/sRGB/tRNS/unknown", "idat_terminal: IDAT terminates the loop", "post_validate: chunk-state flags check (indexed color requires PLTE before IDAT)"],
+      "transitions": ["IDAT -> exit loop -> post_validate", "signature mismatch -> longjmp error path with 'Not a PNG file'/'PNG corrupted' strings", "post_validate failure -> longjmp 'Missing PLTE/IHDR before IDAT'", "success -> set flag bit 2, record IDAT length, return flags"],
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x005119E9", "field:this:0x00000058", "field:this:0x000000FC", "field:this:0x0000010C", "callee:0x00511869"]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "DispatchStateMachine",
+      "purpose": "Parameterized state dispatch through the dispatcher object: write (state code, arg1, arg2) to obj+0x14/0x18/0x1C, then call vfunc slot 0 (obj+0x0) or slot 1 (obj+0x4) with a mode argument. Used by all JPEG marker readers and the dispatch loop.",
+      "functions": ["0x00511060", "0x005110FC", "0x005111D3", "0x0051126A", "0x00511457", "0x005114D5"],
+      "trust": "DERIVED",
+      "evidence_refs": ["field:obj:0x00000014", "field:obj:0x00000018", "field:obj:0x0000001C", "field:obj:0x00000000", "field:obj:0x00000004", "source:raw"]
+    },
+    {
+      "name": "LongjmpGuardedDispatch",
+      "purpose": "Guard a callback invocation with a saved setjmp/longjmp frame so decode failures unwind to a recovery point before a common dispatcher handles the result. Shared by 15 callers across stream and buffer code.",
+      "functions": ["0x00511869", "0x0051189C"],
+      "trust": "DERIVED",
+      "evidence_refs": ["field:this:0x00000040", "callee:0x0058A770", "callee:0x005117C8", "source:raw"]
+    },
+    {
+      "name": "PixelFormatConverter",
+      "purpose": "Convert stored pixel data to a target bit depth or color format: bit-depth down-conversion of byte streams and two-phase bit-packed indexed to RGB/RGBA decoding. Both entry points are called from sub_51389E.",
+      "functions": ["0x005126D9", "0x00512E1A"],
+      "trust": "GUESS",
+      "evidence_refs": ["caller:0x0051389E", "source:raw"]
+    }
+  ],
+  "dependencies": [
+    {"from": "0x0051126A", "to": "0x005110FC", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x005110FC"]},
+    {"from": "0x0051126A", "to": "0x005111D3", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x005111D3"]},
+    {"from": "0x0051126A", "to": "0x00511060", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00511060"]},
+    {"from": "0x0051126A", "to": "0x00510012", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00510012"]},
+    {"from": "0x0051126A", "to": "0x00510975", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00510975"]},
+    {"from": "0x0051126A", "to": "0x00510ACC", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00510ACC"]},
+    {"from": "0x0051126A", "to": "0x00510D60", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00510D60"]},
+    {"from": "0x0051126A", "to": "0x00510F89", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00510F89"]},
+    {"from": "0x0051126A", "to": "0x0050FF84", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x0050FF84"]},
+    {"from": "0x0051126A", "to": "0x0051030D", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x0051030D"]},
+    {"from": "0x00511457", "to": "0x005110FC", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x005110FC"]},
+    {"from": "0x005114D5", "to": "0x005110FC", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x005110FC"]},
+    {"from": "0x005115EE", "to": "0x005115C4", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x005115C4", "global:0x005115C4"]},
+    {"from": "0x005115EE", "to": "allocator_vfunc", "kind": "call_vfunc", "trust": "DERIVED", "evidence_refs": ["field:*(this+0x4):0x00000000", "source:raw"]},
+    {"from": "0x0051189C", "to": "0x005117C8", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x005117C8"]},
+    {"from": "0x0051189C", "to": "0x00511869", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00511869"]},
+    {"from": "0x00511869", "to": "0x0058A770", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x0058A770"]},
+    {"from": "0x005119E9", "to": "0x00513BD1", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00513BD1"]},
+    {"from": "0x005119E9", "to": "0x00513C38", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00513C38"]},
+    {"from": "0x005119E9", "to": "0x00511869", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00511869"]},
+    {"from": "0x005119E9", "to": "0x00517F35", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00517F35"]},
+    {"from": "0x005119E9", "to": "0x00513CD8", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00513CD8"]},
+    {"from": "0x005119E9", "to": "0x00517F58", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00517F58"]},
+    {"from": "0x005119E9", "to": "0x005188B4", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x005188B4", "global:0x005AF264"]},
+    {"from": "0x005119E9", "to": "0x00518AAA", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518AAA", "global:0x005AF27C"]},
+    {"from": "0x005119E9", "to": "0x00518BD4", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518BD4", "global:0x005AF274"]},
+    {"from": "0x005119E9", "to": "0x00518C1E", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518C1E", "global:0x005AF284"]},
+    {"from": "0x005119E9", "to": "0x00518D29", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518D29", "global:0x005AF28C"]},
+    {"from": "0x005119E9", "to": "0x00518E18", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518E18", "global:0x005AF294"]},
+    {"from": "0x005119E9", "to": "0x00518FCF", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518FCF"]},
+    {"from": "0x00511B7C", "to": "0x0051868C", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x0051868C"]},
+    {"from": "0x00511B7C", "to": "0x00519019", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00519019"]},
+    {"from": "0x00511B7C", "to": "0x00518032", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518032"]},
+    {"from": "0x00511B7C", "to": "0x00511869", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00511869", "global:0x005AF3CC"]},
+    {"from": "0x00511B7C", "to": "0x00517ADC", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00517ADC"]},
+    {"from": "0x00511B7C", "to": "0x00518828", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518828", "global:0x005AF26C", "global:0x005AF3B4"]},
+    {"from": "0x00511B7C", "to": "0x00513BD1", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00513BD1"]},
+    {"from": "0x00511B7C", "to": "0x00517F35", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00517F35"]},
+    {"from": "0x00511B7C", "to": "0x00513CD8", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00513CD8"]},
+    {"from": "0x00511B7C", "to": "0x00517F58", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00517F58"]},
+    {"from": "0x00511B7C", "to": "0x00518511", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518511"]},
+    {"from": "0x00511B7C", "to": "0x00517EE1", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00517EE1"]},
+    {"from": "0x00511B7C", "to": "0x0051389E", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x0051389E"]},
+    {"from": "0x00511B7C", "to": "0x00518248", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00518248"]},
+    {"from": "0x005116D4", "to": "0x0058815F", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x0058815F"]},
+    {"from": "0x00513BF9", "to": "0x00511887", "kind": "call", "trust": "DERIVED", "evidence_refs": ["callee:0x00511887", "global:0x005AF4EC", "global:0x005AF520"]},
+    {"from": "0x0051389E", "to": "0x005126D9", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x0051389E"]},
+    {"from": "0x0051389E", "to": "0x00512E1A", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x0051389E"]},
+    {"from": "0x0050210E", "to": "0x005119E9", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x0050210E"]},
+    {"from": "0x0050210E", "to": "0x00513BF9", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x0050210E"]},
+    {"from": "0x005118E6", "to": "0x00513BF9", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x005118E6"]},
+    {"from": "0x005118E6", "to": "0x00511869", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x005118E6"]},
+    {"from": "0x0050210E", "to": "0x0051249F", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x0050210E"]},
+    {"from": "0x0050F632", "to": "0x005115EE", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x0050F632"]},
+    {"from": "0x00511F23", "to": "0x00511B7C", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x00511F23"]},
+    {"from": "0x00501722", "to": "0x0051177C", "kind": "call", "trust": "DERIVED", "evidence_refs": ["caller:0x00501722"]}
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "JpegMarkerStateCodes",
+      "category": "format",
+      "description": "The dispatcher object carries (state code, arg1, arg2) at obj+0x14/0x18/0x1C and a two-slot vtable (obj+0x0 error/state dispatch, obj+0x4 parameterized dispatch). Observed state codes: 52 (SOI mismatch), 59/67 (error markers), 84 (marker 217), 90 (segment size read), 91 (markers 1/208..215), 97 (restart marker match), 112 (bitstream marker found), 117/96 (decode-loop init/per-iteration). A replacement must preserve this state-code protocol.",
+      "trust": "DERIVED",
+      "evidence_refs": ["field:obj:0x00000014", "field:obj:0x00000018", "field:obj:0x0000001C", "field:obj:0x00000000", "field:obj:0x00000004", "source:raw"]
+    },
+    {
+      "name": "JpegMarkerByteStuffing",
+      "category": "format",
+      "description": "The bitstream marker reader treats 0xFF 0x00 as one escaped data byte, skips consecutive 0xFF bytes, and terminates on 0xFF followed by a non-zero non-0xFF marker byte. The accumulated byte counter at this+0x1E8 increases by 1 per ordinary data byte and by 2 per escape. The byte-stuffing flag lives at this+0x1E0.",
+      "trust": "DERIVED",
+      "evidence_refs": ["field:this:0x000001E8", "field:this:0x000001E0", "field:this:0x00000178", "source:raw"]
+    },
+    {
+      "name": "PngChunkStateValidation",
+      "category": "format",
+      "description": "Chunk-state flags at this+0x58 track IHDR (bit 0), PLTE (bit 1) and IDAT (bit 2). Indexed color (color type 3 at this+0x116) requires PLTE before IDAT; violations are reported through the longjmp error path with the 'Missing PLTE before IDAT' (0x5AF318) / 'Missing IHDR before IDAT' (0x5AF334) strings. On success flag bit 2 is set and the IDAT length is stored at this+0xFC.",
+      "trust": "DERIVED",
+      "evidence_refs": ["field:this:0x00000058", "global:0x005AF318", "global:0x005AF334", "field:this:0x000000FC", "source:raw"]
+    },
+    {
+      "name": "LongjmpErrorReporting",
+      "category": "error_handling",
+      "description": "Fatal signature/decode errors propagate through GuardedCallWithLongjmp (0x511869) with a saved setjmp/longjmp frame. Observed error strings: 'Not a PNG file' (0x5AF350), 'PNG file corrupted by ASCII conversion' (0x5AF378), 'Extra compressed data' (0x5AF388), 'Decompression error' (0x5AF3A0), 'Not enough image data' (0x5AF3B4), invalid-attempt (0x5AF3CC). A replacement must keep this recoverable error path.",
+      "trust": "DERIVED",
+      "evidence_refs": ["callee:0x00511869", "global:0x005AF350", "global:0x005AF378", "global:0x005AF388", "global:0x005AF3A0", "global:0x005AF3B4", "global:0x005AF3CC", "source:raw"]
+    },
+    {
+      "name": "PngChunkTagDispatch",
+      "category": "format",
+      "description": "The 4-byte chunk-type tag at this+0x10C is dispatched by tag constant: IHDR (0x5AF264), PLTE (0x5AF27C), IEND (0x5AF274), gAMA (0x5AF284), sRGB (0x5AF28C), tRNS (0x5AF294) to per-chunk handlers; IDAT (0x5AF26C) terminates the chunk loop; unknown tags go to a generic handler. A replacement must reproduce this tag routing.",
+      "trust": "DERIVED",
+      "evidence_refs": ["field:this:0x0000010C", "global:0x005AF264", "global:0x005AF26C", "global:0x005AF274", "global:0x005AF27C", "global:0x005AF284", "global:0x005AF28C", "global:0x005AF294", "source:raw"]
+    },
+    {
+      "name": "FormatTableSelection",
+      "category": "format",
+      "description": "FormatStateManager selects a format string by index from a primary table (base obj+0x70, count obj+0x74) or an alternate range (start obj+0x78, base obj+0x7C, end obj+0x80); a null resolved pointer falls back to the first primary-table string, overriding the stored index argument. A '%s' sequence in the format selects the va_list call form; otherwise the varargs form is used, both reaching StringFormatWithBufferOverflowCheck (0x58815F).",
+      "trust": "DERIVED",
+      "evidence_refs": ["field:obj:0x00000070", "field:obj:0x00000074", "field:obj:0x00000078", "field:obj:0x0000007C", "field:obj:0x00000080", "field:*(obj+0x70):0x00000000", "callee:0x0058815F", "source:raw"]
+    },
+    {
+      "name": "StreamRefillCallbackContract",
+      "category": "io",
+      "description": "The stream read-state at this+0x14 has word 0 = current read pointer and word 1 = remaining byte count (formal refs only for word 0); prose adds word 3 = refill callback and plus-16 = skip callback. A refill callback returning false aborts the read with return 0. The marker readers and segment-size reader depend on this contract.",
+      "trust": "DERIVED",
+      "evidence_refs": ["field:*(this+0x14):0x00000000", "field:this:0x00000014", "source:raw"]
+    },
+    {
+      "name": "ReadWriteCallbackExclusion",
+      "category": "io",
+      "description": "A callback structure may hold either a read callback (this+0x50, with user-data at this+0x54) or a write callback (this+0x4C), not both. Setting a read-data callback while a write callback is present clears the write slot and reports the conflict through CallbackDispatch (0x511887) with the string fragments 0x5AF4EC and 0x5AF520; this+0x120 is cleared and the read callback is returned.",
+      "trust": "DERIVED",
+      "evidence_refs": ["field:this:0x00000050", "field:this:0x0000004C", "field:this:0x00000054", "callee:0x00511887", "global:0x005AF4EC", "global:0x005AF520", "source:raw"]
+    },
+    {
+      "name": "ImageDecodePassLookup",
+      "category": "format",
+      "description": "The pass index (this+0x114) drives a 7-way switch of bitmask/threshold checks against this+0xD4 and this+0xB8 and selects per-pass Huffman decode via the lookup tables dword_5AF22C / dword_5AF248 with constants 15/51/85/255. Pass-aware post-decode runs TextureHorizontalStretch then two JPEGHuffmanDecoder passes. The pass semantics (Adam7 interlacing vs per-frame passes) are unresolved.",
+      "trust": "GUESS",
+      "evidence_refs": ["field:this:0x00000114", "field:this:0x000000D4", "field:this:0x000000B8", "global:0x005AF22C", "global:0x005AF248", "source:raw"]
+    }
+  ],
+  "unresolved": [
+    "JpegStreamDecoder / StateDispatcher / ByteStreamReadState / ImageDecodeContext / FormatStateManager are UNKNOWN C++ types; class boundaries are DERIVED from overlapping offsets, and the concrete owners are not evidenced.",
+    "Identity and semantics of the dispatcher obj+0x0 / obj+0x4 vfunc targets and of the stream-state skip callback (plus 16) are caller-supplied; the refill callback backing store is not defined in this packet.",
+    "State-code semantics (52, 59, 67, 84, 90, 91, 96, 97, 112, 117) and the dispatch arguments (-1, 1, 3, 4) depend on the dispatcher contract, which is outside this packet's evidence.",
+    "Marker 217 (state 84) returns 2 while other paths return through the loop or 0/1; the return-value contract (0/1/2) across callers is not established.",
+    "The APP-table walk for markers 224..239 at (this+0x190 + 4*marker - 880) references entries not statically known; per-APP-handler behavior is unresolved. Slot 0 (StateReset) has no formal field ref in the packet.",
+    "The reader-config object at this+0x190 doubles as dispatch base and byte-stuffing flag holder; whether it is a dedicated config struct or a shared context is unresolved.",
+    "Restart-marker counter naming: the fill claims this+0x1E4, the raw source addresses (this+0x190 value)+84; reconcilable as the table tail (+0x54) but not independently confirmed.",
+    "Marker-distance arithmetic in the 201..205 range leaves the 204-to-sub_510975 and 205-or-above-to-error routes overlapping; this suggests decompiler structure, not distinct semantic states.",
+    "Decode-loop states 117/96 and the marker categories in 0x5114D5 are DERIVED from branch structure only; the category-2 'skip' reading is not independently confirmed.",
+    "PNG per-chunk handler internals (0x517F58, 0x5188B4, 0x518AAA, 0x518BD4, 0x518C1E, 0x518D29, 0x518E18, 0x518FCF) are separate functions not analyzed in this packet.",
+    "Whether the pass-index switch (0..6) implements Adam7 interlacing or per-frame Huffman passes is unresolved; the meanings of per-pass constants 15/51/85/255 and the dword_5AF22C/dword_5AF248 tables are unknown.",
+    "Bit meanings of the ImageDecodeContext flag words (this+0x58 bits, this+0x60 bit 1, this+0x5C bits) are inferred from usage, not confirmed.",
+    "The function pointer returned by DecodeRowData (stored at this+0x16C) and its relationship to the a2/a3 arguments is unresolved.",
+    "FormatStateManager: obj+0x68 limit meaning (max index vs max concurrent holders), the obj+0x6C counter (increments but never decrements here), and the varargs vs va_list call-form distinction (inferred from the '%s' check only).",
+    "GuardedCallWithLongjmp names CallbackDispatch but no callee evidence ref exists for it; the longjmp recovery context and the meaning of longjmp value 1 are unknown; the trampoline is shared by 15 callers so a single owner type is ambiguous.",
+    "sub_51177C slot 29 holds the literal 119 (count vs pointer ambiguity); off_5ADE98 contents and whether cleared slots 0x14/0x68/0x6C/0x78/0x7C/0x80 are state fields or unused vtable padding are unresolved.",
+    "TripleFieldSetter parameter-to-offset remapping (a2->0x48, a3->0x40, a4->0x44) has no semantic explanation; GuardedCallbackContext ownership is GUESS.",
+    "StoreCameraRotationState: the meaning of the guarded 1.0-product invariant and what bit 5 of this+0x61 gates downstream is not established.",
+    "ConvertPixelBitDepth: depth-4 shift binding is a union alias of v19[0] making channel binding ambiguous; the return value (EAX low byte) meaning and the a2 layout (planar vs interleaved) are unresolved.",
+    "BitpackedIndexedToRgbaDecompressor: the class owning the phase/format state object is unknown; the palette 2-byte-per-index stride is inferred from address arithmetic.",
+    "The 80-byte buffer passed by DoubleBufferInit to GuardedCallWithLongjmp is most plausibly longjmp state but its internal layout is not verifiable in this packet.",
+    "SetReadDataCallback and its CallbackDispatch (0x511887) exact wording/dispatch semantics are not defined; the DataCallbackContext owner type is unknown.",
+    "FlagBasedSessionModeSelector naming ('session mode') conflicts with its evidence (offsets 0x113/0x60 shared with row-decode pass logic); ownership by ImageDecodeContext is GUESS.",
+    "Fields this+0x18, this+0x20, this+0x24, this+0x28 are listed as packet fields but never accessed by any analyzed raw body; their roles (cached buffer pointer, table entry count, limit) are speculative and unconfirmed."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000018",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028"
+  ],
+  "confidence": {
+    "boundaries": "HIGH",
+    "ownership": "MEDIUM",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

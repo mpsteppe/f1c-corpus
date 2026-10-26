@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "address": "0x0040E2B0",
+  "proposed_name": "AudioPhysicsMixWithLerp",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes the averaged position of all elements in a packed array, lerps it with the bounding-box center using a blend factor (0.35 when mode a2 == 2, otherwise 0.70), adds a three-field offset queried from the scene state, writes the three fields back, and finishes by applying the computed offset vector to the object at a1. On the frame path; used by audio and vehicle subsystems.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Call BoundingBoxComputation(v27) to fill a six-float array with the object bounding box (min and max components).",
+      "evidence_refs": ["callee:0x004DD550"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Initialize the three component accumulators v14, v16, v18 to 0.0.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the bounding-box center: v20 = (v27[0] + v27[3]) * 0.5, v21 = (v27[1] + v27[4]) * 0.5, v22 = (v27[2] + v27[5]) * 0.5 where v30 = v27[2] + v27[5].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call LinkedListIndexedAccessor_c230(0) to obtain the linked-list node representing the packed array.",
+      "evidence_refs": ["callee:0x0054C230"]
+    },
+    {
+      "kind": "call",
+      "description": "Call PackedArrayTotalSize(v3) to get the element count v4 of the packed array.",
+      "evidence_refs": ["callee:0x0054E100"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on v4 > 0: only when the packed array is non-empty do the sum-and-average and the count-derived scaling.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "do-while over v5 in [0, v4): call PackedArrayIndexLookup(v5++) to get each element pointer v6 and accumulate its three components into v14, v16, v18.",
+      "evidence_refs": ["callee:0x0054E120", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Average the three sums: v14 *= 1.0 / v4, v16 *= 1.0 / v4, v18 *= 1.0 / v4.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on a2 == 2: select blend factor v8 = 0.35 (mode 2) else v8 = 0.70.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Lerp box center and averaged position: v28 = v14 * (1.0 - v8), v29 = v16 * (1.0 - v8), v23 = v22 * v8, v15 = v20 * v8 + v28, v17 = v21 * v8 + v29, v19 = v23 + (1.0 - v8) * v18.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call TripleFieldQuery(&v24, &v25, &v26) to read the three current X/Y/Z field values.",
+      "evidence_refs": ["callee:0x0054B420"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Combine the lerped components with the queried fields: v10 = v15 + v24, v11 = v17 + v25, v12 = v19 + v26.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call ThreeFieldSetterWithSubCall with the low dwords of v10, v11, v12 to write the three combined fields.",
+      "evidence_refs": ["callee:0x0054B3B0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return GlobalVectorOffsetUpdate(a1, &v28) which applies the computed offset vector to the object at a1.",
+      "evidence_refs": ["callee:0x0040E1F0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_40E2B0(int a1, int a2) {",
+    "  float bbox[6];",
+    "  BoundingBoxComputation(bbox);",
+    "  float sx = 0.0, sy = 0.0, sz = 0.0;",
+    "  float cx = (bbox[0] + bbox[3]) * 0.5;",
+    "  float cy = (bbox[1] + bbox[4]) * 0.5;",
+    "  float cz = (bbox[2] + bbox[5]) * 0.5;",
+    "  int node = LinkedListIndexedAccessor_c230(0);",
+    "  int count = PackedArrayTotalSize(node);",
+    "  for (int i = 0; i < count; ++i) {",
+    "    float *e = (float *)PackedArrayIndexLookup(i);",
+    "    sx += e[0]; sy += e[1]; sz += e[2];",
+    "  }",
+    "  if (count > 0) { sx /= count; sy /= count; sz /= count; }",
+    "  float t = (a2 == 2) ? 0.35f : 0.70f;",
+    "  float ox = sx * (1.0f - t);",
+    "  float oy = sy * (1.0f - t);",
+    "  float oz = cz * t + (1.0f - t) * sz;",
+    "  float fx = cx * t + ox;",
+    "  float fy = cy * t + oy;",
+    "  float a, b, c;",
+    "  TripleFieldQuery(&a, &b, &c);",
+    "  ThreeFieldSetterWithSubCall(fx + a, fy + b, oz + c);",
+    "  return GlobalVectorOffsetUpdate(a1, &ox);",
+    "}"
+  ],
+  "unresolved": [
+    "The four read-only globals flt_59E43C, flt_59E450, flt_59E458, flt_59E6E8 do not appear in the raw decompilation and are assumed consumed inside the callees; their exact role is not established here.",
+    "The object identity for a1 and the semantics of mode a2 (blend factor selection) are caller-defined.",
+    "The packed array origin (linked-list node from LinkedListIndexedAccessor_c230(0)) is not resolved."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E450",
+    "global:0x0059E458",
+    "global:0x0059E6E8",
+    "caller:0x0040E770",
+    "caller:0x004DFA60"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

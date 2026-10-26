@@ -1,0 +1,12 @@
+int __thiscall sub_4562A0(_DWORD *this)
+{
+  void *v1; // ecx
+  int result; // eax
+
+  *this = &off_59EFCC;
+  v1 = (void *)this[1];
+  if ( v1 )
+    return FreeWrapper_7bcf(v1);
+  return result;
+}
+

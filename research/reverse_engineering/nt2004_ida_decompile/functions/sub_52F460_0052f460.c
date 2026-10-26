@@ -1,0 +1,12 @@
+BOOL __thiscall sub_52F460(_DWORD *this)
+{
+  unsigned int *v1; // eax
+  unsigned int v3; // [esp+0h] [ebp-4h]
+
+  v1 = (unsigned int *)this[2345];
+  if ( v1 )
+    v3 = *v1;
+  else
+    v3 = this[2364];
+  return sub_52F090((int)this, _byteswap_ulong(v3)) == -1;
+}

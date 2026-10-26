@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "address": "0x00558B30",
+  "proposed_name": "TextureSlotDeallocate",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00558B30"]
+  },
+  "summary": "Removes the slot addressed by index a2 from a texture/render allocation pool. Validates the active count at this+0x30 and the capacity at this+0x2C, computes the 128-byte slot from the base at this+0x34, and requires the slot's in-use bit (0x40). Two removal paths are selected by the sign of the flags byte at this+0x20: a doubly-linked-list unlink path (prev/next links at slot+120 and slot+124, free-list head at this+0x38) and an array path that swaps the last slot's data into the freed position via a 16-dword copy over the buffer at *(*(this+0x50)+0x20) and fixes the index array at this+0x3C. Both paths clear the in-use bit and decrement the count.",
+  "local_names": {
+    "this": "allocation-pool object: flags 0x20, iteration count 0x24, capacity 0x2C, active count 0x30, slot base 0x34, free-list head 0x38, index array 0x3C, sub-context 0x50",
+    "a2": "slot index to deallocate",
+    "result": "active count; early paths return it unchanged, success paths return the decremented count",
+    "v4": "slot pointer = *(this+0x34) + (a2 << 7)",
+    "v5": "copy-source buffer pointer read from *(*(this+0x50)+0x20)",
+    "v6": "iteration count from this+0x24 used by the 16-dword copy loop",
+    "v7": "destination dword pointer for the copy into the freed slot",
+    "v8": "source dword pointer for the copy from the last slot",
+    "v9": "slot's next link used by the list-unlink path"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "If the active count *(this+0x30) is <= 0, return it (empty pool)",
+      "evidence_refs": ["field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the requested index a2 >= capacity *(this+0x2C), return the count (out of range)",
+      "evidence_refs": ["field:this:0x0000002C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "v4 = *(this+0x34) + (a2 << 7) computes the slot pointer from the base at this+0x34 with a 128-byte stride",
+      "evidence_refs": ["field:this:0x00000034", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the slot's in-use bit (0x40) is clear, return the count (slot already free)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the signed flags byte at this+0x20: a value >= 0 selects the doubly-linked-list unlink path, otherwise the array/copy path",
+      "evidence_refs": ["field:this:0x00000020", "guard:0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "List path: unlink the slot from the doubly-linked list using the prev link at slot+120 (0x78) and the next link at slot+124; when the slot was the head (no prev), the free-list head at this+0x38 advances to the slot's next link; both links are then zeroed",
+      "evidence_refs": ["field:*(this+0x30):0x00000078", "field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Array path: if the last slot's pointer in the index array *(*(this+0x3C) + 4*count - 4) is already v4, fall through to the common cleanup (no data move needed)",
+      "evidence_refs": ["field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Array path: TextureAllocationWithFormatSizeFlags(0) is invoked before the data-copy step",
+      "evidence_refs": ["callee:0x00558D10", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Array path: copy the last slot's data into the freed slot's position: the sub-context pointer at this+0x50 is dereferenced and +0x20 (0x20) yields the copy buffer v5, dest/source pointers are derived from the slots' ids with a stride of v6 = *(this+0x24), and a loop copies 16 dwords (indexes 0, 1, 2, 6) per iteration while advancing by 16 dwords",
+      "evidence_refs": ["field:*(this+0x50):0x00000020", "field:this:0x00000050", "field:this:0x00000024", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Array path: fix the index array at this+0x3C so the freed slot's id maps to the last slot's slot pointer and vice versa",
+      "evidence_refs": ["field:this:0x0000003C", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Common cleanup: clear the in-use bit on the slot (*(DWORD*)v4 &= ~0x40) and decrement the active count at this+0x30",
+      "evidence_refs": ["field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the old count on the early-return guard paths, or the decremented count on a successful removal",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked from sub_4CB5E0 as a slot-deallocation helper",
+      "evidence_refs": ["caller:0x004CB5E0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_558B30(this, a2) {",
+    "  result = *(this + 0x30);",
+    "  if (result <= 0) return result;",
+    "  if (a2 >= *(this + 0x2C)) return result;",
+    "  v4 = *(this + 0x34) + (a2 << 7);",
+    "  if ((*(_BYTE*)v4 & 0x40) == 0) return result;",
+    "  if (*(char*)(this + 0x20) >= 0) {",
+    "    prev = *(v4 + 120);",
+    "    if (prev) *(prev + 124) = *(v4 + 124);",
+    "    next = *(v4 + 124);",
+    "    if (next) *(next + 120) = *(v4 + 120);",
+    "    if (!*(v4 + 120)) *(this + 0x38) = *(v4 + 124);",
+    "    *(v4 + 120) = 0;",
+    "    *(v4 + 124) = 0;",
+    "    goto cleanup;",
+    "  }",
+    "  if (*(*(this + 0x3C) + 4 * result - 4) == v4) goto cleanup;",
+    "  TextureAllocationWithFormatSizeFlags(0);",
+    "  v5 = *(*(this + 0x50) + 0x20);",
+    "  if (v5) {",
+    "    v6 = *(this + 0x24);",
+    "    v7 = v5 + ((v6 * *(v4 + 4)) << 6);",
+    "    v8 = v5 + ((v6 * *(*(*(this + 0x3C) + 4 * result - 4) + 4)) << 6);",
+    "    v10 = 0;",
+    "    do { *v7 = *v8; v7[1] = v8[1]; v7[2] = v8[2]; v7[6] = v8[6]; v7 += 16; v8 += 16; ++v10; }",
+    "    while (v10 < v6);",
+    "  }",
+    "  *(*(*(this + 0x3C) + 4 * result - 4) + 4) = *(v4 + 4);",
+    "  *(*(this + 0x3C) + 4 * *(v4 + 4)) = *(*(this + 0x3C) + 4 * result - 4);",
+    "cleanup:",
+    "  *(DWORD*)v4 &= ~0x40;",
+    "  result = *(this + 0x30) - 1;",
+    "  *(this + 0x30) = result;",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Whether this+0x20's flags byte selects two genuinely different slot representations (doubly-linked list vs compact array) or two container modes of one pool is DERIVED from structure, not confirmed.",
+    "The purpose of the TextureAllocationWithFormatSizeFlags(0) call on the array path (allocation with a zero format argument before copying) is unresolved; it may guarantee a backing buffer for the copy.",
+    "The exact meaning of the slot dword at +4 is only partially resolved: it serves as the copy-stride index and as the value stored into the index array.",
+    "The packet's field base notation *(this+0x30) for the slot link at 0x78 does not literally match the raw source's slot pointer derived from this+0x34; the ref is used verbatim as canonicalized evidence."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

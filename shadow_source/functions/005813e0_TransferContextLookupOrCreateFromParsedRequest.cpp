@@ -1,0 +1,48 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005813E0
+// Canonical corpus name: sub_5813E0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_5813E0_005813e0.c
+
+void UnknownObject::TransferContextLookupOrCreateFromParsedRequest()
+{
+    // Parses a binary request packet (a2) into a stack object v22 via BinaryPacketFieldParserWithOffsetMath, then looks up a transfer context in a mutex-protected singly linked list rooted at this+0xAC8 by comparing each node's +0x14 field against the parsed packet value v22[5]. On a match the parsed data is merged into the existing node with ObjectInitWithCopy; otherwise a new node is allocated (OperatorNewNhMallocWrapper(32), ObjectCopyInitWithVTableSetup from v22), wrapped in a 12-byte link record, appended to the list and the element count at this+0xAD4 incremented. When the node reports type 2 under either the a4 condition or the MutexProtectedPointerReadRelease(this)==3 condition, a 4-dword sockaddr {family 2, htonl(0), htons(0)} is copied from this+0xA84 via Copy4DwordsStructToStruct and sent through sub_57DD40. CounterIncrementDecrementByFlag(v8, a3) adjusts the node reference counter, the mutex is released, and v22 is finalized via SetVtablePointerAndCallInit; returns 0.
+    // CALL: Initialize the stack packet object v22 with ObjectInitWithVTableSetup(v22, -1, 255, 0). [callee:0x00587030, source:raw]
+    // CALL: Parse the incoming request buffer a2 into v22 with BinaryPacketFieldParserWithOffsetMath; the parsed value later used as the list key is v22[5]. [callee:0x00587310, source:raw]
+    // GUARD: If the mutex handle stored at this+0xAD8 is non-null, acquire it via WaitForSingleObject with timeout at this+0xADC; a result of 0 or 128 (WAIT_ABANDONED) selects the list base v4 = this+0xAC8. [field:this:0x00000AD8, field:this:0x00000ADC, field:this:0x00000AC8, global:0x0059E1A0, source:raw]
+    // GUARD: Guard on the list head *(this+0xAC8) == 0: an empty list skips the search and falls through to node allocation. [guard:0, field:*(this+0xAC8):0x00000000, source:raw]
+    // LOOP: Walk the singly linked list from the head stored at this+0xAC8: compare each node's +0x14 field with the parsed key v22[5]; advance through the link dwords at node+0 and node+4, tracking the walk pointer at this+0xAD0. [field:*(this+0xAC8):0x00000000, field:*(*(this+0xAC8)+0x0):0x00000014, field:this:0x00000AD0, field:*(this+0xAD0):0x00000004, field:*(*(this+0xAD0)+0x4):0x00000000, source:raw]
+    // CALL: When a node whose +0x14 field equals the parsed key is found, merge the parsed packet data into the existing node with ObjectInitWithCopy(v8, v22). [callee:0x0057B820, source:raw]
+    // CALL: When no match exists, allocate a 32-byte node via OperatorNewNhMallocWrapper and initialize it from v22 with ObjectCopyInitWithVTableSetup; allocate a 12-byte link wrapper holding the node pointer, a next-link and an in-use byte, append it to the list, update the head/tail pointers at this+0xAC8 and this+0xACC (including the tail node's +4 link field), the walk pointer at this+0xAD0, and increment the element count at this+0xAD4. [callee:0x00587C03, callee:0x0057B7D0, field:this:0x00000AC8, field:this:0x00000ACC, field:*(this+0xACC):0x00000004, field:this:0x00000AD0, field:this:0x00000AD4, source:raw]
+    // GUARD: When the node type reported by sub_587220(v8) equals 2 and the a4 flag is set, trigger the response send path. [callee:0x00587220, source:raw]
+    // CALCULATION: Build the 4-dword sockaddr {family word 2, htonl(0), htons(0)} and copy it into the this+0xA84 area via Copy4DwordsStructToStruct. [callee:0x0057B9F0, global:0x0059E2D8, global:0x0059E2F4, source:raw]
+    // CALL: Transmit the response for the transfer context v8 through sub_57DD40(this, &sockaddr, v8). [callee:0x0057DD40, source:raw]
+    // CALL: Adjust the node reference counter with CounterIncrementDecrementByFlag(v8, a3). [callee:0x00587230, source:raw]
+    // GUARD: When MutexProtectedPointerReadRelease(this) returns 3 and sub_587220(v8) returns 2, rebuild the sockaddr {2, htonl(0), htons(0)} via Copy4DwordsStructToStruct and send it again through sub_57DD40. [callee:0x00585D20, callee:0x00587220, callee:0x0057B9F0, callee:0x0057DD40, global:0x0059E2D8, global:0x0059E2F4, source:raw]
+    // GUARD: If the mutex stored at *(this+0xAD8) is still non-null, release it with ReleaseMutex; this reuses the mutex handle field read for acquisition. [global:0x0059E1A4, field:this:0x00000AD8, source:raw]
+    // CALL: Finalize the stack packet object with SetVtablePointerAndCallInit(v22), guarded by the SEH handler at 0x0059CB33, then return 0. [callee:0x005870D0, global:0x0059CB33, source:raw]
+
+    // Conservative worker pseudocode:
+    //   // v22 is a stack-parsed request object; transfer list is rooted at this+0xAC8.
+    //   ObjectInitWithVTableSetup(v22, -1, 255, 0);
+    //   BinaryPacketFieldParserWithOffsetMath(v22, a2);
+    //   base = 0;
+    //   if (mutex = *(this + 2776))
+    //       if (WaitForSingleObject(mutex, *(this + 2780)) == 0 || == 128) base = this + 2760;
+    //   node = find_node(base, key = v22[5]);   // compare node+20 == key, advance via node+4 links
+    //   if (node) ObjectInitWithCopy(node, v22);
+    //   else {
+    //       node = ObjectCopyInitWithVTableSetup(OperatorNewNhMallocWrapper(32), v22);
+    //       link = OperatorNewNhMallocWrapper(12);   // {node, next, in_use=1}
+    //       append(link); *(base + 12) += 1;
+    //   }
+    //   CounterIncrementDecrementByFlag(node, a3);
+    //   if (sub_587220(node) == 2 && (a4 || MutexProtectedPointerReadRelease(this) == 3))
+    //       sub_57DD40(this, &sockaddr, node);   // sockaddr = {2, htonl(0), htons(0)} copied to this+0xA84
+    //   if (mutex) ReleaseMutex(mutex);
+    //   SetVtablePointerAndCallInit(v22);
+    //   return 0;
+    // UNRESOLVED: The ABI lead names the owning class as NetworkConnectionManager (trust LEGACY), but the owner is unconfirmed by static or runtime evidence here.
+    // UNRESOLVED: The semantic role of the 0x14 field match key and the meaning of sub_587220 type 2 are not established beyond this function.
+    // UNRESOLVED: The this+0xA84 sockaddr area is the class's pre-built network address, copied rather than constructed in this function.
+}

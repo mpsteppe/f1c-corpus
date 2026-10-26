@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "address": "0x004D4A80",
+  "proposed_name": "TelemetrySessionStartAndHeaderWrite",
+  "owner": {
+    "type": "TelemetrySessionObject",
+    "trust": "DERIVED",
+    "evidence_refs": ["abi:lead", "function:0x004D4A80", "source:raw"]
+  },
+  "summary": "Starts a telemetry output session: tears down previous telemetry state, checks the scoring gate, scans the live vehicle array for the active player slot, opens the output file/directory via sub_587DB0, computes the sampling rate (clamped to 1-40 Hz), then writes a CSV-style header with all telemetry channel column names, embeds XML scene configuration, and appends integrity checksums (pseudo-random, XOR/arithmetic-obfuscated vehicle/tyre/session values) plus XOR-decoded driver telemetry data. Frees all scratch allocations before returning.",
+  "local_names": {
+    "this": "telemetry session object (file handle +0x0, rate +0x4, byte offsets +0xC/+0x10/+0x14, counter +0x18)",
+    "v3": "active player vehicle slot pointer (selected from vehicle ptr array)",
+    "v38": "scratch checksum value (XOR-obfuscated before sub_4D5BE0 write)",
+    "v40": "4 random seed bytes read from the file header",
+    "v44": "reallocated scene-path string buffer (freed at end)",
+    "v49": "scene name buffer (extension stripped, seed suffix appended)",
+    "v52": "vehicle name string (from vehicle database array entry)",
+    "v53": "driver name string (copied from vehicle slot +18324)"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Destroy/tear down any previously allocated telemetry state via ResourceDestroy(this).",
+      "evidence_refs": ["callee:0x004D5840", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Gate on ScoringGateCheck(); if it returns zero, abort immediately and return the gate result.",
+      "evidence_refs": ["callee:0x0042BC10", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan dword_7C54F0[] (vehicle pointer array) from 0 while index < dword_5C329C, looking for the first slot whose int32 at +13000 equals 0 (the active/free player slot); stop on the first match.",
+      "evidence_refs": ["global:0x007C54F0", "global:0x005C329C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Only proceed when a player slot was found (loop index != dword_5C329C) and the output path from dword_7CEA34 (fallback byte_5EA438) is non-empty, dword_7CE9D0 > 0, and (dword_7C56A4 != 7 or dword_7CE9F4).",
+      "evidence_refs": ["global:0x007CEA34", "global:0x005EA438", "global:0x007CE9D0", "global:0x007C56A4", "global:0x007CE9F4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Open the telemetry output directory/stream via sub_587DB0(path, &unk_5C2AB0); store the resulting handle into this+0x0.",
+      "evidence_refs": ["callee:0x00587DB0", "global:0x005C2AB0", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute sampling rate as 10 * CRTFtol(40.0 / dword_7CE9D0 + 0.5) into this+0x4, then clamp it to the 1..40 range (40 if above, 1 if below).",
+      "evidence_refs": ["callee:0x00587BDC", "global:0x007CE9D0", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Read 4 bytes (1 element, size 4) from the file handle via FileReadWrapperWithLock into scratch v48.",
+      "evidence_refs": ["callee:0x00588678", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Generate 4 random bytes v40[0..3] with RandLCGRandomNumberGenerator and write them to the file via FileReadWrapperWithLock.",
+      "evidence_refs": ["callee:0x005884ED", "callee:0x00588678", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Derive header byte offsets from the random seed bytes: this+0xC = v12 + v11 + 18, this+0x10 = v41 + v11 + 77, this+0x14 = v16 + v14 + 15, and this+0x18 = 0.",
+      "evidence_refs": ["field:this:0x0000000C", "field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Write the magic header integer 1028443341 via sub_4D5BE0.",
+      "evidence_refs": ["callee:0x004D5BE0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Write the player vehicle's three name/description strings (at slot+17952, slot+18040, slot+18196) and the scene path from dword_7CE5EC (fallback byte_5EA438) via sub_4D5BE0.",
+      "evidence_refs": ["callee:0x004D5BE0", "global:0x007CE5EC", "global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Write the constant 57 (v46) as 4 bytes and the field delimiter byte 4 (v37) as 1 byte via sub_4D5BE0.",
+      "evidence_refs": ["callee:0x004D5BE0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Write the base telemetry column-name headers, each NUL-terminated string separated by the delimiter byte 4: ElapsedTime, PosX, PosY, PosZ, Yaw, LatAccel, VertAccel, LongAccel, EngineRPM, ClutchRPM, UnfilteredThrottle, Throttle, UnfilteredBrake, Brake, UnfilteredSteering, Steering, UnfilteredClutch, Clutch.",
+      "evidence_refs": [
+        "global:0x005D45A4", "global:0x005D4598", "global:0x005D458C", "global:0x005D4580",
+        "global:0x005D4574", "global:0x005D4564", "global:0x005D4550", "global:0x005D453C",
+        "global:0x005D4530", "global:0x005D4524", "global:0x005D4510", "global:0x005C6F6C",
+        "global:0x005D44FC", "global:0x005C565C", "global:0x005D44E8", "global:0x005C6F30",
+        "global:0x005D44D4", "global:0x005C55CC", "callee:0x004D5BE0", "source:raw"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-wheel header loop k=0..3 selecting wheel prefix aFl/aFr/aRl/aRr, writing nine per-wheel channel names (WheelspinRadsS, SuspensionDefl, UndertrayRideH, TyreLeftTempK, TyreCenterTemp, TyreRightTempK, TyrePressureKpa, TyreWear, CornerWeight) each as prefix+channel string plus delimiter byte via sub_4D5BE0.",
+      "evidence_refs": [
+        "global:0x005D44D0", "global:0x005D44CC", "global:0x005D44C8", "global:0x005D44C4",
+        "global:0x005D44B0", "global:0x005D4494", "global:0x005D4478", "global:0x005D4464",
+        "global:0x005D444C", "global:0x005D4438", "global:0x005D4424", "global:0x005D4418",
+        "global:0x005D4408", "callee:0x004D5BE0", "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Write the final column headers Gear, WaterTemperatu, OilTemperature (each with delimiter byte) via sub_4D5BE0.",
+      "evidence_refs": ["global:0x005D4400", "global:0x005D43EC", "global:0x005D43DC", "callee:0x004D5BE0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the vehicle name into v52 from the vehicle-database string entry at 1060 * slotIndex + dword_8AC394 + 8 (fallback byte_5EA438), then copy the driver name from slot+18324 into v53.",
+      "evidence_refs": ["global:0x008AC394", "global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Clear the 256-byte v54 buffer via sub_4CEEF0.",
+      "evidence_refs": ["callee:0x004CEEF0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Build the scene name: copy v49 from the path at dword_7CE5D0 (fallback byte_5EA438) with sub_587DD0, strip the '.' extension suffix, then append the dword_5C5D24 integer and byte_5C5D28 seed bytes.",
+      "evidence_refs": ["callee:0x00587DD0", "global:0x007CE5D0", "global:0x005EA438", "global:0x005C5D24", "global:0x005C5D28", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Initialize scratch tyre-model data (TireModelDataInit) and session struct (SessionStructInit), then parse the vehicle name v52 into the session struct via TheSvmHdvVehicleFileParser(v52, v61, 2).",
+      "evidence_refs": ["callee:0x004F34E0", "callee:0x0042E320", "callee:0x004F4270", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Write integrity checksum block: deterministic pseudo-random values from DeterministicHashPseudoRandomGenerator(&dword_8AAE70), tyre/vehicle values via UtilityFunction_8a60 selectors (40, 151, 4, 148, 153, 26, 161, 82, 242) with XOR/multiply/add obfuscation constants (0x12F3DCAA, 355, 0x516141F2 from flt_7C935C, 1559, 0x2033DAAA, 0x7711DAAB, 69017, 0x7123456C, 59015, 0x99009977, 49414, 0xEEAC5370, 330358, 0x4940AF7E, 1121110*dword_8ACED8+1819630500 XOR 0x12131415, 9*(dword_7C56B8+468717589) XOR 0xABBA717E, 15833346 XOR 0xF12003), each flushed via sub_4D5BE0.",
+      "evidence_refs": [
+        "callee:0x004B3C60", "callee:0x00568A60", "callee:0x004D5BE0",
+        "global:0x008AAE70", "global:0x007C935C", "global:0x008ACED8", "global:0x007C56B8",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Copy the scene path dword_7CE5D0 (fallback byte_5EA438) into a reallocated buffer via StringCopyWithBufferRealloc, then strip its extension at the '.' suffix.",
+      "evidence_refs": ["callee:0x00566650", "global:0x007CE5D0", "global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate dword_8AC488 entries (stride 396) starting at dword_8AC490; for each entry sub_588410(path, entry+4) reports a hit, XOR-accumulate (445 * dword@entry+392) ^ 0xFEC950A4 into v38; the accumulated value is flushed via sub_4D5BE0.",
+      "evidence_refs": ["callee:0x00588410", "callee:0x004D5BE0", "global:0x008AC488", "global:0x008AC490", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Read and XOR-decode the driver telemetry data from the file via FileReadWithXORDecode(v53).",
+      "evidence_refs": ["callee:0x004D5AF0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Free all scratch allocations: v44, v62, v60, v59, v58, v57, v56, v55[0] via FreeWrapper_7bcf and the score/timing scratch v63 via ScoreSlotDeallocator.",
+      "evidence_refs": ["callee:0x00587BCF", "callee:0x0042DDD0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the last result (the FreeWrapper_7bcf return for v55[0] when non-null, else the open-handle/gate result). Invoked from sub_4A00A0.",
+      "evidence_refs": ["caller:0x004A00A0", "function:0x004D4A80", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "ResourceDestroy(this);",
+    "if (!ScoringGateCheck()) return 0;",
+    "slot = first_of(dword_7C54F0[0..dword_5C329C]) where slot[13000] == 0;",
+    "if (slot == none) return;",
+    "path = dword_7CEA34 ?: byte_5EA438;",
+    "if (!strlen(path) || dword_7CE9D0 <= 0 || (dword_7C56A4 == 7 && !dword_7CE9F4)) return;",
+    "this->fh = sub_587DB0(path, &unk_5C2AB0); if (!this->fh) return;",
+    "this->rate = clamp(10 * CRTFtol(40.0 / dword_7CE9D0 + 0.5), 1, 40);",
+    "read 4 bytes seed; write 4 random bytes;",
+    "derive this->+0xC/+0x10/+0x14 from seed bytes; this->+0x18 = 0;",
+    "write magic 1028443341; write vehicle name strings and scene path; write 57 and delimiter 4;",
+    "write base channel headers, per-wheel channel headers, gear/water/oil headers;",
+    "copy vehicle name v52 and driver name v53;",
+    "sub_4CEEF0(v54, 256); build scene name v49 (strip ext, append seed);",
+    "TireModelDataInit(v55); SessionStructInit(v61); TheSvmHdvVehicleFileParser(v52, v61, 2);",
+    "write obfuscated integrity checksums via sub_4D5BE0;",
+    "StringCopyWithBufferRealloc(scene path); loop sub_588410 over dword_8AC488 entries;",
+    "FileReadWithXORDecode(v53);",
+    "free v44/v62/v60/v59/v58/v57/v56/v55[0]; ScoreSlotDeallocator(v63);",
+    "return result;"
+  ],
+  "unresolved": [
+    "Four packet globals (flt_59E450, flt_59E86C, unk_5EC6D0, dword_8ACEA0) are listed as read references but do not appear in the decompiled body; their role is unconfirmed (possibly constant operands forwarded into the CRC/utility helpers).",
+    "The final return path inside the open branch returns FreeWrapper_7bcf(v55[0]) directly, so the semantics of the returned value as a success/failure indicator is ambiguous.",
+    "Owner identity is DERIVED from the canonical name TelemetryDataDump and the LEGACY ABI lead; no confirmed class symbol is present in the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E450",
+    "global:0x0059E86C",
+    "global:0x005EC6D0",
+    "global:0x008ACEA0",
+    "callee:0x005881C0"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "MEDIUM",
+    "control_flow": "HIGH"
+  }
+}

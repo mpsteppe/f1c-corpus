@@ -1,0 +1,2562 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_vehicle_ai_and_pit_01",
+  "scope": "vehicle_ai_and_pit",
+  "subsystem": {
+    "name": "VehicleAIAndPit",
+    "responsibility": "Per-frame vehicle AI racing decisions and pit-lane service: per-slot driver target classification, AI behavior activation and overtake gating, the per-driver pit state machine (idle/entering/in-pit/exiting/post-collision), red-flag pit-exit penalties, pit-timing tick with proximity checks and session-message processing, pit-service steering animation, and tire-compound selection. A small set of out-of-scope helpers (path/rect utilities, camera follow, network/UI dispatch, collision dispatch) are co-located in this wave packet but are not pit/AI logic.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x0040D9FC",
+      "function:0x00418EE0",
+      "function:0x0041B910",
+      "function:0x00421890",
+      "function:0x0042AF40",
+      "function:0x00434D60",
+      "function:0x004496D0",
+      "function:0x004584A0",
+      "function:0x0046DA20",
+      "function:0x00475570",
+      "function:0x00491600",
+      "function:0x0049D070",
+      "function:0x004A4830",
+      "function:0x004A5600",
+      "function:0x004A5E40",
+      "function:0x004A5F20",
+      "function:0x004A6E50",
+      "function:0x004AF220",
+      "function:0x004B42E0",
+      "function:0x004B7A90",
+      "function:0x004B9E40",
+      "function:0x004BBFC0",
+      "function:0x004BEB10"
+    ]
+  },
+  "summary": "DERIVED architecture for the vehicle_ai_and_pit wave-004 packet. The core is a per-driver pit machine (F1CPitMachine) whose +0x184 state field enumerates idle/entering/in-pit/exiting/post-collision and is driven each frame by PitStateUpdateMachine (0x004A6E50), with StateConditionalAction (0x004A5E40) mapping states 0/4 to a state-1 transition and ExitPitsUnderRedHandler (0x004A5F20) handling the one-shot red-flag exit path including penalties. Supporting pit objects are proposed as F1CPitTimingManager (the pit-timing tick), F1CPitServiceSteering (the pit-service steering animation step state machine) and F1CPitCrewMachine (the pit-entry/exit trigger machine that hides/shows the driver model and resets vehicle AI). Vehicle AI side: AIVehicleState (AI state reset), DriverTargetClassifier (per-slot 0/-1/1/2 plus scoring-target 3), AIOvertakeBehavior (time-gated overtake activation) and TireCompoundSettings plus the ITireCompoundLookup string mapper. Several packet functions are out-of-scope helpers grouped as interfaces (path/rect utilities, camera follow, network/session UI dispatch, collision dispatch, constraint-solver cleanup, contact-pair list builder). All ownership beyond the packet-confirmed pit machine is GUESS/DERIVED; conflicting or weakly-evidenced globals are left in unresolved rather than forced into a clean design.",
+  "function_roles": [
+    {
+      "address": "0x0040D9FC",
+      "role": "Destructor-chain teardown: frees the this+0x88 block, destroys the linked list at this+0x4C, re-initializes the constraint-solver params sub-struct at this+0x14, and returns the init result. Owner object type unknown.",
+      "owner": "IConstraintSolverCleanup",
+      "evidence_refs": [
+        "function:0x0040D9FC",
+        "abi:lead",
+        "callee:0x00587BCF",
+        "callee:0x00567A30",
+        "field:this:0x00000088",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00418EE0",
+      "role": "Per-slot driver classification into the this output array (0 default, -1 retired/invalid, 1 player, 2 teammate) over the vehicle entries at unk_5F0CF8; in race mode picks a scoring/overtake target via position and scoring deltas and promotes it to class 3, returning its slot index or -1.",
+      "owner": "DriverTargetClassifier",
+      "evidence_refs": [
+        "function:0x00418EE0",
+        "global:0x005F0CF8",
+        "global:0x007C54F0",
+        "global:0x007C9AF8",
+        "global:0x007D0410",
+        "global:0x007C54E8",
+        "callee:0x0041E840",
+        "callee:0x0041E890",
+        "callee:0x004C2990",
+        "global:0x007D2DB0",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0041B910",
+      "role": "Clears pit-selection flags 123/124/125 on the shared pointer-table entry flt_5EA618 via BooleanOROfTwoChecks, gated by race-active dword_7D0308, track-condition flt_7CF3C8, race phase dword_7C56A8!=8 and action id a1==5; invoked once per frame by the AI pit-logic path sub_4BCCC0.",
+      "owner": "IAIPitSelection",
+      "evidence_refs": [
+        "function:0x0041B910",
+        "abi:lead",
+        "global:0x007D0308",
+        "global:0x007CF3C8",
+        "global:0x007C56A8",
+        "global:0x005EA618",
+        "callee:0x00418A20",
+        "caller:0x004BCCC0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00421890",
+      "role": "Path-string helper: appends a trailing backslash separator (word_5C2AAC two-byte value) to a non-null, non-empty caller-owned buffer and returns the final character.",
+      "owner": "IPathStringUtilities",
+      "evidence_refs": [
+        "function:0x00421890",
+        "global:0x005C2AAC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0042AF40",
+      "role": "Unconditional AI driver state reset on a vehicle object: notifies StateChangeNotify(0), evaluates ConditionalGate at this+12, sets this+0x4410 to 1, clears this+0x45F4 to 0, and returns the gate result.",
+      "owner": "AIVehicleState",
+      "evidence_refs": [
+        "function:0x0042AF40",
+        "abi:lead",
+        "caller:0x004BBFC0",
+        "callee:0x004A5C80",
+        "callee:0x004EFAC0",
+        "field:this:0x00004410",
+        "field:this:0x000045F4",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00434D60",
+      "role": "Per-frame camera-follow routine: interpolates a steering/look angle toward the tracked target and issues vtable follow calls; fixed-camera fallback when the vehicle index is invalid or camera mode is 5.",
+      "owner": "CameraFollowController",
+      "evidence_refs": [
+        "function:0x00434D60",
+        "callee:0x004582A0",
+        "callee:0x004582C0",
+        "callee:0x00456060",
+        "callee:0x00403CD0",
+        "callee:0x004E1FD0",
+        "global:0x005C329C",
+        "global:0x005EA2C0",
+        "global:0x008AFE90",
+        "global:0x008AFE98",
+        "global:0x005EB978",
+        "field:this:0x00000001",
+        "field:this:0x00000004",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "field:this:0x0000002C",
+        "field:this:0x00000030",
+        "field:*(this+0xC):0x00000000",
+        "field:*(*(this+0xC)+0x0):0x00000018",
+        "field:*(this+0xC):0x00000038",
+        "field:*(this+0xC):0x0000003C",
+        "field:*(this+0xC):0x000000A8",
+        "field:*(this+0xC):0x000000B0",
+        "field:*(this+0xC):0x000000BC",
+        "caller:0x00434460",
+        "caller:0x004348B0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004496D0",
+      "role": "Links a run of 0x20-byte nodes at this+0x8 into a singly linked list by writing each node's next pointer at +0x1C; returns the buffer base, or 0 when the element count at this+0 is zero.",
+      "owner": "IContactPairListBuilder",
+      "evidence_refs": [
+        "function:0x004496D0",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004584A0",
+      "role": "Object initializer: writes the vtable pointer at 0x0059F00C into this[0], runs a cleanup/zero-init helper (ConditionalFreeAndStructZeroInit), and returns a short computation over this.",
+      "owner": "CameraNode",
+      "evidence_refs": [
+        "function:0x004584A0",
+        "global:0x0059F00C",
+        "callee:0x00457CF0",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0046DA20",
+      "role": "Session/UI dispatch chain: sets a session-type flag via sub_42D210 on dword_7C569C, creates a UI element (id 30) through the vtable slot at this[16], activates it via sub_46BF10, calls the input/force-feedback helper sub_4D2450 with dword_8ACEE0, then invokes the vtable callback at slot 14.",
+      "owner": "ISessionUiDispatch",
+      "evidence_refs": [
+        "function:0x0046DA20",
+        "callee:0x0042D210",
+        "global:0x007C569C",
+        "field:this:0x00000040",
+        "field:*(this+0x40):0x0000001C",
+        "callee:0x0046BF10",
+        "callee:0x004D2450",
+        "global:0x008ACEE0",
+        "field:obj:0x00000038",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00475570",
+      "role": "Conditional UI network-list refresh: calls the network-state probe on dword_7CD25C, then refreshes via sub_475150 when the state-change check passes; always returns 0.",
+      "owner": "INetworkUiRefresh",
+      "evidence_refs": [
+        "function:0x00475570",
+        "callee:0x00461F70",
+        "global:0x007CD25C",
+        "callee:0x00462140",
+        "callee:0x00475150",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00491600",
+      "role": "Clamps a short[4] rectangle (this+0x0..+0x6) in place into the min (a2,a3) / max (a2+a4, a3+a5) bounds, shrinking dimensions as edges move inward, and returns the bottom bound.",
+      "owner": "IRectClampUtilities",
+      "evidence_refs": [
+        "function:0x00491600",
+        "abi:lead",
+        "caller:0x004993D0",
+        "field:this:0x00000000",
+        "field:this:0x00000002",
+        "field:this:0x00000004",
+        "field:this:0x00000006",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0049D070",
+      "role": "Steering-wheel HUD element update/render: selects an engine input mode from dword_7C54E0, conditionally runs a draw pass plus an audio/animation chain, then advances five lerped animation parameters toward their targets.",
+      "owner": "SteeringWheelHud",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "abi:lead",
+        "global:0x007C54E0",
+        "global:0x007C9081",
+        "callee:0x00543440",
+        "callee:0x0049E4E0",
+        "callee:0x0049D4C0",
+        "callee:0x0049D320",
+        "callee:0x0049D280",
+        "callee:0x0049D3F0",
+        "callee:0x0049D440",
+        "callee:0x0049D480",
+        "callee:0x0049D5D0",
+        "caller:0x0049F070",
+        "field:this:0x00000004",
+        "field:this:0x00000010",
+        "field:this:0x0000004C",
+        "field:this:0x00000050",
+        "field:this:0x00000054",
+        "field:this:0x00000058",
+        "field:this:0x0000005C",
+        "field:this:0x00000064",
+        "field:this:0x000000A0",
+        "field:this:0x000000A4",
+        "field:this:0x000000A8",
+        "field:this:0x000000AC",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004A4830",
+      "role": "Tire-compound name to id mapper: Hard=2, Soft=3, Intermediate=4, Wet=5, Monsoon=6, any other string=1, via chained string comparisons through sub_588410.",
+      "owner": "ITireCompoundLookup",
+      "evidence_refs": [
+        "function:0x004A4830",
+        "abi:lead",
+        "callee:0x00588410",
+        "global:0x005CD534",
+        "global:0x005CD524",
+        "global:0x005CD50C",
+        "global:0x005C7224",
+        "global:0x005CD4F8",
+        "caller:0x00429960",
+        "caller:0x00429FD0",
+        "caller:0x0042A180",
+        "caller:0x004A5C10",
+        "caller:0x004F18C0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004A5600",
+      "role": "Pit-stop state machine transition: swaps the active sub-object at this+0x8, cleaning up the outgoing sub-object (unless operation state at this+0x184 is a blocking state) and either reinitializing (sub_4A3390) or activating (FlagBasedLoopConditionalCall) the new sub-object.",
+      "owner": "F1CPitMachine",
+      "evidence_refs": [
+        "function:0x004A5600",
+        "field:this:0x00000008",
+        "field:this:0x00000184",
+        "field:this:0x00000190",
+        "field:*(this+0x8):0x00000000",
+        "callee:0x004A3440",
+        "callee:0x004A3390",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004A5E40",
+      "role": "Pit-machine state-conditioned action: reads the AI mode state at this+0x184 and, when it is 0 or 4, dispatches a state-1 transition via StateChangeNotify(this, 1); otherwise returns the state unchanged. Called by ForcePitExit on the frame path.",
+      "owner": "F1CPitMachine",
+      "evidence_refs": [
+        "function:0x004A5E40",
+        "field:this:0x00000184",
+        "callee:0x004A5C80",
+        "caller:0x0042A110",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004A5F20",
+      "role": "Pit-state handler fired once on the one-shot flag this+0x180: notifies state 0, clears the flag, increments the vehicle pit-exit counter at vehicle+0x406C, calls AIFormationLap, and per race-config applies a disqualification or time penalty; returns the sub-object helper result when this+0x14 is non-null.",
+      "owner": "F1CPitMachine",
+      "evidence_refs": [
+        "function:0x004A5F20",
+        "caller:0x004A5D10",
+        "caller:0x004A6E50",
+        "field:this:0x00000180",
+        "field:this:0x00000000",
+        "field:obj:0x0000406C",
+        "callee:0x0041A3A0",
+        "callee:0x004A5C80",
+        "global:0x008ACFD4",
+        "global:0x007CEF84",
+        "global:0x007C56A4",
+        "callee:0x004BC0E0",
+        "callee:0x004BBA90",
+        "global:0x005CD698",
+        "field:this:0x00000014",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004A6E50",
+      "role": "Per-frame pit state machine dispatcher: reads the pit state at +0x184 and routes states 0/1/2/3/4 through session gates, collision avoidance, control-disabled collision forcing state 4, entering-timeout, in-pit proximity transition to state 3, exiting pit-stop progress and pit-stop readiness, then runs the tail one-shot handlers (exit-under-red and the +0x1AC flag).",
+      "owner": "F1CPitMachine",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "abi:reviewed",
+        "field:this:0x00000184",
+        "global:0x007C5698",
+        "callee:0x004A6B80",
+        "field:obj:0x000032C8",
+        "field:this:0x00000000",
+        "callee:0x004A6DB0",
+        "callee:0x004A5FA0",
+        "callee:0x004A5C80",
+        "global:0x007CE258",
+        "field:this:0x00000188",
+        "field:this:0x00000190",
+        "global:0x007C54F0",
+        "global:0x007C54DC",
+        "field:this:0x00000004",
+        "callee:0x004D8840",
+        "callee:0x004A68B0",
+        "callee:0x004A6200",
+        "field:this:0x00000180",
+        "callee:0x004E9630",
+        "callee:0x004A5F20",
+        "field:this:0x000001AC",
+        "callee:0x0040D410",
+        "global:0x005EA510",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004AF220",
+      "role": "Tire-compound selector and clamp: switches the mode at this+0x1B34 (cases 1-4) writing compound value/index with per-object min/max clamping; any other mode returns without state change.",
+      "owner": "TireCompoundSettings",
+      "evidence_refs": [
+        "function:0x004AF220",
+        "abi:lead",
+        "field:this:0x00001B34",
+        "field:this:0x00000D98",
+        "field:this:0x00000DA0",
+        "field:this:0x00000DA4",
+        "field:this:0x00001170",
+        "field:this:0x00001178",
+        "field:this:0x0000117C",
+        "global:0x004AF384",
+        "caller:0x00472510",
+        "caller:0x004ADE20",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B42E0",
+      "role": "Dispatches a collision data block through the conditional dispatcher: header (code 4), an optional transformed byte (code 1) when the header tag bits match, and the length-bounded payload; always returns 1.",
+      "owner": "ICollisionDataDispatch",
+      "evidence_refs": [
+        "function:0x004B42E0",
+        "callee:0x00566BD0",
+        "callee:0x00587BDC",
+        "global:0x0059E880",
+        "global:0x005ACD28",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B7A90",
+      "role": "Main pit-timing tick: accumulates elapsed frame time into per-vehicle pit timers, runs pit-stall proximity checks (and car-lighting refresh), dispatches a round-robin slice of vehicle slots, processes queued session-data messages through a ring buffer, and fires pit-stop actions; gated by the disable byte at this+0xF78.",
+      "owner": "F1CPitTimingManager",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "field:this:0x00000F78",
+        "callee:0x004B5C50",
+        "callee:0x00568D90",
+        "field:this:0x00000D78",
+        "callee:0x00568C60",
+        "global:0x005C329C",
+        "field:this:0x00000D7C",
+        "field:this:0x00000F7C",
+        "callee:0x004C71C0",
+        "callee:0x004B5DA0",
+        "field:this:0x00000D28",
+        "callee:0x004B6190",
+        "callee:0x004B3B30",
+        "callee:0x004B3AF0",
+        "global:0x004B7C60",
+        "field:this:0x000009B0",
+        "field:this:0x000009B8",
+        "callee:0x004B6940",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004B9E40",
+      "role": "Pit-service steering animation step: switch on the animation step state at obj+0xF8C (states 0-8) selects queue-peek target angles or steering rate integration; default returns without action.",
+      "owner": "F1CPitServiceSteering",
+      "evidence_refs": [
+        "function:0x004B9E40",
+        "abi:lead",
+        "field:this:0x00000000",
+        "field:obj:0x00000F8C",
+        "global:0x004B9F48",
+        "callee:0x004B87A0",
+        "callee:0x004B86E0",
+        "callee:0x004B9D00",
+        "global:0x008AFE90",
+        "caller:0x004BA180",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BBFC0",
+      "role": "Pit entry/exit state machine on the this+0x30 pit-state field: a pit-trigger object (type tag 0x680000) while idle sets state 2, hides the driver model (obj+0x105D) and calls AIStateReset; a non-pit object resets state to 0 and re-shows the driver model.",
+      "owner": "F1CPitCrewMachine",
+      "evidence_refs": [
+        "function:0x004BBFC0",
+        "global:0x00680000",
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "field:obj:0x0000105D",
+        "field:obj:0x00001054",
+        "callee:0x004E0ED0",
+        "field:this:0x00000000",
+        "callee:0x0042AF40",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x004BEB10",
+      "role": "AI overtaking behavior step: clears the output flag, stores race laps/session type into the behavior object, gates activation on the accumulated-time threshold at +0x354/+0x358, scans for a human driver in qualifying, and (re)initializes the AI behavior via AIBehaviorInitialization before tail-jumping into the rest of the behavior update.",
+      "owner": "AIOvertakeBehavior",
+      "evidence_refs": [
+        "function:0x004BEB10",
+        "field:this:0x00000358",
+        "field:this:0x0000035C",
+        "field:this:0x00000360",
+        "global:0x008ACF8C",
+        "global:0x005C329C",
+        "global:0x007C56A4",
+        "field:this:0x00000354",
+        "global:0x007C54F0",
+        "field:this:0x00000342",
+        "callee:0x004BF0A0",
+        "field:this:0x00000350",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "F1CPitMachine",
+      "responsibility": "Per-driver pit-stop state machine: owns the +0x184 pit state, the active sub-object slot, the one-shot red-flag exit flag, and the per-frame routing between idle/entering/in-pit/exiting/post-collision. Methods confirmed to share this+0x184/this+0x190 ownership by the packet; PitstopStateTransition is grouped here on that field overlap though its owner is packet-UNKNOWN.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x004A5E40",
+        "0x004A5F20",
+        "0x004A6E50",
+        "0x004A5600"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "VehiclePtr",
+          "type_guess": "F1CVehicle*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "MachineIndex",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "ActiveSubObject",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "AuxSubObject",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000180",
+          "name": "ExitPitsUnderRedFlag",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000180"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000184",
+          "name": "PitState",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000184"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000188",
+          "name": "EnteringTimer",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000188"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000190",
+          "name": "StateByte",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000190"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001AC",
+          "name": "TailFlag",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001AC"
+          ]
+        },
+        {
+          "base": "*(this+0x8)",
+          "offset": "0x00000000",
+          "name": "SubObjectFlagByte",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x8):0x00000000"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004A5E40",
+        "function:0x004A5F20",
+        "function:0x004A6E50",
+        "function:0x004A5600",
+        "field:this:0x00000184",
+        "field:this:0x00000190",
+        "callee:0x004A5C80"
+      ]
+    },
+    {
+      "name": "F1CPitCrewMachine",
+      "responsibility": "Pit-entry/exit trigger machine on a separate object (this+0x30 pit-state, this+0x34 stored index) that drives the vehicle's driver-model visibility and resets vehicle AI state on pit entry. Distinct base offsets from F1CPitMachine; common ownership is not packet-proven.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BBFC0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "VehiclePtr",
+          "type_guess": "F1CVehicle*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "PitState",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "PitIndexByte",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000034"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00001054",
+          "name": "RenderMode",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00001054"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x0000105D",
+          "name": "DriverModelVisible",
+          "type_guess": "char",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x0000105D"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BBFC0",
+        "field:obj:0x0000105D",
+        "field:obj:0x00001054",
+        "global:0x00680000",
+        "callee:0x0042AF40"
+      ]
+    },
+    {
+      "name": "F1CPitTimingManager",
+      "responsibility": "Pit-timing tick owner: disable byte, per-vehicle timer accumulators, round-robin step, proximity threshold and pit-stall scratch fields. All field offsets are packet reads/writes but the object identity is unlabeled.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B7A90"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000009B0",
+          "name": "PitStallBase",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000009B0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000009B8",
+          "name": "PitStallIndex",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000009B8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D28",
+          "name": "RoundRobinStep",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000D28"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D78",
+          "name": "PreviousInput",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000D78"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000D7C",
+          "name": "VehiclePitTimers",
+          "type_guess": "float[]",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000D7C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F78",
+          "name": "DisableByte",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000F78"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000F7C",
+          "name": "ProximityThreshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000F7C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "field:this:0x00000F78",
+        "field:this:0x00000D7C",
+        "field:this:0x00000F7C"
+      ]
+    },
+    {
+      "name": "F1CPitServiceSteering",
+      "responsibility": "Pit-service steering animation step state machine. The this+0 deref yields the pit-service data block; the step state lives at obj+0xF8C. Owner identity unlabeled by the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004B9E40"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "PitServiceDataPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000F8C",
+          "name": "AnimationStepState",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:obj:0x00000F8C"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004B9E40",
+        "field:obj:0x00000F8C",
+        "global:0x004B9F48"
+      ]
+    },
+    {
+      "name": "AIVehicleState",
+      "responsibility": "Vehicle-side AI driver state flags reset by the AI pit/entry path: the +0x4410 byte set to 1 and the +0x45F4 byte cleared to 0 on every AIStateReset call. Owner DERIVED from fills, not from packet evidence.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0042AF40"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00004410",
+          "name": "RetiredFlag",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00004410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000045F4",
+          "name": "ActiveFlag",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000045F4"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0042AF40",
+        "field:this:0x00004410",
+        "field:this:0x000045F4",
+        "callee:0x004A5C80",
+        "callee:0x004EFAC0"
+      ]
+    },
+    {
+      "name": "DriverTargetClassifier",
+      "responsibility": "Builds the per-slot driver classification array (0 default, -1 retired/invalid, 1 player, 2 teammate, 3 scoring/overtake target in race mode) over the vehicle grid. this is the caller-provided output array; no persistent state is evident.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00418EE0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "ClassificationOutput",
+          "type_guess": "int[]",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00418EE0",
+        "global:0x005F0CF8",
+        "global:0x007C54F0",
+        "global:0x007C54E8",
+        "global:0x007D0410",
+        "callee:0x0041E840",
+        "callee:0x0041E890",
+        "callee:0x004C2990"
+      ]
+    },
+    {
+      "name": "AIOvertakeBehavior",
+      "responsibility": "AI overtaking behavior object: activation flag, time accumulator/threshold, race-laps and session-type snapshots, and the (re)initialization hook into AIBehaviorInitialization. Owner class unlabeled by the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004BEB10"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000342",
+          "name": "ActivationFlag",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000342"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000350",
+          "name": "TimeIncrement",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000350"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000354",
+          "name": "AccumulatedTime",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000354"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000358",
+          "name": "TimeThreshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000358"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000035C",
+          "name": "TotalRaceLaps",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000035C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000360",
+          "name": "SessionType",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000360"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004BEB10",
+        "field:this:0x00000354",
+        "field:this:0x00000358",
+        "callee:0x004BF0A0",
+        "global:0x008ACF8C",
+        "global:0x007C56A4"
+      ]
+    },
+    {
+      "name": "SteeringWheelHud",
+      "responsibility": "Steering-wheel HUD element: render context and render flag gate the draw pass, five animation parameter sources lerp toward targets under +0x64/+0xA0..0xAC animation storage. Packet-owner UNKNOWN; grouped on field co-occurrence.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0049D070"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "RenderFlag",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "RenderContextPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "AnimParam0",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000004C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000050",
+          "name": "AnimParam1",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000050"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "AnimParam2",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000054"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000058",
+          "name": "AnimParam3",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000058"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "AnimParam4",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "AnimationTargetStorage",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000064"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A0",
+          "name": "AnimationTargets",
+          "type_guess": "float[4]",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A4",
+          "name": "AnimationTargets",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A8",
+          "name": "AnimationTargets",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A8"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000AC",
+          "name": "AnimationTargets",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000AC"
+          ]
+        },
+        {
+          "base": "*(this+0x64)",
+          "offset": "0x0000001C",
+          "name": "SteeringInputField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x64):0x0000001C"
+          ]
+        },
+        {
+          "base": "*(this+0x64)",
+          "offset": "0x00000020",
+          "name": "SteeringInputField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x64):0x00000020"
+          ]
+        },
+        {
+          "base": "*(this+0xB0)",
+          "offset": "0x00000054",
+          "name": "GeometryField",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xB0):0x00000054"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0049D070",
+        "global:0x007C54E0",
+        "global:0x007C9081",
+        "callee:0x00543440"
+      ]
+    },
+    {
+      "name": "CameraFollowController",
+      "responsibility": "Per-frame camera-follow controller over a target object: steering thresholds, vehicle index, interpolation scale, and the follow vector written to the target. The target is reached through this+0xC. Owner unlabeled by the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00434D60"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000001",
+          "name": "OneShotFlag",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000001"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "CameraMode",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "TargetPtr",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "SteerLowThreshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "SteerHighThreshold",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "VehicleIndex",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "SecondaryIndex",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "PrevElementIndex",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "InterpScale",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030"
+          ]
+        },
+        {
+          "base": "*(this+0xC)",
+          "offset": "0x00000000",
+          "name": "TargetVTable",
+          "type_guess": "void**",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xC):0x00000000"
+          ]
+        },
+        {
+          "base": "*(this+0xC)",
+          "offset": "0x00000038",
+          "name": "SteeringWrite",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0xC):0x00000038"
+          ]
+        },
+        {
+          "base": "*(this+0xC)",
+          "offset": "0x0000003C",
+          "name": "LookWrite",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0xC):0x0000003C"
+          ]
+        },
+        {
+          "base": "*(this+0xC)",
+          "offset": "0x000000A8",
+          "name": "SteeringAngle",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0xC):0x000000A8"
+          ]
+        },
+        {
+          "base": "*(this+0xC)",
+          "offset": "0x000000B0",
+          "name": "ActiveFlag",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xC):0x000000B0"
+          ]
+        },
+        {
+          "base": "*(this+0xC)",
+          "offset": "0x000000BC",
+          "name": "CameraAnchorValue",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xC):0x000000BC"
+          ]
+        },
+        {
+          "base": "*(*(this+0xC)+0x0)",
+          "offset": "0x00000018",
+          "name": "ActiveFlagInVtableStruct",
+          "type_guess": "char",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0xC)+0x0):0x00000018"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00434D60",
+        "callee:0x004582A0",
+        "callee:0x004582C0",
+        "callee:0x00456060",
+        "callee:0x00403CD0",
+        "callee:0x004E1FD0",
+        "global:0x005C329C",
+        "global:0x005EA2C0"
+      ]
+    },
+    {
+      "name": "CameraNode",
+      "responsibility": "Camera-related object initializer that installs a vtable pointer and runs a cleanup/zero-init helper. The CameraNode label is DERIVED from existing analysis only; the packet does not identify the object.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004584A0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "VTablePtr",
+          "type_guess": "void**",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000000"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004584A0",
+        "global:0x0059F00C",
+        "callee:0x00457CF0"
+      ]
+    },
+    {
+      "name": "TireCompoundSettings",
+      "responsibility": "Tire-compound settings object: compound value + index with per-object min/max clamp bounds and a mode selector. Callers at TrackEnvironmentSelect consume the writes; the object type is unlabeled by the packet.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004AF220"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000D98",
+          "name": "CompoundValue",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000D98"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000DA0",
+          "name": "CompoundValueMin",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000DA0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000DA4",
+          "name": "CompoundValueMax",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000DA4"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001170",
+          "name": "CompoundIndex",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001170"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001178",
+          "name": "CompoundIndexMin",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001178"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000117C",
+          "name": "CompoundIndexMax",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000117C"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001B34",
+          "name": "CompoundModeSelector",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B34"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004AF220",
+        "field:this:0x00000D98",
+        "field:this:0x00001170",
+        "field:this:0x00001B34",
+        "global:0x004AF384"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "PitStateMachine",
+      "owner": "F1CPitMachine",
+      "states": [
+        {
+          "name": "Idle",
+          "value": 0
+        },
+        {
+          "name": "Entering",
+          "value": 1
+        },
+        {
+          "name": "InPit",
+          "value": 2
+        },
+        {
+          "name": "Exiting",
+          "value": 3
+        },
+        {
+          "name": "PostCollision",
+          "value": 4
+        }
+      ],
+      "transitions": [
+        {
+          "from": "Idle",
+          "to": "Entering",
+          "trigger": "StateConditionalAction maps state 0 to a state-1 transition via StateChangeNotify(this, 1)"
+        },
+        {
+          "from": "PostCollision",
+          "to": "Entering",
+          "trigger": "StateConditionalAction maps state 4 to a state-1 transition via StateChangeNotify(this, 1)"
+        },
+        {
+          "from": "Any",
+          "to": "Idle",
+          "trigger": "ExitPitsUnderRedHandler notifies state 0 when the this+0x180 one-shot flag is set"
+        },
+        {
+          "from": "Entering",
+          "to": "Idle",
+          "trigger": "entering timeout: session time minus the this+0x188 timer exceeds 150.0"
+        },
+        {
+          "from": "InPit",
+          "to": "PostCollision",
+          "trigger": "proximity collision detected while vehicle control is disabled (sets dword_7CE258, notifies state 4)"
+        },
+        {
+          "from": "InPit",
+          "to": "Exiting",
+          "trigger": "proximity collision detected: clear this+0x190, notify state 3"
+        }
+      ],
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "function:0x004A5E40",
+        "function:0x004A5F20",
+        "field:this:0x00000184",
+        "field:this:0x00000188",
+        "field:this:0x00000190",
+        "field:this:0x00000180",
+        "callee:0x004A5C80",
+        "callee:0x004A5FA0",
+        "global:0x007CE258"
+      ]
+    },
+    {
+      "name": "PitCrewMachineState",
+      "owner": "F1CPitCrewMachine",
+      "states": [
+        {
+          "name": "Idle",
+          "value": 0
+        },
+        {
+          "name": "Entering",
+          "value": 2
+        }
+      ],
+      "transitions": [
+        {
+          "from": "Idle",
+          "to": "Entering",
+          "trigger": "pit-trigger object whose type tag (*(_DWORD*)a2 & 0xFC0000) == 0x680000"
+        },
+        {
+          "from": "Entering",
+          "to": "Idle",
+          "trigger": "encounter with a non-pit trigger object resets state 2 to 0"
+        }
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004BBFC0",
+        "field:this:0x00000030",
+        "global:0x00680000"
+      ]
+    },
+    {
+      "name": "PitServiceSteeringAnimation",
+      "owner": "F1CPitServiceSteering",
+      "states": [
+        {
+          "name": "QueuePeekPlus",
+          "value": 0
+        },
+        {
+          "name": "QueuePeekMinus",
+          "value": 1
+        },
+        {
+          "name": "AccumulateRate0",
+          "value": 2
+        },
+        {
+          "name": "AccumulateRate1",
+          "value": 3
+        },
+        {
+          "name": "AccumulateRate2",
+          "value": 4
+        },
+        {
+          "name": "Clamped",
+          "value": 5
+        },
+        {
+          "name": "AccumulateRate3",
+          "value": 6
+        },
+        {
+          "name": "AccumulateRate4",
+          "value": 7
+        },
+        {
+          "name": "AccumulateRate5",
+          "value": 8
+        }
+      ],
+      "transitions": [
+        {
+          "from": "QueuePeekPlus",
+          "to": "Clamped",
+          "trigger": "after queue peek, angle step and AngleClampWrap, store state 5"
+        },
+        {
+          "from": "QueuePeekMinus",
+          "to": "Clamped",
+          "trigger": "after queue peek, angle step and AngleClampWrap, store state 5"
+        }
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004B9E40",
+        "field:obj:0x00000F8C",
+        "callee:0x004B87A0",
+        "callee:0x004B86E0",
+        "callee:0x004B9D00",
+        "global:0x004B9F48"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "IConstraintSolverCleanup",
+      "purpose": "Teardown and re-initialization of a constraint-solver parameter sub-struct: free the owned block, destroy the inner linked list, reset the params, and return the init result.",
+      "functions": [
+        "0x0040D9FC"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0040D9FC",
+        "abi:lead",
+        "callee:0x00587BCF",
+        "callee:0x00567A30",
+        "field:this:0x00000088",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IAIPitSelection",
+      "purpose": "Per-frame clearing of pit-selection flags 123/124/125 on the shared pointer-table entry flt_5EA618 from the AI pit-logic path.",
+      "functions": [
+        "0x0041B910"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0041B910",
+        "abi:lead",
+        "global:0x005EA618",
+        "global:0x007D0308",
+        "global:0x007CF3C8",
+        "global:0x007C56A8",
+        "callee:0x00418A20",
+        "caller:0x004BCCC0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IPathStringUtilities",
+      "purpose": "Path-string helper: append a trailing backslash separator to a non-empty caller-owned buffer.",
+      "functions": [
+        "0x00421890"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00421890",
+        "global:0x005C2AAC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IContactPairListBuilder",
+      "purpose": "Links a packed 0x20-byte node buffer into a singly linked list by writing next pointers at +0x1C.",
+      "functions": [
+        "0x004496D0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004496D0",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ISessionUiDispatch",
+      "purpose": "Session/UI/input dispatch chain: session-type flag write, UI element creation and activation through vtable slots, input/force-feedback helper, and a vtable callback.",
+      "functions": [
+        "0x0046DA20"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0046DA20",
+        "callee:0x0042D210",
+        "global:0x007C569C",
+        "field:this:0x00000040",
+        "field:*(this+0x40):0x0000001C",
+        "callee:0x0046BF10",
+        "callee:0x004D2450",
+        "global:0x008ACEE0",
+        "field:obj:0x00000038",
+        "field:this:0x00000000",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "INetworkUiRefresh",
+      "purpose": "Conditional refresh of the UI network browser list when a state-change probe reports a change.",
+      "functions": [
+        "0x00475570"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00475570",
+        "callee:0x00461F70",
+        "global:0x007CD25C",
+        "callee:0x00462140",
+        "callee:0x00475150",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "IRectClampUtilities",
+      "purpose": "Clamp a short[4] rectangle into min/max bounds, shrinking dimensions as edges move inward, returning the bottom bound.",
+      "functions": [
+        "0x00491600"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00491600",
+        "abi:lead",
+        "caller:0x004993D0",
+        "field:this:0x00000000",
+        "field:this:0x00000002",
+        "field:this:0x00000004",
+        "field:this:0x00000006",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ITireCompoundLookup",
+      "purpose": "Maps a tire-compound name string to the internal compound id (Hard=2, Soft=3, Intermediate=4, Wet=5, Monsoon=6, other=1).",
+      "functions": [
+        "0x004A4830"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004A4830",
+        "abi:lead",
+        "callee:0x00588410",
+        "global:0x005CD534",
+        "global:0x005CD524",
+        "global:0x005CD50C",
+        "global:0x005C7224",
+        "global:0x005CD4F8",
+        "caller:0x00429960",
+        "caller:0x00429FD0",
+        "caller:0x0042A180",
+        "caller:0x004A5C10",
+        "caller:0x004F18C0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "ICollisionDataDispatch",
+      "purpose": "Dispatches a collision data block (header, transformed value, payload) through the conditional dispatcher with fixed dispatch codes.",
+      "functions": [
+        "0x004B42E0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004B42E0",
+        "callee:0x00566BD0",
+        "callee:0x00587BDC",
+        "global:0x0059E880",
+        "global:0x005ACD28",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x004A6E50",
+      "to": "0x004A5F20",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "caller:0x004A6E50",
+        "callee:0x004A5F20"
+      ]
+    },
+    {
+      "from": "0x004A6E50",
+      "to": "0x004A5C80",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "callee:0x004A5C80"
+      ]
+    },
+    {
+      "from": "0x004A6E50",
+      "to": "0x004A5FA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "callee:0x004A5FA0"
+      ]
+    },
+    {
+      "from": "0x004A6E50",
+      "to": "0x004A6200",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "callee:0x004A6200"
+      ]
+    },
+    {
+      "from": "0x004A6E50",
+      "to": "0x004A68B0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "callee:0x004A68B0"
+      ]
+    },
+    {
+      "from": "0x004A6E50",
+      "to": "0x004A6B80",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "callee:0x004A6B80"
+      ]
+    },
+    {
+      "from": "0x004A6E50",
+      "to": "0x004A6DB0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "callee:0x004A6DB0"
+      ]
+    },
+    {
+      "from": "0x004A6E50",
+      "to": "0x004D8840",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "callee:0x004D8840"
+      ]
+    },
+    {
+      "from": "0x004A6E50",
+      "to": "0x004E9630",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "callee:0x004E9630"
+      ]
+    },
+    {
+      "from": "0x004A6E50",
+      "to": "0x0040D410",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "callee:0x0040D410"
+      ]
+    },
+    {
+      "from": "0x004A5E40",
+      "to": "0x004A5C80",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A5E40",
+        "callee:0x004A5C80"
+      ]
+    },
+    {
+      "from": "0x004A5F20",
+      "to": "0x004A5C80",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A5F20",
+        "callee:0x004A5C80"
+      ]
+    },
+    {
+      "from": "0x004A5F20",
+      "to": "0x0041A3A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A5F20",
+        "callee:0x0041A3A0"
+      ]
+    },
+    {
+      "from": "0x004A5F20",
+      "to": "0x004BC0E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A5F20",
+        "callee:0x004BC0E0"
+      ]
+    },
+    {
+      "from": "0x004A5F20",
+      "to": "0x004BBA90",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A5F20",
+        "callee:0x004BBA90"
+      ]
+    },
+    {
+      "from": "0x004A5600",
+      "to": "0x004A3440",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A5600",
+        "callee:0x004A3440"
+      ]
+    },
+    {
+      "from": "0x004A5600",
+      "to": "0x004A3390",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A5600",
+        "callee:0x004A3390"
+      ]
+    },
+    {
+      "from": "0x004BBFC0",
+      "to": "0x0042AF40",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BBFC0",
+        "callee:0x0042AF40"
+      ]
+    },
+    {
+      "from": "0x004BBFC0",
+      "to": "0x004E0ED0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BBFC0",
+        "callee:0x004E0ED0"
+      ]
+    },
+    {
+      "from": "0x004B7A90",
+      "to": "0x004B5C50",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "callee:0x004B5C50"
+      ]
+    },
+    {
+      "from": "0x004B7A90",
+      "to": "0x00568D90",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "callee:0x00568D90"
+      ]
+    },
+    {
+      "from": "0x004B7A90",
+      "to": "0x00568C60",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "callee:0x00568C60"
+      ]
+    },
+    {
+      "from": "0x004B7A90",
+      "to": "0x004C71C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "callee:0x004C71C0"
+      ]
+    },
+    {
+      "from": "0x004B7A90",
+      "to": "0x004B5DA0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "callee:0x004B5DA0"
+      ]
+    },
+    {
+      "from": "0x004B7A90",
+      "to": "0x004B6190",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "callee:0x004B6190"
+      ]
+    },
+    {
+      "from": "0x004B7A90",
+      "to": "0x004B3B30",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "callee:0x004B3B30"
+      ]
+    },
+    {
+      "from": "0x004B7A90",
+      "to": "0x004B3AF0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "callee:0x004B3AF0"
+      ]
+    },
+    {
+      "from": "0x004B7A90",
+      "to": "0x004B6940",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B7A90",
+        "callee:0x004B6940"
+      ]
+    },
+    {
+      "from": "0x004B9E40",
+      "to": "0x004B87A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B9E40",
+        "callee:0x004B87A0"
+      ]
+    },
+    {
+      "from": "0x004B9E40",
+      "to": "0x004B86E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B9E40",
+        "callee:0x004B86E0"
+      ]
+    },
+    {
+      "from": "0x004B9E40",
+      "to": "0x004B9D00",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B9E40",
+        "callee:0x004B9D00"
+      ]
+    },
+    {
+      "from": "0x004BEB10",
+      "to": "0x004BF0A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004BEB10",
+        "callee:0x004BF0A0"
+      ]
+    },
+    {
+      "from": "0x00418EE0",
+      "to": "0x0041E840",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00418EE0",
+        "callee:0x0041E840"
+      ]
+    },
+    {
+      "from": "0x00418EE0",
+      "to": "0x0041E890",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00418EE0",
+        "callee:0x0041E890"
+      ]
+    },
+    {
+      "from": "0x00418EE0",
+      "to": "0x004C2990",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00418EE0",
+        "callee:0x004C2990"
+      ]
+    },
+    {
+      "from": "0x0041B910",
+      "to": "0x00418A20",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0041B910",
+        "callee:0x00418A20"
+      ]
+    },
+    {
+      "from": "0x00434D60",
+      "to": "0x004582A0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00434D60",
+        "callee:0x004582A0"
+      ]
+    },
+    {
+      "from": "0x00434D60",
+      "to": "0x004582C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00434D60",
+        "callee:0x004582C0"
+      ]
+    },
+    {
+      "from": "0x00434D60",
+      "to": "0x00456060",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00434D60",
+        "callee:0x00456060"
+      ]
+    },
+    {
+      "from": "0x00434D60",
+      "to": "0x00403CD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00434D60",
+        "callee:0x00403CD0"
+      ]
+    },
+    {
+      "from": "0x00434D60",
+      "to": "0x004E1FD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00434D60",
+        "callee:0x004E1FD0"
+      ]
+    },
+    {
+      "from": "0x004A4830",
+      "to": "0x00588410",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A4830",
+        "callee:0x00588410"
+      ]
+    },
+    {
+      "from": "0x004B42E0",
+      "to": "0x00566BD0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B42E0",
+        "callee:0x00566BD0"
+      ]
+    },
+    {
+      "from": "0x004B42E0",
+      "to": "0x00587BDC",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004B42E0",
+        "callee:0x00587BDC"
+      ]
+    },
+    {
+      "from": "0x004584A0",
+      "to": "0x00457CF0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004584A0",
+        "callee:0x00457CF0"
+      ]
+    },
+    {
+      "from": "0x0046DA20",
+      "to": "0x0042D210",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0046DA20",
+        "callee:0x0042D210"
+      ]
+    },
+    {
+      "from": "0x0046DA20",
+      "to": "0x0046BF10",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0046DA20",
+        "callee:0x0046BF10"
+      ]
+    },
+    {
+      "from": "0x0046DA20",
+      "to": "0x004D2450",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0046DA20",
+        "callee:0x004D2450"
+      ]
+    },
+    {
+      "from": "0x00475570",
+      "to": "0x00461F70",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00475570",
+        "callee:0x00461F70"
+      ]
+    },
+    {
+      "from": "0x00475570",
+      "to": "0x00462140",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00475570",
+        "callee:0x00462140"
+      ]
+    },
+    {
+      "from": "0x00475570",
+      "to": "0x00475150",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00475570",
+        "callee:0x00475150"
+      ]
+    },
+    {
+      "from": "0x0049D070",
+      "to": "0x00543440",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "callee:0x00543440"
+      ]
+    },
+    {
+      "from": "0x0049D070",
+      "to": "0x0049E4E0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "callee:0x0049E4E0"
+      ]
+    },
+    {
+      "from": "0x0049D070",
+      "to": "0x0049D4C0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "callee:0x0049D4C0"
+      ]
+    },
+    {
+      "from": "0x0049D070",
+      "to": "0x0049D320",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "callee:0x0049D320"
+      ]
+    },
+    {
+      "from": "0x0049D070",
+      "to": "0x0049D280",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "callee:0x0049D280"
+      ]
+    },
+    {
+      "from": "0x0049D070",
+      "to": "0x0049D3F0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "callee:0x0049D3F0"
+      ]
+    },
+    {
+      "from": "0x0049D070",
+      "to": "0x0049D440",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "callee:0x0049D440"
+      ]
+    },
+    {
+      "from": "0x0049D070",
+      "to": "0x0049D480",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "callee:0x0049D480"
+      ]
+    },
+    {
+      "from": "0x0049D070",
+      "to": "0x0049D5D0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0049D070",
+        "callee:0x0049D5D0"
+      ]
+    },
+    {
+      "from": "0x0040D9FC",
+      "to": "0x00587BCF",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0040D9FC",
+        "callee:0x00587BCF"
+      ]
+    },
+    {
+      "from": "0x0040D9FC",
+      "to": "0x00567A30",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0040D9FC",
+        "callee:0x00567A30"
+      ]
+    },
+    {
+      "from": "0x0042AF40",
+      "to": "0x004A5C80",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042AF40",
+        "callee:0x004A5C80"
+      ]
+    },
+    {
+      "from": "0x0042AF40",
+      "to": "0x004EFAC0",
+      "kind": "call",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0042AF40",
+        "callee:0x004EFAC0"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "PitStateMachineEnumeration",
+      "category": "state_enum",
+      "description": "The pit machine state field at this+0x184 enumerates 0 idle, 1 entering, 2 in-pit, 3 exiting, 4 post-collision. PitStateUpdateMachine routes each state, and both state 0 and state 4 map to a state-1 transition in StateConditionalAction. A replacement executable must preserve these state values and routing.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A6E50",
+        "function:0x004A5E40",
+        "field:this:0x00000184"
+      ]
+    },
+    {
+      "name": "TireCompoundIdMapping",
+      "category": "enum_mapping",
+      "description": "TireCompoundNameToId maps the compound name strings to Hard=2, Soft=3, Intermediate=4, Wet=5, Monsoon=6 and any other string=1; the ids are consumed by AI and pit callers. A replacement must preserve the mapping.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004A4830",
+        "global:0x005C7224",
+        "global:0x005CD4F8",
+        "callee:0x00588410"
+      ]
+    },
+    {
+      "name": "PitStateNotifyContract",
+      "category": "event_dispatch",
+      "description": "Pit machine transitions are recorded and dispatched through StateChangeNotify(this, state) (0x004A5C80), the same dispatcher used by AIStateReset with argument 0. A replacement must keep this shared dispatcher contract.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004A5E40",
+        "function:0x004A5F20",
+        "function:0x004A6E50",
+        "function:0x0042AF40",
+        "callee:0x004A5C80"
+      ]
+    },
+    {
+      "name": "RedFlagPitExitEffects",
+      "category": "state_effect",
+      "description": "ExitPitsUnderRedHandler increments the vehicle pit-exit counter at vehicle+0x406C, calls AIFormationLap, and per the race-config gate dword_8ACFD4==2 and session type dword_7C56A4==7 applies a disqualification or a 1000.0 time penalty with the exiting-pits message string. A replacement must reproduce these effects on the one-shot this+0x180 flag.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004A5F20",
+        "field:obj:0x0000406C",
+        "callee:0x0041A3A0",
+        "global:0x008ACFD4",
+        "global:0x007C56A4",
+        "callee:0x004BC0E0",
+        "callee:0x004BBA90"
+      ]
+    },
+    {
+      "name": "PitServiceSteeringStateMap",
+      "category": "state_enum",
+      "description": "Pit-service steering animation advances a step state at obj+0xF8C through values 0-8; states 0/1 peek the event queue and clamp to state 5, states 2-8 integrate a scaled steering rate via FloatAccumulator. A replacement must preserve the step-state values and the queue/accumulator contract.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004B9E40",
+        "field:obj:0x00000F8C",
+        "callee:0x004B87A0",
+        "callee:0x004B9D00"
+      ]
+    },
+    {
+      "name": "ConditionalDispatchCodes",
+      "category": "dispatch_contract",
+      "description": "DispatchCollisionBlockWithTypeCheck routes a collision block through ConditionalDispatch_6bd0 (0x00566BD0) with dispatch code 4 (header), code 1 (transformed byte when header tag bits match) and a payload whose length is read from header bits [17:8]. A replacement must keep this code/length contract.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004B42E0",
+        "callee:0x00566BD0"
+      ]
+    },
+    {
+      "name": "DriverClassificationValues",
+      "category": "enum_mapping",
+      "description": "ClassifyDriverTargets writes per-slot classification values 0 default, -1 retired/invalid, 1 player, 2 teammate, and 3 for the promoted scoring/overtake target in race mode. A replacement must preserve these classifications for AI target consumers.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00418EE0",
+        "field:this:0x00000000",
+        "global:0x007D0410"
+      ]
+    }
+  ],
+  "unresolved": [
+    "F1CPitMachine method set: the packet confirms F1CPitMachine ownership only for 0x004A5E40, 0x004A5F20 and 0x004A6E50; PitstopStateTransition (0x004A5600) is grouped into the same class on the shared this+0x184/this+0x190 field evidence though its packet owner is UNKNOWN.",
+    "F1CPitCrewMachine operates on a separate pit-state field (this+0x30/this+0x34) whose relationship to the F1CPitMachine +0x184 state is unresolved; equal offsets are NOT merged across the two objects.",
+    "F1CPitTimingManager, F1CPitServiceSteering, F1CPitTiming fields and TireCompoundSettings all use packet offsets but their concrete object types are unlabeled; the classes are GUESS groupings, not confirmed ownership.",
+    "flt_59E43C and flt_59E7F4 are declared as referenced globals for ClassifyDriverTargets but do not appear in its raw body; their role in the scoring threshold is unresolved.",
+    "flt_59E440 is flagged by packet facts for several functions (ClearPitSelectionFlags, SteeringInterpolationCameraFollow, SteeringWheelAnimation, AIOvertake) but never appears in any raw body; its role (the skeleton fill labels it a zero threshold) is unverifiable from this packet.",
+    "flt_59E600, flt_5ACD14 and flt_5ACD18 are listed as referenced globals for PitServiceSteeringAnimationStep but do not appear in its raw source.",
+    "flt_59E7EC, flt_59E8A4 and flt_59E8EC are listed as referenced globals for SteeringInterpolationCameraFollow but do not appear in its raw body.",
+    "flt_59E87C and dbl_59EA08 are listed as referenced globals for PitTimingUpdate but the time gate renders the literals 0.025 and 0.001 directly; the existing labels (TimeStepMultiplier, collision skin/clock tolerance) are not adopted here.",
+    "dbl_59E880 and dbl_5ACD28 are referenced by DispatchCollisionBlockWithTypeCheck; their exact association with the inlined constant 0.0001670000056037679 is not determinable from this packet.",
+    "global:0x005ACB08 and global:0x008AD298 are recorded as referenced by PitStateUpdateMachine but are absent from its raw body.",
+    "dword_7C54F0 (VehiclePtrArray) is read by PitStateUpdateMachine and AIOvertake and consumed indirectly inside VehicleInstanceListBuilder/sub_4B6190; no direct operation is assigned in PitTimingUpdate.",
+    "global:0x005EB978 is recorded as read by ExitPitsUnderRedHandler but does not appear in its decompiled text; role unresolved.",
+    "field:obj:0x000032C8 (the this+0 deref vehicle-control sentinel) and field:this:0x00000000 in PitStateUpdateMachine gate the control-disabled collision path; the reached object's identity and full layout are external to the function.",
+    "field:*(this+0x64):0x0000001C, field:*(this+0x64):0x00000020 and field:*(this+0xB0):0x00000054 are flagged by SteeringWheelAnimation packet facts but never appear in its raw source.",
+    "The +16484 per-vehicle field read by the AIOvertake qualifying scan, the exact enum meanings of dword_8ACFD4==2 and dword_7C56A4==7, and the tail-jump logic at 0x4BEC10/0x4BEEF2/0x4BEF10 are not evidenced in this packet.",
+    "Several packet functions are outside the vehicle_ai_and_pit scope: PathTrailingBackslashNormalizer, RectClampToBounds, ConditionalNetworkUiRefresh, DispatchChainWithVTableCalls, SteeringInterpolationCameraFollow, VTableInitCallChain, linkContactPairList and DispatchCollisionBlockWithTypeCheck are recorded here as helper interfaces/classes only.",
+    "SubObjectDestructorChain's ConstraintSolverParamInit callee and the ShortComputation_62a0 tail of VTableInitCallChain are absent from the packet callee lists, so their addresses are unknown.",
+    "The exact meaning of the F1CPitMachine operation states 3/4 (blocking) at this+0x184 and the sub-object flag bit 0 used to pick reinitialization versus direct activation are not explained by the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E43C",
+    "global:0x0059E7F4",
+    "global:0x0059E440",
+    "global:0x0059E600",
+    "global:0x005ACD14",
+    "global:0x005ACD18",
+    "global:0x0059E7EC",
+    "global:0x0059E8A4",
+    "global:0x0059E8EC",
+    "global:0x0059E87C",
+    "global:0x0059EA08",
+    "global:0x005ACB08",
+    "global:0x008AD298",
+    "global:0x005EB978",
+    "global:0x007C54F0",
+    "field:obj:0x000032C8",
+    "field:this:0x00000000",
+    "field:*(this+0x64):0x0000001C",
+    "field:*(this+0x64):0x00000020",
+    "field:*(this+0xB0):0x00000054",
+    "abi:lead",
+    "caller:0x004993D0"
+  ],
+  "confidence": {
+    "boundaries": "HIGH",
+    "ownership": "MEDIUM",
+    "field_semantics": "MEDIUM",
+    "contracts": "LOW"
+  }
+}

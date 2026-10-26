@@ -1,0 +1,35 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C5690
+// Canonical corpus name: SceneDataParser
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SceneDataParser_004c5690.c
+
+void UnknownObject::findSceneRegistryIndex()
+{
+    // Takes a scene file path, strips the directory component (everything up to the last backslash) and the file extension (everything from the last dot) into v18, then iterates the scene registry at dword_8AC490 (stride 396 = 0x18C) for dword_8AC488 entries. Each entry's path is stripped the same way into v15; entries whose stripped name is empty are skipped. When sub_596C80 reports the two base filenames equal, dword_8AC48C is set to the matched index and the function returns 0. If no entry matches, the scene count dword_8AC488 is returned.
+    // CALCULATION: Initialise the 77-byte v18 (and v15) name buffers: copy the first byte of byte_5EA438, memset the remaining 0x4C bytes to 0, and zero the trailing __int16/char fields, giving an empty null-terminated string buffer. [global:0x005EA438, source:raw]
+    // CALCULATION: Scan the input path a1 from its end for the last backslash (0x5C); if found, copy the substring after it into v18, extracting the file-name component. If no backslash exists the whole path is copied. [source:raw]
+    // CALCULATION: Scan v18 from its end for the last dot (0x2E) and write a null terminator there, stripping the file extension from the copied name. [source:raw]
+    // LOOP: Iterate the scene registry: for i from 0 in steps of 396 (0x18C) across the dword_8AC490 array of scene paths, bounded by the scene count dword_8AC488. [global:0x008AC490, global:0x008AC488, source:raw]
+    // CALCULATION: For each registry entry at (i + dword_8AC490 + 4), extract its base filename into v15 applying the same last-backslash split and last-dot extension strip used on the input path. [global:0x008AC490, global:0x008AC488, source:raw]
+    // GUARD: Skip registry entries whose stripped base filename v15 is empty (strlen(v15) == 0); they are never compared. [source:raw]
+    // CALL: Compare the input's stripped base name v18 against the entry's stripped name via sub_596C80(v18, v15, strlen(v15)). [callee:0x00596C80, source:raw]
+    // STATE_TRANSITION: When sub_596C80 returns 0 (names equal), set dword_8AC48C = v7 (the current registry index) and break out of the loop, recording the matched scene slot. [global:0x008AC48C, callee:0x00596C80, source:raw]
+    // RETURN: Return the scene count dword_8AC488 when no entry matches (and when the count is not positive, so the registry is empty); on a successful match the function returns 0 from the comparison. [global:0x008AC488, source:raw]
+
+    // Conservative worker pseudocode:
+    //   initBuffer(v18); initBuffer(v15);
+    //   copy last-\\-delimited component of a1 into v18; strip from last '.' in v18;
+    //   result = SceneFileCount; idx = 0;
+    //   if (SceneFileCount > 0)
+    //     for (i = 0; ; i += 396) {
+    //       copy last-\\-delimited component of SceneArray[i]+4 into v15; strip from last '.';
+    //       if (strlen(v15) != 0 && sub_596C80(v18, v15, strlen(v15)) == 0) break;
+    //       if (++idx >= SceneFileCount) return SceneFileCount;
+    //     }
+    //   CurrentSceneIndex = idx;
+    //   return result;
+    // UNRESOLVED: The 396-byte stride and the +4 offset into dword_8AC490 describe a scene record layout that is DERIVED from the loop code, not proven by packet fields.
+    // UNRESOLVED: Exact comparison semantics of sub_596C80 (case sensitivity, path normalization) are not visible from this packet.
+    // UNRESOLVED: Role of the byte copied from byte_5EA438 (a default application directory path prefix) is not evidenced beyond buffer priming.
+}

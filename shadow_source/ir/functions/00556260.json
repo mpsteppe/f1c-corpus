@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "address": "0x00556260",
+  "proposed_name": "HighResolutionTimerInit",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00556260", "source:raw"]
+  },
+  "summary": "Initializes a high-resolution timer structure (legacy ABI name Unidentified_Logic_High_Res_Timer_Setup). Selects a backend by the mode argument a2: mode 1 reads QueryPerformanceFrequency/QueryPerformanceCounter and stores the counter low/high parts and the frequency low part; mode 2 snapshots an RDTSC timestamp through RDTSCTimestampRead and stores 1000000 * v11 as the base. Both paths then finalize the struct: copy the last timestamp (0x18/0x1C) to a previous pair (0x20/0x24), zero accumulator fields (0x10/0x14, 0x28/0x2C, 0x4/0x5 pairs via 0x10/0x14), store the mode selector at offset 0x48, and compute the conversion factor 2^32 / base at the double at offset 0x8. Always returns 0. Called from engine init, audio-system, and other setup paths.",
+  "local_names": {
+    "this": "high-resolution timer structure (double-indexed base)",
+    "a2": "backend mode selector (1 = QPC, 2 = RDTSC)",
+    "v7": "copy of the stored high timestamp part",
+    "v11": "RDTSC-derived scale value",
+    "v10": "40-byte zero-init scratch used by the RDTSC path"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Branch on the mode selector a2: take the QueryPerformanceCounter path when a2 == 1, else the RDTSC path when a2 == 2.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "QPC path: if QueryPerformanceFrequency(&Frequency) succeeds, query QueryPerformanceCounter(&PerformanceCount).",
+      "evidence_refs": ["global:0x0059E240", "global:0x0059E23C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "QPC path: store the query results - last-query timestamp low part at offset 0x18 and high part at offset 0x1C, and the frequency low part as the base at offset 0x0.",
+      "evidence_refs": ["field:this:0x00000018", "field:this:0x0000001C", "field:this:0x00000000"]
+    },
+    {
+      "kind": "call",
+      "description": "RDTSC path: StructZeroInitConstructor_f080(v10), GlobalDataCopy(v10), RDTSCTimestampRead((char *)this + 28, this + 3) snapshots the timestamp, and EmptyStub_7470(v10) releases the scratch.",
+      "evidence_refs": ["callee:0x0055F080", "callee:0x0055FBC0", "callee:0x0055687B", "callee:0x00557470"]
+    },
+    {
+      "kind": "assignment",
+      "description": "RDTSC path: store 1000000 * v11 as the base at offset 0x0.",
+      "evidence_refs": ["field:this:0x00000000"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Finalization: copy the stored last-query low part from offset 0x18 into the previous low part at offset 0x20, and keep the high part v7 from offset 0x1C.",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000018", "field:this:0x0000001C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Finalization: store the mode selector a2 at offset 0x48; zero the accumulators at offsets 0x10 and 0x14 (dword index pairs 4/5) and offsets 0x28 and 0x2C (indices 10/11); store v7 as the previous high part at offset 0x24.",
+      "evidence_refs": ["field:this:0x00000048", "field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000028", "field:this:0x0000002C", "field:this:0x00000024"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the tick-to-time conversion factor as the double at offset 0x8: 4294967296.0 divided by the (double) unsigned base value read from offset 0x0.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000000"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 in all paths.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (a2 == 1) {",
+    "  if (QueryPerformanceFrequency(&Frequency)) {",
+    "    QueryPerformanceCounter(&PerformanceCount);",
+    "    *(dword)(this+6) = PerformanceCount.LowPart;",
+    "    *(dword)(this+7) = PerformanceCount.HighPart;",
+    "    *(dword)this = Frequency.LowPart;",
+    "  }",
+    "} else if (a2 == 2) {",
+    "  StructZeroInitConstructor_f080(v10); GlobalDataCopy(v10);",
+    "  RDTSCTimestampRead((char*)this + 28, this + 3);",
+    "  *(dword)this = 1000000 * v11; EmptyStub_7470(v10);",
+    "}",
+    "*(dword)(this+8) = *(dword)(this+6);",
+    "v7 = *(dword)(this+7);",
+    "*(dword)(this+18) = a2;",
+    "*(dword)(this+10) = 0; *(dword)(this+11) = 0;",
+    "*(dword)(this+9) = v7; *(dword)(this+4) = 0; *(dword)(this+5) = 0;",
+    "this[1] = 4294967296.0 / (double)*(unsigned int*)this;",
+    "return 0;"
+  ],
+  "unresolved": [
+    "Global dbl_5AF448 appears in the packet globals but is not directly referenced in the reconstructed source; it is likely the backing storage for the 4294967296.0 constant, but that mapping is not evidenced.",
+    "The extracted global byte_FF00000000005406 (address 0xFF00000000005406) is not referenced by the source and its role here is unknown; the address itself is outside the image range and may be a stale extraction artifact.",
+    "GlobalDataCopy and StructZeroInitConstructor_f080 semantics for the 40-byte scratch v10 are not evidenced beyond their call signatures.",
+    "The exact meaning of v11 (RDTSC scale) and the accumulator fields is inferred from naming only; this packet carries no runtime observation."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005AF448",
+    "global:0xFF00000000005406"
+  ],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

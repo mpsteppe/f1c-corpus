@@ -1,0 +1,41 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0054A600
+// Canonical corpus name: sub_54A600
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_54A600_0054a600.c
+
+void UnknownObject::ObjectConstructorInitializer()
+{
+    // Constructor/initializer for a large object (at least 0x238 bytes of initialized dword fields). Delegates base zero-initialization to GlobalZeroInit_c2a0, initializes an embedded float struct at byte offset +0x6C via F_10FloatStructInitializer, sets defaults (byte +0x0 to 0, index 15 to 0, index 20 to 6), writes three identity float values (1.0f) at +0x194/+0x198/+0x19C, zeroes two 0x40-byte buffers, clears the remaining dword fields, and returns `this` for constructor chaining.
+    // CALL: GlobalZeroInit_c2a0(this) performs the base zero-initialization of the object [callee:0x0053C2A0, source:raw]
+    // CALL: F_10FloatStructInitializer(this + 27) initializes an embedded float struct at byte offset +0x6C [callee:0x0053B130, source:raw]
+    // ASSIGNMENT: Set default scalar fields: *(_BYTE*)this = 0 and this[15] = 0 [field:this:0x00000000, field:this:0x0000003C, source:raw]
+    // ASSIGNMENT: Set this[20] = 6 (non-zero default at offset +0x50) [field:this:0x00000050, source:raw]
+    // ASSIGNMENT: memset(this + 53, 0, 0x40u) zeroes the 0x40-byte buffer starting at byte offset +0xD4 [source:raw]
+    // ASSIGNMENT: memset(this + 104, 0, 0x40u) zeroes the 0x40-byte buffer starting at byte offset +0x1A0 [source:raw]
+    // ASSIGNMENT: Set this[101..103] = 1065353216 (1.0f) at offsets +0x194, +0x198, +0x19C [field:this:0x00000194, field:this:0x00000198, field:this:0x0000019C, source:raw]
+    // ASSIGNMENT: Zero the triple this[21..23] at offsets +0x54, +0x58, +0x5C [field:this:0x00000054, field:this:0x00000058, field:this:0x0000005C, source:raw]
+    // ASSIGNMENT: Zero the triple this[24..26] at offsets +0x60, +0x64, +0x68 [field:this:0x00000060, field:this:0x00000064, field:this:0x00000068, source:raw]
+    // ASSIGNMENT: Zero the triple this[8..10] at offsets +0x20, +0x24, +0x28 [field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, source:raw]
+    // ASSIGNMENT: Zero the triple this[11..13] at offsets +0x2C, +0x30, +0x34 [field:this:0x0000002C, field:this:0x00000030, field:this:0x00000034, source:raw]
+    // ASSIGNMENT: Zero this[14] at offset +0x38 [field:this:0x00000038, source:raw]
+    // ASSIGNMENT: Zero this[120..142] at offsets +0x1E0, +0x1E4, +0x1EC, +0x1F0, +0x1F4, +0x1F8, +0x1FC, +0x200, +0x204, +0x208, +0x20C, +0x210, +0x214, +0x218, +0x21C, +0x220, +0x224, +0x228, +0x22C, +0x230, +0x234, +0x238 [field:this:0x000001E0, field:this:0x000001E4, field:this:0x000001EC, field:this:0x000001F0, field:this:0x000001F4, field:this:0x000001F8, field:this:0x000001FC, field:this:0x00000200, field:this:0x00000204, field:this:0x00000208, field:this:0x0000020C, field:this:0x00000210, field:this:0x00000214, field:this:0x00000218, field:this:0x0000021C, field:this:0x00000220, field:this:0x00000224, field:this:0x00000228, field:this:0x0000022C, field:this:0x00000230, field:this:0x00000234, field:this:0x00000238, source:raw]
+    // ASSIGNMENT: Zero this[16..19] at offsets +0x40, +0x44, +0x48, +0x4C [field:this:0x00000040, field:this:0x00000044, field:this:0x00000048, field:this:0x0000004C, source:raw]
+    // RETURN: Return `this` (standard constructor chaining) [function:0x0054A600, source:raw]
+    // CALL: Invocation context: called by MeshResourceAllocator (005450e0), sub_557670 (00557670) and SceneNode (0055a910), consistent with an object/mesh-node constructor [caller:0x005450E0, caller:0x00557670, caller:0x0055A910, source:raw]
+
+    // Conservative worker pseudocode:
+    //   GlobalZeroInit_c2a0(this);
+    //   F_10FloatStructInitializer(this + 27);
+    //   this[15] = 0;
+    //   *(BYTE*)this = 0;
+    //   this[20] = 6;
+    //   memset(this + 53, 0, 0x40);
+    //   memset(this + 104, 0, 0x40);
+    //   this[101] = 1.0f; this[102] = 1.0f; this[103] = 1.0f;
+    //   zero this[21..26], this[8..13], this[120..142], this[14], this[16..19];
+    //   return this;
+    // UNRESOLVED: The two memset buffers (0x40 bytes each, starting at byte offsets +0xD4 and +0x1A0) are zeroed but have no per-field evidence refs in the packet, so the individual fields within them are not enumerated
+    // UNRESOLVED: The embedded float struct initialized at +0x6C (this + 27) has no field-level evidence refs; only its initializer call is attested
+    // UNRESOLVED: Object class identity is unknown; the shared this-layout among MeshResourceAllocator, sub_557670 and SceneNode does not by itself prove a common class (equal offsets on unrelated this pointers are not proof of identical fields)
+}

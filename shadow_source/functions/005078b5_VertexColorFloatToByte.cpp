@@ -1,0 +1,35 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005078B5
+// Canonical corpus name: VertexColorFloatToByte
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/VertexColorFloatToByte_005078b5.c
+
+void UnknownObject::VertexColorFloatToByte()
+{
+    // Converts floating-point vertex color data to 8-bit RGB bytes. Optionally runs DirectXVertexBufferFormatConversion when the format flag at this+0x1048 is set, computes a source base from this+0x2C and the packed (a2,a3) indices, calls UtilityFunction_7473, then for each of this+0x1058 vertices scales three floats by 255.0 and writes consecutive R,G,B bytes. Returns the conversion-state global dword_8B009C.
+    // GUARD: If this[1042] (this+0x1048) is non-zero, convert the vertex buffer format before processing. [field:this:0x00001048]
+    // CALL: Call DirectXVertexBufferFormatConversion(this, a4) and replace a4 with the converted format. [callee:0x00506CE2, field:this:0x00001048]
+    // CALCULATION: Compute the source base v5 = this[11] (this+0x2C) + 4 * ((a3 & 3) + 8 * (a2 & 3)). [field:this:0x0000002C]
+    // CALL: Unconditional call to UtilityFunction_7473 before the conversion loop. [callee:0x00507473]
+    // LOOP: For each of this[1046] (this+0x1058) vertices, read three floats from the source quad (indexed by i & 3), add the base offset, scale by 255.0, and write consecutive R,G,B bytes to the output stream; advance the source cursor 16 bytes per quad and the output cursor 3 bytes per vertex. [field:this:0x00001058]
+    // RETURN: Return the conversion-state global dword_8B009C. [global:0x008B009C]
+
+    // Conservative worker pseudocode:
+    //   // this+0x1048: format-conversion flag; this+0x1058: vertex count; this+0x2C: vertex data base
+    //   if (this[1042] != 0)
+    //       a4 = DirectXVertexBufferFormatConversion(this, a4);
+    //   src = this[11] + 4 * ((a3 & 3) + 8 * (a2 & 3));
+    //   UtilityFunction_7473();
+    //   out = <output pointer>;              // v6, uninitialized in decompiled text
+    //   for (i = 0; i < this[1046]; ++i) {
+    //       base = *(float*)(src + 4 * (i & 3));
+    //       out[0] = (int)(*(float*)(v7 + a4 + 8) * 255.0 + base);   // R
+    //       out[1] = (int)(*(float*)(v7 + a4 + 4) * 255.0 + base);   // G
+    //       out[2] = (int)(*(float*)(v7 + a4 + 0) * 255.0 + base);   // B
+    //       out += 3;
+    //   }
+    //   return dword_8B009C;
+    // UNRESOLVED: Global flt_59FEC8 is read but never appears in the raw pseudocode; it likely supplies the 255.0 scale constant, but that mapping is not evidenced.
+    // UNRESOLVED: Output byte pointer v6 is uninitialized in the decompiled text; the true destination buffer is not evidenced.
+    // UNRESOLVED: Exact channel ordering (R,G,B write order) is inferred from statement order only.
+}

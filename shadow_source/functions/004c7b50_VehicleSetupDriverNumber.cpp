@@ -1,0 +1,35 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C7B50
+// Canonical corpus name: VehicleSetupDriverNumber
+// Owner: F1CVehicle [CONFIRMED]
+// Raw source: functions/VehicleSetupDriverNumber_004c7b50.c
+
+void F1CVehicle::VehicleSetupDriverNumber()
+{
+    // Vehicle setup step called from VehgenScnFileLoader: looks up the driver number in a named-entry format list using strings from the vehicle record and stores the result in field 0x489C (DriverID). When the first lookup returns negative it falls back to a lookup derived from a vehicle-array entry computed as dword_8AC394 + 1060 * field 0x4898, substituting byte_5EA438 as the name list when the entry name pointer is empty. It then scans the same format list against a long-description string and stores the resulting index in field 0x48A0, which is also returned.
+    // ASSIGNMENT: NamedEntryLookupInFormatList(&dword_5EA5E8, name at this+17952, format-list data at this+18196): store its result into field this+18588 (0x489C). [callee:0x00415230, global:0x005EA5E8, field:this:0x0000489C]
+    // GUARD: If the stored lookup result in field this+18588 (0x489C) is negative (not found), take the fallback path. [callee:0x00415230, field:this:0x0000489C]
+    // CALCULATION: Compute the vehicle-array entry address as dword_8AC394 + 1060 * field this+18584 (0x4898). [global:0x008AC394, field:this:0x00004898]
+    // GUARD: If the computed vehicle-array entry address is non-zero, continue the fallback lookup. [global:0x008AC394]
+    // GUARD: Read the entry name pointer at the entry; if the dword at the entry is zero, substitute v4 = byte_5EA438 as the name list. [global:0x005EA438]
+    // ASSIGNMENT: NamedEntryLookupInFormatList(&dword_5EA5E8, name at entry+188, name list v4): store its result into field this+18588 (0x489C), overwriting the failed lookup. [callee:0x00415230, global:0x005EA5E8, global:0x005EA438, field:this:0x0000489C]
+    // ASSIGNMENT: LinkedListIndexScannerWithValidation(&dword_5EA5E8, long-description string at this+18104): store its result into field this+18592 (0x48A0). [callee:0x00415550, global:0x005EA5E8, field:this:0x000048A0]
+    // RETURN: Return the linked-list scan result stored in field this+18592 (0x48A0). [callee:0x00415550, field:this:0x000048A0]
+
+    // Conservative worker pseudocode:
+    //   this->driverId(0x489C) = NamedEntryLookupInFormatList(&dword_5EA5E8, this+17952, this+18196);
+    //   if (this->driverId(0x489C) < 0) {
+    //       entry = dword_8AC394 + 1060 * this->driverIndex(0x4898);
+    //       if (entry) {
+    //           nameList = *(char**)entry;
+    //           if (!*(dword*)entry) nameList = byte_5EA438;
+    //           this->driverId(0x489C) = NamedEntryLookupInFormatList(&dword_5EA5E8, entry+188, nameList);
+    //       }
+    //   }
+    //   this->secondaryId(0x48A0) = LinkedListIndexScannerWithValidation(&dword_5EA5E8, this+18104);
+    //   return this->secondaryId(0x48A0);
+    // UNRESOLVED: Identity of the string at this+17952 (candidate: driver full name) and of the format-list argument at this+18196.
+    // UNRESOLVED: What the long-description string at this+18104 contains and what the 0x48A0 index selects.
+    // UNRESOLVED: Semantics of the 1060-byte vehicle-array stride on dword_8AC394.
+    // UNRESOLVED: Role of byte_5EA438 as the fallback name list.
+}

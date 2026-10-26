@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "address": "0x004B5C50",
+  "proposed_name": "BuildVehicleInstanceLists",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Iterates 104 per-slot vehicle entries in a2 (each 18624 bytes apart), building and maintaining per-slot linked lists of tracked vehicle instances anchored at this+0x44. Compares vehicle identity strings, stamps session time onto new instances, and reuses entry nodes from the free list.",
+  "local_names": {
+    "v2": "per-slot list pointer (this + 0x44)",
+    "v13": "iteration counter over 104 slots",
+    "v3": "per-slot list head node",
+    "v5": "vehicle instance pointer",
+    "v7": "entry node from free list",
+    "v9": "newly allocated list node"
+  },
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Iterate 104 vehicle-slot entries in a2, each 18624 bytes apart; each slot maintains a list anchored at the this+0x44 head with a tail at 0x48 and a count at 0x4C",
+      "evidence_refs": ["field:this:0x00000044", "field:this:0x00000048", "field:this:0x0000004C", "function:0x004B5C50"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the slot list head pointer into the tail pointer at 0x48 at the start of the iteration",
+      "evidence_refs": ["field:this:0x00000044", "field:this:0x00000048"]
+    },
+    {
+      "kind": "guard",
+      "description": "Skip the rest of the slot when its list head at this+0x44 is null",
+      "evidence_refs": ["guard:0", "field:this:0x00000044"]
+    },
+    {
+      "kind": "call",
+      "description": "Compare the slot vehicle identity string via VehicleIdentityStringComparison; on a match, move to the next slot without touching the instance",
+      "evidence_refs": ["callee:0x004B5120", "field:*(this+0x44):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "If the vehicle instance timestamp at 0x88 equals -1.0e32, stamp it with the session time global dbl_8AFEA0",
+      "evidence_refs": ["field:*(*(this+0x44)+0x0):0x00000088", "global:0x008AFEA0"]
+    },
+    {
+      "kind": "guard",
+      "description": "Proceed to create an entry only when the slot active marker at a2+13000 differs from -1",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Obtain a reusable entry node: first try LinkedListNodeRemoval_a830 on the free-list head at 0x10; if that yields nothing, allocate a container via OperatorNewNhMallocWrapper and FixedSizeContainerConstructor, initialize it with sub_4BAF10, then pop a node via sub_4BB0C0; store the reused node into the temp pointer at 0x18",
+      "evidence_refs": ["callee:0x004BA830", "callee:0x00587C03", "callee:0x004BAA50", "callee:0x004BAF10", "callee:0x004BB0C0", "field:this:0x00000010", "field:this:0x00000018"]
+    },
+    {
+      "kind": "call",
+      "description": "Copy the driver/team identity from a2 into the entry via DriverNameTeamCopy",
+      "evidence_refs": ["callee:0x004B51E0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Set the entry timestamp field at 0x84 to the session time global dbl_8AFEA0",
+      "evidence_refs": ["field:*(this+0x10):0x00000084", "global:0x008AFEA0"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Allocate a 12-byte list node via OperatorNewNhMallocWrapper, store the entry pointer in it, and clear its next-link field at 0x4 and its flag byte",
+      "evidence_refs": ["callee:0x00587C03", "field:*(this+0x44):0x00000004"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Link the node into the slot list: when no node exists yet set both the head at 0x44 and the tail at 0x48 to it, otherwise attach it after the current head; then move the head forward to the new node and increment the count at 0x4C",
+      "evidence_refs": ["field:this:0x00000044", "field:this:0x00000048", "field:this:0x0000004C", "field:*(this+0x44):0x00000000"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the final value of the decremented slot counter",
+      "evidence_refs": ["source:raw", "function:0x004B5C50"]
+    }
+  ],
+  "clean_pseudocode": [
+    "for (slot = 0; slot < 104; slot++, a2 += 18624) {",
+    "  tail = head;",
+    "  if (!head) continue;",
+    "  entry = head->entry;",
+    "  if (VehicleIdentityStringComparison(entry->identity, a2)) continue;",
+    "  if (entry->timestamp == -1.0e32) entry->timestamp = dbl_8AFEA0;",
+    "  if (a2->activeMarker != -1) {",
+    "    node = reuseOrAllocEntry();",
+    "    DriverNameTeamCopy(node, a2);",
+    "    node->timestamp = dbl_8AFEA0;",
+    "    link = OperatorNewNhMallocWrapper(12);",
+    "    link->entry = node; link->next = 0;",
+    "    prepend link to slot list; count++;",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "flt_5ACD10 is listed as a referenced global but no visible use survives in the decompiled source; its proposed role (EntityActiveDefault) is unconfirmed.",
+    "The exact type of the vehicle instance and the meaning of the field at 0x84 (driver-name vs timestamp) are DERIVED from prior analysis, not proven here.",
+    "A concrete owning class is unknown; the single caller PitTimingUpdate only suggests a pit-timing subsystem relationship."
+  ],
+  "unresolved_evidence_refs": ["global:0x005ACD10"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

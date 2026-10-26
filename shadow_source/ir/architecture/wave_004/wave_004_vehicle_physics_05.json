@@ -1,0 +1,1677 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_vehicle_physics_05",
+  "scope": "vehicle_physics",
+  "subsystem": {
+    "name": "VehiclePhysics",
+    "responsibility": "Scene-graph node world-transform computation and per-frame state update, mesh vertex material/lighting transform pipelines, rigid-body inertia tensor and reference-frame math, constraint-point batching, and the allocator-node plumbing that backs physics subsystem state. The ten functions share the scene-transform vtable dword_8B8F24, the scene context global dword_8B8F28, rigid-body matrix layouts at this+0x1C..0x5C, and a common allocator/finalize/free idiom.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x0054B770",
+      "function:0x0054CA00",
+      "function:0x005569F0",
+      "function:0x0055E320",
+      "function:0x005692A0",
+      "function:0x00569410",
+      "function:0x00569990",
+      "function:0x0056F100",
+      "function:0x0058EF83",
+      "function:0x0058F6FE",
+      "global:0x008B8F24",
+      "global:0x008B8F28"
+    ]
+  },
+  "summary": "Proposes six classes over the ten validated functions. SceneGraphNode (0x0054B770, 0x005569F0) owns world-matrix composition from local/parent/scale state and the per-frame node update with transform upload, collision detection, and bone copies via the dword_8B8F24 vtable. MeshVertexBatchProcessor (0x0054CA00) and MeshVertexLightingTransform (0x0055E320) process mesh vertex elements (material-based transforms, stride selection by flag bit 23) and per-vertex transform/lighting/color-pack respectively, both consuming dword_8B8F24 / dword_8B8F28. RigidBody (0x005692A0, 0x00569410, 0x00569990) groups the R*I*R^T inertia-tensor transform, the R*inv(I)*R^T*T torque-to-angular-acceleration solve, and the world-to-local constraint-point append, sharing the rotation-matrix layout at this+0x1C..0x5C and position at this+0x4/+0xC/+0x14. PhysicsConstraintBatch (0x0056F100) re-roots an active subset of rigid bodies (array stride 580) into a target body's local frame through three constraint batch arrays. AllocatorNodeManager (0x0058EF83, 0x0058F6FE) groups two free functions sharing the allocate (sub_58AB58) / init / finalize (sub_58F362 / MultiFieldFree_f8eb) / free (sub_58AA6F) idiom, keyed by the dword_8D3F44 / dword_8D3F3C mode globals; their common ownership is pattern-based only.",
+  "function_roles": [
+    {
+      "address": "0x0054B770",
+      "role": "SceneNodeTransformUpdate: recompute the node world transform from the local matrix at this+0xD4, the parent world matrix (parent+0x114), and per-axis scale factors at this+0x194/0x198/0x19C; compose via the dword_8B8F24 vtable slot +8 and write this+0x114 (unscaled) or this+0x1A0 (scaled path, bit 14 of this+0x3C).",
+      "owner": "SceneGraphNode",
+      "evidence_refs": [
+        "function:0x0054B770",
+        "field:this:0x00000040",
+        "field:this:0x0000003C",
+        "field:this:0x00000094",
+        "field:this:0x000000D4",
+        "field:this:0x00000114",
+        "field:this:0x00000194",
+        "field:this:0x00000198",
+        "field:this:0x0000019C",
+        "global:0x008B8F24",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0054CA00",
+      "role": "VertexElementBatchProcess: iterate the vertex element array (this[71], 64-byte stride) applying material-based vertex/UV transforms through jump tables jpt_54CBC0 / jpt_54CE21, dedup materials via sub_54FC70, wait on audio state (sub_540940), copy index data, and set done flags (this+0x14 |= 0x9000020). Invoked per node by PriorityQueueRecursiveProcess.",
+      "owner": "MeshVertexBatchProcessor",
+      "evidence_refs": [
+        "function:0x0054CA00",
+        "caller:0x00544DB0",
+        "field:this:0x00000014",
+        "field:this:0x00000118",
+        "field:this:0x0000011C",
+        "field:this:0x00000138",
+        "callee:0x00540940",
+        "callee:0x0054E0E0",
+        "callee:0x0054E0F0",
+        "callee:0x0054FC70",
+        "callee:0x005472D0",
+        "callee:0x0055D720",
+        "global:0x008B78A0",
+        "global:0x008B8F28",
+        "global:0x00800000",
+        "global:0x0054D00C",
+        "global:0x0054D01C",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005569F0",
+      "role": "SceneNodeStateUpdateWithTransform: run the animation-channel timer update (0x00551760) and dispatch setup (sub_54B570), compute the mesh bounding box (0x0054D9F0) when a2+428 is zero, upload the world transform through the dword_8B8F24 vtable slot +4 when flag 0x20000000 is clear, run collision contact detection (0x0054D7A0), copy 8 bone transforms when flags 0x4 set / 0x8 clear, then material/shader processing (sub_55ED10, sub_55D5C0) and finalize (sub_556D60) under the 0x5 flags.",
+      "owner": "SceneGraphNode",
+      "evidence_refs": [
+        "function:0x005569F0",
+        "callee:0x00551760",
+        "callee:0x0054B570",
+        "callee:0x0054D9F0",
+        "callee:0x0054D7A0",
+        "callee:0x0055ED10",
+        "callee:0x0055D5C0",
+        "callee:0x00556D60",
+        "field:this:0x00000204",
+        "global:0x008B8F24",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0055E320",
+      "role": "VertexTransformAndLight: per-vertex 3D transform, lighting, and color-pack. Selects a 12- or 16-byte stride from the node flag word (unk_800000), transforms through the dword_8B8F24 vtable (+0/+20/+24), optionally relocates dynamic vertices, weights by per-vertex distance, packs lit colors via MMX packuswb (qword_8B6C20) into this+0x20 output at +24/+28 and specular channels at +40/+44, scaling specular via TableLookupScale (0x0053AC40).",
+      "owner": "MeshVertexLightingTransform",
+      "evidence_refs": [
+        "function:0x0055E320",
+        "caller:0x0054BDC0",
+        "caller:0x0054D9F0",
+        "caller:0x0055D720",
+        "callee:0x0053AC40",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000018",
+        "field:this:0x00000020",
+        "field:this:0x00000128",
+        "field:*(this+0x128):0x00000000",
+        "field:*(this+0x128):0x00000010",
+        "field:*(this+0x128):0x00000014",
+        "field:*(this+0x128):0x00000018",
+        "field:*(this+0x128):0x0000001C",
+        "field:*(*(this+0x128)+0x0):0x00000000",
+        "field:*(*(this+0x128)+0x0):0x00000038",
+        "field:*(*(this+0x128)+0x0):0x0000003C",
+        "field:*(*(this+0x128)+0x0):0x00000040",
+        "field:*(*(this+0x128)+0x0):0x00000050",
+        "global:0x00800000",
+        "global:0x008B6C20",
+        "global:0x008B8F24",
+        "global:0x008B8F28",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005692A0",
+      "role": "InertiaTensorWorld: transform the diagonal body-space inertia (0xD4/0xDC/0xE4) by the 3x3 rotation matrix (0x1C..0x5C) as R*I*R^T, writing the symmetric world-space inertia matrix at 0xEC..0x12C (upper triangle computed, lower triangle mirrored by paired DWORD copies).",
+      "owner": "RigidBody",
+      "evidence_refs": [
+        "function:0x005692A0",
+        "field:this:0x0000001C",
+        "field:this:0x00000024",
+        "field:this:0x0000002C",
+        "field:this:0x00000034",
+        "field:this:0x0000003C",
+        "field:this:0x00000044",
+        "field:this:0x0000004C",
+        "field:this:0x00000054",
+        "field:this:0x0000005C",
+        "field:this:0x000000D4",
+        "field:this:0x000000DC",
+        "field:this:0x000000E4",
+        "field:this:0x000000EC",
+        "field:this:0x000000F4",
+        "field:this:0x000000F8",
+        "field:this:0x000000FC",
+        "field:this:0x00000100",
+        "field:this:0x00000104",
+        "field:this:0x00000108",
+        "field:this:0x0000010C",
+        "field:this:0x00000114",
+        "field:this:0x00000118",
+        "field:this:0x0000011C",
+        "field:this:0x00000120",
+        "field:this:0x00000124",
+        "field:this:0x00000128",
+        "field:this:0x0000012C",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00569410",
+      "role": "InertiaTensorAngularAcceleration: compute world-space angular acceleration from a torque vector (0x7C/0x84/0x8C) as R * diag(1/I) * R^T * T, reading the rotation matrix (0x1C..0x5C) and inverse-inertia diagonals (0xBC/0xC4/0xCC), writing the result at 0x94/0x9C/0xA4.",
+      "owner": "RigidBody",
+      "evidence_refs": [
+        "function:0x00569410",
+        "field:this:0x0000001C",
+        "field:this:0x00000024",
+        "field:this:0x0000002C",
+        "field:this:0x00000034",
+        "field:this:0x0000003C",
+        "field:this:0x00000044",
+        "field:this:0x0000004C",
+        "field:this:0x00000054",
+        "field:this:0x0000005C",
+        "field:this:0x0000007C",
+        "field:this:0x00000084",
+        "field:this:0x0000008C",
+        "field:this:0x00000094",
+        "field:this:0x0000009C",
+        "field:this:0x000000A4",
+        "field:this:0x000000BC",
+        "field:this:0x000000C4",
+        "field:this:0x000000CC",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00569990",
+      "role": "ConstraintPointAppend: transform a world-space position a2 into the object-local frame using position (0x4/0xC/0x14) and rotation (0x1C..0x5C), then append an 88-byte entry (transformed vector plus four metadata words) to the ring buffer at this+0x240, post-incrementing the write index at this+0x23C. Vehicle physics constraint point batching.",
+      "owner": "RigidBody",
+      "evidence_refs": [
+        "function:0x00569990",
+        "field:this:0x00000004",
+        "field:this:0x0000000C",
+        "field:this:0x00000014",
+        "field:this:0x0000001C",
+        "field:this:0x00000024",
+        "field:this:0x0000002C",
+        "field:this:0x00000034",
+        "field:this:0x0000003C",
+        "field:this:0x00000044",
+        "field:this:0x0000004C",
+        "field:this:0x00000054",
+        "field:this:0x0000005C",
+        "field:this:0x0000023C",
+        "field:this:0x00000240",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0056F100",
+      "role": "BodiesToLocalFrame: transform a set of rigid bodies (array at this+0x4, stride 580) into the local reference frame of a target body. When a5 is nonzero, transitively mark active bodies through the three batch arrays (strides 48/48/72, flag bytes at +44/+68) until a fixed point; then translate positions and rewrite orientation matrices and Euler angles via EulerAnglesTo33RotationMatrix (0x0056BD40), F_33MatrixMultiply (0x0056C740), FloatConvertWrapper (0x00588570) and F_3x3RotationTensorMatrixTransform (0x005691D0).",
+      "owner": "PhysicsConstraintBatch",
+      "evidence_refs": [
+        "function:0x0056F100",
+        "field:this:0x00000000",
+        "field:this:0x00000004",
+        "field:this:0x00000008",
+        "field:this:0x0000000C",
+        "field:this:0x00000010",
+        "field:this:0x00000014",
+        "field:this:0x00000018",
+        "field:this:0x0000001C",
+        "callee:0x0056BD40",
+        "callee:0x0056C740",
+        "callee:0x00588570",
+        "callee:0x005691D0",
+        "global:0x0059E420",
+        "guard:0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0058EF83",
+      "role": "AllocatorNodeInit: install or replace the tracked allocator/IO node (172-byte block) keyed by global dword_8D3F44. Nonzero mode: allocate via sub_58AB58(1, 172), initialize via sub_58F014, install at off_5E99D0, finalize (sub_58F362) and free (sub_58AA6F) the previous dword_8D3F58 node. Zero mode: point off_5E99D0 at the default callback off_5E99D8, finalize/free the old node, clear dword_8D3F58. Returns 0 on success, 1 on allocation/init failure.",
+      "owner": "AllocatorNodeManager",
+      "evidence_refs": [
+        "function:0x0058EF83",
+        "callee:0x0058AB58",
+        "callee:0x0058F014",
+        "callee:0x0058F362",
+        "callee:0x0058AA6F",
+        "global:0x008D3F44",
+        "global:0x008D3F58",
+        "global:0x005E99D0",
+        "global:0x005E99D8",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0058F6FE",
+      "role": "AllocatorNodeInitHead: install or replace the 3-dword allocator node head off_5E9AC0 keyed by global dword_8D3F3C. Nonzero mode: allocate a 48-byte block via sub_58AB58, initialize via sub_58F7C9, copy the current head's three dwords, install the new head, free the old dword_8D3F68 head (MultiFieldFree_f8eb + sub_58AA6F). Zero mode: copy the three head dwords into the static sentinel off_5E9A90/0x94/0x98, repoint off_5E9AC0, free the old head, clear dword_8D3F68. Returns 0 on success, 1 on allocation/init failure.",
+      "owner": "AllocatorNodeManager",
+      "evidence_refs": [
+        "function:0x0058F6FE",
+        "callee:0x0058AB58",
+        "callee:0x0058F7C9",
+        "callee:0x0058F8EB",
+        "callee:0x0058AA6F",
+        "global:0x008D3F3C",
+        "global:0x008D3F68",
+        "global:0x005E9AC0",
+        "global:0x005E9A90",
+        "global:0x005E9A94",
+        "global:0x005E9A98",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "SceneGraphNode",
+      "responsibility": "Scene-graph node carrying local/world transform matrices and node state flags. 0x0054B770 composes the world matrix from local, parent, and scale state through the dword_8B8F24 vtable; 0x005569F0 drives the per-frame state update (animation dispatch, world-transform upload, collision contact detection, bone-transform copies, material/shader finalize). Both functions share the world-matrix slot at this+0x114, the node state word at this+0x3C, and the dword_8B8F24 transform vtable, which supports common ownership.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0054B770",
+        "0x005569F0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "node_flags",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "function:0x0054B770"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "parent_node",
+          "type_guess": "SceneGraphNode*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "function:0x0054B770"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000094",
+          "name": "alternate_transform",
+          "type_guess": "float[16]",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000094",
+            "function:0x0054B770"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "local_matrix",
+          "type_guess": "float[16]",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "function:0x0054B770"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000114",
+          "name": "world_matrix",
+          "type_guess": "float[16]",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000114",
+            "function:0x0054B770",
+            "function:0x005569F0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000194",
+          "name": "scale_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000194",
+            "function:0x0054B770"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000198",
+          "name": "scale_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000198",
+            "function:0x0054B770"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000019C",
+          "name": "scale_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000019C",
+            "function:0x0054B770"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000204",
+          "name": "world_transform_source",
+          "type_guess": "float*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000204",
+            "function:0x005569F0"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0054B770",
+        "function:0x005569F0",
+        "global:0x008B8F24"
+      ]
+    },
+    {
+      "name": "MeshVertexBatchProcessor",
+      "responsibility": "Scene-graph mesh object that batches vertex-element processing: iterates the element array (count this+0x118, entries at this+0x11C with 64-byte stride), applies material-based vertex/UV transforms via jump tables jpt_54CBC0 / jpt_54CE21, dedups materials through sub_54FC70, waits on audio resource state (sub_540940), and sets done flags in this+0x14. Re-entry guarded by bit 27 of this+0x14.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0054CA00"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "state_flags",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x0054CA00"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000118",
+          "name": "element_count",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000118",
+            "function:0x0054CA00"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000011C",
+          "name": "element_array",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000011C",
+            "function:0x0054CA00"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000138",
+          "name": "sub_object",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000138",
+            "function:0x0054CA00"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0054CA00",
+        "caller:0x00544DB0",
+        "global:0x008B78A0",
+        "global:0x008B8F28"
+      ]
+    },
+    {
+      "name": "MeshVertexLightingTransform",
+      "responsibility": "Per-vertex 3D mesh transform, lighting and color-pack stage. Reads the scene node from this+0x18 and the source vertex buffer from this+0x0C, selects a 12- or 16-byte stride from the node flag word (unk_800000), transforms vertices through the dword_8B8F24 vtable, optionally relocates dynamic vertices, computes per-vertex distance-weighted lighting, and writes packed colors and specular channels to the this+0x20 output. Consumes source-mesh data through this+0x128.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0055E320"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "render_flags",
+          "type_guess": "uint32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "vertex_object",
+          "type_guess": "void*",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "vertex_count",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "source_vertex_buffer",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "scene_node",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "output_vertices",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000128",
+          "name": "source_mesh",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000128",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(this+0x128)",
+          "offset": "0x00000000",
+          "name": "transformed_data_word_0",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x128):0x00000000",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(this+0x128)",
+          "offset": "0x00000010",
+          "name": "transformed_data_word_1",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x128):0x00000010",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(this+0x128)",
+          "offset": "0x00000014",
+          "name": "transformed_data_word_2",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x128):0x00000014",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(this+0x128)",
+          "offset": "0x00000018",
+          "name": "transformed_data_word_3",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x128):0x00000018",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(this+0x128)",
+          "offset": "0x0000001C",
+          "name": "transformed_data_word_4",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x128):0x0000001C",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(*(this+0x128)+0x0)",
+          "offset": "0x00000000",
+          "name": "vertex_data",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x128)+0x0):0x00000000",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(*(this+0x128)+0x0)",
+          "offset": "0x00000038",
+          "name": "vertex_position_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x128)+0x0):0x00000038",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(*(this+0x128)+0x0)",
+          "offset": "0x0000003C",
+          "name": "vertex_position_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x128)+0x0):0x0000003C",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(*(this+0x128)+0x0)",
+          "offset": "0x00000040",
+          "name": "vertex_position_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x128)+0x0):0x00000040",
+            "function:0x0055E320"
+          ]
+        },
+        {
+          "base": "*(*(this+0x128)+0x0)",
+          "offset": "0x00000050",
+          "name": "vertex_radius_flags",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(*(this+0x128)+0x0):0x00000050",
+            "function:0x0055E320"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0055E320",
+        "global:0x008B6C20",
+        "global:0x008B8F24",
+        "global:0x008B8F28",
+        "global:0x00800000",
+        "callee:0x0053AC40"
+      ]
+    },
+    {
+      "name": "RigidBody",
+      "responsibility": "Rigid physics body carrying a 3x3 rotation matrix (doubles at this+0x1C..0x5C), a world position (this+0x4/+0xC/+0x14), inertia-tensor state (diagonal body inertia, inverse-inertia reciprocals, world-space inertia matrix) and a constraint-point ring buffer. 0x005692A0 computes R*I*R^T, 0x00569410 computes angular acceleration from torque via R*inv(I)*R^T, and 0x00569990 transforms world positions into the body frame and appends 88-byte constraint entries. The shared rotation/position layout across all three functions supports common ownership.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x005692A0",
+        "0x00569410",
+        "0x00569990"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "position_x",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "position_y",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "position_z",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "rotation_00",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x005692A0",
+            "function:0x00569410",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "rotation_10",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "function:0x005692A0",
+            "function:0x00569410",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000002C",
+          "name": "rotation_20",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "function:0x005692A0",
+            "function:0x00569410",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000034",
+          "name": "rotation_01",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "function:0x005692A0",
+            "function:0x00569410",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000003C",
+          "name": "rotation_11",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000003C",
+            "function:0x005692A0",
+            "function:0x00569410",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000044",
+          "name": "rotation_21",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000044",
+            "function:0x005692A0",
+            "function:0x00569410",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000004C",
+          "name": "rotation_02",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000004C",
+            "function:0x005692A0",
+            "function:0x00569410",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000054",
+          "name": "rotation_12",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000054",
+            "function:0x005692A0",
+            "function:0x00569410",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000005C",
+          "name": "rotation_22",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000005C",
+            "function:0x005692A0",
+            "function:0x00569410",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000007C",
+          "name": "torque_x",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "function:0x00569410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000084",
+          "name": "torque_y",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000084",
+            "function:0x00569410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000008C",
+          "name": "torque_z",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000008C",
+            "function:0x00569410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000094",
+          "name": "angular_accel_x",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000094",
+            "function:0x00569410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000009C",
+          "name": "angular_accel_y",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000009C",
+            "function:0x00569410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000A4",
+          "name": "angular_accel_z",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000A4",
+            "function:0x00569410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000BC",
+          "name": "inv_inertia_xx",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000BC",
+            "function:0x00569410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000C4",
+          "name": "inv_inertia_yy",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000C4",
+            "function:0x00569410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000CC",
+          "name": "inv_inertia_zz",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000CC",
+            "function:0x00569410"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "inertia_xx",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000DC",
+          "name": "inertia_yy",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000DC",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E4",
+          "name": "inertia_zz",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000E4",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000EC",
+          "name": "world_inertia_00",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F4",
+          "name": "world_inertia_01",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000F4",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000F8",
+          "name": "world_inertia_01_high",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000000F8",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000FC",
+          "name": "world_inertia_02",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000FC",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000100",
+          "name": "world_inertia_02_high",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000100",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000104",
+          "name": "world_inertia_10",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000104",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000108",
+          "name": "world_inertia_10_high",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000108",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000010C",
+          "name": "world_inertia_11",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000010C",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000114",
+          "name": "world_inertia_12",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000114",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000118",
+          "name": "world_inertia_12_high",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000118",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000011C",
+          "name": "world_inertia_20",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000011C",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000120",
+          "name": "world_inertia_20_high",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000120",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000124",
+          "name": "world_inertia_21",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000124",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000128",
+          "name": "world_inertia_21_high",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000128",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000012C",
+          "name": "world_inertia_22",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000012C",
+            "function:0x005692A0"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000023C",
+          "name": "constraint_write_index",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000023C",
+            "function:0x00569990"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000240",
+          "name": "constraint_ring_buffer",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000240",
+            "function:0x00569990"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x005692A0",
+        "function:0x00569410",
+        "function:0x00569990"
+      ]
+    },
+    {
+      "name": "PhysicsConstraintBatch",
+      "responsibility": "Constraint batch manager holding a rigid-body array (this+0x4, stride 580) and three constraint batch arrays (strides 48/48/72). 0x0056F100 transforms the active subset of bodies (target body plus transitively linked contact partners) into the target body's local reference frame, rewriting positions, orientation matrices and Euler angles.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0056F100"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "body_count",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "function:0x0056F100"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "body_array",
+          "type_guess": "RigidBody*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "function:0x0056F100"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "batch1_count",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "function:0x0056F100"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "batch1_array",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "function:0x0056F100"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "batch2_count",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "function:0x0056F100"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "batch2_array",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "function:0x0056F100"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "batch3_count",
+          "type_guess": "int32",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "function:0x0056F100"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "batch3_array",
+          "type_guess": "void*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "function:0x0056F100"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0056F100",
+        "callee:0x0056BD40",
+        "callee:0x0056C740",
+        "callee:0x00588570",
+        "callee:0x005691D0"
+      ]
+    },
+    {
+      "name": "AllocatorNodeManager",
+      "responsibility": "Free-function group managing allocator/IO node registration keyed by the dword_8D3F44 / dword_8D3F3C mode switches. 0x0058EF83 installs or replaces a 172-byte tracked node at off_5E99D0 / dword_8D3F58; 0x0058F6FE installs or replaces a 3-dword node head at off_5E9AC0 / dword_8D3F68. Both follow allocate (sub_58AB58), initialize (sub_58F014 / sub_58F7C9), finalize (sub_58F362 / MultiFieldFree_f8eb) and free (sub_58AA6F); their shared idiom is pattern-based and common class ownership is not proven.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0058EF83",
+        "0x0058F6FE"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x0058EF83",
+        "function:0x0058F6FE",
+        "callee:0x0058AB58",
+        "callee:0x0058AA6F"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "MeshElementProcessState",
+      "owner": "MeshVertexBatchProcessor",
+      "states": [
+        "Idle",
+        "Processing",
+        "Done",
+        "Aborted"
+      ],
+      "transitions": [
+        "Idle -> Processing: entry when re-entry guard bit 27 of this+0x14 is clear",
+        "Processing -> Done: loop completion sets this+0x14 |= 0x9000020 (bits 5, 21, 24)",
+        "Processing -> Idle (blocked): re-entry while bit 27 is set returns 0 immediately",
+        "Processing -> Aborted: audio-wait sub_540940 returns nonzero, function returns -1"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x0054CA00",
+        "field:this:0x00000014",
+        "callee:0x00540940",
+        "global:0x008B78A0"
+      ]
+    },
+    {
+      "name": "SceneNodeUpdateFlags",
+      "owner": "SceneGraphNode",
+      "states": [
+        "TransformPending",
+        "WorldTransformUploaded",
+        "CollisionDetected",
+        "BonesCopied",
+        "Finalized"
+      ],
+      "transitions": [
+        "TransformPending -> WorldTransformUploaded: vtable slot +4 upload when flag 0x20000000 clear, then flag set",
+        "WorldTransformUploaded -> CollisionDetected: sub_54D7A0 contact-state detection",
+        "CollisionDetected -> BonesCopied: flags 0x4 set / 0x8 clear gate the 8-bone copy loop, then bit 0x8 set",
+        "CollisionDetected -> Finalized: flag 0x5 set path runs sub_55ED10/sub_55D5C0 then sub_556D60"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x005569F0",
+        "global:0x008B8F24",
+        "callee:0x0054D7A0",
+        "callee:0x00556D60",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "MatrixTransformService",
+      "purpose": "Indirect matrix/scene transform service reached through the global D3D wrapper vtable dword_8B8F24 (slots +0, +4, +8, +20, +24 used by packet functions) and the scene context global dword_8B8F28. Concrete vtable slot targets are not identified by this packet.",
+      "functions": [
+        "0x0054B770",
+        "0x005569F0",
+        "0x0055E320"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x008B8F24",
+        "global:0x008B8F28"
+      ]
+    },
+    {
+      "name": "RigidBodyMathKernel",
+      "purpose": "Free-function rigid-body math helpers called by the body frame transform: Euler-angle decomposition to a 3x3 rotation matrix, 3x3 matrix multiply, float conversion wrapper, and 3x3 rotation-tensor transform.",
+      "functions": [
+        "0x0056BD40",
+        "0x0056C740",
+        "0x00588570",
+        "0x005691D0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0056BD40",
+        "callee:0x0056C740",
+        "callee:0x00588570",
+        "callee:0x005691D0",
+        "function:0x0056F100"
+      ]
+    },
+    {
+      "name": "MeshElementWrapperService",
+      "purpose": "Per-vertex-element processing wrappers invoked from the element batch loop: SingleCallWrapper_e0e0 (0x0054E0E0) runs the element's single-call wrapper and Wrapper_e0f0 (0x0054E0F0) post-processes the element.",
+      "functions": [
+        "0x0054E0E0",
+        "0x0054E0F0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0054E0E0",
+        "callee:0x0054E0F0",
+        "function:0x0054CA00"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "SceneGraphNode",
+      "to": "MatrixTransformService",
+      "kind": "vtable_call",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x008B8F24",
+        "function:0x0054B770",
+        "function:0x005569F0"
+      ]
+    },
+    {
+      "from": "MeshVertexLightingTransform",
+      "to": "MatrixTransformService",
+      "kind": "vtable_call",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x008B8F24",
+        "function:0x0055E320"
+      ]
+    },
+    {
+      "from": "MeshVertexBatchProcessor",
+      "to": "MatrixTransformService",
+      "kind": "global_context",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x008B8F28",
+        "function:0x0054CA00"
+      ]
+    },
+    {
+      "from": "MeshVertexLightingTransform",
+      "to": "MatrixTransformService",
+      "kind": "global_context",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x008B8F28",
+        "function:0x0055E320"
+      ]
+    },
+    {
+      "from": "MeshVertexBatchProcessor",
+      "to": "MeshElementWrapperService",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0054E0E0",
+        "callee:0x0054E0F0",
+        "function:0x0054CA00"
+      ]
+    },
+    {
+      "from": "MeshVertexBatchProcessor",
+      "to": "AudioWaitService",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x00540940",
+        "global:0x008B78A0",
+        "function:0x0054CA00"
+      ]
+    },
+    {
+      "from": "SceneGraphNode",
+      "to": "CollisionDetectionService",
+      "kind": "calls",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "callee:0x0054D7A0",
+        "function:0x005569F0"
+      ]
+    },
+    {
+      "from": "PhysicsConstraintBatch",
+      "to": "RigidBody",
+      "kind": "manipulates",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0056F100",
+        "field:this:0x00000004",
+        "field:this:0x0000001C"
+      ]
+    },
+    {
+      "from": "PhysicsConstraintBatch",
+      "to": "RigidBodyMathKernel",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0056BD40",
+        "callee:0x0056C740",
+        "callee:0x00588570",
+        "callee:0x005691D0",
+        "function:0x0056F100"
+      ]
+    },
+    {
+      "from": "AllocatorNodeManager",
+      "to": "AllocationService",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "callee:0x0058AB58",
+        "callee:0x0058AA6F",
+        "function:0x0058EF83",
+        "function:0x0058F6FE"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "SceneNodeWorldTransformContract",
+      "category": "scene_graph_transform",
+      "description": "A scene node with a parent pointer at +0x40, flag word at +0x3C, and local matrix at +0xD4 must, after the transform update, leave the world matrix at +0x114 consistent with parent-world composition (or a direct local copy for root nodes when flag bit 0 is set). The scaled variant writes +0x1A0 from per-axis factors at +0x194/+0x198/+0x19C. A replacement must preserve the matrix slots and flag-gated copy semantics.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0054B770",
+        "field:this:0x00000040",
+        "field:this:0x0000003C",
+        "field:this:0x000000D4",
+        "field:this:0x00000114",
+        "global:0x008B8F24"
+      ]
+    },
+    {
+      "name": "RigidBodyInertiaTensorContract",
+      "category": "rigid_body_math",
+      "description": "A rigid body with a 3x3 rotation matrix at +0x1C..+0x5C and diagonal body-space inertia at +0xD4/+0xDC/+0xE4 must produce a symmetric world-space inertia matrix at +0xEC..+0x12C via R*I*R^T (upper triangle mirrored to the lower triangle).",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x005692A0",
+        "field:this:0x0000001C",
+        "field:this:0x000000D4",
+        "field:this:0x000000EC"
+      ]
+    },
+    {
+      "name": "RigidBodyTorqueAngularAccelerationContract",
+      "category": "rigid_body_math",
+      "description": "Given a torque vector at +0x7C/+0x84/+0x8C, a 3x3 rotation matrix at +0x1C..+0x5C and inverse-inertia diagonals at +0xBC/+0xC4/+0xCC, the solver must write the world-space angular acceleration vector at +0x94/+0x9C/+0xA4 as R*diag(1/I)*R^T*T.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00569410",
+        "field:this:0x0000007C",
+        "field:this:0x000000BC",
+        "field:this:0x00000094"
+      ]
+    },
+    {
+      "name": "ConstraintPointAppendContract",
+      "category": "physics_constraint",
+      "description": "WriteRelativeTransformedPosition must append 88-byte entries to the ring buffer at +0x240 and post-increment the write index at +0x23C. Each entry is the world-to-local transformed vector (3 doubles) plus four metadata words; the 88-byte stride and post-increment semantics must be preserved for consumers of the constraint batch.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00569990",
+        "field:this:0x0000023C",
+        "field:this:0x00000240",
+        "field:this:0x0000001C"
+      ]
+    },
+    {
+      "name": "RigidBodyFrameTransformContract",
+      "category": "physics_constraint",
+      "description": "The batch manager's body array (this+0x4, stride 580, position at +4, rotation at +28) and its active-subset propagation semantics must be preserved so target body, contact partners, and all transitively linked bodies are transformed into one consistent local reference frame with rewritten orientation matrices and Euler angles.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0056F100",
+        "field:this:0x00000004",
+        "callee:0x0056BD40",
+        "callee:0x0056C740"
+      ]
+    },
+    {
+      "name": "AllocatorNodeRegistrationContract",
+      "category": "allocator",
+      "description": "The game may reconfigure the tracked allocator/IO node through the dword_8D3F44 / dword_8D3F3C switches. A replacement must install the IO function pointer at off_5E99D0 (or the 3-dword node head at off_5E9AC0, including the static sentinel off_5E9A90/0x94/0x98 repointing), keep dword_8D3F58 / dword_8D3F68 consistent, finalize before freeing the old node, and return 0 on success / 1 on allocation or init failure.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0058EF83",
+        "function:0x0058F6FE",
+        "global:0x005E99D0",
+        "global:0x005E9AC0",
+        "global:0x008D3F58",
+        "global:0x008D3F68",
+        "callee:0x0058AB58"
+      ]
+    },
+    {
+      "name": "VertexMaterialTransformContract",
+      "category": "rendering",
+      "description": "The vertex-element batch (count this+0x118, array this+0x11C, 64-byte stride) must process material-based vertex/UV transforms into packed color output, selecting between the 16-DWORD and 12-DWORD vertex stride paths by flag bit 23 (0x800000) of this+0x14 and writing the stride constant into each element header at offset 56, and set the done flags 0x9000020 in this+0x14.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0054CA00",
+        "field:this:0x00000014",
+        "field:this:0x00000118",
+        "field:this:0x0000011C",
+        "global:0x00800000"
+      ]
+    }
+  ],
+  "unresolved": [
+    "The concrete D3D wrapper behind the dword_8B8F24 vtable and the semantics of its slots +0/+4/+8/+20/+24 (matrix multiply vs concat vs lighting) are not established by this packet; consumers are identified only indirectly.",
+    "The identity of the scene node object carrying +516 (0x204), +416 and +276 state in 0x005569F0 is unknown; this+0x204 (world_transform_source) semantics are GUESS.",
+    "0x0055E320 fields this+0x2C/+0x54/+0x68/+0x6C/+0x70/+0xA0/+0xB8/+0x124/+0x150 and the static-pipeline guard:0 are listed in packet field evidence but not visible as explicit operands in the raw text; purposes unresolved.",
+    "Globals dbl_59E430, flt_59E43C, flt_59E450, flt_59FEC8 are referenced by extracted facts but not named in the raw source text of 0x0055E320; roles unresolved.",
+    "The second 64-bit half of the MMX operand qword_8B6C20 used by packuswb is unknown; the destination meaning of the output +40/+44 specular channels (surface brightness vs shininess) is not confirmed.",
+    "0x0054CA00 this+0x174 appears in packet fields but its read site is unresolved; the 37-float material entry layout and the exact meaning of the four switch cases are inferred from loop structure, not proven; the 16-DWORD/12-DWORD path labels (D3D-transformed vs untransformed) are DERIVED from the legacy ABI name only.",
+    "0x005692A0: exact matrix element ordering (column-major vs row-major) cannot be decided from this packet alone; the lower triangle is written by DWORD copies of doubles (compiler artifact of symmetric layout); the return value (low DWORD of element (1,2)) has no evident purpose.",
+    "0x00569410: the interleaved register order of v1/v2/v3 makes the per-component mapping a DERIVED reconstruction; the 0xBC/0xC4/0xCC factors are treated as inverse-inertia diagonals but the raw multiplication alone does not prove they are reciprocals.",
+    "0x00569990: semantic roles of the four metadata words (a3, a4, a5, a6) in the 88-byte entry are not established; owner identity shares its caller with a 56-byte-stride sibling append function not in this packet.",
+    "0x0056F100: the three batch array object types (strides 48/48/72, flag bytes at +44/+68) are evidenced only from inside this function; the semantics of a5 and of the two-body partners are inferred from flag churn; local stack matrices and the v56 flag buffer are decompiler-inferred shapes.",
+    "0x0058EF83 / 0x0058F6FE: node identities, the 172-byte and 48-byte layouts, sub_58F014/sub_58F7C9 return-value semantics, and the finalize-before-free requirement are not evidenced by the packet; the two functions share an allocate/init/finalize/free idiom but common class ownership is pattern-based (GUESS) only.",
+    "Whether the scene-node, mesh, and allocator functions all belong to the vehicle-physics subsystem is manifest-scope derived, not evidence-proven from the packet alone."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000068",
+    "field:this:0x0000006C",
+    "field:this:0x00000070",
+    "field:this:0x000000A0",
+    "field:this:0x000000B8",
+    "field:this:0x00000150",
+    "field:this:0x00000174",
+    "guard:0",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E450",
+    "global:0x0059FEC8"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

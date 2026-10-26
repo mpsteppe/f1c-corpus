@@ -1,0 +1,2174 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_006_math_and_collision_03",
+  "scope": "math_and_collision",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x00522B5B",
+      "function_ref": "function:0x00522B5B",
+      "name": "F_3x3MatrixInverse3DNow",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Computes the inverse of the 3x3 rotation submatrix read from the two packed-float rows of input a2 (a2[0], a2[1]) and writes it into the top-left 3x3 of the output __m64 buffer a1 using 3DNow! intrinsics (pfadd, pfmul, pfsub/pfsubr, pfacc, punpck). Uses the packed identity constants 0x3F8000003F800000 (1.0/1.0) and 1065353216 (1.0f). Sets a1[6] = 0 and a1[7] = {0, 1.0f} for the homogeneous last row. No conditional branches; always executes the full inverse computation and returns the output pointer.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Load the two input packed rows a2[0] and a2[1], double their elements with pfadd (v4 = a2[0]+a2[0], second pfadd on a2[1]), and permute lanes with punpckhdq/punpckldq (v6, v7, v9) to prepare the cross-term computation of the inverse.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the pfmul products (v8, v10, v11, v12, v13) and the pfsub/pfadd cross terms (v14, v15, v18, v19, v20, v21) that form the 2x2 cofactor/minor products of the 3x3 inverse.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Evaluate the identity-minus-accumulation terms with pfacc and pfsubr against the packed constant 0x3F8000003F800000 (1.0/1.0): v16 = 1.0 - (punpckldq(v11,v11) + v8) and the a1[5] scalar element = 1.0 - pfacc(v8,v8).",
+          "evidence_refs": [
+            "global:0x005AF900",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero the homogeneous row 3 col 0-1: a1[6] = 0 (this+0x30).",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the inverse rotation rows: a1[0] (this+0x0) = punpckhdq(v16, punpckldq(v21,v21)), a1[1] (this+0x8) = punpckhdq(v20,0), a1[2] (this+0x10) = punpckldq(v20,v16), a1[3] (this+0x18) = punpckldq(v18,0).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000008",
+            "field:this:0x00000010",
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the remaining inverse columns: a1[4] (this+0x20) = punpckldq(punpckhdq(v21,v21), v19), a1[5] (this+0x28) = punpckldq(pfsubr(pfacc(v8,v8), 0x3F8000003F800000), 0).",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "field:this:0x00000028",
+            "global:0x005AF900",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the homogeneous last row a1[7] (this+0x38) = punpckldq(0, 1065353216), i.e. {0, 1.0f}.",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "global:0x005AF900",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Emit _m_femms() to exit MMX state and return the output matrix pointer a1.",
+          "evidence_refs": [
+            "function:0x00522B5B",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The read-only global qword_5AF900 is flagged as read, but the raw decompiled source renders the constants inline (0x3F8000003F800000 and 1065353216); the exact global-to-constant mapping is not established.",
+        "Whether this computes the true inverse or an adjugate/cofactor result without a final division is not established from the packet alone.",
+        "The packed lane layout of the 3x3 inverse within the eight __m64 output slots is inferred from punpck order, not verified against a consumer.",
+        "The owner object is unknown; the function has no static callers or callees."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00523E7A",
+      "function_ref": "function:0x00523E7A",
+      "name": "F_3DNowPackedFloatMatrixQuaternionOps",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Multiplies two packed-float quaternion operands a2 and a3 and converts the product to a 4x4 rotation matrix in the output __m64 buffer a1. Both inputs are scaled by 0.5 via _m_pfmul with the packed constant 0x3F0000003F000000 (global 0x005AF900), then multiplied using 3DNow! shuffles (punpck*), sign flips (pxor 0x8000000000000000, global 0x005AF920) and pfadd/pfmul accumulation. The product is converted to a matrix with the cofactor/adjugate pattern: doubled cross terms and a trace subtraction via pfsubr of the packed 1.0 constant 0x3F8000003F800000 (global 0x005AF990). All eight __m64 slots of a1 are written once (slots 0-5 rotation components, slot 6 zeroed, slot 7 the {0, 1.0} homogeneous row) and the output pointer is returned.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Scale both input quaternions by 0.5 via _m_pfmul with the packed constant 0x3F0000003F000000 (global 0x005AF900), preceded by PackedFloatingPointMath (0x005295E0) expansion calls.",
+          "evidence_refs": [
+            "callee:0x005295E0",
+            "global:0x005AF900",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Multiply the scaled quaternions using 3DNow! shuffles (punpck*) and sign flips (pxor with 0x8000000000000000, global 0x005AF920) with pfadd/pfmul accumulation, producing the quaternion product components.",
+          "evidence_refs": [
+            "global:0x005AF920",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Convert the product to a 4x4 rotation matrix using the cofactor/adjugate pattern: doubled cross-term products and a trace subtraction via pfsubr of the packed 1.0 constant 0x3F8000003F800000 (global 0x005AF990), plus component shuffling.",
+          "evidence_refs": [
+            "global:0x005AF990",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the computed rotation components into matrix slots a1[0] through a1[5].",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000008",
+            "field:this:0x00000010",
+            "field:this:0x00000018",
+            "field:this:0x00000020",
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero matrix slot a1[6] (row 3 column 0).",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the homogeneous row {0, 1.0} into matrix slot a1[7].",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Emit the MMX/3DNow! state reset (_m_femms) and return the output matrix pointer a1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Exact quaternion convention (component order and sign convention of the encoded a2/a3 operands) is not pinned down; the operand encoding matches a caller-specific quaternion layout.",
+        "The cofactor/adjugate matrix conversion is recognized from the constant pattern, but the mapping of the eight __m64 output slots to concrete matrix cells is only partially verified."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005257C0",
+      "function_ref": "function:0x005257C0",
+      "name": "F_4x4MatrixInversion",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Inverts a 4x4 packed-float matrix using 3DNow! intrinsics. Reads all eight __m64 rows of input a3, builds the minor/cofactor cross products with pfmul/pfnacc/pswapd into stack staging v35..v42, accumulates the determinant term (pfacc of a pfnacc product), optionally stores the determinant as a 32-bit int through a2, computes its reciprocal with pfrcp and Newton-Raphson refinement (pfrcpit1/pfrcpit2) against the packed constant 0xBF8000003F800000 (-1.0f/1.0f), then scales the cofactors and writes the inverse into all eight output slots a1[0..7]. If the determinant is zero (pfcmpeq against 0), the store is skipped and a nonzero singular flag is returned; otherwise 0 is returned. Called by F_3DNowVectorTransform (00526b55).",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Read the input matrix rows a3[0..7] and build the minor/cofactor cross products with pfmul, pswapd and pfnacc (v6, v7, v8, v15, v16, v17), staging the cofactor results into the stack buffers v35..v42.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Accumulate the determinant: v21 = pfnacc of products built from the staged cofactors, v22 = pfacc(v21, v21), so the summed scalar of v22 is the determinant of a3.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "If a2 is non-null, store the determinant as a 32-bit int: *a2 = _mm_cvtsi64_si32(v22).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the reciprocal of the determinant with pfrcp and refine it via pfrcpit1/pfrcpit2, then multiply by the packed constant 0xBF8000003F800000 (-1.0f/1.0f) to produce the per-lane scale v25 and its lane-swapped copy v26.",
+          "evidence_refs": [
+            "global:0x005AF8F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Test the determinant against zero: result = _mm_cvtsi64_si32(_m_pfcmpeq(0, v22)); a nonzero result means the determinant was zero (singular) and the inverse store is skipped.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Non-singular path: scale each staged cofactor by the reciprocal (v25/v26) with pfmul and write the inverse matrix into all eight output slots a1[0] (this+0x0) through a1[7] (this+0x38) via punpckhdq/punpckldq row pairs.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000008",
+            "field:this:0x00000010",
+            "field:this:0x00000018",
+            "field:this:0x00000020",
+            "field:this:0x00000028",
+            "field:this:0x00000030",
+            "field:this:0x00000038",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Emit _m_femms() and return result (0 on success, nonzero when the determinant was zero). The produced inverse is consumed by the caller F_3DNowVectorTransform (0x00526B55).",
+          "evidence_refs": [
+            "caller:0x00526B55",
+            "function:0x005257C0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The read-only global qword_5AF8F0 is flagged as read, but the raw decompiled source renders the constant inline (0xBF8000003F800000 = packed -1.0f/1.0f); the exact global-to-constant mapping is not established.",
+        "The cluster prelabel (DERIVED) identifies this as a structural twin of sub_522B22 (identity-matrix builder, 00522b22), but the raw source performs a full determinant-based 4x4 inversion, so that twin claim is not supported by the evidence.",
+        "The row/column-major layout of the inverse in the output slots is inferred from punpck lane order, not verified against a consumer.",
+        "The exact sign handling of the returned singular flag and the a2 determinant encoding are inferred from the pfcmpeq/cvtsi64_si32 sequence.",
+        "The owner object is unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00525AA2",
+      "function_ref": "function:0x00525AA2",
+      "name": "F_3DNow44MatrixMultiply",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "4x4 matrix multiply written with 3DNow! packed float intrinsics. Reads the eight __m64 quads of a3 (offsets 0x0..0x38) and of a2, reorders them via punpckldq/punpckhdq into row/column pairs, then evaluates each output element with pfmul/pfacc/pfadd packed multiply-accumulate. Writes the eight result quads into a1 and returns a1. A specialized in-place path (guard a2 == a1) reuses temporaries instead of reading partially-overwritten output slots.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "_m_femms() flush of MMX/3DNow state before and after the packed-float computation.",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x00525AA2"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Load the eight __m64 elements of a3 (offsets 0x0..0x38) and transpose/reorder them into row-column pairs with _m_punpckldq and _m_punpckhdq.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000008",
+            "field:this:0x00000010",
+            "field:this:0x00000018",
+            "field:this:0x00000020",
+            "field:this:0x00000028",
+            "field:this:0x00000030",
+            "field:this:0x00000038"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute each output element as _m_pfadd(_m_pfacc(_m_pfmul(row, a2[k])), _m_pfacc(_m_pfmul(row, a2[k+1]))) - the 4x4 matrix product accumulated from packed multiplies of the reordered a3 pairs against the a2 quads.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard a2 == a1 selects the in-place multiply path that caches intermediate results in locals before writing a1, avoiding overwrite hazards.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the eight computed result quads back into the output __m64 array a1[0..7] (offset 0x0 is written for the first element).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the destination pointer a1 (result = a1).",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x00525AA2"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Whether the matrix is treated as column- or row-major; only the packed-float multiply shape is certain.",
+        "Identity and purpose of the two operand matrices is caller-dependent and unknown here.",
+        "The in-place (a2 == a1) path exists specifically to handle overlapping output; exact caller usage unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00525E9A",
+      "function_ref": "function:0x00525E9A",
+      "name": "MatrixInverse44_3DNow",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead"
+        ]
+      },
+      "summary": "3DNow!-optimized 4x4 matrix operator. Reads an input matrix a3 as eight packed-float qwords (16 floats) and builds intermediate cofactor/row terms with 3DNow! multiply/subtract/add instructions, accumulating a scalar whose low 32 bits are exposed through a2 when a2 is non-null. When that scalar is non-zero, the cofactor terms are scaled by its reciprocal (pfrcp plus two-step refinement, sign-adjusted by the packed constant 0xBF8000003F800000) and written into the output matrix a1[0..7]. When the scalar is zero the output is left unmodified and -1 is returned. Called by F_3DNow44MatrixMultiplyWrapper and MatrixInterpolationBlend; structural twin of sub_522B22 per the cluster_copy prelabel.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Load the input matrix a3 as eight packed-float qwords (a3[0..7], 16 floats) and compute intermediate cofactor/row terms (v5..v29, v44..v50) using 3DNow! mul/sub/add/pack sequences.",
+          "evidence_refs": [
+            "source:raw",
+            "abi:lead"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Combine the packed terms into scalar v30 and horizontal-accumulate with _m_pfacc into v31; this scalar doubles as the divisor/scale term used by the inverse path.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When a2 is non-null, write the low 32 bits of the accumulated scalar v31 into *a2 (_mm_cvtsi64_si32 on v31).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Compute a zero-compare of v31 (_m_pfcmpeq(0, v31)); when the result is non-zero (v31 == 0, degenerate matrix) skip the inversion block and return immediately.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute a reciprocal approximation of v31 with _m_pfrcp and refine it via _m_pfrcpit1/_m_pfrcpit2, applying the packed sign constant 0xBF8000003F800000 (-1.0/+1.0) to the product.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the scaled result into output matrix a1[0..7] as eight qwords at byte offsets 0x0 (RW), 0x8, 0x10, 0x18, 0x20, 0x28, 0x30 and 0x38, each formed by packing the scaled row/column terms.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000008",
+            "field:this:0x00000010",
+            "field:this:0x00000018",
+            "field:this:0x00000020",
+            "field:this:0x00000028",
+            "field:this:0x00000030",
+            "field:this:0x00000038",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 when the scalar is non-zero (invertible path executed), or -1 when the scalar is zero (degenerate; output matrix left untouched).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by F_3DNow44MatrixMultiplyWrapper (0x005261CE) and MatrixInterpolationBlend (0x0052692F) as a 3DNow! 4x4 matrix operator; identified as a structural twin of sub_522B22 by the cluster_copy prelabel.",
+          "evidence_refs": [
+            "caller:0x005261CE",
+            "caller:0x0052692F",
+            "function:0x00525E9A",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Read-only global qword_5AF8F0 is present in the deterministic facts but not visible in the raw decompiled body; likely a 3DNow! constant operand or a reference the decompiler collapsed.",
+        "The exact mathematical role of the scalar written to a2 (determinant vs. independent scale factor) is not provable from the raw body alone.",
+        "Field R/W classification (0x0 RW, 0x8..0x38 R) does not match the unconditional writes to all eight output qwords; the discrepancy is kept as-is."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x005AF8F0"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00528F00",
+      "function_ref": "function:0x00528F00",
+      "name": "VectorNormalizeStub",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Empty function: the raw decompiled body contains only ';' with no executable statements. The canonical corpus name F_3DVectorNormalize_8f00 and the sole caller SIMDVectorNormalization (0x005215DB) place it in the SIMD vector-normalization area, but the body contributes no behavior. Nine read-only globals around 0x005D9358..0x005D93B8 are reported as referenced by deterministic facts; the skeleton analysis labels them SIMD math coefficient tables (atan/rsqrt/reciprocal polynomial constants), a DERIVED interpretation that the empty body cannot confirm.",
+      "operations": [
+        {
+          "kind": "unknown",
+          "description": "Empty function body: decompiled source is only 'void sub_528F00() { ; }' — no executable statements, no assignments, no calls, no branches.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by SIMDVectorNormalization (0x005215DB); per the canonical name this slot belongs to the SIMD vector-normalization path, but the empty body provides no operation.",
+          "evidence_refs": [
+            "caller:0x005215DB",
+            "function:0x00528F00",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The function body is empty, so none of the nine reported read-only globals are exercised by visible code.",
+        "Per the skeleton analysis these globals (0x005D9358, 0x005D935C, 0x005D9388, 0x005D938C, 0x005D9390, 0x005D9394, 0x005D9398, 0x005D939C, 0x005D93B8) are DERIVED as SIMD math coefficient tables (atan/rsqrt/reciprocal polynomial constants); that naming is not confirmable from the raw body.",
+        "The canonical name F_3DVectorNormalize_8f00 suggests an inlined-away normalize helper; the globals may be stale references from a previously-inlined block."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x005D9358",
+        "global:0x005D935C",
+        "global:0x005D9388",
+        "global:0x005D938C",
+        "global:0x005D9390",
+        "global:0x005D9394",
+        "global:0x005D9398",
+        "global:0x005D939C",
+        "global:0x005D93B8"
+      ],
+      "confidence": {
+        "semantics": "LOW",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00549FB0",
+      "function_ref": "function:0x00549FB0",
+      "name": "SphereVsFrustumVisibilityTest",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00549FB0"
+        ]
+      },
+      "summary": "Scene-culling test of a bounding sphere (center at this+0x7C/0x80/0x84, radius at this+0x18) against the caller-supplied view frustum a2. A force-hidden flag mask (this+0x4 bits 4/6) short-circuits to culled; otherwise a bounding-sphere distance test prunes the object, then all six frustum planes are tested. The visibility result is written into the low status bits of this+0x4. Part of the scene culling system.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Load flags at this+0x4; when (flags & 0x50) is non-zero the object is force-hidden, so set bit 1 (culled) via flags | 2 and return 0.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the sphere center relative to the frustum bounding volume: cx = a2[9] + *(this+0x7C), cy = a2[10] + *(this+0x80), cz = a2[11] + *(this+0x84).",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "field:this:0x00000080",
+            "field:this:0x00000084",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Clear the four low status bits of this+0x4: flags & 0xFFFFFFF0.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Bounding-sphere distance test: when sqrt(cx*cx + cy*cy + cz*cz) - radius(this+0x18) exceeds a2[2], set bit 3 (sphere-culled) via flags | 8 and return 0.",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Mark bit 0 (visible): this+0x4 = flags & 0xFFFFFFF0 | 1.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate the six frustum plane equation blocks starting at a2 + 65, advancing 4 floats per plane.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "For each plane compute the signed distance v11 = -(nx * cx) - (ny * cy) - (nz * cz) - d from the plane coefficients.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When v11 > radius(this+0x18) the sphere is fully outside this plane: set bit 1 (culled) via flags & 0xFFFFFFFC | 2 and return 0.",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When v11 > -radius(this+0x18) the sphere straddles this plane, so break out of the plane loop.",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "If the plane counter reaches 6 without a straddle or outside case, the sphere was inside every plane: return 0 as fully visible.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "After the plane loop, set bit 2 (partial visibility): this+0x4 = flags & 0xFFFFFFFA | 4, then return 0.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The frustum argument a2 layout (bounding radius at a2[2], sphere offset at a2[9..11], plane block at a2+65) is caller-defined; only the used indices are evidenced here.",
+        "The bit semantics of the visibility flags at this+0x4 beyond the force-hidden 0x50 mask are inferred from the branch structure, not independently confirmed."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0054A340",
+      "function_ref": "function:0x0054A340",
+      "name": "SpatialTreeNearestNeighborQuery",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "caller:0x00556E70",
+          "function:0x0054A340",
+          "source:raw"
+        ]
+      },
+      "summary": "Finds the nearest spatial object to a 3D query point that also passes a 6-plane frustum visibility test, and stores it in the cached result slot this[105] (this+0x1A4). The query direction a2 is negated (a2[9..11]) to build signed plane tests. Primary path walks the spatial tree rooted at this+0x2A0: the tree node chain is traversed via the child object pointer at node+0x10 and the next-sibling pointer at node+0x14; each child is accepted when its bounding-sphere squared distance beats the current best and all 6 plane dot products at +0x8C/+0x90/+0x94 are negative (inside the frustum). If the tree is absent, a fallback linear walk of an inline linked list (head this[64] = this+0x100, next pointer at node+0x104) is used instead, with the same sphere-distance and 6-plane acceptance test.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Read the cached best-result pointer v2 = this[105] (this+0x1A4); initialize the fallback best v3 = 0, the best squared distance v26 = 9.9999997e37, the fallback list head v4 = this[64] (this+0x100), and the negated query components v24 = -a2[9], v25 = -a2[10], v28 = -a2[11].",
+          "evidence_refs": [
+            "field:this:0x000001A4",
+            "field:this:0x00000100",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on the tree root at this+0x2A0 being null; if no tree exists, skip the tree walk and go to the fallback linear-list walk.",
+          "evidence_refs": [
+            "field:this:0x000002A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on residual CPU status flags v6/v7 (c0/c3) left from an earlier comparison: when both are clear, keep the cached result v2, write it back to this[105] and return it early without re-searching.",
+          "evidence_refs": [
+            "field:this:0x000001A4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Load the tree child-list head v9 = *(tree_node + 252), which resolves to *(this + 0x1A4 + 252) = *(this + 0x2A0); if non-null, enter the tree walk.",
+          "evidence_refs": [
+            "field:this:0x000002A0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Tree walk over the node chain: each iteration reads the child object pointer v11 = *(node + 16) (child at node+0x10) and advances v10 = *(node + 20) (next sibling at node+0x14).",
+          "evidence_refs": [
+            "field:*(this+0x2A0):0x00000010",
+            "field:*(*(this+0x2A0)+0x14):0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute squared distance from the negated query point to the child's bounding-sphere center at v11[31..33] (offsets +0x7C/+0x80/+0x84): v15 = (v28 - z)^2 + (v25 - y)^2 + (v24 - x)^2.",
+          "evidence_refs": [
+            "field:*(*(this+0x2A0)+0x10):0x0000007C",
+            "field:*(*(this+0x2A0)+0x10):0x00000080",
+            "field:*(*(this+0x2A0)+0x10):0x00000084",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the candidate distance v15 improves on the best v26, run the 6-plane frustum test: for each of the 6 planes, accumulate the dot product of the negated query point against the plane data at +0x8C/+0x90/+0x94 and break out of the inner loop when any plane rejects (dot product >= 0.0).",
+          "evidence_refs": [
+            "field:*(*(this+0x2A0)+0x10):0x0000008C",
+            "field:*(*(this+0x2A0)+0x10):0x00000090",
+            "field:*(*(this+0x2A0)+0x10):0x00000094",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When all 6 planes accept (inner counter v16 reaches 6), record the best distance v26 = v15 and the best result v3 = the child object pointer.",
+          "evidence_refs": [
+            "field:*(this+0x2A0):0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "After the tree walk, store the best result v3 into this[105] and return it.",
+          "evidence_refs": [
+            "field:this:0x000001A4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Fallback linear walk of the inline linked list: v4 starts at this[64] (this+0x100); each iteration reads the next node from *(node + 260) (the next pointer at node+0x104, which for the inline first node lives at this+0x204).",
+          "evidence_refs": [
+            "field:this:0x00000104",
+            "field:*(this+0x204):0x00000104",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Skip inactive nodes: the node is only tested when the flag byte at node+4 masked with 0x40 is zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute squared distance to the inline node's bounding sphere: v27 = (v28 - z)^2 + (v25 - y)^2 + (v24 - x)^2 using the center at node+0x7C/+0x80/+0x84 and the radius at node+0x18; accept only if v27 is below radius squared (node+24 squared) and below the current best v26.",
+          "evidence_refs": [
+            "field:this:0x00000118",
+            "field:this:0x0000017C",
+            "field:this:0x00000180",
+            "field:this:0x00000184",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Run the same 6-plane frustum test on the inline node using its plane data at node+0x8C/+0x90/+0x94, breaking out of the inner loop when any plane rejects the negated query point.",
+          "evidence_refs": [
+            "field:this:0x0000018C",
+            "field:this:0x00000190",
+            "field:this:0x00000194",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When all 6 planes accept (inner counter v22 reaches 6), record the best distance v26 = v27 and the best result v3 = v4.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "After the fallback walk, store the best result v3 into this[105] and return it.",
+          "evidence_refs": [
+            "field:this:0x000001A4",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The global dbl_59E430 is listed as read by this function but does not appear in the raw pseudocode; the constant may have been folded into the FLT_MAX sentinel 9.9999997e37 by Hex-Rays.",
+        "The residual CPU-status-flag guard (v6|c0 and v7|c3, both unsigned __int8) cannot be reconstructed into a source-level comparison from the pseudocode; the early-return condition it gates is unknown beyond keeping the cached result.",
+        "The exact meaning of the 0x40 flag in the node+4 byte (inactive/active bit) is inferred from the skip behavior, not proven.",
+        "Caller sub_556E70 semantics and the query-point layout a2[9..11] (query position/direction selection) are not recoverable here."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E430"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00550820",
+      "function_ref": "function:0x00550820",
+      "name": "ArrayOfStructDestructorWithCountdown",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00550820"
+        ]
+      },
+      "summary": "Counted-array destructor for a fixed-size (8-byte) element array. Guards on the counted-array pointer stored at this+0x8; when non-null it reads the element count from the dword immediately before the array, walks the elements backward, destroying each one via sub_550810 (0x00550810), then releases the whole allocation including the count prefix through FreeWrapper_7bcf (0x00587BCF). Ends with an unconditional trailing stub call. Invoked from sub_550F70 (0x00550F70).",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Array destruction is skipped entirely when the counted-array pointer at this+0x8 is null",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Loads the element count from the dword immediately before the array pointer (v1-4) and derives the last-element pointer as the array base plus 8 times the count (element stride 8 bytes)",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Backward iteration over all elements, stepping the element pointer down by 2 dwords (8 bytes) per iteration and destroying each element via sub_550810 (0x00550810)",
+          "evidence_refs": [
+            "callee:0x00550810",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "FreeWrapper_7bcf (0x00587BCF) releases the whole allocation block including the count prefix at v1-4",
+          "evidence_refs": [
+            "callee:0x00587BCF",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Ends with an unconditional trailing no-op stub call whose target is not present in this packet's callee facts",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_550F70 (0x00550F70)",
+          "evidence_refs": [
+            "caller:0x00550F70",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The trailing stub call target is absent from the callee facts and its address is not evidenced in this packet",
+        "The element layout destroyed by sub_550810 (8-byte stride) is not defined here"
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00563DC0",
+      "function_ref": "function:0x00563DC0",
+      "name": "NetworkSocketArrayCleanup",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00563DC0",
+          "source:raw"
+        ]
+      },
+      "summary": "Closes every socket in a network socket array. Reads the entry count from this+0x6C; when positive, iterates the array whose base pointer is this+0x8, calling closesocket on the socket handle at each entry and advancing by a fixed 28-byte stride per entry. Always returns 0. Called by sub_563AB0.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "i = 0; initialize the loop counter.",
+          "evidence_refs": [
+            "function:0x00563DC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Enter the loop only when the signed count at this+0x6C is greater than 0; otherwise skip and return 0.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x0000006C",
+            "function:0x00563DC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "do/while loop running exactly count times; each pass closes one socket and advances the byte offset by 28.",
+          "evidence_refs": [
+            "field:this:0x0000006C",
+            "function:0x00563DC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "closesocket(*(_DWORD *)(base + off)); dereference the array entry at this+0x8 plus the running offset and close the socket handle stored at entry offset 0.",
+          "evidence_refs": [
+            "callee:0x0059865A",
+            "field:this:0x00000008",
+            "function:0x00563DC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Per iteration: i += 1 and off += 28; continue while i < count.",
+          "evidence_refs": [
+            "field:this:0x0000006C",
+            "function:0x00563DC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 in both the empty and non-empty cases.",
+          "evidence_refs": [
+            "function:0x00563DC0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The owning object type is unidentified; this+0x8 array base and this+0x6C count belong to an unknown network container class.",
+        "The socket entry is 28 bytes wide and the handle sits at entry offset 0, but the remaining 24 bytes of each entry are not described by the packet.",
+        "The closesocket return value is ignored.",
+        "Caller sub_563AB0 (0x00563AB0) is the only known caller; the teardown context around it is unknown."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x00563AB0"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00563E80",
+      "function_ref": "function:0x00563E80",
+      "name": "IndexBoundsCheckedArrayRead",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Bounds-checked array element read: validates the requested index against the element count returned by sub_563E70 for the array pointer at a1+4, and on success returns the dword element addressed by LinearInterpolation over that array pointer; returns 0 on out-of-range.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If the requested index a2 is negative, return 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Query the element count for the array pointer stored at a1+4 via sub_563E70.",
+          "evidence_refs": [
+            "callee:0x00563E70"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the requested index a2 is greater than or equal to the element count, return 0.",
+          "evidence_refs": [
+            "callee:0x00563E70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Resolve the element address by calling LinearInterpolation on the array pointer at a1+4 with index a2.",
+          "evidence_refs": [
+            "callee:0x005648B0"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the dword read from the resolved element address.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The element layout behind *(a1+4) and the indexing semantics of LinearInterpolation (0x005648B0) are not evidenced in this packet.",
+        "Why the sole recorded caller SendJoinRequest (0x00462C00) performs this bounds-checked read is out of scope for this packet."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00564AB0",
+      "function_ref": "function:0x00564AB0",
+      "name": "CallbackBasedArrayStrideSearch",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Linear scan over an array of up to a3 elements starting at pointer a2, advancing by a4 bytes per element, invoking the callback predicate a5(a1, element_pointer) on each element while it returns nonzero. Returns the pointer to the first element for which the callback returns zero, or 0 when a3 <= 0 or the count is exhausted before the callback returns zero.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize the element counter v5 to 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Return 0 immediately when the element count a3 is less than or equal to 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set the element cursor v6 to the starting element pointer a2.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "While the callback a5(a1, v6) returns nonzero, continue scanning elements.",
+          "evidence_refs": [
+            "function:0x00564AB0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Increment the element counter v5 for each element visited.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Advance the cursor by the stride: v6 += a4.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Return 0 when the counter v5 reaches the element count a3, indicating the callback never returned zero within the range.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return a2 + a4 * v5, the pointer to the first element whose callback returned zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The meaning of the callback return value (which elements count as matches) is not described by the packet; the loop only establishes that scanning stops at the first element where a5 returns zero.",
+        "The role of a1, passed unchanged as the first callback argument, is not established by the packet.",
+        "In the caller 0x00564A20 the function is invoked with three explicit arguments (range, stride, key); the mapping of those arguments onto a1..a5 and the callback bound by the caller are not described in the raw source."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005670D0",
+      "function_ref": "function:0x005670D0",
+      "name": "RotationMatrixFromEulerAngles",
+      "owner": {
+        "type": "Matrix3x3Util",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "caller:0x004E24A0",
+          "caller:0x004E2540",
+          "function:0x005670D0"
+        ]
+      },
+      "summary": "Fills a 3x3 rotation matrix (nine float components at this+0 through this+0x20) from two Euler-angle arguments a2 and a3: it computes the sine and cosine of each angle and writes the eight nonzero entries of the standard rotation matrix, with the middle entry this[5] forced to zero.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Computes sin(a2), cos(a2), sin(a3) and cos(a3) from the two Euler-angle arguments.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Writes the first row of the rotation matrix: this[0] = cos(a3)*cos(a2), this[1] = -(sin(a3)*cos(a2)), this[2] = sin(a2).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x00000008"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Writes the second row of the rotation matrix: this[3] = sin(a3), this[4] = cos(a3), this[5] = 0.0.",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000014"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Writes the third row of the rotation matrix: this[6] = -(cos(a3)*sin(a2)), this[7] = sin(a3)*sin(a2), this[8] = cos(a2).",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "field:this:0x00000020"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The exact Euler-angle convention (rotation order and axis meaning) is not proven; the function is a structural twin of EulerToRotationMatrix (00566e40) per the cluster_copy prelabel.",
+        "Owner type is DERIVED: the function is a plain matrix fill with no class-identity evidence, used by SuspensionParamUpdate and WheelSuspensionTireStateInit."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005674C0",
+      "function_ref": "function:0x005674C0",
+      "name": "RotateMatrixAndExtractAngles",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Rotates the first two columns of a 3x3 matrix (elements 0..1, 3..4, 6..7) by angle a2 using sin/cos, converts float elements via FloatConvertWrapper, and extracts Euler-like angles into the output at a3. Writes pitch = -this[5]; in the gimbal-lock case fabs(this[5]) == 1.0 it writes zero to a3+8 and yaw to a3+4 from atan2(-this[6], this[0]), otherwise it writes yaw = atan2(this[2], this[8]) and roll = atan2(this[3], this[4]).",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute sin(a2) and cos(a2) for the rotation.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Rotate the first two columns of the matrix: for each of the three pairs (this[0],this[1]), (this[3],this[4]), (this[6],this[7]) apply new = old*cos + other*sin and other = other*cos - old*sin.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000004",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "field:this:0x00000018",
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call FloatConvertWrapper(this) on the matrix.",
+          "evidence_refs": [
+            "callee:0x00588570",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write *(float*)a3 = -this[5] (the saved center-column element) as the output pitch value.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Branch on fabs(this[5]) == 1.0 (comparing against constant dbl_59E420), the gimbal-lock condition.",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "global:0x0059E420",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Gimbal-lock branch: write zero to a3+8 and a3+4 = atan2(-this[6], this[0]).",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Non-gimbal-lock branch: write a3+4 = atan2(this[2], this[8]) and a3+8 = atan2(this[3], this[4]).",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "field:this:0x00000020",
+            "field:this:0x0000000C",
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The layout of the output struct at a3 (offsets 0, 4, 8) and the exact angle convention are not established from this function alone.",
+        "What FloatConvertWrapper does to the matrix before angle extraction is unknown.",
+        "Matrix orientation/row-major-vs-column-major interpretation is caller-dependent."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00569B70",
+      "function_ref": "function:0x00569B70",
+      "name": "SubtractImpulseVector",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Subtracts an impulse vector a3 from linear momentum components (this+0x134/0x13C/0x144), then subtracts cross-product components of the lever-arm vector a2 and impulse a3 from angular momentum (this+0x14C/0x154/0x15C). Returns the impulse vector pointer a3. Structural twin of the accumulation form in the same cluster (per prelabel) but with subtraction instead of addition; callers include RigidBodyTorqueAccumulation (0x00441BB0), sub_442C90, and sub_56EE40.",
+      "operations": [
+        {
+          "kind": "return",
+          "description": "Return the impulse vector pointer a3 as the function result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Subtract a3[0], a3[1], a3[2] from the linear momentum components this+0x134, this+0x13C, this+0x144.",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "field:this:0x0000013C",
+            "field:this:0x00000144",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute v5 = a2[2]*a3[0] - a3[2]*a2[0], the y component of the cross product a2 x a3.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute v6 = a3[1]*a2[0] - a3[0]*a2[1], the negated z component of the cross product a2 x a3.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Subtract a3[2]*a2[1] - a3[1]*a2[2] (the negated x component of the cross product) from the angular momentum component this+0x14C.",
+          "evidence_refs": [
+            "field:this:0x0000014C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Subtract v5 (cross-product y component) from the angular momentum component this+0x154.",
+          "evidence_refs": [
+            "field:this:0x00000154",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Subtract v6 (negated cross-product z component) from the angular momentum component this+0x15C.",
+          "evidence_refs": [
+            "field:this:0x0000015C",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The mixed signs of the cross-product accumulation (x and z components negated, y positive) are not explained by the packet; they may reflect a coordinate-frame convention or a cross-product order that the packet cannot disambiguate.",
+        "The interpretation of a2 as a pre-computed lever-arm vector and of this+0x134..0x15C as linear/angular momentum is DERIVED from the arithmetic shape and the structural twin reported by the prelabel cluster note; the packet does not name the fields.",
+        "The purpose of the subtraction direction relative to its cluster twin (applying vs removing an impulse) is DERIVED from the prelabel cluster note."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0056A5D0",
+      "function_ref": "function:0x0056A5D0",
+      "name": "ProcessConstraintVelocityVectors",
+      "owner": {
+        "type": "VehicleConstraintSolver",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "caller:0x0056A240",
+          "function:0x0056A5D0"
+        ]
+      },
+      "summary": "Processes joint constraint velocity vectors for the vehicle physics constraint solver: forms a reference velocity by adding the traction-scaled angular velocity (dbl_5E5240 * omega) to the incoming constraint velocity vector, then for each joint entry (stride 132) transforms the constraint axis and the linked body's frame vector through their rotation matrices (Matrix3x3VectorMultiply), computes a normalized cross product scaled by dbl_5E5238, and accumulates or subtracts the weighted dot-product terms into the force buffer at this+0x224 indexed by body id.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Computes the reference velocity offset: for each component adds the traction constant dbl_5E5240 times the angular velocity component (this+0x7C, this+0x84, this+0x8C) to the incoming constraint velocity vector a2.",
+          "evidence_refs": [
+            "global:0x005E5240",
+            "field:this:0x0000007C",
+            "field:this:0x00000084",
+            "field:this:0x0000008C"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Iterates joint constraints only while the joint count at this+0x234 is positive; otherwise returns zero without touching the force buffer.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x00000234"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Loops over joint constraint entries in the buffer at this+0x238, stride 132, while the index is below the joint count at this+0x234; for each entry reads the linked body id at +124, a frame descriptor field at +120 and the sign byte at +128.",
+          "evidence_refs": [
+            "field:this:0x00000238",
+            "field:this:0x00000234"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Computes the triple-product scalar v17 = angular velocity dot (cross of the two constraint axis column triples read at +72/+80/+88 and +96/+104/+112) and the two omega-dot-column terms v25 and v26.",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "field:this:0x00000084",
+            "field:this:0x0000008C",
+            "field:this:0x00000238"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Transforms the joint-frame axis vector (the current joint entry) by the 3x3 rotation matrix at this+28 via Matrix3x3VectorMultiply, when the sign byte is set.",
+          "evidence_refs": [
+            "callee:0x00435E00",
+            "field:this:0x00000238"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Transforms the linked body's frame vector by its own rotation matrix (rotation matrix and vector obtained through the descriptor at joint+120, dereferenced at +12 and +16) via Matrix3x3VectorMultiply, when the sign byte is set.",
+          "evidence_refs": [
+            "callee:0x00435E00",
+            "field:this:0x00000238"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Computes the cross product of the two transformed vectors and normalizes it via CrossProductNormalize, then scales the three result components by the traction-constant-squared global dbl_5E5238.",
+          "evidence_refs": [
+            "callee:0x0056C540",
+            "global:0x005E5238"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Accumulates the weighted velocity terms into the force buffer at this+0x224, indexed by body id with two double slots per entry: when the sign byte is set the weighted dot terms are subtracted from the buffer, when clear they are added, both cases folding in the omega-dot terms v25/v26 times v17.",
+          "evidence_refs": [
+            "field:this:0x00000224",
+            "field:this:0x00000238"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the number of joint constraints processed, which equals the joint count at this+0x234 when the loop ran.",
+          "evidence_refs": [
+            "field:this:0x00000234"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The 3x3 rotation matrix at this+28 and the body-frame descriptor chain reached through joint+120 (dereferenced at +12 and +16) are only partially resolved.",
+        "CrossProductNormalize operand order and the resulting axis convention are unconfirmed.",
+        "Force buffer stride and the exact role of the two double slots per body are unconfirmed.",
+        "The meanings of dbl_5E5238 (squared) versus dbl_5E5240 (base) as traction constants come from prior DERIVED prose, not runtime proof."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0056B5D0",
+      "function_ref": "function:0x0056B5D0",
+      "name": "AssembleJointConstraintMatrix",
+      "owner": {
+        "type": "VehicleConstraintSolver",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "caller:0x0056A240",
+          "function:0x0056B5D0"
+        ]
+      },
+      "summary": "Assembles the sparse symmetric constraint stiffness matrix for the vehicle physics constraint solver: reads the world-space inverse inertia tensor rows, builds inverse-inertia-weighted constraint columns for each joint entry (stride 132) and each contact entry (stride 88), and accumulates diagonal and off-diagonal 3x3 blocks into the sparse matrix addressed through the row-pointer table at this+0x228, adding or subtracting each block contribution according to the shared/opposed body-sign byte.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Contact-constraint inner loop runs only while the contact count at this+0x23C (raw this+572) is positive; the raw source also gates the outer loop on the joint count at this+0x234, which the deterministic extractor did not record as a guard.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x0000023C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Reads the nine world-space inverse inertia tensor values forming three rows of three doubles at this+0xEC through this+0x12C (offsets 236, 244, 252, 260, 268, 276, 284, 292, 300).",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "field:this:0x000000F4",
+            "field:this:0x000000FC",
+            "field:this:0x00000104",
+            "field:this:0x0000010C",
+            "field:this:0x00000114",
+            "field:this:0x0000011C",
+            "field:this:0x00000124",
+            "field:this:0x0000012C"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Outer loop over joint constraint entries in the buffer at this+0x238, stride 132, running while the index is below the joint count at this+0x234; for each entry it reads two constraint axis column triples (+72/+80/+88 and +96/+104/+112), the linked body id at +124 and the sign byte at +128.",
+          "evidence_refs": [
+            "field:this:0x00000238",
+            "field:this:0x00000234"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Builds six inverse-inertia-weighted constraint columns: three terms (v52, v53, v54) as each inverse inertia row dotted with the first constraint column, and three terms (v49, v50, v51) as each inverse inertia row dotted with the second constraint column.",
+          "evidence_refs": [
+            "field:this:0x000000EC",
+            "field:this:0x000000F4",
+            "field:this:0x000000FC",
+            "field:this:0x00000104",
+            "field:this:0x0000010C",
+            "field:this:0x00000114",
+            "field:this:0x0000011C",
+            "field:this:0x00000124",
+            "field:this:0x0000012C"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Accumulates the diagonal 3x3 block for the current body id into the sparse matrix: three double entries at row bases fetched through the row-pointer table at this+0x228 (column offset 8*body) receive the weighted terms added to their existing values.",
+          "evidence_refs": [
+            "field:this:0x00000228",
+            "field:this:0x00000238"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Off-diagonal pass over the remaining joints (stride 132): recomputes the three off-diagonal block terms for each later joint entry and, depending on whether the two sign bytes at +128 match, adds (equal) or subtracts (differ) the block into entry (v7,v16) or its transpose (v16,v7) via the row-pointer table at this+0x228.",
+          "evidence_refs": [
+            "field:this:0x00000228",
+            "field:this:0x00000238",
+            "field:this:0x00000234"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Contact pass: iterates contact entries in the buffer at this+0x240, stride 88, while the index is below the contact count at this+0x23C; reads the linked body id at +48, the sign byte at +52 and constraint axis doubles at +24/+32/+40 and +64/+72/+80, computes triple-product-weighted terms, and adds or subtracts them into the matrix via the row-pointer table at this+0x228.",
+          "evidence_refs": [
+            "field:this:0x00000240",
+            "field:this:0x0000023C",
+            "field:this:0x00000228"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the joint constraint count read from this+0x234, the value that bounds the outer iteration.",
+          "evidence_refs": [
+            "field:this:0x00000234"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Exact packing of the 3x3 block within the per-body row block (three doubles stored, 8-byte stride) is not fully confirmed.",
+        "Sign byte at joint+128 / contact+52 selects add versus subtract of block contributions; shared-versus-opposed body frame interpretation is inferred from code, not proven.",
+        "Sparse matrix is indexed by body id through the row-pointer table at this+0x228; the full storage layout for arbitrary body pairs is unconfirmed.",
+        "Raw source reads loop counts and buffers at offsets 564/568/572/576 which map to fields 0x234/0x238/0x23C/0x240; only the contact-count guard at 0x23C was recorded by the extractor."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "MEDIUM",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0056C2D0",
+      "function_ref": "function:0x0056C2D0",
+      "name": "RotateMatrixAroundXAxis",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Applies an X-axis rotation to columns 1 and 2 of a 3x3 double matrix (this, 9 doubles at 8-byte stride): each column pair is recombined with sin/cos of angle a2 while column 0 is unchanged. If a3 is non-null, Euler angles are extracted to a3: -this[5] is written at a3+0 after FloatConvertWrapper, then either the gimbal-lock path (fabs(this[5]) == 1.0, using the dbl_59E420 constant) or the regular atan2 path fills a3+8 and a3+16. Used in vehicle physics suspension orientation setup; called by SuspensionDataCopyToPhysicsEngine.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute v3 = sin(a2) and v5 = cos(a2).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Rotate matrix column 1: this[1] (offset 0x8) = this[1]*cos + this[2]*sin; this[2] (offset 0x10) = this[2]*cos - this[1]*sin.",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Rotate matrix column 2: this[4] (offset 0x20) = this[4]*cos + this[5]*sin; this[5] (offset 0x28) = this[5]*cos - this[4]*sin.",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Rotate matrix column 3: this[7] (offset 0x38) = this[7]*cos + this[8]*sin; this[8] (offset 0x40) = this[8]*cos - this[7]*sin. Column 0 elements (0x0, 0x18, 0x30) are left unchanged.",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If a3 is non-null, perform Euler-angle extraction; otherwise the function ends after the rotation.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Capture v12 = this[5] (offset 0x28), call FloatConvertWrapper(this), then write the double value -v12 at a3+0.",
+          "evidence_refs": [
+            "callee:0x00588570",
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Gimbal-lock branch: if fabs(this[5]) == 1.0 (the 1.0 constant, matching the read-only double global dbl_59E420), use the singularity Euler path; otherwise use the regular atan2 path.",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "global:0x0059E420",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Gimbal-lock path: write a3+8 = atan2(-this[6], this[0]) (elements this 0x30 and 0x0) and zero the DWORDs at a3+16 and a3+20.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Regular path: write a3+8 = atan2(this[2], this[8]) (elements this 0x10 and 0x40) and a3+16 = atan2(this[3], this[4]) (elements this 0x18 and 0x20).",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "field:this:0x00000018",
+            "field:this:0x00000020",
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The decompiled element types mix double reads and long-double writes for the same 8-byte matrix elements; the 8-byte element stride is inferred from the offsets and matches a double matrix.",
+        "The layout of the a3 output buffer is not asserted beyond the written offsets (a3+0, a3+8, a3+16, a3+20), and the mixed double/DWORD writes at a3+16/a3+20 in the gimbal branch are taken verbatim from the source.",
+        "The in-place semantics of FloatConvertWrapper(this) are not analyzed here; only the captured pre-conversion value of this[5] is used for the a3+0 write."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0058DFC1",
+      "function_ref": "function:0x0058DFC1",
+      "name": "CriticalSectionArrayInit",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x0058DFC1"
+        ]
+      },
+      "summary": "Startup-only routine that initializes four Win32 critical section objects via InitializeCriticalSection: lpCriticalSection, off_5E6CB4, off_5E6CA4 and off_5E6C84. Straight-line function with no guards, preparing synchronization primitives used by the allocation/thread-management paths.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "InitializeCriticalSection (import at 0x0059E16C) on the first critical-section object at lpCriticalSection (0x005E6CC4).",
+          "evidence_refs": [
+            "global:0x0059E16C",
+            "global:0x005E6CC4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "InitializeCriticalSection on the critical section at off_5E6CB4 (0x005E6CB4).",
+          "evidence_refs": [
+            "global:0x0059E16C",
+            "global:0x005E6CB4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "InitializeCriticalSection on the critical section at off_5E6CA4 (0x005E6CA4).",
+          "evidence_refs": [
+            "global:0x0059E16C",
+            "global:0x005E6CA4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "InitializeCriticalSection on the critical section at off_5E6C84 (0x005E6C84).",
+          "evidence_refs": [
+            "global:0x0059E16C",
+            "global:0x005E6C84",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Void return; nothing is produced.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The four initialized critical sections appear to guard allocation/TLS paths, but which threads use each lock is not visible from this packet.",
+        "No evidence here of which owner object holds these globals or why four distinct sections are needed."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0058FF0D",
+      "function_ref": "function:0x0058FF0D",
+      "name": "BinarySearchIn8ByteRecordArray",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Binary search over an array of 8-byte records. a1 is the array base, a2 is the high bound (element count derived as the inclusive index upper limit), and a3 is a pointer to the search key that also receives the matching record's value field on success. At each step the midpoint v5 = (v3 + a2) / 2 is computed and the comparator sub_588410 is called with the search key and the record pointer at a1 + 8*v5. A zero comparator result marks a hit and writes a1 + 8*v5 + 4 (the record's value field) into *a3; a positive result narrows the search to the upper half (v3 = v5 + 1), a negative result to the lower half (a2 = v5 - 1). The loop terminates when the bounds cross or a hit was recorded (result zero), and the last comparator result is returned (0 = found).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize lower bound v3 = 0 and result = 1 before the loop.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "while (v3 <= a2): iterate while the search interval is non-empty.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Break the loop when result is zero (a previous iteration found the record).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute the midpoint index v5 = (v3 + a2) / 2.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call comparator sub_588410(*a3, *(a1 + 8*v5)) comparing the search key against the record at the midpoint; store its return in result.",
+          "evidence_refs": [
+            "callee:0x00588410",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "On a positive comparator result set v3 = v5 + 1 (search the upper half); on a negative result set a2 = v5 - 1 (search the lower half).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On a zero comparator result (match), write the matched record's value field address a1 + 8*v5 + 4 into *a3.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the last comparator result (zero indicates a found record).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by sub_58FD90 (0x0058FD90), consistent with a shared string/record lookup helper.",
+          "evidence_refs": [
+            "caller:0x0058FD90"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Comparator sub_588410 semantics are not visible in this packet; the sign convention (positive key vs record) is inferred from the bound adjustment.",
+        "The layout of the 8-byte record (key field at record base, value field at base+4) is inferred from the *a3 write target and not independently proven.",
+        "a2 is treated as an inclusive index bound; whether it is an element count minus one or a raw count is caller-dependent.",
+        "Meaning of a non-zero return to the caller beyond found/not-found is unknown."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0059525D",
+      "function_ref": "function:0x0059525D",
+      "name": "BitArrayClearBitAndZeroFillSubsequentWords",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0059525D",
+          "source:raw"
+        ]
+      },
+      "summary": "Clears one bit in an arbitrary-size bit array and zero-fills the words after the target word. Given the array base a1 and a bit index a2, the bit at (a2 mod 32) within word (a2 / 32) is cleared. If that bit was set and the remainder of the range (from bit a2+1 onward) is not already clear, a failure handler is invoked and its result becomes the return value. If the cleared word is before the third word (the layout is capped at 96 bits per the overview), the trailing words are memset to zero. Returns 0 on the normal path.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize the default return value v9 = 0 and compute the bit-location decomposition: word index v8 = a2 / 32, bit-within-word v4 = a2 % 32, shift v6 = 31 - v4, and a2 - 1 held in v2.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Compute the pointer to the target word v5 = a1 + 4 * (a2 / 32) and keep a saved copy v10 = v5.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on whether the target bit is already set: if (1 << (31 - v4)) & *v5 is non-zero the bit was set and must be cleared; otherwise the clear is a no-op.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "When the target bit was set, check whether the remaining bit range starting at a2 + 1 is already clear via CheckIfBitRangeIsClearAcrossDwords(a1, a2 + 1).",
+          "evidence_refs": [
+            "callee:0x005951BE",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "If the remainder of the range is not clear, invoke the failure handler FAILOverviewSays96BitBitmapButSourceIsArbitraryS(a1, a2 - 1) and store its result as the return value v9.",
+          "evidence_refs": [
+            "callee:0x00595207",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Restore the target word pointer v5 = v10, then clear the bit: *v5 &= (-1 << v6), keeping all other bits of the word intact.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on the word index being before the third word: if v8 + 1 < 3, zero-fill the remaining words with memset(a1 + 4 * (v8 + 1), 0, 4 * (3 - (v8 + 1))).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return v9, the failure-handler result if the range was not clear, otherwise 0.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The exact size of the bit array (apparently capped at 3 words / 96 bits by the zero-fill guard) and whether the FAILOverviewSays96BitBitmapButSourceIsArbitraryS handler returns an error code or a sentinel are not recoverable from this function alone."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00595310",
+      "function_ref": "function:0x00595310",
+      "name": "ArrayOf3ZeroCheck",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Tests three consecutive dwords for all-zero state. Walks a1 element by element; while the current element is zero it advances the pointer and increments a counter, returning 1 as soon as the counter reaches 3 (all three consecutive elements were zero). Any non-zero element terminates the walk immediately with 0.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Initialize the element counter v2 to 0 before the walk.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "while-loop: while the current element at a1 is zero, increment v2 and advance a1 to the next element; the walk stops at the first non-zero element.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Loop condition reads the dword at the current pointer (field 0x0 of the current element); a non-zero value exits the loop and selects the 0 return path.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 1 when v2 reaches 3, i.e. all three consecutive elements starting at a1 were zero.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 when a non-zero element is encountered before the counter reached 3.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by sub_5953B8 (0x005953B8) to check whether the 3-element array it owns is entirely zero.",
+          "evidence_refs": [
+            "caller:0x005953B8",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The prelabel template action ('getter: returns field 0x0') does not match the raw source, which iterates three consecutive elements; the raw source outranks the template label and no single-field getter is claimed.",
+        "The elements at a1+4 and a1+8 reached by pointer advancement have no distinct packet field evidence; only the base field 0x0 is evidenced."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x00522B5B",
+    "function:0x00523E7A",
+    "function:0x005257C0",
+    "function:0x00525AA2",
+    "function:0x00525E9A",
+    "function:0x00528F00",
+    "function:0x00549FB0",
+    "function:0x0054A340",
+    "function:0x00550820",
+    "function:0x00563DC0",
+    "function:0x00563E80",
+    "function:0x00564AB0",
+    "function:0x005670D0",
+    "function:0x005674C0",
+    "function:0x00569B70",
+    "function:0x0056A5D0",
+    "function:0x0056B5D0",
+    "function:0x0056C2D0",
+    "function:0x0058DFC1",
+    "function:0x0058FF0D",
+    "function:0x0059525D",
+    "function:0x00595310"
+  ],
+  "required_material_refs": [
+    "callee:0x00435E00",
+    "callee:0x005295E0",
+    "callee:0x00550810",
+    "callee:0x00563E70",
+    "callee:0x005648B0",
+    "callee:0x0056C540",
+    "callee:0x00587BCF",
+    "callee:0x00588410",
+    "callee:0x00588570",
+    "callee:0x005951BE",
+    "callee:0x00595207",
+    "callee:0x0059865A",
+    "field:*(*(this+0x2A0)+0x10):0x0000007C",
+    "field:*(*(this+0x2A0)+0x10):0x00000080",
+    "field:*(*(this+0x2A0)+0x10):0x00000084",
+    "field:*(*(this+0x2A0)+0x10):0x0000008C",
+    "field:*(*(this+0x2A0)+0x10):0x00000090",
+    "field:*(*(this+0x2A0)+0x10):0x00000094",
+    "field:*(*(this+0x2A0)+0x14):0x00000014",
+    "field:*(this+0x204):0x00000104",
+    "field:*(this+0x2A0):0x00000010",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000028",
+    "field:this:0x00000030",
+    "field:this:0x00000038",
+    "field:this:0x00000040",
+    "field:this:0x0000006C",
+    "field:this:0x0000007C",
+    "field:this:0x00000080",
+    "field:this:0x00000084",
+    "field:this:0x0000008C",
+    "field:this:0x000000EC",
+    "field:this:0x000000F4",
+    "field:this:0x000000FC",
+    "field:this:0x00000100",
+    "field:this:0x00000104",
+    "field:this:0x0000010C",
+    "field:this:0x00000114",
+    "field:this:0x00000118",
+    "field:this:0x0000011C",
+    "field:this:0x00000124",
+    "field:this:0x0000012C",
+    "field:this:0x00000134",
+    "field:this:0x0000013C",
+    "field:this:0x00000144",
+    "field:this:0x0000014C",
+    "field:this:0x00000154",
+    "field:this:0x0000015C",
+    "field:this:0x0000017C",
+    "field:this:0x00000180",
+    "field:this:0x00000184",
+    "field:this:0x0000018C",
+    "field:this:0x00000190",
+    "field:this:0x00000194",
+    "field:this:0x000001A4",
+    "field:this:0x00000224",
+    "field:this:0x00000228",
+    "field:this:0x00000234",
+    "field:this:0x00000238",
+    "field:this:0x0000023C",
+    "field:this:0x00000240",
+    "field:this:0x000002A0",
+    "global:0x0059E16C",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x005AF8F0",
+    "global:0x005AF900",
+    "global:0x005AF920",
+    "global:0x005AF990",
+    "global:0x005D9358",
+    "global:0x005D935C",
+    "global:0x005D9388",
+    "global:0x005D938C",
+    "global:0x005D9390",
+    "global:0x005D9394",
+    "global:0x005D9398",
+    "global:0x005D939C",
+    "global:0x005D93B8",
+    "global:0x005E5238",
+    "global:0x005E5240",
+    "global:0x005E6C84",
+    "global:0x005E6CA4",
+    "global:0x005E6CB4",
+    "global:0x005E6CC4"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x00435E00",
+    "callee:0x005295E0",
+    "callee:0x00550810",
+    "callee:0x00563E70",
+    "callee:0x005648B0",
+    "callee:0x0056C540",
+    "callee:0x00587BCF",
+    "callee:0x00588410",
+    "callee:0x00588570",
+    "callee:0x005951BE",
+    "callee:0x00595207",
+    "callee:0x0059865A",
+    "caller:0x004E24A0",
+    "caller:0x004E2540",
+    "caller:0x005215DB",
+    "caller:0x005261CE",
+    "caller:0x0052692F",
+    "caller:0x00526B55",
+    "caller:0x00550F70",
+    "caller:0x00556E70",
+    "caller:0x00563AB0",
+    "caller:0x0056A240",
+    "caller:0x0058FD90",
+    "caller:0x005953B8",
+    "field:*(*(this+0x2A0)+0x10):0x0000007C",
+    "field:*(*(this+0x2A0)+0x10):0x00000080",
+    "field:*(*(this+0x2A0)+0x10):0x00000084",
+    "field:*(*(this+0x2A0)+0x10):0x0000008C",
+    "field:*(*(this+0x2A0)+0x10):0x00000090",
+    "field:*(*(this+0x2A0)+0x10):0x00000094",
+    "field:*(*(this+0x2A0)+0x14):0x00000014",
+    "field:*(this+0x204):0x00000104",
+    "field:*(this+0x2A0):0x00000010",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000028",
+    "field:this:0x00000030",
+    "field:this:0x00000038",
+    "field:this:0x00000040",
+    "field:this:0x0000006C",
+    "field:this:0x0000007C",
+    "field:this:0x00000080",
+    "field:this:0x00000084",
+    "field:this:0x0000008C",
+    "field:this:0x000000EC",
+    "field:this:0x000000F4",
+    "field:this:0x000000FC",
+    "field:this:0x00000100",
+    "field:this:0x00000104",
+    "field:this:0x0000010C",
+    "field:this:0x00000114",
+    "field:this:0x00000118",
+    "field:this:0x0000011C",
+    "field:this:0x00000124",
+    "field:this:0x0000012C",
+    "field:this:0x00000134",
+    "field:this:0x0000013C",
+    "field:this:0x00000144",
+    "field:this:0x0000014C",
+    "field:this:0x00000154",
+    "field:this:0x0000015C",
+    "field:this:0x0000017C",
+    "field:this:0x00000180",
+    "field:this:0x00000184",
+    "field:this:0x0000018C",
+    "field:this:0x00000190",
+    "field:this:0x00000194",
+    "field:this:0x000001A4",
+    "field:this:0x00000224",
+    "field:this:0x00000228",
+    "field:this:0x00000234",
+    "field:this:0x00000238",
+    "field:this:0x0000023C",
+    "field:this:0x00000240",
+    "field:this:0x000002A0",
+    "function:0x00522B5B",
+    "function:0x00523E7A",
+    "function:0x005257C0",
+    "function:0x00525AA2",
+    "function:0x00525E9A",
+    "function:0x00528F00",
+    "function:0x00549FB0",
+    "function:0x0054A340",
+    "function:0x00550820",
+    "function:0x00563DC0",
+    "function:0x00563E80",
+    "function:0x00564AB0",
+    "function:0x005670D0",
+    "function:0x005674C0",
+    "function:0x00569B70",
+    "function:0x0056A5D0",
+    "function:0x0056B5D0",
+    "function:0x0056C2D0",
+    "function:0x0058DFC1",
+    "function:0x0058FF0D",
+    "function:0x0059525D",
+    "function:0x00595310",
+    "global:0x0059E16C",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x005AF8F0",
+    "global:0x005AF900",
+    "global:0x005AF920",
+    "global:0x005AF990",
+    "global:0x005D9358",
+    "global:0x005D935C",
+    "global:0x005D9388",
+    "global:0x005D938C",
+    "global:0x005D9390",
+    "global:0x005D9394",
+    "global:0x005D9398",
+    "global:0x005D939C",
+    "global:0x005D93B8",
+    "global:0x005E5238",
+    "global:0x005E5240",
+    "global:0x005E6C84",
+    "global:0x005E6CA4",
+    "global:0x005E6CB4",
+    "global:0x005E6CC4",
+    "guard:0",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/wave_006/wave_006_math_and_collision_03.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

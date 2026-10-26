@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "address": "0x0052266C",
+  "proposed_name": "F_4ElementDeterminant",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Computes the determinant of a 4x4 float matrix (or packed structure) using 3DNow! packed-float arithmetic. Loads matrix elements as 64-bit packed float pairs, forms three 2x2 sub-determinants (v3, v4, v5) via pfsub/pfmul of shuffled pairs, then accumulates a cofactor-weighted sum (v6) using the remaining row elements. Emits _m_femms() and returns the low 32 bits of pfacc(v6, v6) reinterpreted as a float, widened to double by the caller's signature. No guards, branches or calls; always executes the full computation. Canonical corpus name F_4ElementDeterminant.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Load packed float pairs from the input array: v1 from byte offset +0x24 (a1+9) and v2 from +0x34 (a1+13), with further matrix elements read as 64-bit packed pairs spanning the first element at +0x0.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "function:0x0052266C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "First 2x2 sub-determinant v3: pfsub(pfmul(punpckhdq(pair at +0x38), v1), pfmul(punpckhdq(pair at +0x28), v2)).",
+      "evidence_refs": ["field:this:0x00000028", "field:this:0x00000038", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Second 2x2 sub-determinant v4: pfsub(pfmul(punpckldq(pair at +0x20), pair at +0x38), pfmul(punpckldq(pair at +0x30), pair at +0x28)).",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000030", "field:this:0x00000038", "field:this:0x00000028", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Third 2x2 sub-determinant v5: pfsub(pfmul(v2, pair at +0x20), pfmul(v1, pair at +0x30)).",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000030", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Cofactor-weighted accumulation v6: combine the sub-determinants with the remaining row elements (packed pairs at +0x0, +0x4, +0x10, +0x14, +0x18 and offsets +0x24/+0x34 via v1/v2) using pfadd/pfsub/pfmul and unpack shuffles, producing the final determinant pair.",
+      "evidence_refs": ["field:this:0x00000024", "field:this:0x00000034", "field:this:0x00000000", "field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Emit _m_femms() (3DNow! state flush) and return the low 32 bits of _m_pfacc(v6, v6) via _mm_cvtsi64_si32, interpreted as a float and widened to double by the function signature.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// 3DNow! 4x4 float determinant; 16 floats at a1 read as packed 64-bit pairs.",
+    "double F_4ElementDeterminant(unsigned int* a1) {",
+    "  __m64 v1 = *(__m64*)(a1 + 9);   // +0x24",
+    "  __m64 v2 = *(__m64*)(a1 + 13);  // +0x34",
+    "  __m64 v3 = pfsub(pfmul(punpckhdq(pair@+0x38, pair@+0x38), v1),",
+    "                   pfmul(punpckhdq(pair@+0x28, pair@+0x28), v2));",
+    "  __m64 v4 = pfsub(pfmul(punpckldq(pair@+0x20, pair@+0x20), pair@+0x38),",
+    "                   pfmul(punpckldq(pair@+0x30, pair@+0x30), pair@+0x28));",
+    "  __m64 v5 = pfsub(pfmul(v2, pair@+0x20), pfmul(v1, pair@+0x30));",
+    "  __m64 v6 = pfsub(",
+    "    pfmul(pfsub(pfadd(pfmul(v3, pair@+0x10), pfmul(v5, punpckhdq(pair@+0x18, pair@+0x18))),",
+    "                   pfmul(punpckldq(punpckhdq(v4, v4), v3), pair@+0x14)),",
+    "          punpckldq(pair@+0x4, pair@+0x0)),",
+    "    pfmul(pfsub(pfadd(pfmul(punpckhdq(v5, v3), punpckldq(pair@+0x10, pair@+0x10)),",
+    "                      pfmul(punpckldq(v5, v4), pair@+0x18)),",
+    "                pfmul(v4, pair@+0x14)),",
+    "          punpckhdq(pair@+0x4, pair@+0x0)));",
+    "  _m_femms();",
+    "  return COERCE_FLOAT(_mm_cvtsi64_si32(_m_pfacc(v6, v6)));",
+    "}"
+  ],
+  "unresolved": [
+    "Exact 4x4 matrix element layout (which float is at which row/column) is inferred from the packed m64 offsets and is not named by the packet; the matrix itself is caller-defined.",
+    "Return semantics: the result is a single 32-bit float (pfacc low lane) widened to double by the __stdcall signature; whether callers use it as a scalar determinant is not determined here.",
+    "No ABI lead, callers, callees or guards are recorded in the packet; the function is reached only indirectly or is top-level."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

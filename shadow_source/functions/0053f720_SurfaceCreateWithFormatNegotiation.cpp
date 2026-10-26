@@ -1,0 +1,60 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0053F720
+// Canonical corpus name: sub_53F720
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_53F720_0053f720.c
+
+void UnknownObject::SurfaceCreateWithFormatNegotiation()
+{
+    // DirectX-style surface allocation driven by the flags dword a2[6]. A surface-format id is computed from a2[12] via sub_55C650 (with a special case mapping format 7 to 8) and remapped when bit 0x10 is set (21->22, 25->24). Depending on the flag bits 0x1, 0x2, 0x40008, 0x8 and 0x4, the function issues vtable create-surface calls on two sub-objects: the primary at this+0x10FC (vtable+40 / offset 0x28) and the secondary at this+0x1100 (vtable+108 / 0x6C, vtable+100 / 0x64, vtable+80 / 0x50), negotiating width/depth/format from this+0x13E8 / this+0x13EC / this+0x110C and remapping formats via capability flags at this+0x13A8. On success it optionally creates an audio emitter (OperatorNewNhMallocWrapper(60) + AudioEmitterCreate, stored to a2[1]) and post-processes via sub_53F3F0 / F_2DSurfaceBlitFill. Any vtable call failure on the secondary path formats an error string with aCouldNotAlloca and reports it via sub_53C590(-1, ...), returning -1; otherwise returns 0.
+    // CALCULATION: Read the format specifier a2[12] and the default format field *(this+0x110C); compute the surface format id v39 by calling sub_55C650, mapping the sentinel 7 to 8. [field:this:0x0000110C, callee:0x0055C650, source:raw]
+    // CALCULATION: When the flags dword a2[6] has bit 0x10 set, remap format id 21->22 and 25->24 (format aliases), then proceed through the create paths. [source:raw]
+    // CALL: Flag bit 0x1: call vtable+108 on the secondary sub-object's vtable (deref of this+0x1100, offset 0x6C) with a2[7], a2[8], format v39 and a2+2; store the result in this+0. A non-zero result goes to the error path. [field:*(*(this+0x1100)+0x0):0x0000006C, field:*(this+0x1100):0x00000000, field:this:0x00001100, field:this:0x00000000, source:raw]
+    // CALL: Flag bit 0x2: if bit 0x40000 is also set, select the width/depth format from this+0x13EC (when a2[9]==32) / this+0x13E8 (when a2[9]==16) / default this+0x110C, then call vtable+40 (offset 0x28) on the primary sub-object's vtable (this+0x10FC), supplying the SimpleFieldGetter_bfc0 result as an argument; store the result in this+0. [field:this:0x000013EC, field:this:0x000013E8, field:*(*(this+0x10FC)+0x0):0x00000028, field:*(this+0x10FC):0x00000000, field:this:0x000010FC, field:this:0x00000000, callee:0x0055BFC0, source:raw]
+    // CALL: Flag bit 0x2 fallback: call vtable+100 (offset 0x64) on the secondary sub-object's vtable with a2[7], a2[8], format v39, 0, 0 and a2+3; store the result in this+0. A non-zero result goes to the error path. [field:*(*(this+0x1100)+0x0):0x00000064, field:*(this+0x1100):0x00000000, field:this:0x00000000, source:raw]
+    // CALL: Flag bit 0x40008: first attempt vtable+40 (offset 0x28) on the primary sub-object with the selected format, supplying the SimpleFieldGetter_bfc0 result as an argument; if it succeeds, issue a second vtable+40 call with the swapped this+0x13E8/0x13EC selection. [field:*(*(this+0x10FC)+0x0):0x00000028, field:this:0x000013E8, field:this:0x000013EC, callee:0x0055BFC0, source:raw]
+    // CALCULATION: Format remap after a successful 0x40008 create: when the secondary format v39 is 0, derive a fallback format 23/24/25 (for a2[9]==16) or 20/22/21 (for a2[9]==24/32) from capability bits in *(this+0x13A8); update a2[6] to & 0xFFFBFFF3 | 4 and hand the result to sub_55C450. [field:this:0x000013A8, callee:0x0055C450, source:raw]
+    // STATE_TRANSITION: On a failing 0x40008 create path, OR 0x80400 into a2[6] and call sub_55C450 with the selected format id. [callee:0x0055C450, source:raw]
+    // CALL: Flag bit 0x8: call vtable+80 (offset 0x50) on the secondary sub-object's vtable with count a3 (defaulted to 1), v41, format v39, 0 and a2+5; store the result in this+0. On success and without bit 0x40000, fall through to the error path. [field:*(*(this+0x1100)+0x0):0x00000050, field:*(this+0x1100):0x00000000, field:this:0x00000000, source:raw]
+    // CALL: Flag bit 0x8 with bits 0x40000 set and 0x200000 clear: allocate 60 bytes via OperatorNewNhMallocWrapper, create an audio emitter via AudioEmitterCreate and store it in a2[1]; then post-process with sub_53F3F0 returning 0 on success, otherwise F_2DSurfaceBlitFill fills the surface. [callee:0x00587C03, callee:0x005426A0, callee:0x0053F3F0, callee:0x005404D0, source:raw]
+    // CALL: Flag bit 0x4: call vtable+80 (offset 0x50) on the secondary sub-object's vtable with count a3 (defaulted to 1), 0, format v39, param 2 and a2+4; store the result in this+0; a non-zero result goes to the error path. [field:*(*(this+0x1100)+0x0):0x00000050, field:*(this+0x1100):0x00000000, field:this:0x00000000, source:raw]
+    // CALL: Error path: format the string aCouldNotAlloca with the failing result into a 256-byte buffer via StringFormatWithBufferOverflowCheck (with the format "%s - 0x%x") and report it through sub_53C590(-1, buffer), then return -1. [global:0x005DBD18, callee:0x0058815F, callee:0x0053C590, source:raw]
+    // RETURN: Return -1 on any failed vtable create path, otherwise return 0 after the optional audio-emitter / fill post-processing. [source:raw]
+    // CALL: Surface-creation utility reached from five callers: DirectXDeviceSurfaceCreationWithFormatCapability, RenderingCompositionSetup, UtilityFunction_2950, sub_5429B0 and StateFlagIterationAcrossEntries, indicating shared rendering-surface allocation. [caller:0x0053FD40, caller:0x0053FED0, caller:0x00542950, caller:0x005429B0, caller:0x00554C30]
+    // UNKNOWN: Read reference to the literal string aS0xX (0x005DBD0C); it is not visible in the decompiled body and its role in this function is unresolved. [global:0x005DBD0C]
+
+    // Conservative worker pseudocode:
+    //   int sub_53F720(int this, _DWORD *a2, int a3) {
+    //     int fmt = sub_55C650(a2[12] == 7 ? 8 : a2[12], 0);
+    //     if (a2[6] & 0x10) { fmt = (fmt == 21) ? 22 : (fmt == 25 ? 24 : fmt); }
+    //     if (a2[6] & 0x1) {
+    //       if (vtable(this+0x1100, 0x6C)(this, a2[7], a2[8], fmt, a2+2)) return fail();
+    //     }
+    //     if (a2[6] & 0x2) {
+    //       if (a2[6] & 0x40000) {
+    //         int fmt2 = pickFmt(a2[9], this+0x13EC, this+0x13E8, this+0x110C);
+    //         if (vtable(this+0x10FC, 0x28)(this, fmt2, 1, this+0x110C, 1, 1)) return fail();
+    //       }
+    //       if (vtable(this+0x1100, 0x64)(this, a2[7], a2[8], fmt, 0, 0, a2+3)) return fail();
+    //     }
+    //     if (a2[6] & 0x40008) { ...two vtable(this+0x10FC, 0x28) creates + format remap via this+0x13A8... }
+    //     if (a2[6] & 0x8) {
+    //       if (vtable(this+0x1100, 0x50)(this, a2[7], a2[8], a3?1:1, v41, fmt, 0, a2+5)) {
+    //         if (!(a2[6] & 0x40000)) return fail();
+    //         a2[6] = a2[6] & 0xFFFBFFF3 | 4;
+    //       } else if ((a2[6] & 0x40000) && !(a2[6] & 0x200000)) {
+    //         a2[1] = AudioEmitterCreate(OperatorNewNhMallocWrapper(60));
+    //         if (sub_53F3F0(this, 0, a2, a2[1], 0)) return 0;
+    //         F_2DSurfaceBlitFill(a2, 0, 0, a2[7], a2[8], 0);
+    //       }
+    //     }
+    //     if (a2[6] & 0x4) {
+    //       if (vtable(this+0x1100, 0x50)(this, a2[7], a2[8], a3?1:1, 0, fmt, 2, a2+4)) return fail();
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: Exact meaning of sub_55C650's returned format id and the sub_55C450 post-process step are outside this packet's evidence.
+    // UNRESOLVED: Capability flags at this+0x13A8 and their mapping to formats 20-25 are observed but not decoded.
+    // UNRESOLVED: The audio-emitter object lifetime (allocated 60 bytes, stored at a2[1]) and sub_53F3F0's contract are not established here.
+    // UNRESOLVED: Whether vtable+40 (offset 0x28) on this+0x10FC and the 0x6C/0x64/0x50 entries on this+0x1100 are the same or distinct surface interfaces is unresolved.
+}

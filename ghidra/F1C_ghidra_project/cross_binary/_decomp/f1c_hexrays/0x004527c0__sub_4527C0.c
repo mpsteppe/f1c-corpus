@@ -1,0 +1,9 @@
+// f1c  0x004527c0  size=24
+int __thiscall sub_4527C0(_DWORD *this)
+{
+  int result; // eax
+
+  if ( !*this )
+    return sub_44F050(byte_7CA594, this[1], this[2]);
+  return result;
+}

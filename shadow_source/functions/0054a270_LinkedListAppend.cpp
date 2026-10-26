@@ -1,0 +1,27 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0054A270
+// Canonical corpus name: LinkedListAppend_a270
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LinkedListAppend_a270_0054a270.c
+
+void UnknownObject::LinkedListAppend()
+{
+    // Appends a node to the tail of a doubly linked list. Head pointer lives at this+0x100 (this[64]); node links are prev at node+0x100 and next at node+0x104. If the list is non-empty it walks from the head to the tail via next pointers, then links the new node after the old tail (old tail next = a2, a2 prev = old tail, a2 next = 0). If the list is empty it sets the head to a2 and zeroes both new-node links. Returns the previous head (or the new node when the list was empty).
+    // GUARD: Read head pointer this[64] at offset 0x100; if null the list is empty and the new node becomes the head. [field:this:0x00000100, function:0x0054A270, source:raw]
+    // LOOP: Walk from the head following next pointers at node+0x104 until the tail (node whose next is null) is reached. [field:*(*(this+0x204)+0x104):0x00000104, function:0x0054A270, source:raw]
+    // ASSIGNMENT: Non-empty path: set old tail's next (+0x104) to a2, set a2's prev (+0x100) to the old tail, and set a2's next (+0x104) to 0. [field:*(*(this+0x204)+0x104):0x00000104, field:this:0x00000100, function:0x0054A270, source:raw]
+    // ASSIGNMENT: Empty path: set head this[64] (offset 0x100) to a2, then set a2's prev (+0x100) and next (+0x104) both to 0. [field:this:0x00000100, field:*(*(this+0x204)+0x104):0x00000104, function:0x0054A270, source:raw]
+    // RETURN: Return the previous head pointer, or the new node when the list was empty. [function:0x0054A270, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if this.head (this+0x100) is null:
+    //       this.head = node; node.prev (node+0x100) = 0; node.next (node+0x104) = 0;
+    //       return node;
+    //   else:
+    //       tail = this.head;
+    //       while tail.next (tail+0x104) != 0: tail = tail.next;
+    //       tail.next = node; node.prev = tail; node.next = 0;
+    //       return this.head (old head);
+    // UNRESOLVED: Raw source accesses the head directly as this[64] (this+0x100); the packet field base *(*(this+0x204)+0x104) is the existing analysis's interpretation of the same head/next locations and is not directly expressed in the raw source.
+    // UNRESOLVED: Node layout (prev at +0x100, next at +0x104) is inferred from raw-source offsets 256 and 260; no node type name is known.
+}

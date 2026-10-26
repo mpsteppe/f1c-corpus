@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "address": "0x00442C90",
+  "proposed_name": "VehicleSuspensionPhysicsTick",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00442C90"]
+  },
+  "summary": "Per-frame suspension and wheel physics tick (proposed name from existing analysis; ABI lead is a generic Wheel_Contact_Force_Integration name, LEGACY). Loop 1 walks the four 1124-byte wheel blocks starting at this+1040: resolves each wheel's suspension geometry base, transforms anchor offsets through the car body (this+0x141C) and wheel-hub (this+0x15F0) rotation matrices via Matrix3x3VectorMultiply, builds and normalizes the suspension direction, computes cross-product torque terms from both transforms, and applies ConstraintEnforce per wheel. Then, when dword_7CE958 (tire model mode) is set, accumulates scaled force contributions into four torque accumulators. Two anti-roll-bar blocks (front, gated by bypass bytes this+1164/this+2288; rear, gated by this+3412/this+4536) compute torque deltas from damper-load differences and optionally add half of a PiecewiseFunctionEval correction. Loop 2 walks the same wheel blocks from this+1004, scales the stored direction triple by the block force double and feeds it to AccumulateAngularMomentum and F_3DVectorSubtractWithCrossProduct. Returns 0. Called per frame by PhysicsIntegrationStep (00441d60).",
+  "local_names": {},
+  "operations": [
+    {
+      "kind": "loop",
+      "description": "Iterate over the four wheel suspension blocks: block base at this+1040 (byte offset 0x410), stride 1124, loop counter from 4 down to 1",
+      "evidence_refs": ["field:this:0x00000410", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Within each block, process only when the flag byte at block offset 124 is zero (wheel 0 flag byte at this+1164); a non-zero flag skips the block",
+      "evidence_refs": ["field:this:0x0000048C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Resolve the suspension geometry base pointer: dword at block offset -36, defaulting to the pointer stored at this+1287 (dword index, byte offset 0x141C) when it is null",
+      "evidence_refs": ["field:this:0x0000141C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Matrix3x3VectorMultiply(geometry base+28, block vector, out): rotate the suspension anchor offset into world space",
+      "evidence_refs": ["callee:0x00435E00", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build the first world-space point by adding the body transform rows (base+4, base+12, base+20 of the pointer at this+0x141C) to the rotated offsets",
+      "evidence_refs": ["field:*(this+0x141C):0x00000004", "field:*(this+0x141C):0x0000000C", "field:*(this+0x141C):0x00000014", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Matrix3x3VectorMultiply(second transform+28, block vector, out): second world-space rotation using the pointer at this+1404 (dword index, byte offset 0x15F0)",
+      "evidence_refs": ["callee:0x00435E00", "field:this:0x000015F0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build the wheel-hub world-space point by adding the second transform rows (base+4, base+12, base+20 of the pointer at this+0x15F0) to the rotated offsets",
+      "evidence_refs": ["field:*(this+0x15F0):0x00000004", "field:*(this+0x15F0):0x0000000C", "field:*(this+0x15F0):0x00000014", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Subtract the two world points (wheel-offset components at this+0x410, this+0x418, this+0x438, this+0x440, this+0x448), compute the length with sqrt and normalize the difference into a unit direction vector",
+      "evidence_refs": ["field:this:0x00000410", "field:this:0x00000418", "field:this:0x00000438", "field:this:0x00000440", "field:this:0x00000448", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the two global double constants dbl_59E420 and dbl_59E880 used in the normalization/scaling arithmetic (exact operator mapping not visible in the decompiled text)",
+      "evidence_refs": ["global:0x0059E420", "global:0x0059E880", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the normalized direction triple into the per-wheel accumulator buffer (v41, advancing 24 bytes per wheel)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute suspension torque terms from the body rotation rows (base+124, base+132, base+140) against the wheel offsets, combined with the translation rows (base+100, base+108, base+116) of the pointer at this+0x141C",
+      "evidence_refs": ["field:*(this+0x141C):0x00000064", "field:*(this+0x141C):0x0000006C", "field:*(this+0x141C):0x00000074", "field:*(this+0x141C):0x0000007C", "field:*(this+0x141C):0x00000084", "field:*(this+0x141C):0x0000008C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build the matching torque terms from the second transform rows (base+124, base+132, base+140 plus base+100, base+108, base+116) of the pointer at this+0x15F0",
+      "evidence_refs": ["field:*(this+0x15F0):0x00000064", "field:*(this+0x15F0):0x0000006C", "field:*(this+0x15F0):0x00000074", "field:*(this+0x15F0):0x0000007C", "field:*(this+0x15F0):0x00000084", "field:*(this+0x15F0):0x0000008C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Subtract the two torque vectors and combine the difference with the normalized direction (dot product) to form the suspension force scalar",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ConstraintEnforce(block state at block offset -388, distance, force scalar): apply the suspension constraint force for this wheel",
+      "evidence_refs": ["callee:0x004380B0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If dword_7CE958 (tire model mode) is non-zero, accumulate angular contributions from the second transform direction",
+      "evidence_refs": ["global:0x007CE958", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate the scaled squared-length of the second transform rows (base+100/+108/+116) times the scale fields this+0x1448 / this+0x1450 into the four accumulators this+0x490, this+2292 (front) and this+0xD58, this+4540 (rear)",
+      "evidence_refs": ["field:*(this+0x15F0):0x00000064", "field:*(this+0x15F0):0x0000006C", "field:*(this+0x15F0):0x00000074", "field:this:0x00001448", "field:this:0x00001450", "field:this:0x00000490", "field:this:0x000008F4", "field:this:0x00000D58", "field:this:0x000011BC", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Front anti-roll block: process only when both bypass bytes this+1164 and this+2288 are zero",
+      "evidence_refs": ["field:this:0x0000048C", "field:this:0x000008F0", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Front anti-roll torque delta = (this+1140 - this+1156 - (this+0x8D8 - this+0x8E8)) scaled by this+0x1438; accumulate into this+0x490 and this+2292 with opposite signs",
+      "evidence_refs": ["field:this:0x00000474", "field:this:0x00000484", "field:this:0x000008D8", "field:this:0x000008E8", "field:this:0x00001438", "field:this:0x00000490", "field:this:0x000008F4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "If the byte at this+5216 is non-zero, add half of PiecewiseFunctionEval evaluated on (this+0x8D8 + this+1140)/2 and (this+0x8E0 + this+1148)/2 to both front accumulators",
+      "evidence_refs": ["callee:0x00436610", "field:this:0x00001460", "field:this:0x000008D8", "field:this:0x000008E0", "field:this:0x00000474", "field:this:0x0000047C", "field:this:0x00000490", "field:this:0x000008F4", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Rear anti-roll block: process only when both bypass bytes this+3412 and this+4536 are zero",
+      "evidence_refs": ["field:this:0x00000D54", "field:this:0x000011B8", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Rear anti-roll torque delta = (this+3388 - this+3404 - (this+0x11A0 - this+0x11B0)) scaled by this+0x1440; accumulate into this+0xD58 and this+4540 with opposite signs",
+      "evidence_refs": ["field:this:0x00000D3C", "field:this:0x00000D4C", "field:this:0x000011A0", "field:this:0x000011B0", "field:this:0x00001440", "field:this:0x00000D58", "field:this:0x000011BC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "If the byte at this+5216 is non-zero, add half of PiecewiseFunctionEval evaluated on (this+0x11A0 + this+3388)/2 and (this+0x11A8 + this+3396)/2 to both rear accumulators",
+      "evidence_refs": ["callee:0x00436610", "field:this:0x00001460", "field:this:0x000011A0", "field:this:0x000011A8", "field:this:0x00000D3C", "field:this:0x00000D44", "field:this:0x00000D58", "field:this:0x000011BC", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Second pass over the four wheel blocks starting at this+1004 with stride 1124: skip each block whose byte at block offset 160 is non-zero (flags this+1164, this+2288, this+3412, this+4536 for wheels 0..3)",
+      "evidence_refs": ["field:this:0x0000048C", "field:this:0x000008F0", "field:this:0x00000D54", "field:this:0x000011B8", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Scale the stored per-wheel direction triple by the double at block offset 164 (wheel 0 at this+0x490; other wheels at this+2292, this+3416, this+4540)",
+      "evidence_refs": ["field:this:0x00000490", "field:this:0x000008F4", "field:this:0x00000D58", "field:this:0x000011BC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "AccumulateAngularMomentum(block state at block offset 28, scaled triple): add the wheel angular momentum contribution to the vehicle",
+      "evidence_refs": ["callee:0x00569AD0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "F_3DVectorSubtractWithCrossProduct(block state at block offset 76, scaled triple): subtract the force and add the cross-product torque (wheel 0 state at this+0x438)",
+      "evidence_refs": ["callee:0x00569B70", "field:this:0x00000438", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 (loop counter reaches zero) as the per-frame result; invoked per frame by PhysicsIntegrationStep (00441d60)",
+      "evidence_refs": ["function:0x00442C90", "caller:0x00441D60", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int VehicleSuspensionPhysicsTick(this) {",
+    "  // Loop 1: per-wheel suspension geometry (4 wheels, base this+1040, stride 1124)",
+    "  //   if (block[124]) continue;",
+    "  //   base = *(block-36) ? *(block-36) : *(this+1287);   // default this+0x141C",
+    "  //   Matrix3x3VectorMultiply(base+28, ...); Matrix3x3VectorMultiply(this[1404]+28, ...)",
+    "  //   build world points, normalize direction, build cross-product torque terms",
+    "  //   ConstraintEnforce(block-388, distance, dot)",
+    "  // Global tire-model block (dword_7CE958): accumulate scaled forces into",
+    "  //   this+0x490, this+2292, this+0xD58, this+4540",
+    "  // Front ARB block (bypass flags this+1164, this+2288):",
+    "  //   delta = (this+1140 - this+1156 - (this+0x8D8 - this+0x8E8)) * this+0x1438",
+    "  //   this+0x490 += delta; this+2292 -= delta",
+    "  //   if (this[5216]) add 0.5 * PiecewiseFunctionEval(this+0x8D8, this+1140; this+0x8E0, this+1148)",
+    "  // Rear ARB block (bypass flags this+3412, this+4536): analogous, using",
+    "  //   this+3388/this+3404/this+0x11A0/this+0x11B0 and scale this+0x1440",
+    "  // Loop 2: per-wheel angular accumulation (4 wheels, base this+1004, stride 1124)",
+    "  //   if (block[160]) continue;",
+    "  //   scale = *(block+164); AccumulateAngularMomentum(block+28, scaled);",
+    "  //   F_3DVectorSubtractWithCrossProduct(block+76, scaled)",
+    "  return 0;",
+    "}"
+  ],
+  "unresolved": [
+    "The exact mapping of the two global double constants (dbl_59E420, dbl_59E880) to the specific normalization/scaling arithmetic is DERIVED from the existing analysis prose and not visible in the decompiled text",
+    "The per-wheel geometry base pointer (dword at block offset -36) and the wheel-block layout (stride 1124) are not linked to named struct fields; block-relative offsets 28, 76, 164 and -388 are unlinked",
+    "Owner remains UnknownObject; the ABI lead name (Wheel_Contact_Force_Integration, LEGACY) is generic and the proposed name derives from existing-analysis prose (DERIVED)"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

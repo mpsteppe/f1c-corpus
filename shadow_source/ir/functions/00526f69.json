@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "address": "0x00526F69",
+  "proposed_name": "F_4DVectorMatrixTransform",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00526F69", "source:raw"]
+  },
+  "summary": "3DNow! 4-component vector-matrix transform (__stdcall). Reads the two packed input quads a2[0], a2[1] (four floats), duplicates each lane with punpckldq/punpckhdq into v4/v6 (from a2[0]) and v7/v8 (from a2[1]), then accumulates the full 4x4 product against the coefficient matrix a3[0..7]: a1[0] = a3[0]*v4 + a3[2]*v6 + a3[4]*v7 + a3[6]*v8 and a1[1] = a3[1]*v4 + a3[3]*v6 + a3[5]*v7 + a3[7]*v8 (nested pfmul/pfadd). Writes both output slots a1[0], a1[1], emits _m_femms() at entry and exit, and returns a1. Unlike F_4DVectorTransform (00526550) there is no reciprocal/w-divide step, so this is the pure matrix multiply form. No guards, no callees.",
+  "local_names": {},
+  "operations": [
+    {
+      "kind": "state_transition",
+      "description": "Emit _m_femms() at function entry and again before return to exit MMX/3DNow state.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Load both packed input quads: m64_u64 = a2[0] and v5 = a2[1], then duplicate each component into paired lanes: v4 = punpckldq(a2[0],a2[0]), v6 = punpckhdq(a2[0],a2[0]), v7 = punpckldq(v5,v5), v8 = punpckhdq(v5,v5).",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate the first output quad a1[0] = pfadd(pfadd(pfmul(v4, a3[0]), pfmul(v6, a3[2])), pfadd(pfmul(v7, a3[4]), pfmul(v8, a3[6]))): each of the four input components times its matrix column (columns 0, 2, 4, 6).",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate the second output quad v9 = pfadd(pfadd(pfmul(v4, a3[1]), pfmul(v6, a3[3])), pfadd(pfmul(v7, a3[5]), pfmul(v8, a3[7]))): the remaining four matrix columns.",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store both results into the output buffer: a1[0] = computed first quad and a1[1] = v9.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the output buffer pointer a1.",
+      "evidence_refs": ["function:0x00526F69", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void F_4DVectorMatrixTransform(__m64* a1 /*out 2 slots*/, __m64* a2 /*in: 4 floats*/, __m64* a3 /*4x4 matrix*/) {",
+    "  _m_femms();",
+    "  __m64 m0 = a2[0];",
+    "  __m64 m1 = a2[1];",
+    "  __m64 v4 = _m_punpckldq(m0, m0);",
+    "  __m64 v6 = _m_punpckhdq(m0, m0);",
+    "  __m64 v7 = _m_punpckldq(m1, m1);",
+    "  __m64 v8 = _m_punpckhdq(m1, m1);",
+    "  a1[0] = _m_pfadd(_m_pfadd(_m_pfmul(v4, a3[0]), _m_pfmul(v6, a3[2])),",
+    "                  _m_pfadd(_m_pfmul(v7, a3[4]), _m_pfmul(v8, a3[6])));",
+    "  a1[1] = _m_pfadd(_m_pfadd(_m_pfmul(v4, a3[1]), _m_pfmul(v6, a3[3])),",
+    "                  _m_pfadd(_m_pfmul(v7, a3[5]), _m_pfmul(v8, a3[7])));",
+    "  _m_femms();",
+    "}"
+  ],
+  "unresolved": [
+    "Prelabel cluster_copy names sub_410AF0 as a structural twin, but sub_410AF0 is an array slot-swap helper (functions/sub_410AF0_00410af0.c); the cluster assignment does not match this 3DNow math body and was not adopted.",
+    "The exact column-major layout of the 8-slot matrix a3 is inferred from the multiply-accumulate order, not independently verified against a consumer.",
+    "The absence of the reciprocal/w-divide present in F_4DVectorTransform (00526550) is observed from the raw source; the calling context that prefers this form is unknown.",
+    "Owner is UNKNOWN; the packet carries no owner evidence and no static callers/callees."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

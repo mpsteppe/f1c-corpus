@@ -1,0 +1,5 @@
+int __thiscall sub_4B9D80(_DWORD **this)
+{
+  return VehicleListCountGetter(*this);
+}
+

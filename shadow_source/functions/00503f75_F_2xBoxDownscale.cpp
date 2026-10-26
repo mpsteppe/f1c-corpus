@@ -1,0 +1,44 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00503F75
+// Canonical corpus name: F_2xBoxDownscale
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/F_2xBoxDownscale_00503f75.c
+
+void UnknownObject::F_2xBoxDownscale()
+{
+    // 2x2 box downscale over an 8-bit byte-plane image. Reads the source pixel buffer at obj+0x18 (object at this+0x0) and the destination pixel buffer at destObj+0x18 (object at this+0x4). Stride, row width and row count come from obj+0x1050, obj+0x1058 and obj+0x105C. For every pair of source rows it walks pixel pairs and writes one output byte per 2x2 source block, computing the average (a+b+c+d+2)>>2 of the four source bytes. Source advances two rows per output row; destination advances one row. Returns 0.
+    // ASSIGNMENT: Read the source image object pointer from this+0x0 and the destination image object pointer from this+0x4. [field:this:0x00000000, field:this:0x00000004]
+    // ASSIGNMENT: Read the source pixel buffer pointer from obj+0x18 and the destination pixel buffer pointer reached through the destination object at this+0x4 plus 24. [field:obj:0x00000018, field:this:0x0000001C]
+    // ASSIGNMENT: Read the image geometry from the source object: stride at obj+0x1050, row width at obj+0x1058, and row count at obj+0x105C. [field:obj:0x00001050, field:obj:0x00001058, field:obj:0x0000105C]
+    // ASSIGNMENT: Read the destination row stride from the destination object at +4176. [field:this:0x00001054]
+    // CALCULATION: Compute the source end pointer as source pixel buffer + stride * row count. [field:obj:0x00001050, field:obj:0x0000105C]
+    // LOOP: Outer loop over pairs of source rows, running while the source pointer is below the row-count-limited end pointer. [source:raw]
+    // CALCULATION: Compute the inner row bound as source pointer + row width, and the second source row as source pointer + stride. [field:obj:0x00001058, field:obj:0x00001050]
+    // LOOP: Inner loop over pixel pairs, consuming two source bytes per source row for each output byte. [source:raw]
+    // GUARD: Inner loop terminates when the row source pointer reaches the width bound. [source:raw]
+    // CALCULATION: Compute the 2x2 box average: out = (byte at offset 0 + byte at offset 1 + byte of row two at offset 0 + byte of row two at offset 1 + 2) >> 2. [field:*(obj+0x18):0x00000000, field:*(obj+0x18):0x00000001]
+    // ASSIGNMENT: Write the averaged byte into the destination pixel buffer. [field:obj:0x00000018]
+    // CALCULATION: Advance the source pointer by two source rows (2 * stride) and the destination pointer by one destination row (destination stride). [field:obj:0x00001050, field:this:0x00001054]
+    // RETURN: Return 0 after all row pairs are processed. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int F_2xBoxDownscale(void* this) {
+    //     src = *(this + 0x0) + 0x18;
+    //     dst = *(this + 0x4) + 0x18;
+    //     stride = srcObj + 0x1050; width = srcObj + 0x1058; rows = srcObj + 0x105C;
+    //     dstStride = dstObj + 0x1050;
+    //     end = src + stride * rows;
+    //     while (src < end) {
+    //       row2 = src + stride;
+    //       rowEnd = src + width;
+    //       for (p = src, q = row2; p < rowEnd; p += 2, q += 2) {
+    //         *dstOut++ = (p[0] + p[1] + q[0] + q[1] + 2) >> 2;
+    //       }
+    //       src += 2 * stride; dst += dstStride;
+    //     }
+    //     return 0;
+    //   }
+    // UNRESOLVED: Pixel format and color layout of the byte plane are not determinable from the packet; only the arithmetic box filter is grounded.
+    // UNRESOLVED: The extractor dual-records the destination object accesses (obj+0x18 vs this+0x1C, obj+0x1050 vs this+0x1054); both refer to the same destination object through this+0x4.
+    // UNRESOLVED: Whether source and destination share the same object layout is assumed, not proven.
+}

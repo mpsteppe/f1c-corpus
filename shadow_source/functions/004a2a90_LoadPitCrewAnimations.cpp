@@ -1,0 +1,62 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004A2A90
+// Canonical corpus name: PitCrewAnimationLoader
+// Owner: PitCrewAnimationLoader [DERIVED]
+// Raw source: functions/PitCrewAnimationLoader_004a2a90.c
+
+void PitCrewAnimationLoader::LoadPitCrewAnimations()
+{
+    // Parses a pit crew animation definition file (.ANM) into a heap-allocated actor entry array: opens the file via a .RT-extension open helper, allocates fuel-rig mesh resources, performs a first pass to count ACTOR directives, allocates an array of 120-byte (30 dword) actor entries, then a second pass that interprets ACTOR / DETAIL / MESH / POSITION / MOVE / ROTATE directives per line (wheel-on/off MTS mesh names dispatch to mode-dependent subsystem calls). On success it appends collision geometry to a linked list, guards vertex-buffer resource allocation (logging a setup failure), scales a linked-list float, runs delegate/flag post-processing, sets the loaded flag on this and dispatches each actor entry. Returns -1 on early open/allocation failure, otherwise 0.
+    // CALL: Opens the animation file: sub_587DB0(a2, aRt) with the path parameter and the '.RT' extension string global (aRt); stores the handle locally and returns -1 if the open fails. [callee:0x00587DB0, global:0x005BE690, source:raw, function:0x004A2A90]
+    // CALL: Reads the global collision geometry handle dword_8AFE88 into a local, then allocates fuel-rig mesh resources via MeshResourceAllocator(this+0x14, a4, aFuelrigMts, 20); returns -1 on allocation failure. [callee:0x005450E0, global:0x005CD474, global:0x008AFE88, field:this:0x00000014, source:raw]
+    // GUARD: Guards on detail-level global dword_7CF884 >= 2; when set, fetches a linked-list node via LinkedListIndexedAccessor_c230(0) and, if non-null, inserts a node at index 0 via LinkedListNodeInsert_5930. [global:0x007CF884, callee:0x0054C230, callee:0x00545930, source:raw]
+    // LOOP: First pass: repeatedly reads lines via FileReadUntilNewline(v51, 384, file); skips lines sub_5651B0(v45) marks as section headers/empty, and increments the actor count for each line whose prefix matches aActor via sub_587C20(v51, aActor). [callee:0x00587CA0, callee:0x005651B0, callee:0x00587C20, global:0x005CD46C, source:raw]
+    // CALL: Rewinds the file to the beginning via sub_587F64(v5, 0, 0) so the second parse pass can re-read every line. [callee:0x00587F64, source:raw]
+    // CALL: Allocates the actor entry array with OperatorNewNhMallocWrapper(120 * count + 4); on success stores the count in the first dword and lets the entries follow at v9+1. [callee:0x00587C03, source:raw]
+    // LOOP: Initializes every actor entry (30 dword / 120 byte stride): zeroes entry[25], entry[27], entry[29] and calls sub_4A2220(entry) for defaults. [callee:0x004A2220, source:raw]
+    // ASSIGNMENT: Stores the actor entry array pointer into this[4] (field +0x10, actorArrayPtr) and resets this[3] (field +0xC, actorCount) to 0 before the second pass. [field:this:0x00000010, field:this:0x0000000C, source:raw]
+    // LOOP: Second pass: reads each line via FileReadUntilNewline(v51, 384, file); non-header lines (sub_5651B0(v45) false) are tested against directive prefixes with sub_587C20(v51, token). [callee:0x00587CA0, callee:0x005651B0, callee:0x00587C20, source:raw]
+    // ASSIGNMENT: ACTOR directive: computes the current actor entry address as this[4] + 120 * this[3]++ (incrementing actorCount), parses 'ACTOR %s' via StrlenFormatCallWrapper, strips quotes with QuoteStrippingCopy, and sets entry byte +3 to 1 when the name equals aLman or aLollipop. [global:0x005CD458, global:0x005CD44C, callee:0x005887ED, callee:0x004A2A40, field:this:0x0000000C, source:raw]
+    // ASSIGNMENT: DETAIL directive: parses an integer with StrlenFormatCallWrapper using 'DETAIL %d' and stores the word into the actor entry at +0. [global:0x005CD444, callee:0x005887ED, source:raw]
+    // STATE_TRANSITION: MESH directive: parses 'MESH %s', strips quotes, and compares the mesh name against the eight wheel MTS names (lf/rf/lr/rr x wheelon/wheeloff). Wheel meshes dispatch via ModeDependentSubsystemCall(entry, onOff, wheelIndex, meshName, meshTablePtr(a3+4 for front / a3+8 for rear), this[5]); any other name is copied into the entry via StringCopyWithReverse. [global:0x005CD430, callee:0x005887ED, callee:0x004A2A40, global:0x005CD418, global:0x005CD408, global:0x005CD3F8, global:0x005CD3E8, global:0x005CD3D8, global:0x005CD3C8, global:0x005CD3B8, global:0x005CD3A8, callee:0x004A2770, field:this:0x00000014, callee:0x004A21D0, source:raw]
+    // ASSIGNMENT: POSITION directive: parses 'POSITION %f %f %f' via StrlenFormatCallWrapper and stores the three floats into the actor entry at +76, +80, +84. [global:0x005C59D4, callee:0x005887ED, source:raw]
+    // CALL: MOVE directive: parses 'MOVE %s %s %f' via StrlenFormatCallWrapper, strips quotes, formats an animation filename with '%s.ANM' via StringFormatWithBufferOverflowCheck, then calls sub_4A22D0(entry, moveName, anmFileName, extraString, floatParam). [global:0x005CD38C, callee:0x005887ED, callee:0x004A2A40, callee:0x0058815F, callee:0x004A22D0, source:raw]
+    // CALCULATION: ROTATE directive: parses 'ROTATE %f' via StrlenFormatCallWrapper, reads the existing rotation triple at entry +88/+92/+96, multiplies the parsed angle by 0.01745433 (degrees to radians), and writes the triple back to +88/+92/+96. [global:0x005CD36C, callee:0x005887ED, source:raw]
+    // CALL: Closes the animation file via FileCloseWithLock once parsing is complete. [callee:0x00587D02, source:raw]
+    // CALL: Appends the collision geometry handle this[5] (field +0x14) to the actor linked list via ActorNodeLinkedListAppend. [callee:0x00545250, field:this:0x00000014, source:raw]
+    // GUARD: Guards on VertexBufferResourceAllocation(dword_8AFE88); on failure calls StringRelocationCopy(0, v52), and if StringSplitLoop(1, aDDevF119992002_2, 708) is true logs a setup failure via DebugLogWrite(&dword_8AD25C, aUnableToSetupA). [callee:0x00543FA0, global:0x008AFE88, callee:0x0053C5B0, callee:0x004D7A50, global:0x005CD174, global:0x008AD25C, global:0x005CD33C, callee:0x004D7AA0, source:raw]
+    // CALCULATION: Scales a linked-list node's float field by 4.0: fetches node 0 via LinkedListIndexedAccessor_c230(0) and, if non-null, multiplies *(float*)(node+24) by 4.0 in place. [callee:0x0054C230, source:raw]
+    // CALL: Runs post-load processing: ConditionalDelegateDispatch(dword_7C54E8, v42, v41) on the player-vehicle global, then sub_4A3320(v42, v41) with the two 12-byte buffers. [global:0x007C54E8, callee:0x004D1100, callee:0x004A3320, source:raw]
+    // STATE_TRANSITION: Completes the load: sets this[0] (field +0x0, loadedFlag) to 1, calls FlagFieldBitManipulation(1, 0, 0, 0) and FlagBasedLoopConditionalCall(this). [field:this:0x00000000, callee:0x0054C030, callee:0x004A3440, source:raw]
+    // LOOP: When actorCount this[3] (field +0xC) is greater than 0, iterates each 120-byte actor entry and calls ConditionalDispatch_27d0(entry); with zero actors the loop is skipped entirely. [guard:0, field:this:0x0000000C, callee:0x004A27D0, source:raw]
+    // RETURN: Returns 0 on success; -1 was returned earlier on file-open or mesh-allocation failure. [source:raw, function:0x004A2A90]
+
+    // Conservative worker pseudocode:
+    //   file = OpenFile(path, aRt); if (!file) return -1;
+    //   if (AllocateFuelRigMeshes(this+0x14, a4, aFuelrigMts, 20)) return -1;
+    //   if (dword_7CF884 >= 2) { node = LinkedListIndexedAccessor_c230(0); if (node) LinkedListNodeInsert_5930(node, 0); }
+    //   count = 0; while (ReadLine(line)) if (!IsHeader(line) && IsToken(line, aActor)) count++;
+    //   SeekFile(file, 0, 0);
+    //   array = Alloc(120 * count + 4); if (array) { array[0] = count; for each entry: zero entry[25/27/29]; InitEntry(entry); }
+    //   this->actorArrayPtr = array; this->actorCount = 0;
+    //   while (ReadLine(line)) { if (!IsHeader(line)) {
+    //     if (IsToken(line, aActor)) { entry = this->actorArrayPtr + 120 * this->actorCount++; Parse('ACTOR %s'); entry->isLollipopOrMan = (name==aLman || name==aLollipop); }
+    //     if (IsToken(line, aDetail)) { Parse('DETAIL %d'); entry->detail = v; }
+    //     if (IsToken(line, aMesh)) { Parse('MESH %s'); if (wheel MTS name) ModeDependentSubsystemCall(entry, on, idx, name, table, this->collision); else CopyMeshName(entry, name); }
+    //     if (IsToken(line, aPosition)) { Parse('POSITION %f %f %f'); entry->pos = (x,y,z); }
+    //     if (IsToken(line, aMove)) { Parse('MOVE %s %s %f'); Format('%s.ANM'); ProcessMove(entry, move, anm, extra, f); }
+    //     if (IsToken(line, aRotate)) { Parse('ROTATE %f'); entry->rot = radians(angle); }
+    //   } }
+    //   CloseFile(file);
+    //   AppendActorList(this->collision);
+    //   if (AllocVertexBufferResources(dword_8AFE88)) { RelocateString(0, buf); if (SplitString(1, aDDevF119992002_2, 708)) LogSetupFailure(); }
+    //   node = LinkedListIndexedAccessor_c230(0); if (node) node->scale *= 4.0;
+    //   DelegateDispatch(dword_7C54E8, b1, b2); PostProcess(b1, b2);
+    //   this->loadedFlag = 1; FlagFieldBitManipulation(1, 0, 0, 0); FlagLoopCall(this);
+    //   for (i = 0; i < this->actorCount; i++) ConditionalDispatch_27d0(this->actorArrayPtr + 120 * i);
+    //   return 0;
+    // UNRESOLVED: The a3 parameter is dereferenced at offsets +4 and +8 as mesh-name table pointers (front wheels from a3+4, rear wheels from a3+8); the caller-supplied layout of a3 is unknown.
+    // UNRESOLVED: Packet lists string globals aSAnm, aMoveSSF, aPositionFFF, aRotateF, aMeshS, aDetailD, aActorS and globals dword_8ACEE0, dword_8AFE64, flt_59E65C, dbl_59E7D8 as referenced, but the raw decompilation contains no direct use of them (likely xrefs via format-string globals or neighboring functions).
+    // UNRESOLVED: Semantics of ConditionalDispatch_27d0, FlagBasedLoopConditionalCall and FlagFieldBitManipulation are unknown beyond their calls from here.
+    // UNRESOLVED: Buffers v41/v42 (12 bytes each) and v45 (384 bytes) are passed to sub_5651B0 and sub_4A3320/ConditionalDelegateDispatch without visible local initialization of their contents; the loaded-flag call FlagBasedLoopConditionalCall(this) uses this rather than a local buffer.
+}

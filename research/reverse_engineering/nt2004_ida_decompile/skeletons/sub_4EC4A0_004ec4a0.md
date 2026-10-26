@@ -1,0 +1,34 @@
+## sub_4EC4A0_004ec4a0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_4EC510 (004ec510)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(this+0x20) | 0x1C | R | — | [LLM] |
+| *(this+0x2C) | 0x0 | R | — | [LLM] |
+| this | 0x20 | R | — | [LLM] |
+| this | 0x28 | RW | — | [LLM] |
+| this | 0x2C | R | — | [LLM] |
+| this | 0x60 | R | — | [LLM] |
+| this | 0x74 | R | — | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x28: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 00629120 | byte_629120 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 005bf290 | __strcmpi | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

@@ -1,0 +1,41 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005007EF
+// Canonical corpus name: AudioSoundBufferSetup
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/AudioSoundBufferSetup_005007ef.c
+
+void UnknownObject::SetupSoundBuffer()
+{
+    // Configures a sound-buffer / D3D-context object from a parameter block. Initializes two local helper objects, guards that a1, a4 and a9 are all non-null (otherwise returns the failure code -2005530516), defaults a10 to 524292 when it is -1, prepares a descriptor via sub_506971, fills a configuration record from a4..a7 with two 24-byte copies of a9 plus a8/a11, initializes the D3D context via D3DContextInit, then tears both helper objects down and returns 0 on success or the propagated setup error.
+    // CALL: Initialize the two local helper objects: ZeroPairInit(v20) and sub_506538(v21). [callee:0x00502BEA, callee:0x00506538, source:raw]
+    // GUARD: Proceed only when a1, a4 and a9 are all non-null; otherwise set the result to the failure code -2005530516 and skip the setup body. [source:raw]
+    // ASSIGNMENT: Default the a10 parameter to 524292 when it equals -1. [source:raw]
+    // CALL: Prepare the context descriptor v14 via sub_506971(v14, a1, a2, a3, 0, 0); a negative result jumps straight to the cleanup path. [callee:0x00506971, source:raw]
+    // ASSIGNMENT: Fill the configuration record v15 with a4, a5, a6, a7, copy a9 into two 24-byte payload blocks, and store a11 and a8 into the following words. [source:raw]
+    // CALL: Initialize the D3D context via D3DContextInit(v14, v15, a10); on success the result is 0, on failure the negative setup error is propagated. [callee:0x005063A5, source:raw]
+    // CALL: Tear down both helper objects on every exit path: ThunkToFUN0050653e(v21) followed by DualVTableDestructor(v20). [callee:0x0050696C, callee:0x00502BF4, source:raw]
+    // RETURN: Return 0 on success, the propagated setup error on failure, or -2005530516 when an input argument was null. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int SetupSoundBuffer(int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8,
+    //                        const void* a9, int a10, int a11) {
+    //     ZeroPairInit(v20);
+    //     sub_506538(v21);
+    //     if (!(a1 && a4 && a9)) return -2005530516;
+    //     if (a10 == -1) a10 = 524292;
+    //     int err = sub_506971(v14, a1, a2, a3, 0, 0);
+    //     if (err >= 0) {
+    //       v15[0] = a4; v15[1] = a5; v15[2] = a6; v15[3] = a7;
+    //       CopyBytes(v16, a9, 24); CopyBytes(v17, a9, 24);
+    //       v18 = a11; v19 = a8;
+    //       err = D3DContextInit(v14, v15, a10);
+    //     }
+    //     ThunkToFUN0050653e(v21);
+    //     DualVTableDestructor(v20);
+    //     return err >= 0 ? 0 : err;
+    //   }
+    // UNRESOLVED: Meaning of the descriptor returned by sub_506971 and of its a2/a3 parameters.
+    // UNRESOLVED: Purpose of the a10 default 524292 and of the two 24-byte copies of a9.
+    // UNRESOLVED: Meaning of the failure code -2005530516.
+    // UNRESOLVED: Purpose of the helper objects initialized by ZeroPairInit and sub_506538.
+}

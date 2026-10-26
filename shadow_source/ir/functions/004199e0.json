@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "address": "0x004199E0",
+  "proposed_name": "AIRetirementVehicleFailureEvent",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["caller:0x004BC4E0", "abi:lead"]
+  },
+  "summary": "AI retirement / vehicle-failure event handler for the player's team during a race. Gated to session type 7 (dword_7C56A4 == 7, dword_7C56A8 != 8) and to events for the player's own team (vehicle id at this+0x4894 matches dword_7C54E8+0x4894). Inserts driver-table entries: initial failure notification (type 41), the retiring opponent's gap (type 1), the leading vehicle's gap (type 2, gated on status this+0x8138 != 2), and final-lap countdown alerts keyed by remaining-laps (types 273 / 272). Lap-time gaps are computed with LapTimeGapCalculation and truncated via CRTFtol.",
+  "local_names": {
+    "this": "event context / standings entry",
+    "v1": "alias of a1 (standings entry)",
+    "v2": "opponent vehicle/standings pointer at this+0x40D0",
+    "v4": "leading vehicle/standings pointer at this+0x40D4",
+    "v8": "8-float driver-table scratch row",
+    "v7": "computed lap-gap float out-param"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Entry guards: dword_7D0308 nonzero AND flt_7CF3C8 != 0.0 AND session phase dword_7C56A8 != 8 AND session type dword_7C56A4 == 7; otherwise return without processing.",
+      "evidence_refs": ["global:0x007D0308", "global:0x007CF3C8", "global:0x007C56A8", "global:0x007C56A4"]
+    },
+    {
+      "kind": "guard",
+      "description": "Team filter: proceed only when the player vehicle's team id (dword_7C54E8 + 0x4894) equals this event's team id (this+0x4894).",
+      "evidence_refs": ["global:0x007C54E8", "field:this:0x00004894"]
+    },
+    {
+      "kind": "call",
+      "description": "StructInitWithSentinelValues(v8) initializes the driver-table scratch row.",
+      "evidence_refs": ["callee:0x004144D0"]
+    },
+    {
+      "kind": "call",
+      "description": "Initial failure notification: DriverDataTableLookupAndTimeConversion(v8, 41, this+0x4060, -1, -1, -1, -2.0, -2.0) then InsertDriverTableEntry(flt_5EA618, v8).",
+      "evidence_refs": ["callee:0x004144F0", "field:this:0x00004060", "callee:0x00418560", "global:0x005EA618"]
+    },
+    {
+      "kind": "guard",
+      "description": "Opponent retirement: v2 = this+0x40D0; when v2 nonzero and LapTimeGapCalculation(v2, v1, &v7, &a1) returns false, compute gap = CRTFtol(v7) if a1 <= 0 else 9999; insert type-1 entry DriverDataTableLookupAndTimeConversion(v8, 1, this+0x896C, this+0x8130, gap, -1, -2.0, -2.0) then InsertDriverTableEntry.",
+      "evidence_refs": ["field:this:0x000040D0", "callee:0x0049B6D0", "callee:0x00587BDC", "field:this:0x0000896C", "field:this:0x00008130", "callee:0x004144F0", "callee:0x00418560", "global:0x005EA618"]
+    },
+    {
+      "kind": "guard",
+      "description": "Leading vehicle: v4 = this+0x40D4; when v4 nonzero, its status this+0x8138 != 2, and LapTimeGapCalculation(v1, v4, &v7, &a1) returns false, compute gap = CRTFtol(v7) if a1 <= 0 else 9999; insert type-2 entry DriverDataTableLookupAndTimeConversion(v8, 2, this+0x8970, this+0x8134, gap, -1, -2.0, -2.0) then InsertDriverTableEntry.",
+      "evidence_refs": ["field:this:0x000040D4", "field:this:0x00008138", "guard:0", "callee:0x0049B6D0", "callee:0x00587BDC", "field:this:0x00008970", "field:this:0x00008134", "callee:0x004144F0", "callee:0x00418560", "global:0x005EA618"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute remaining-laps delta v6 = dword_8ACF8C - *(dword_7C54E0 + 16444).",
+      "evidence_refs": ["global:0x008ACF8C", "global:0x007C54E0"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Switch on v6 (jump table jpt_419B98 / byte_419C18): case 1 -> DriverDataTableLookupAndTimeConversion(v8, 273, -1, -1, -1, -1, -2.0, -2.0) + InsertDriverTableEntry; cases 2..12,15,20,25,30,35,40,50 -> DriverDataTableLookupAndTimeConversion(v8, 272, v6, -1, -1, -1, -2.0, -2.0) + InsertDriverTableEntry; default -> return.",
+      "evidence_refs": ["callee:0x004144F0", "callee:0x00418560", "global:0x005EA618", "global:0x00419C0C", "global:0x00419C18"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (!dword_7D0308 || flt_7CF3C8 == 0.0 || dword_7C56A8 == 8 || dword_7C56A4 != 7) return;",
+    "if (*(dword_7C54E8 + 0x4894) != *(a1 + 0x4894)) return;",
+    "StructInitWithSentinelValues(v8);",
+    "DriverDataTableLookupAndTimeConversion(v8, 41, a1[0x4060], -1, -1, -1, -2.0, -2.0); InsertDriverTableEntry(flt_5EA618, v8);",
+    "opp = *(a1 + 0x40D0);",
+    "if (opp && !LapTimeGapCalculation(opp, a1, &v7, &a1)) {",
+    "  gap = (a1 <= 0) ? CRTFtol(v7) : 9999;",
+    "  DriverDataTableLookupAndTimeConversion(v8, 1, *(opp + 0x489C), *(opp + 0x4060), gap, -1, -2.0, -2.0);",
+    "  InsertDriverTableEntry(flt_5EA618, v8);",
+    "}",
+    "lead = *(a1 + 0x40D4);",
+    "if (lead && *(lead + 0x4064) != 2 && !LapTimeGapCalculation(a1, lead, &v7, &a1)) {",
+    "  gap = (a1 <= 0) ? CRTFtol(v7) : 9999;",
+    "  DriverDataTableLookupAndTimeConversion(v8, 2, *(lead + 0x489C), *(lead + 0x4060), gap, -1, -2.0, -2.0);",
+    "  InsertDriverTableEntry(flt_5EA618, v8);",
+    "}",
+    "switch (dword_8ACF8C - *(dword_7C54E0 + 16444)) {",
+    "  case 1:  DriverDataTableLookupAndTimeConversion(v8, 273, -1, -1, -1, -1, -2.0, -2.0); InsertDriverTableEntry(flt_5EA618, v8); break;",
+    "  case 2..12,15,20,25,30,35,40,50: DriverDataTableLookupAndTimeConversion(v8, 272, v6, -1, -1, -1, -2.0, -2.0); InsertDriverTableEntry(flt_5EA618, v8); break;",
+    "  default: return;",
+    "}"
+  ],
+  "unresolved": [
+    "The read-only float global flt_59E440 and the untyped unk_7CE234 have no visible use in the decompiled body; they may be consumed indirectly by called subroutines.",
+    "The flattened this-relative offsets 0x8130/0x8134/0x8138/0x896C/0x8970 denote dereferenced fields of the opponent and leading vehicle structs; the packet does not give their struct-local names.",
+    "The exact semantics of the driver-table type codes 41, 1, 2, 272, 273 and the magic sentinels -2.0 are not given by the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E440",
+    "global:0x007CE234"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

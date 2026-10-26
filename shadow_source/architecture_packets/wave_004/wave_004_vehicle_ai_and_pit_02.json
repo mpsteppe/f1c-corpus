@@ -1,0 +1,2840 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_004_vehicle_ai_and_pit_02",
+  "scope": "vehicle_ai_and_pit",
+  "input_kind": "validated_shadow_function_ir",
+  "functions": [
+    {
+      "address": "0x004BEF60",
+      "function_ref": "function:0x004BEF60",
+      "name": "AICollision",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "AI collision-state check. Returns 0 (no collision) immediately when the global session type dword_7C56A4 is not the qualifying mode (7). Otherwise verifies four consecutive wheel-contact entries (stride 296 from a2+2100): if any entry's dword is null or its byte at +64 is clear it returns 1. Returns 2 when the vehicle state at a2+15724 equals 2. In engine-wear mode 3 (dword_7CEA5C) it resolves the outcome through DriverSetupParamLookupByID on the setup parameter at a2+16444. Otherwise two probabilistic response checks (gated by byte flags this+0x340 and this+0x341, using divider this+0x35C and multiplier this+0x344) draw successive samples from the flt_8AAE74 trig-lookup table indexed by the incrementing byte counter dword_8AAE70 and map threshold crosses to result 1 or 2.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Return 0 when the global session type dword_7C56A4 is not 7 (the qualifying-session mode); the whole collision check is skipped otherwise.",
+          "evidence_refs": [
+            "global:0x007C56A4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate the four wheel-contact entries beginning at a2+2100 with stride 296: if any entry's first dword is null or its byte at +64 is clear (wheel missing/not in contact), return 1 immediately.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Return 2 when the vehicle state dword at a2+15724 equals 2 (a fixed collision-severity state).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "In engine-wear mode 3 (dword_7CEA5C), resolve the outcome through DriverSetupParamLookupByID(a2, setup param at a2+16444): return 0 when the looked-up value is -1 or lower, otherwise return 2.",
+          "evidence_refs": [
+            "callee:0x0042AEB0",
+            "global:0x007CEA5C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Primary probabilistic check when byte flag this+0x340 is set: compute threshold v7 = (speed float at a2+17616) * 0.0099999998 / (double)this+0x35C * a3, draw a sample from the flt_8AAE74 lookup at the byte-indexed position dword_8AAE70++ (post-increment), and set v3 = 1 when the sample is at or below the threshold.",
+          "evidence_refs": [
+            "field:this:0x00000340",
+            "field:this:0x0000035C",
+            "global:0x008AAE70",
+            "global:0x008AAE74",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Secondary probabilistic check when byte flag this+0x341 is set and v3 is not already 1: compute threshold v9 = (1.0 - (wear float at a2+17628) * 0.0099999998) / (double)this+0x35C * a3 * (float)this+0x344, draw the next sample from flt_8AAE74 via dword_8AAE70++, and return 2 when the sample is at or below the threshold.",
+          "evidence_refs": [
+            "field:this:0x00000341",
+            "field:this:0x00000344",
+            "field:this:0x0000035C",
+            "global:0x008AAE70",
+            "global:0x008AAE74",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return v3, the accumulated outcome: 0 (no collision), 1 (wheel/missing or primary threshold crossed), or 2 (state-based or secondary threshold crossed).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked from EngineFailureCheck (0x004BEC55).",
+          "evidence_refs": [
+            "caller:0x004BEC55",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The globals flt_59E43C and flt_59E444 are listed in the packet as reads but do not appear in the raw body; their role is unknown (the existing analysis associates 0x59E43C with a contact-aging threshold and 0x59E444 with the 1/60 frame delta, both DERIVED and unverified).",
+        "The literal 0.0099999998 is left verbatim as the float 0.01f spelling; whether the two checks intend percent-based wear/speed probabilities is DERIVED, not locked by the packet.",
+        "The array at a2+2100 (four 296-byte entries, byte flag at +64) is treated as the wheel-contact table from the existing analysis; the element type is not confirmed here.",
+        "The trig-lookup interpretation of flt_8AAE74 is DERIVED from existing analysis; the packet only evidences a lookup indexed by the incrementing byte counter dword_8AAE70."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E444"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004BF390",
+      "function_ref": "function:0x004BF390",
+      "name": "AIDriverSorting",
+      "owner": {
+        "type": "Vehicle",
+        "trust": "DERIVED",
+        "evidence_refs": [
+          "field:this:0x0000403C",
+          "field:this:0x00004060",
+          "field:this:0x00004098",
+          "field:this:0x0000409C",
+          "global:0x007C54F0"
+        ]
+      },
+      "summary": "AI driver position sorting. Iterates position slots 1..VehicleCount over the vehicle pointer array and, for each slot, finds the vehicle whose position field (+0x4060) matches the slot. For the driver a1, decides whether it should be placed ahead of the slot-holder: in a race session (session type 7) by lap count (+0x403C) then total time on finish line (+0x4098), otherwise by best lap (+0x409C). When a pass is warranted it swaps the two drivers' position values through ConditionalFieldSetter (a1 takes the other's position, the other driver's position is incremented) and stops further swaps for this call. Returns the session type.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Capture session type dword_7C56A4 (also as v11) and vehicle count dword_5C329C (also as v3); read a1's own position at +16480 into v12; initialize swap flag v10=0, swap partner v4=0, and outer slot counter v13=1.",
+          "evidence_refs": [
+            "global:0x007C56A4",
+            "global:0x005C329C",
+            "field:this:0x00004060"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: if vehicle count dword_5C329C < 1, return immediately with result = session type (nothing to sort).",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "global:0x007C56A4"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Outer loop: advance the target position slot v13 (result = ++v13) from 1 through vehicle count v3; when v13 exceeds v3, return result (session type).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Inner loop: for v5 from 0 while v5 < v3, read the candidate vehicle v6 = dword_7C54F0[v5] from the vehicle pointer array.",
+          "evidence_refs": [
+            "global:0x007C54F0",
+            "global:0x005C329C"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: read candidate position v7 at v6+16480; continue only when v7 equals the target slot v13.",
+          "evidence_refs": [
+            "field:this:0x00004060"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard: if the candidate v6 is a1 itself, skip to the next outer slot.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard (race session): when session type == 7 and no swap has occurred yet (v10 == 0), compare lap counts at v6+16444 and a1+16444; if a1's lap count is greater, or equal with a1's total time at +16536 not below v6's +16536, a1 should pass the candidate.",
+          "evidence_refs": [
+            "global:0x007C56A4",
+            "field:this:0x0000403C",
+            "field:this:0x00004098"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard (non-race session): otherwise, when a1's best lap at +16540 is not below v6's best lap at +16540 and v6's best lap is >= 0.0, a1 should pass the candidate.",
+          "evidence_refs": [
+            "field:this:0x0000409C"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "When a1 passes the candidate: mark swap performed (v10=1), remember the partner v4=v6, force the outer loop to end if a1's own position minus 1 equals v7, then write the swapped position values: ConditionalFieldSetter(a1+16436, v7) and ConditionalFieldSetter(v6+16436, oldPosition+1).",
+          "evidence_refs": [
+            "callee:0x004BC2F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When a swap was already performed (v10==1) and the candidate differs from the remembered partner v4: update v4, call ConditionalFieldSetter(v6+16436, v7+1), and if a1's own position v12 equals the candidate's position, skip to the next outer slot.",
+          "evidence_refs": [
+            "callee:0x004BC2F0",
+            "field:this:0x00004060",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return result (session type dword_7C56A4) once the outer slot loop completes.",
+          "evidence_refs": [
+            "global:0x007C56A4"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The position value written via ConditionalFieldSetter goes to +16436 (0x4034), while the position read for comparisons is at +16480 (0x4060); the relation between these two fields is not established.",
+        "The exact semantics of the multi-label control flow (LABEL_18 / LABEL_19 skipping the inner loop) could not be fully linearized.",
+        "global:0x0059E440 (flt_59E440) does not appear in the shown source text."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E440"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "MEDIUM",
+        "control_flow": "MEDIUM"
+      }
+    },
+    {
+      "address": "0x004BF4F0",
+      "function_ref": "function:0x004BF4F0",
+      "name": "AITickUpdate",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "source:raw"
+        ]
+      },
+      "summary": "Per-frame AI timing update over the live vehicle array. Sets the half-distance flag, then for each vehicle not in states 3 or 2, checks a per-vehicle accumulated elapsed time (in a float array at vehicle-array-relative byte offset 8148208) and, when it is above a small threshold, computes the delta against offset 8148624, increments a lap counter at vehicle +16444, writes the clamped race time into vehicle +16536, writes the offset-adjusted race delta into vehicle +16568, forces vehicle state to 1, and re-sorts driver ordering via AIDriverSorting. Idle vehicles with state 0 are set to state 1. Ends by resetting the scoring ring-buffer globals (83EE54/58/5C to &unk_7D2E54, 8AAE64/68/6C to &unk_83EE64, counters zeroed) and returns &unk_83EE64.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Set byte_8ACFA0 = 1 at tick start.",
+          "evidence_refs": [
+            "global:0x008ACFA0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Read the vehicle count from dword_5C329C into the loop bound v1 and snapshot it in v11; the loop runs while v2 < v1.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate v2 over the live vehicle pointers dword_7C54F0[v2], computing v4 = this - dword_7C54F0 once so per-vehicle accumulator reads are addressed relative to the array base.",
+          "evidence_refs": [
+            "global:0x007C54F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Read vehicle state at +16484; skip the timed update entirely when the state is 3 or 2 (retired/inactive classes).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Per-vehicle accumulated time at (v4 + 4*v2 + 8148208) must be greater than the zero threshold (the packet lists flt_59E440 as the read constant backing the literal 0.0).",
+          "evidence_refs": [
+            "global:0x0059E440",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "v7 = accum[8148208] - accum[8148624]: elapsed delta between the two per-vehicle accumulator slots.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Increment the lap/segment counter at vehicle +16444.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "v8 = v7 + this[213]; clamp v8 to >= 0.0.",
+          "evidence_refs": [
+            "field:this:0x00000354",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the clamped race time into vehicle +16536 as a float.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Write vehicle +16568 = this[213] - flt_8ACF90 + v7 (time delta offset by the race-time offset global).",
+          "evidence_refs": [
+            "field:this:0x00000354",
+            "global:0x008ACF90",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "When the vehicle state at +16484 is not 3, force it to 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "AIDriverSorting(v5): re-sort driver ordering after the lap/time update.",
+          "evidence_refs": [
+            "callee:0x004BF390",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "For vehicles whose state at +16484 is 0, force it to 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Reset the scoring ring-buffer globals: dword_83EE5C = dword_83EE58 = dword_83EE54 = (int)&unk_7D2E54, and dword_83EE60 = 0.",
+          "evidence_refs": [
+            "global:0x0083EE54",
+            "global:0x0083EE58",
+            "global:0x0083EE5C",
+            "global:0x0083EE60",
+            "global:0x007D2E54",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Reset the queue pointers: dword_8AAE6C = dword_8AAE68 = dword_8AAE64 = (int)&unk_83EE64, and dword_7D2E50 = 0.",
+          "evidence_refs": [
+            "global:0x008AAE64",
+            "global:0x008AAE68",
+            "global:0x008AAE6C",
+            "global:0x0083EE64",
+            "global:0x007D2E50",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return &unk_83EE64.",
+          "evidence_refs": [
+            "global:0x0083EE64",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The per-vehicle accumulator array addressed as v4 + 4*v2 + 8148208 and 8148624 (byte offsets relative to the vehicle pointer array base) is rendered by Hex-Rays as absolute-ish offsets; their exact meaning is not established by the packet.",
+        "The vehicle struct offsets 16484 (state), 16444 (lap counter), 16536 (race time) and 16568 (offset delta) are not named in the packet; the existing fill names them at DERIVED trust only, not adopted here.",
+        "flt_59E440 is packet-listed as a read global but does not appear literally in the raw source; it is assumed to back the > 0.0 threshold literal.",
+        "The exact contents of unk_7D2E54 / unk_83EE64 and the roles of the ring-buffer globals (83EE54..83EE60, 8AAE64..8AAE6C, 7D2E50, 7D2E54) are not fully mapped; the existing fill labels them scoring/session structures at DERIVED trust.",
+        "The meaning of byte_8ACFA0 (existing fill: HalfDistanceFlag, DERIVED) is not independently evidenced.",
+        "The legacy ABI label AI_Tick_Update_Ring_Buffer_Reset (abi:lead) is narrower than the tick body; the canonical name AITickUpdate is kept."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004C15A0",
+      "function_ref": "function:0x004C15A0",
+      "name": "PitStopPhaseAdvance",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004C15A0"
+        ]
+      },
+      "summary": "Advances a session/pit-stop phase counter at this+0xB14C (byte 0xB150 zeroed on each transition). Cases 1-6 increment the phase (1->2 ... 6->7) and zero byte 0xB150. Case 7 calls RaceStandingsRankingsComputation, then TimerCountdownWithStateTransition whose return value becomes the function result, and falls through to the shared tail that zeros byte 0xB150. Any unhandled phase value also hits the shared tail and returns the uninitialized low byte value.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "Compute v2 = *(this + 0xB14C) - 1 from the phase counter.",
+          "evidence_refs": [
+            "field:this:0x0000B14C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Switch on the phase counter at this+0xB14C with cases 1-7; unhandled values fall to the shared LABEL_9 tail.",
+          "evidence_refs": [
+            "field:this:0x0000B14C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Cases 1-6: advance the phase counter this+0xB14C to the next value (1->2 through 6->7) and zero the flag byte at this+0xB150.",
+          "evidence_refs": [
+            "field:this:0x0000B14C",
+            "field:this:0x0000B150",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Case 7: call j_RaceStandingsRankingsComputation to compute race standings and rankings.",
+          "evidence_refs": [
+            "callee:0x004C1660",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Case 7: call TimerCountdownWithStateTransition and store its low byte as v2, the function return value.",
+          "evidence_refs": [
+            "callee:0x004C1670",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Shared tail (LABEL_9) reached by case 7 and the default: zero the flag byte at this+0xB150.",
+          "evidence_refs": [
+            "field:this:0x0000B150",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "The switch dispatches through the jump table at 0x004C1644 (jpt_4C15B3).",
+          "evidence_refs": [
+            "global:0x004C1644",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Invoked from sub_4A0590 and sub_4A0760; returns v2 (phase-1, or the timer countdown result in case 7).",
+          "evidence_refs": [
+            "caller:0x004A0590",
+            "caller:0x004A0760",
+            "function:0x004C15A0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The concrete meaning of phase values 1-7 (which session stages they map to) is not established; the phase enum is consumed by the callers sub_4A0590 and sub_4A0760.",
+        "In case 7 the zeroing of byte 0xB150 happens twice (once logically by the case-7 goto path and once at the shared tail), but the byte ends at 0 in every path."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004C29D0",
+      "function_ref": "function:0x004C29D0",
+      "name": "delegateConditionalCall",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Calls sub_4C2990(this) to obtain an integer, then invokes ConditionalCallWrapper_29b0(this, result) and returns whatever it returns. The outer function is a thin delegation chain over two callees.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Call sub_4C2990(this) and store its integer result.",
+          "evidence_refs": [
+            "callee:0x004C2990",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call ConditionalCallWrapper_29b0(this, v2), passing the object and the helper result.",
+          "evidence_refs": [
+            "callee:0x004C29B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the result of ConditionalCallWrapper_29b0.",
+          "evidence_refs": [
+            "callee:0x004C29B0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Semantics of sub_4C2990 (whether v2 is a condition, a selector, or payload) are unknown; its function body is outside this packet.",
+        "Semantics of ConditionalCallWrapper_29b0 (what it conditionally invokes on 'this') are unknown; its function body is outside this packet.",
+        "The canonical name DelegationChain is a legacy ABI label, not independently confirmed behavior."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "LOW",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004C7A70",
+      "function_ref": "function:0x004C7A70",
+      "name": "VehicleAIControlFlag",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004C7A70"
+        ]
+      },
+      "summary": "Read-modify-write of the AI control flag bitset at this+0x48BC (this[4655]): when a2 is nonzero, set bit 0 (value OR 1) to mark the vehicle AI-controlled; when zero, clear bit 0 (value AND 0xFFFFFFFE). Stores the result back at +0x48BC and returns it. Invoked from CollisionContactIteration (0x00460DD0) to release (0) or retain (1) AI override during collision contact handling.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Load the current AI control flag: v2 = this[4655] (int at this+0x48BC)",
+          "evidence_refs": [
+            "field:this:0x000048BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Branch on a2: nonzero selects the set-bit path, zero selects the clear-bit path",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Set path: result = v2 | 1, forcing bit 0 to 1 (AI-controlled)",
+          "evidence_refs": [
+            "field:this:0x000048BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Clear path: result = v2 & 0xFFFFFFFE, forcing bit 0 to 0 (AI released)",
+          "evidence_refs": [
+            "field:this:0x000048BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the computed value back: this[4655] = result at +0x48BC",
+          "evidence_refs": [
+            "field:this:0x000048BC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the updated flag value",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Called by CollisionContactIteration (0x00460DD0) during collision contact response to toggle the AI override flag",
+          "evidence_refs": [
+            "caller:0x00460DD0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004D2210",
+      "function_ref": "function:0x004D2210",
+      "name": "PitCloseTeamReadyCheck",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Iterates the active-vehicle array dword_7C54F0 over dword_5C329C entries; for each vehicle whose dword at offset 13000 (0x32C8) is <= 1, calls sub_4BC9B0 on the field at offset 16436 (0x4034) with arguments (1, 0). Returns the active-vehicle count. Invoked from PitTimer, consistent with a pit-close/team-ready state sweep during pit sequences.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Seed result with the active-vehicle count dword_5C329C.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Iterate index i from 0 up to the active-vehicle count dword_5C329C.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Load the i-th active vehicle pointer from the dword_7C54F0 array into v2.",
+          "evidence_refs": [
+            "global:0x007C54F0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Proceed only when the vehicle's dword at offset 13000 (0x32C8) is <= 1.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_4BC9B0 on the field at vehicle + 16436 (0x4034) with arguments (1, 0) for each matching vehicle.",
+          "evidence_refs": [
+            "callee:0x004BC9B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Refresh result from dword_5C329C at the end of each iteration.",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the final active-vehicle count stored in result.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of the state dword at vehicle + 13000 and the exact pit/team-ready effect of sub_4BC9B0(field, 1, 0) are unconfirmed.",
+        "Why result is re-read from dword_5C329C every iteration rather than kept stable is unclear.",
+        "Relation between dword_5C329C and the pit-close team-ready state is unconfirmed."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004D23D0",
+      "function_ref": "function:0x004D23D0",
+      "name": "PitTimerStateInit",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Initializes a pit-timer struct from a source struct: clears two flag bytes, copies a stored value and a timestamp, computes a second time as timestamp plus a stored offset, dispatches a registration call with a session value of 4, then broadcasts the timestamp to every active vehicle. Returns the vehicle count.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "*(_BYTE*)(this + 0xC1) := 0 — clear flag byte at offset 0xC1",
+          "evidence_refs": [
+            "field:this:0x000000C1",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "*(_DWORD*)(this + 0xD8) := *(_DWORD*)(a2 + 8) — copy stored value from source struct into offset 0xD8",
+          "evidence_refs": [
+            "field:this:0x000000D8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "*(float*)(this + 0xB0) := *(float*)(a2 + 12) — copy timestamp float from source struct into offset 0xB0",
+          "evidence_refs": [
+            "field:this:0x000000B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "v4 := *(float*)(a2 + 12) + *(float*)(this + 0xB8) — timestamp plus stored time offset at 0xB8",
+          "evidence_refs": [
+            "field:this:0x000000B8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "*(_BYTE*)(this + 0xC2) := 0 — clear flag byte at offset 0xC2",
+          "evidence_refs": [
+            "field:this:0x000000C2",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "*(float*)(this + 0xB4) := v4 — store computed time into offset 0xB4",
+          "evidence_refs": [
+            "field:this:0x000000B4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_42D140(&dword_7C569C, 4) — dispatch registration using the session value stored at 0x7C569C with parameter 4",
+          "evidence_refs": [
+            "callee:0x0042D140",
+            "global:0x007C569C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "for i in [0, dword_5C329C): sub_4BC2D0(dword_7C54F0[i] + 16436, this+0xB0) — broadcast the timestamp at offset 0xB0 to each vehicle pointer at 0x7C54F0, receiver at vehicle base plus 16436",
+          "evidence_refs": [
+            "callee:0x004BC2D0",
+            "global:0x005C329C",
+            "global:0x007C54F0",
+            "field:this:0x000000B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "return result — the vehicle count from dword_5C329C",
+          "evidence_refs": [
+            "global:0x005C329C",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Role of the dispatch value 4 passed to sub_42D140 alongside dword_7C569C is unknown.",
+        "Semantics of the per-vehicle receiver at vehicle base plus 16436 for sub_4BC2D0 are unknown.",
+        "The owning object type is unidentified; the this pointer is a generic int."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004D7E00",
+      "function_ref": "function:0x004D7E00",
+      "name": "VTableDispatchChain",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "source:raw"
+        ]
+      },
+      "summary": "Two-stage vtable dispatch on a thiscall object. Calls the check method (vtable slot +0x18, i.e. vtable[6]) and, when it returns non-zero, invokes sub_4D7FE0. Independently, when the byte flag at this+0x8 is non-zero, invokes PhaseBasedAudioParticleEnvelope. Finally dispatches the method at vtable +0x4 (vtable[1]) and returns its result.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Dispatch the check/query method through the vtable pointer stored at this+0x0, at vtable offset +0x18 (slot 6); its non-zero result gates the next call.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the check method returned non-zero, invoke sub_4D7FE0(this).",
+          "evidence_refs": [
+            "callee:0x004D7FE0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_4D7FE0(this) when the check method result was non-zero.",
+          "evidence_refs": [
+            "callee:0x004D7FE0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If the flag byte at this+0x8 is non-zero, invoke PhaseBasedAudioParticleEnvelope(this).",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call PhaseBasedAudioParticleEnvelope(this) when the flag at this+0x8 is set.",
+          "evidence_refs": [
+            "callee:0x004D7FF0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Dispatch the final method through the vtable pointer at this+0x0, at vtable offset +0x4 (slot 1); this always executes.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "field:obj:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the integer result produced by the final vtable dispatch.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The concrete class behind this vtable is unknown; owner trust is UNKNOWN.",
+        "The semantics of the check method (+0x18), the conditional sub_4D7FE0, and the final dispatched method (+0x4) are not established.",
+        "The flag at this+0x8 is read only; who sets it and what PhaseBasedAudioParticleEnvelope does with it are outside this packet.",
+        "The relative order of the two guards is fixed by the source but their logical relationship (dependent or independent) is not established."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004E8010",
+      "function_ref": "function:0x004E8010",
+      "name": "TireBrushModelForceSolver",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x004E8010"
+        ]
+      },
+      "summary": "Per-frame tire force solver on the vehicle object: iterates 15 normalized slip-ratio samples, and for each sample accumulates brush-model longitudinal/lateral force contributions over the four per-wheel records (stride 248 bytes from base 13868) with load-transfer sign patterns, storing a per-wheel 15-entry force array. Then derives a corner-weight/average-load value from load-transfer mode, normalizes per-wheel vertical loads, applies wet/dry grip scaling (flag a2) to the 15-entry lookup table at 15424/15488, and finally runs a 15-iteration bisection solve that inverts a slope lookup (via sub_5895A2 with linear interpolation) to produce vertical-force/slip solutions written to an output array at 15616. Reads many tire/geometry/weight fields and a set of module float constants.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Read grip/wet constants flt_7D0278 and flt_7D029C; compute v87 = 1.0 / flt_7D029C and v5 = 1.0 / (0.071428575 * flt_7D0278), then store the inverse-slip factor into the four per-wheel fields at 15356, 15420, 15484, 15548 and the related value at 15612.",
+          "evidence_refs": [
+            "global:0x007D0278",
+            "global:0x007D029C",
+            "field:this:0x00003BFC",
+            "field:this:0x00003C3C",
+            "field:this:0x00003C7C",
+            "field:this:0x00003CBC",
+            "field:this:0x00003CFC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Load-geometry normalization: v94 = 1.0 / (fabs(13964 + 13716 - 14212 - 14460) * 0.5) and v90 = 1.0 / (fabs(13708 - 13956 + 14204 - 14452) * 0.5), combining per-axle corner-weight geometry fields.",
+          "evidence_refs": [
+            "field:this:0x0000368C",
+            "field:this:0x00003594",
+            "field:this:0x00003784",
+            "field:this:0x0000387C",
+            "field:this:0x0000358C",
+            "field:this:0x00003684",
+            "field:this:0x0000377C",
+            "field:this:0x00003874",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "15-iteration outer loop over slip samples (counter v76): per-sample slip factor v74 = v76 * flt_7D0278 * 0.071428575.",
+          "evidence_refs": [
+            "global:0x007D0278",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Inner 4-wheel accumulation over the wheel record array at base 13868 (stride 62 dwords): reads the slip input at +72 per wheel, clamps it to the per-wheel cap, and accumulates v8; then v12 = v8 * the field at 16420, and precomputes v83 = v94 * v12 * 0.5 and v81 = v12 * v90 * 0.5.",
+          "evidence_refs": [
+            "field:this:0x0000362C",
+            "field:this:0x00003674",
+            "field:this:0x00004024",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Four load-transfer summation variants over the wheels (front/rear and left/right sign patterns), gated by the load-transfer mode field at 14772, producing the four per-wheel force accumulations v15, v20, v27, v34.",
+          "evidence_refs": [
+            "field:this:0x000039B4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the four accumulated force samples into the per-wheel output arrays at bases 15488 and 15552 (and adjacent slots), advancing one sample per outer iteration.",
+          "evidence_refs": [
+            "field:this:0x00003C80",
+            "field:this:0x00003CC0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Load-transfer mode selector on the field at 14772: mode 0 averages fields 14584 and 14336, mode 1 averages fields 14584, 14336, 14088 and 13840 (quarter), mode 2 averages fields 14088 and 13840; the result (halved or quartered) is stored to the field at 15680.",
+          "evidence_refs": [
+            "field:this:0x000039B4",
+            "field:this:0x000038F8",
+            "field:this:0x00003800",
+            "field:this:0x00003708",
+            "field:this:0x00003610",
+            "field:this:0x00003D40",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Corner-weight normalization over the wheel array at base 13840: picks front weight field 14896 or rear weight field 14916 by index, accumulates weight/load per wheel, then v51 = sum * the field at 13592 and stores it to the field at 15676.",
+          "evidence_refs": [
+            "field:this:0x00003610",
+            "field:this:0x00003A30",
+            "field:this:0x00003A44",
+            "field:this:0x00003518",
+            "field:this:0x00003D3C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Per-wheel vertical-load scratch array: v54 = field 14960 * 4096.0 - field 13588 * -9.8100004; for each wheel at base 13840, v98[i] = 0.0 when the wheel load is not positive, else v54 / load * the field at +40 (13880); the field at 15684 is seeded from the field at 14956.",
+          "evidence_refs": [
+            "field:this:0x00003610",
+            "field:this:0x00003638",
+            "field:this:0x00003A6C",
+            "field:this:0x00003A70",
+            "field:this:0x00003514",
+            "field:this:0x00003D44",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Write the blended vertical load to the field at 15684: ((v98[3] + v98[2]) * 0.27500001 + (v98[1] + v98[0]) * 0.22499999) * 0.00024414062 + prior value.",
+          "evidence_refs": [
+            "field:this:0x00003D44",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Grip-mode branch on a2: wet path scales the field at 15676 by 0.92 and rescales all 15 entries of the lookup tables at base 15424 by 1.0 / field 15348 times 0.92/0.84 factors; dry path scales the field at 15676 by flt_7D020C and multiplies the same table entries by flt_7D0230, flt_7D0254 and 0.97000003.",
+          "evidence_refs": [
+            "field:this:0x00003D3C",
+            "field:this:0x00003BF4",
+            "field:this:0x00003C40",
+            "global:0x007D020C",
+            "global:0x007D0230",
+            "global:0x007D0254",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "15-iteration vertical-force bisection solve (counter v60, output pointer at base 15616): per sample v96 = v77 * v87 * 0.071428575, then an inner bisection loop over v75 starting at 128.0 with step v82 halved each pass, breaking when v82 falls below 0.4.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Per-iteration load math inside the bisection: v86 = v75 * field 13588 * v75 * v96 and v62 = v75 * v75 * field 14960 - (v75 * v75 * 0.0 - 9.8100004) * field 13588.",
+          "evidence_refs": [
+            "field:this:0x00003514",
+            "field:this:0x00003A70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Slope lookup and interpolation: v63 = v62 * field 15420 and v66 = v62 * field 15484; after sub_5895A2 the integer parts are clamped to 0..13 and linearly interpolated between the table pairs at bases 15424 and 15488; the maximum of the two interpolated values is kept.",
+          "evidence_refs": [
+            "field:this:0x00003C3C",
+            "field:this:0x00003C7C",
+            "field:this:0x00003C40",
+            "field:this:0x00003C80",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Call sub_5895A2 with the slope values v63 and v66 to extract their fractional parts for table indexing.",
+          "evidence_refs": [
+            "callee:0x005895A2",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Bisection convergence: v84 = (v86 == 0.0) ? 1024.0 : v68 / v86; update the bracket v75 by +/- v82 and halve v82 each pass.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Final interpolation of the solved value: v71 = v84 - v97; when zero, keep v75, otherwise v72 = (v84 - 1.0) / v71 clamped to [-1.0, 2.0] giving v73 = v72 * (v95 - v75) + v75 (or the lower-clamped variant); clamp v73 >= 0 and store into the output array at base 15616.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Eighteen module float constants (0x0059E420, 0x0059E438, 0x0059E43C, 0x0059E440, 0x0059E450, 0x0059E670, 0x0059E7F8, 0x0059E800, 0x0059E8C8, 0x005ACB44, 0x005ACDC4, 0x005ACEB8, 0x005ACEE8, 0x005AD1B0, 0x005AD1B4, 0x005AD1B8, 0x005AD1BC, 0x005AD1C0) are read (R) per static facts but do not appear as named globals in the Hex-Rays source; they are believed to back the FPU literals (0.071428575, 0.27500001, 0.22499999, 0.92, etc.) folded by the decompiler. Mapping each constant to a specific global is not established.",
+        "Per-wheel record stride and the meaning of each wheel sub-field (slip cap, grip, weight) are DERIVED from the 62-dword stride pattern, not proven.",
+        "The physical interpretation of the bisection output (vertical force vs slip limit per sample) is DERIVED from the brush-model structure; the owning vehicle class and exact field names are UNKNOWN.",
+        "The lookup tables at 15424 and 15488 and their 15-entry layout are inferred from the clamped index 0..13 interpolation; table identity is unknown."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E420",
+        "global:0x0059E438",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E450",
+        "global:0x0059E670",
+        "global:0x0059E7F8",
+        "global:0x0059E800",
+        "global:0x0059E8C8",
+        "global:0x005ACB44",
+        "global:0x005ACDC4",
+        "global:0x005ACEB8",
+        "global:0x005ACEE8",
+        "global:0x005AD1B0",
+        "global:0x005AD1B4",
+        "global:0x005AD1B8",
+        "global:0x005AD1BC",
+        "global:0x005AD1C0"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004ED960",
+      "function_ref": "function:0x004ED960",
+      "name": "FuelConsumptionAndWear",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead"
+        ]
+      },
+      "summary": "Per-frame vehicle update that consumes fuel, recomputes total mass, applies tire wear and tire friction, re-seeds weather-driven grip noise about every 5.5 seconds, and drives a per-wheel random failure engine (engine/gearbox/puncture/random wear) gated on the race being in progress. Called every frame from MainGameTickUpdate.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "If fuel level (this[3678]) is positive, decrement fuel by engine RPM (this[3685]) * engine power factor (this[3681]) * throttle (this[3420]) * dt (a2).",
+          "evidence_refs": [
+            "field:this:0x00003978",
+            "field:this:0x00003994",
+            "field:this:0x00003984",
+            "field:this:0x00003570",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "When fuel drops to or below 0, clamp fuel to 0 and, through the object pointer at this[0], write error code 9 to the error register (obj+0x4068) if it is not already set (out of fuel).",
+          "evidence_refs": [
+            "field:this:0x00003978",
+            "field:this:0x00000000",
+            "field:obj:0x00004068",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Recompute total mass (this[3397]) = fuel * 0.75 + base mass (this[3396]) and inverse total mass (this[3398]) = 1.0 / total mass.",
+          "evidence_refs": [
+            "field:this:0x00003978",
+            "field:this:0x00003510",
+            "field:this:0x00003514",
+            "field:this:0x00003518",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Sum the per-tire wear accumulators over 4 wheels (this[3444], stride 62) into a single wear total.",
+          "evidence_refs": [
+            "field:this:0x000035D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Grip decay factor = 1.0 - wearTotal * 0.2325.",
+          "evidence_refs": [
+            "field:this:0x000035D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For each of 4 wheels: if the per-wheel wear source is positive, decrement tire wear level (this[3468]) by gripFactor * wearSource * wear-rate factor (this[3469]) * tireWearMultiplier (dword_7D0C60) * dt, then clamp the wear level at a minimum of 0.75.",
+          "evidence_refs": [
+            "field:this:0x00003630",
+            "field:this:0x00003634",
+            "global:0x007D0C60",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Per wheel: tire friction (this[3464]) = previous + (next - previous) * track grip (flt_8AFEE8), then scaled by tire wear level (this[3468]) * friction multiplier (this[3837]) * grip interpolation (flt_8ACED0 + (flt_8ACED4 - flt_8ACED0) * flt_8AFEE8).",
+          "evidence_refs": [
+            "field:this:0x00003624",
+            "field:this:0x00003630",
+            "field:this:0x00003BF4",
+            "global:0x008AFEE8",
+            "global:0x008ACED0",
+            "global:0x008ACED4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If |session time (dbl_8AFEA0) - last weather-noise update (this[3838])| > 5.5, reseed last weather-noise update from the weather noise table (flt_8AB274[dword_8AAE70++]) and recompute tire brush forces via TireBrushModelForceSolver.",
+          "evidence_refs": [
+            "global:0x008AFEA0",
+            "field:this:0x00003BF8",
+            "global:0x008AB274",
+            "global:0x008AAE70",
+            "callee:0x004E8010",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Failure event processing runs only when sub_4D21D0() returns true (race in progress).",
+          "evidence_refs": [
+            "callee:0x004D21D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For wheels i = 0..3: if the failure countdown (this[3929+i]) is >= 0, decrement it by dt; when it drops below 0, dispatch the failure type by wheel index through the switch jump table (jpt_4EDBA3).",
+          "evidence_refs": [
+            "global:0x004EE134",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Engine failure (case 0): write error code 1 to the error register (obj+0x4068) if not already set.",
+          "evidence_refs": [
+            "field:obj:0x00004068",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If engine RPM (this[3685]) is below 50% of the RPM limit (this[3686]), suppress the failure by resetting the countdown to 0.",
+          "evidence_refs": [
+            "field:this:0x00003994",
+            "field:this:0x00003998",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Engine failure branch: if any engine power factor (this[3922]/this[3923]/this[3924]) is nonzero, or the noise draw (flt_8AAE74[dword_8AAE70++]) is >= 0.5, regenerate the power factors from the noise table; otherwise decay the engine power table entries and select one factor to regenerate.",
+          "evidence_refs": [
+            "field:this:0x00003D48",
+            "field:this:0x00003D4C",
+            "field:this:0x00003D50",
+            "global:0x008AAE74",
+            "global:0x008AAE70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Reset engine power table: for j < this[3692] entries, set the paired value (offset +4 of each 8-byte entry) of the table pointed to by this[3689] to 0.",
+          "evidence_refs": [
+            "field:this:0x000039A4",
+            "field:this:0x000039B0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Decay alternative: multiply each engine power table entry by 0.9, mark one engine power factor with the -789.0 sentinel, compute a new failure countdown from the noise draw (bands x1000 / x450 / x50), and if wear mode (dword_7CEA5C) == 3 cap the countdown at 60.",
+          "evidence_refs": [
+            "field:this:0x000039A4",
+            "field:this:0x000039B0",
+            "field:this:0x00003D48",
+            "field:this:0x00003D4C",
+            "field:this:0x00003D50",
+            "global:0x007CEA5C",
+            "global:0x008AAE74",
+            "global:0x008AAE70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Complete engine failure: set failure mode state (this[3928]) = 2 and post the event via sub_41AC50(object, 0).",
+          "evidence_refs": [
+            "field:this:0x00003D60",
+            "callee:0x0041AC50",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Gearbox failure (case 1): write error code 5 to the error register (obj+0x4068) if not already set.",
+          "evidence_refs": [
+            "field:obj:0x00004068",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "If gearbox health threshold (this[3422]) is 0, skip the gearbox failure (countdown reset to 0).",
+          "evidence_refs": [
+            "field:this:0x00003578",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "On gearbox failure, scale one of the two gearbox wear factors (this[3724] or this[3729], chosen by noise draw from flt_8AB274[dword_8AAE70++]) by 0.03125.",
+          "evidence_refs": [
+            "field:this:0x00003A30",
+            "field:this:0x00003A44",
+            "global:0x008AB274",
+            "global:0x008AAE70",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Complete gearbox failure: set failure mode state (this[3928]) = 2 and post the event via sub_41AC50(object, 1).",
+          "evidence_refs": [
+            "field:this:0x00003D60",
+            "callee:0x0041AC50",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Puncture failure (case 2): write error code 2 to the error register (obj+0x4068) if not already set.",
+          "evidence_refs": [
+            "field:obj:0x00004068",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Puncture: set the puncture flag byte (this+0x39EE) to 1 and, when failure mode state (this[3928]) == 0, set it to 1.",
+          "evidence_refs": [
+            "field:this:0x000039EE",
+            "field:this:0x00003D60",
+            "guard:0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Post the puncture event via sub_41AC50(object, 2).",
+          "evidence_refs": [
+            "callee:0x0041AC50",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Random wear failure (case 3): write error code 4 to the error register (obj+0x4068) if not already set.",
+          "evidence_refs": [
+            "field:obj:0x00004068",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Random wear: choose a wheel via RandLCGRandomNumberGenerator(...) % 4 and add 0.05 to that wheel's wear accumulator (this[3448 + 62*wheel]).",
+          "evidence_refs": [
+            "callee:0x005884ED",
+            "field:this:0x000035D0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Random wear skip: if the comparison flags from the preceding checks indicate a skip condition, reset the countdown to 0 instead of triggering random wear.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "state_transition",
+          "description": "Complete random-wear failure: set failure mode state (this[3928]) = 2 and post the event via sub_41AC50(object, 3).",
+          "evidence_refs": [
+            "field:this:0x00003D60",
+            "callee:0x0041AC50",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The per-wheel failure countdown timers (this[3929+i]) and the per-wheel wear source (this[3441], wear accumulator this[3448+62*w]) are read and written but have no packet field evidence reference.",
+        "The object reached through this[0] exposing the error register (obj+0x4068) is only evidenced as a pointer; its concrete type is unknown.",
+        "sub_41AC50's second argument appears to encode the failure type (0 engine, 1 gearbox, 2 puncture, 3 random wear) from the dispatch order, but the notification semantics are inferred, not evidenced.",
+        "The 25 globals listed in the packet but absent from the raw function text have no evident role in this function.",
+        "The exact meaning of the comparison flags (v7/v8, v41/v42, v47/v48) used to gate the wear and failure blocks is not recoverable from this function alone."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x0042C690",
+        "function:0x004ED960",
+        "global:0x0059E43C",
+        "global:0x0059E440",
+        "global:0x0059E448",
+        "global:0x0059E450",
+        "global:0x0059E4E8",
+        "global:0x0059E6F8",
+        "global:0x0059E7E8",
+        "global:0x0059E7FC",
+        "global:0x0059E824",
+        "global:0x0059E828",
+        "global:0x0059E84C",
+        "global:0x0059E874",
+        "global:0x0059E8B4",
+        "global:0x0059E8C8",
+        "global:0x0059E8CC",
+        "global:0x0059E8F8",
+        "global:0x0059E918",
+        "global:0x0059E93C",
+        "global:0x0059EA60",
+        "global:0x0059ED18",
+        "global:0x0059F118",
+        "global:0x005AD1F8",
+        "global:0x005AD200",
+        "global:0x005EB978",
+        "global:0x008ACEE0"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x004F0DD0",
+      "function_ref": "function:0x004F0DD0",
+      "name": "SteeringForceWithRandom",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Computes a steering / force-feedback force with randomized sign noise: reads a base force from the object (offset 0x1058 via the pointer in *this), builds a speed-squared noise term from the velocity vector this[3387..3389] scaled through a mph conversion (2.2369363 and 0.0049999999), randomizes its sign through the LCG, blends the candidate toward the base force using dbl_8AFE98, clamps the result to [-0.3, 0.3], and feeds it into the UI timer tween. Called from the steering path sub_4F0430 (0x004F0430).",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Compute the enable condition v2 = !byte_7C56AC || dword_8AB6E4 == 2; selects whether the speed-squared noise term is computed or forced to zero.",
+          "evidence_refs": [
+            "global:0x007C56AC",
+            "global:0x008AB6E4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "v3 = *this; the first dword of the object is read as a scalar and also dereferenced as the base pointer for the force-base and tween-target fields.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Read the force feedback base value v9 = *(float*)(*(_DWORD*)this + 4184), i.e. the object field at offset 0x1058.",
+          "evidence_refs": [
+            "field:obj:0x00001058",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "v12 = this[3408] * -0.5; half the steering value negated.",
+          "evidence_refs": [
+            "field:this:0x00003540",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "If enabled, build the speed-squared noise term from this[3387], this[3388], this[3389]: sqrt of the squared component sum times 2.2369363 times 0.0049999999, then that value squared; otherwise the term is 0.0.",
+          "evidence_refs": [
+            "field:this:0x000034EC",
+            "field:this:0x000034F0",
+            "field:this:0x000034F4",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Draw a random value from RandLCGRandomNumberGenerator seeded with LODWORD(v3); the sign of (value & 0x80000001) selects the noise sign v6 of 1.0 or -1.0.",
+          "evidence_refs": [
+            "callee:0x005884ED",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Blend toward the base force: v7 = (v11 * 0.30000001 * v6 + v12 - v9) * dbl_8AFE98 + v9.",
+          "evidence_refs": [
+            "global:0x008AFE98",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Clamp the result to [-0.3, 0.3]: values below -0.30000001 are replaced by -0.30000001 and values above 0.30000001 are capped at 0.30000001.",
+          "evidence_refs": [
+            "callee:0x004E0C90",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Feed the clamped steering force into the UI timer tween: UITimerTweenUpdate(*(_DWORD*)this + 1776, clampedValue) and return its result.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "callee:0x004E0C90",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The seven flt_ globals listed by the analysis table (0x0059E43C, 0x0059E670, 0x0059E8B4, 0x0059E99C, 0x0059F128, 0x005ACD3C, 0x005AD22C) are not referenced in the raw decompiled source; their role is unverified.",
+        "Random sign computation via the zero-ness of (rand & 0x80000001) is unusual; the exact intended distribution is unclear.",
+        "The semantics of this[3387..3389] as a velocity vector and the physical units implied by 2.2369363 / 0.0049999999 are plausible but not independently confirmed."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E43C",
+        "global:0x0059E670",
+        "global:0x0059E8B4",
+        "global:0x0059E99C",
+        "global:0x0059F128",
+        "global:0x005ACD3C",
+        "global:0x005AD22C"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00507496",
+      "function_ref": "function:0x00507496",
+      "name": "DirectXTextureCreationWithMipmapChain",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Object constructor for a DirectX texture/surface from a source descriptor (a2). Stores the vtable, calls the embedded sub-object array constructor (256 elements of 16 bytes at this+0x30), copies format metadata and the 6-dword dimension header, selects a render-temp data pointer, stores mip stride (a3 >> 3) and the mip-level flag (a3 != 0), converts a packed ARGB color to normalized float RGBA, and for indexed formats (IDs 40 and 41) initializes the 256-entry palette from source palette data, or fills it opaque white when no palette data is supplied. Finally it computes dimension deltas and, when the mip flag is set, advances the mip-origin accumulator by delta * stride for the next level. Returns this.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Store the vtable pointer off_5ADB80 at this+0x0.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "global:0x005ADB80",
+            "abi:lead"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Construct the embedded sub-object array at this+0x30 (256 elements of 16 bytes) via sub_5008C2, passing sub_5007EC as the element constructor callback; the palette loops later populate these entries for indexed formats.",
+          "evidence_refs": [
+            "callee:0x005008C2",
+            "global:0x005007EC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Copy source-descriptor scalars into the target header: this[6] = a2[0] (byte 0x18), this[1] = a2[1] (byte 0x4, format/type ID), this[1044] = a2[2] (byte 0x1050), this[1045] = a2[3] (byte 0x1054).",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "field:this:0x00000004",
+            "field:this:0x00001050",
+            "field:this:0x00001054",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "qmemcpy 24 bytes from a2 + 10 into this + 1036, copying the 6-dword dimension header into byte offsets 0x1030 through 0x1044.",
+          "evidence_refs": [
+            "field:this:0x00001030",
+            "field:this:0x00001034",
+            "field:this:0x00001038",
+            "field:this:0x0000103C",
+            "field:this:0x00001040",
+            "field:this:0x00001044",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Select the render-temp data pointer: store unk_5D7748 at this+0x2C when the source field a2[16] is nonzero, otherwise store unk_5D76C8.",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "global:0x005D7748",
+            "global:0x005D76C8",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the mip stride at this+0x1068 as a3 >> 3.",
+          "evidence_refs": [
+            "field:this:0x00001068",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Zero the mip accumulator fields at this+0x1048 and this+0x104C.",
+          "evidence_refs": [
+            "field:this:0x00001048",
+            "field:this:0x0000104C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the mip-level flag at this+0xC as (a3 != 0) and store the parameter a4 verbatim at this+0x8.",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the packed color from a2[17] at this+0x10.",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "When the packed color a2[17] is nonzero, unpack its four bytes as normalized float RGBA: this[7] (0x1C) = byte2/255, this[8] (0x20) = byte1/255, this[9] (0x24) = byte0/255, this[10] (0x28) = high byte/255, each scaled by 0.0039215689.",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "field:this:0x00000020",
+            "field:this:0x00000024",
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on the format/type ID at this[1] (byte 0x4): when it is 41 or 40 (indexed/palette formats) set the palette-format flag at this+0x14 to 1; otherwise clear it to 0.0.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For indexed formats with source palette data (a2[18] nonzero): iterate 256 entries, decoding four packed bytes per entry into normalized RGBA floats (each channel times 0.0039215689) over the 16-byte sub-object entries starting at this+12 (byte 0x30); the entry-0 G/B/A channels land at this+0x34 / 0x38 / 0x3C.",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "field:this:0x00000038",
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "For indexed formats without source palette data (a2[18] == 0): fill the 256 palette entries with opaque white (1.0 for all four float channels of each 16-byte entry).",
+          "evidence_refs": [
+            "field:this:0x00000034",
+            "field:this:0x00000038",
+            "field:this:0x0000003C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute dimension deltas from the copied header: this+0x105C = this[1039] - this[1037]; this+0x1060 = this[1041] - this[1040]; v18 = this[1038] - this[1030] stored at this+0x1058; this+0x1064 = v18 * (mip stride at this+0x1068).",
+          "evidence_refs": [
+            "field:this:0x00001038",
+            "field:this:0x00001040",
+            "field:this:0x00001030",
+            "field:this:0x0000103C",
+            "field:this:0x00001034",
+            "field:this:0x00001044",
+            "field:this:0x0000105C",
+            "field:this:0x00001060",
+            "field:this:0x00001058",
+            "field:this:0x00001068",
+            "field:this:0x00001064",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Guard on the mip-level flag at this+0xC: when it equals 0 the mip-origin advance block is skipped; when nonzero the following accumulation executes.",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x0000000C"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "When the mip-level flag is set, advance the mip origin for the next level: add this[1040]*this[1045] + this[1037]*this[1044] + v17*v16 into this[6] (byte 0x18); copy the stored deltas back (this+0x1038 = this+0x1058, this+0x103C = this+0x105C); then zero this+0x1030, this+0x1034 and this+0x1040 and move the this+0x1060 value into this+0x1044.",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "field:this:0x00001040",
+            "field:this:0x00001054",
+            "field:this:0x00001034",
+            "field:this:0x00001050",
+            "field:this:0x00001030",
+            "field:this:0x00001068",
+            "field:this:0x00001038",
+            "field:this:0x0000105C",
+            "field:this:0x00001060",
+            "field:this:0x00001044",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the constructed object pointer (this).",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x00507496"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Format IDs 40 and 41 are treated as indexed/palette formats, but their concrete enum meaning in the original render system is not established here.",
+        "The embedded 256 x 16-byte sub-object array at this+0x30 is populated by the palette loops only for indexed formats; whether it serves as pure palette storage or doubles as a mip-chain sub-object list is inferred from the loops and not proven.",
+        "Field roles for the copied dimension header (bytes 0x1030-0x1044), the deltas (0x1058-0x1064) and the mip-origin advance (0x18) are DERIVED from arithmetic shape; exact geometry meaning is unconfirmed.",
+        "The render-temp data pointers unk_5D7748 / unk_5D76C8 (selected by a2[16]) have no semantic identity beyond their selection rule."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E460"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0054BF60",
+      "function_ref": "function:0x0054BF60",
+      "name": "PitCrewAnimationOffsetUpdate",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x0054BF60",
+          "source:raw"
+        ]
+      },
+      "summary": "Walks a linked list of animation elements (head at this+0x204, next pointer at node+0x10) and, for each entry matching type id a2, adds an (a4, a5) offset to the X/Y position components of every vertex in the entry's vertex array, using a 48-byte stride. The vertex component base is a3-selectable: a3==0 updates components at data+32/+36, a3==1 updates at data+40/+44. Each updated entry has dirty bit 0x800 set at its flags field (v7[12]). Part of the pit crew animation update path invoked during camera/viewport render setup.",
+      "operations": [
+        {
+          "kind": "loop",
+          "description": "Outer traversal of the animation element linked list: start at the head this[129] (this+0x204) and follow the next pointer i[4] until null.",
+          "evidence_refs": [
+            "field:this:0x00000204",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Per-node guard: the node's entry count i[70] must be > 0 before any entry records are walked (packet guard 0, this+0x32C).",
+          "evidence_refs": [
+            "guard:0",
+            "field:this:0x0000032C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Inner do-while over the node's entry records: advance v7 by 16 dwords per iteration, comparing each record's type id *(v7-1) against a2 to find matches.",
+          "evidence_refs": [
+            "field:this:0x00000330",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "guard",
+          "description": "Per-entry guard: the matched entry's vertex count *v7 must be > 0 before the vertex loop runs (packet guard 1, this+0x338).",
+          "evidence_refs": [
+            "guard:1",
+            "field:this:0x00000338",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Vertex update loop (a3==0 branch): iterate over the vertex array pointed to by the entry (this+0x33C) with a 48-byte stride, adding a4 to the X component (base data+32) and a5 to the Y component (base data+36).",
+          "evidence_refs": [
+            "field:this:0x0000033C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Vertex update loop (a3==1 branch): same 48-byte-stride iteration but the X component base is data+40 and the Y component base is data+44.",
+          "evidence_refs": [
+            "field:this:0x0000033C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Mark the entry dirty: set bit 0x800 in v7[12] (entry+0x30 flags; packet this+0x368) after its vertex offsets are updated.",
+          "evidence_refs": [
+            "field:this:0x00000368",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Invoked by CameraViewportRenderSetup (0x004FBD70) as part of pit crew animation offset refresh during viewport render setup.",
+          "evidence_refs": [
+            "caller:0x004FBD70",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The packet field table expresses the node/entry accesses as this-relative offsets (this+0x32C entry count, this+0x330 type id, this+0x338 vertex count, this+0x33C vertex data pointer, this+0x368 dirty flag) whereas the raw source accesses them relative to the node pointer i and the entry pointer v7; the exact relationship between `i`/`v7` and the `this` base is not proven here.",
+        "The read of this+0x224 reported by the packet is not visible as a distinct access in the raw decompiled source.",
+        "The vertex struct layout (48-byte stride, X/Y components at the a3-selected bases) is inferred from the update pattern, not from a named type."
+      ],
+      "unresolved_evidence_refs": [
+        "field:this:0x00000224"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00551440",
+      "function_ref": "function:0x00551440",
+      "name": "EntityFlagSetSubInitChain",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Sets flag bits on the entity data struct, copies parameter-table data into per-entity data block 0, starts and resets a high-resolution timer via QueryPerformanceCounter, and zeroes the timer accumulator field. Returns the reset call's value.",
+      "operations": [
+        {
+          "kind": "calculation",
+          "description": "this[1] := (this[1] & 0xFFFE0FFF) | 0x2000 — mask the flags word at offset 0x4 with 0xFFFE0FFF and set flag bit 0x2000",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "PerEntityDataBlockCopyFromParameterTable(this, 0, 0) — copy parameter-table data into per-entity data block index 0",
+          "evidence_refs": [
+            "callee:0x00551390",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "TimerStartViaQueryPerformanceCounter(*this) — start the high-resolution timer using the handle stored at offset 0x0",
+          "evidence_refs": [
+            "callee:0x005563E0",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "HighResolutionTimerReset(*this) — reset the high-resolution timer using the handle at offset 0x0; its return value becomes result",
+          "evidence_refs": [
+            "callee:0x00556440",
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "this[4] := 0 — zero the timer accumulator field at offset 0x10",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "return result from HighResolutionTimerReset",
+          "evidence_refs": [
+            "function:0x00551440",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of the flag bits set/cleared in the flags word at offset 0x4 (mask 0xFFFE0FFF, set bit 0x2000) is unknown.",
+        "Semantics of the handle at offset 0x0 used as the timer handle are unknown.",
+        "The owning object type is unidentified; the this pointer is a generic _DWORD*."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00553A20",
+      "function_ref": "function:0x00553A20",
+      "name": "FloatToIntConversionChain",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00553A20"
+        ]
+      },
+      "summary": "Two-path float-array processing gated by flag bit 0x40000 in this+0x18. When set: calls sub_55C860(this, a2, a2 + 3, a3) and clears bit 0x400. When clear: converts a2[4], a2[3], a2[1], a2[0] to ints via CRTFtol, dispatches to sub_553AA0(v5, v6, a3, this), and clears bit 0x400 in this+0x18 via mask 0xFFFFFBFF. Returns the updated flags (or the sub_55C860 result) in both paths.",
+      "operations": [
+        {
+          "kind": "guard",
+          "description": "Test bit 0x40000 in the flags dword this+0x18; set selects the sub_55C860 alternate path, clear selects the CRTFtol conversion path.",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Alternate path: call sub_55C860(this, a2, a2 + 3, a3) and clear bit 0x400 in this+0x18.",
+          "evidence_refs": [
+            "callee:0x0055C860",
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Main path: convert a2[4], a2[3], a2[1], a2[0] to ints via CRTFtol.",
+          "evidence_refs": [
+            "callee:0x00587BDC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Main path: dispatch the converted ints v5 (a2[3]) and v6 (a2[4]) with a3 and this to sub_553AA0.",
+          "evidence_refs": [
+            "callee:0x00553AA0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Main path: clear bit 0x400 by storing flags & 0xFFFFFBFF back into this+0x18; this masked value is also the return value.",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Invoked from FloatVectorWithConditionalTransform, F_2DTextRenderingWithScissorRectangle and sub_49F1C0; returns the updated flags dword from this+0x18 in both paths.",
+          "evidence_refs": [
+            "caller:0x00494C20",
+            "caller:0x0049B370",
+            "caller:0x0049F1C0",
+            "function:0x00553A20",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The float array a2 element semantics (what a2[0..4] represent) are not recoverable here; only this+0x18 has a field evidence reference in the packet.",
+        "Global dword_8B78A0 (0x008B78A0) is listed in the packet globals but not referenced by the raw source of this function; its role is unclear.",
+        "The CRTFtol results of a2[1] and a2[0] are discarded in the raw source; whether they have a side effect in the CRT shim is unconfirmed."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x008B78A0"
+      ],
+      "confidence": {
+        "semantics": "MEDIUM",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00560EB0",
+      "function_ref": "function:0x00560EB0",
+      "name": "AppendNodeToDoublyLinkedListTail",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "abi:lead",
+          "function:0x00560EB0"
+        ]
+      },
+      "summary": "Appends a node to the tail of a doubly linked list. First unlinks the incoming node from any list it already belongs to: its previous node's next pointer is redirected around it and its next node's previous pointer is redirected back. Then, if the list head (this[11], offset 0x2C) is set, the function walks the next-pointer chain (+52/0x34) to the last node and writes the new node into that tail's next slot; otherwise the head becomes the new node. Finally the node's previous pointer is set to the old tail, its next pointer cleared to 0, and bit 2 (value 4) is set in its flags dword (+36). Returns the updated flags value.",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Unlink step 1: if the incoming node's previous pointer (+48, a2[12]) is non-null, that previous node's next pointer (+52/0x34) is redirected to the incoming node's next (a2[13])",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Unlink step 2: if the incoming node's next pointer (+52, a2[13]) is non-null, that next node's previous pointer (+48) is redirected back to the incoming node's previous (a2[12])",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Initialize the tail to 0 and read the list head from this+0x2C (this[11]) to decide between the empty-list and non-empty-list paths",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "loop",
+          "description": "Non-empty path: walk the next-pointer chain (offsets +52/0x34) starting from the head node until the terminal node is reached, remembering each step as the running tail",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "field:*(*(this+0x60)+0x34):0x00000034",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Non-empty path: write the new node into the next-pointer slot (+52/0x34) of the terminal tail node",
+          "evidence_refs": [
+            "field:*(*(this+0x60)+0x34):0x00000034",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Empty path: the list head at this+0x2C becomes the new node",
+          "evidence_refs": [
+            "field:this:0x0000002C",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Finish linking: the new node's previous pointer (+48) is set to the running tail, its next pointer (+52) cleared to 0, and its flags dword (+36) is OR'd with 4 (bit 2)",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns the updated node flags value",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "Reached from DoublyLinkedListNodeMover (0054ba00) as a list-tail append helper",
+          "evidence_refs": [
+            "caller:0x0054BA00",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Meaning of bit 2 (value 4) set in the node flags dword at +36 is not established by this packet; prior analysis labels it an in-list/active flag (DERIVED).",
+        "Packet field evidence field:this:0x00000060 (a list-descriptor pointer) has no explicit access in the raw source shown; the head pointer this+0x2C and the descriptor at this+0x60 may describe the same list or a secondary one.",
+        "Node offsets +48/+52 (prev/next) and the flags dword +36 appear in the raw source but have no separate packet field evidence entries.",
+        "The unlink-first behavior implies nodes may be moved between lists without being freed, but the lifecycle of the removed node is outside this function."
+      ],
+      "unresolved_evidence_refs": [
+        "field:this:0x00000060"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00564740",
+      "function_ref": "function:0x00564740",
+      "name": "DestroyAudioArrayFreeElementsThenContainer",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Destroys a pointer-array container: iterates the element buffer (this+0x0) for lpMem[1] (this+0x4) entries calling BatchLoopWithMemoryCleanup on each element, then frees the buffer and the container struct via sub_58AA6F.",
+      "operations": [
+        {
+          "kind": "loop",
+          "description": "Iterates i from 0 while i < (int)lpMem[1] (element count at this+0x4), calling BatchLoopWithMemoryCleanup on each element pointer (*lpMem)[i] from the buffer at this+0x0.",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "field:this:0x00000000",
+            "callee:0x00564860",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "sub_58AA6F(*lpMem) frees the element buffer pointed to by this+0x0.",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "callee:0x0058AA6F",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Returns sub_58AA6F(lpMem), freeing the container struct itself.",
+          "evidence_refs": [
+            "callee:0x0058AA6F",
+            "function:0x00564740",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "sub_58AA6F (0x0058AA6F) is an unnamed memory deallocation helper; exact free semantics are not proven.",
+        "BatchLoopWithMemoryCleanup (0x00564860) cleanup semantics are not independently verified in this packet.",
+        "Container layout beyond this+0x0 and this+0x4 is unknown.",
+        "Three callers (NetworkCleanup 0x00562C50, DirectDrawDisplayModeInit 0x00563E00, sub_5640F0 0x005640F0) are not analyzed."
+      ],
+      "unresolved_evidence_refs": [
+        "caller:0x00562C50",
+        "caller:0x00563E00",
+        "caller:0x005640F0",
+        "abi:lead"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x005676C0",
+      "function_ref": "function:0x005676C0",
+      "name": "FloatToIntConversionWithRemainder",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Splits a float seconds value a3 into whole minutes and a seconds remainder. It multiplies a3 by 0.016666668 (flt_59E9C0, ~1/60), truncates with CRTFtol, stores the integer minutes into *a1 (this+0x0), stores the remainder (a3 - minutes * 60.0, using flt_59F118) into *a2, and returns the minute count. Timing/time-display helper.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "Convert a3 seconds to whole minutes by calling CRTFtol on a3 * 0.016666668 (flt_59E9C0), truncating the scaled value toward zero.",
+          "evidence_refs": [
+            "callee:0x00587BDC",
+            "global:0x0059E9C0",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Store the truncated integer minute count into *a1 (this+0x0).",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "Compute and store the seconds remainder into *a2 as a3 - (float)minutes * 60.0 (flt_59F118).",
+          "evidence_refs": [
+            "global:0x0059F118",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return the integer minute count produced by the conversion.",
+          "evidence_refs": [
+            "source:raw",
+            "function:0x005676C0"
+          ]
+        }
+      ],
+      "unresolved": [
+        "The conversion is assumed to be seconds to minutes/remainder based on the 1/60 scale and 60.0 recomposition constants; the calling context is timing-related but unproven.",
+        "The return value is both written to *a1 and returned; its consumers at sub_4D24D0 and FloatToIntTruncateWithRemainder are not analyzed here."
+      ],
+      "unresolved_evidence_refs": [
+        "abi:lead",
+        "caller:0x004D24D0",
+        "caller:0x00567700"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x00567700",
+      "function_ref": "function:0x00567700",
+      "name": "FloatToIntTruncateWithRemainder",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": [
+          "function:0x00567700",
+          "source:raw",
+          "abi:lead"
+        ]
+      },
+      "summary": "Converts an input value into whole seconds and a remainder: v8 = CRTFtol(a3 * 0.00027777778) is the truncated whole seconds written to *a1; the residual v7 = a3 - (double)v8 * 3600.0 is decomposed by FloatToIntConversionWithRemainder (0x005676C0) into the a2/a4 outputs, whose return value is propagated. The function reads two float globals at 0x0059E9B8 and 0x0059E9BC that do not surface as named operands in the inlined raw source.",
+      "operations": [
+        {
+          "kind": "call",
+          "description": "v8 = CRTFtol(a3 * 0.00027777778) — scale the input by 1/3600 and truncate to an integer count of whole seconds.",
+          "evidence_refs": [
+            "callee:0x00587BDC",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "*a1 = v8 — write the whole-seconds result into the first output pointer.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "calculation",
+          "description": "v7 = a3 - (double)v8 * 3600.0 — remainder left over after removing the whole seconds.",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "call",
+          "description": "return FloatToIntConversionWithRemainder(a2, a4, v7) — decompose the remainder into the two remaining outputs and propagate its return value.",
+          "evidence_refs": [
+            "callee:0x005676C0",
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Read-only float globals flt_59E9B8 (0x0059E9B8) and flt_59E9BC (0x0059E9BC) are read but do not appear as named operands in the inlined raw source; they may hold the constants 0.00027777778 and 3600.0, but that mapping is unconfirmed.",
+        "Semantic meaning of the a2/a4 outputs produced by FloatToIntConversionWithRemainder (0x005676C0) is not confirmed."
+      ],
+      "unresolved_evidence_refs": [
+        "global:0x0059E9B8",
+        "global:0x0059E9BC"
+      ],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    },
+    {
+      "address": "0x0057B530",
+      "function_ref": "function:0x0057B530",
+      "name": "RingBufferHeadTailReset",
+      "owner": {
+        "type": "UnknownObject",
+        "trust": "UNKNOWN",
+        "evidence_refs": []
+      },
+      "summary": "Resets a ring buffer's head and tail WORD indices (this + 0x1000 and this + 0x1002, element indices 2048 and 2049 of a _WORD array) to 0, marking the buffer empty, and returns 0. Unconditional; no early return. Called from AI/session paths (sub_57DE30, sub_57E570, SocketAddressInit).",
+      "operations": [
+        {
+          "kind": "assignment",
+          "description": "Set ring buffer head index at this + 0x1000 (this[2048] as WORD) to 0.",
+          "evidence_refs": [
+            "field:this:0x00001000",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "assignment",
+          "description": "Set ring buffer tail index at this + 0x1002 (this[2049] as WORD) to 0.",
+          "evidence_refs": [
+            "field:this:0x00001002",
+            "source:raw"
+          ]
+        },
+        {
+          "kind": "return",
+          "description": "Return 0 (result is initialized to 0 before the field writes).",
+          "evidence_refs": [
+            "source:raw"
+          ]
+        }
+      ],
+      "unresolved": [
+        "Owner object and buffer size are unknown; indices 2048/2049 are only known to be WORD fields at 0x1000/0x1002.",
+        "Relationship to the calling socket/AI session structures is unproven."
+      ],
+      "unresolved_evidence_refs": [],
+      "confidence": {
+        "semantics": "HIGH",
+        "owner": "LOW",
+        "control_flow": "HIGH"
+      }
+    }
+  ],
+  "required_function_refs": [
+    "function:0x004BEF60",
+    "function:0x004BF390",
+    "function:0x004BF4F0",
+    "function:0x004C15A0",
+    "function:0x004C29D0",
+    "function:0x004C7A70",
+    "function:0x004D2210",
+    "function:0x004D23D0",
+    "function:0x004D7E00",
+    "function:0x004E8010",
+    "function:0x004ED960",
+    "function:0x004F0DD0",
+    "function:0x00507496",
+    "function:0x0054BF60",
+    "function:0x00551440",
+    "function:0x00553A20",
+    "function:0x00560EB0",
+    "function:0x00564740",
+    "function:0x005676C0",
+    "function:0x00567700",
+    "function:0x0057B530"
+  ],
+  "required_material_refs": [
+    "callee:0x0041AC50",
+    "callee:0x0042AEB0",
+    "callee:0x0042D140",
+    "callee:0x004BC2D0",
+    "callee:0x004BC2F0",
+    "callee:0x004BC9B0",
+    "callee:0x004BF390",
+    "callee:0x004C1660",
+    "callee:0x004C1670",
+    "callee:0x004C2990",
+    "callee:0x004C29B0",
+    "callee:0x004D21D0",
+    "callee:0x004D7FE0",
+    "callee:0x004D7FF0",
+    "callee:0x004E0C90",
+    "callee:0x004E8010",
+    "callee:0x005008C2",
+    "callee:0x00551390",
+    "callee:0x00553AA0",
+    "callee:0x005563E0",
+    "callee:0x00556440",
+    "callee:0x0055C860",
+    "callee:0x00564860",
+    "callee:0x005676C0",
+    "callee:0x00587BDC",
+    "callee:0x005884ED",
+    "callee:0x005895A2",
+    "callee:0x0058AA6F",
+    "field:*(*(this+0x60)+0x34):0x00000034",
+    "field:obj:0x00000004",
+    "field:obj:0x00000018",
+    "field:obj:0x00001058",
+    "field:obj:0x00004068",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x0000002C",
+    "field:this:0x00000034",
+    "field:this:0x00000038",
+    "field:this:0x0000003C",
+    "field:this:0x00000060",
+    "field:this:0x000000B0",
+    "field:this:0x000000B4",
+    "field:this:0x000000B8",
+    "field:this:0x000000C1",
+    "field:this:0x000000C2",
+    "field:this:0x000000D8",
+    "field:this:0x00000204",
+    "field:this:0x00000224",
+    "field:this:0x0000032C",
+    "field:this:0x00000330",
+    "field:this:0x00000338",
+    "field:this:0x0000033C",
+    "field:this:0x00000340",
+    "field:this:0x00000341",
+    "field:this:0x00000344",
+    "field:this:0x00000354",
+    "field:this:0x0000035C",
+    "field:this:0x00000368",
+    "field:this:0x00001000",
+    "field:this:0x00001002",
+    "field:this:0x00001030",
+    "field:this:0x00001034",
+    "field:this:0x00001038",
+    "field:this:0x0000103C",
+    "field:this:0x00001040",
+    "field:this:0x00001044",
+    "field:this:0x00001048",
+    "field:this:0x0000104C",
+    "field:this:0x00001050",
+    "field:this:0x00001054",
+    "field:this:0x00001058",
+    "field:this:0x0000105C",
+    "field:this:0x00001060",
+    "field:this:0x00001064",
+    "field:this:0x00001068",
+    "field:this:0x000034EC",
+    "field:this:0x000034F0",
+    "field:this:0x000034F4",
+    "field:this:0x00003510",
+    "field:this:0x00003514",
+    "field:this:0x00003518",
+    "field:this:0x00003540",
+    "field:this:0x00003570",
+    "field:this:0x00003578",
+    "field:this:0x0000358C",
+    "field:this:0x00003594",
+    "field:this:0x000035D0",
+    "field:this:0x00003610",
+    "field:this:0x00003624",
+    "field:this:0x0000362C",
+    "field:this:0x00003630",
+    "field:this:0x00003634",
+    "field:this:0x00003638",
+    "field:this:0x00003674",
+    "field:this:0x00003684",
+    "field:this:0x0000368C",
+    "field:this:0x00003708",
+    "field:this:0x0000377C",
+    "field:this:0x00003784",
+    "field:this:0x00003800",
+    "field:this:0x00003874",
+    "field:this:0x0000387C",
+    "field:this:0x000038F8",
+    "field:this:0x00003978",
+    "field:this:0x00003984",
+    "field:this:0x00003994",
+    "field:this:0x00003998",
+    "field:this:0x000039A4",
+    "field:this:0x000039B0",
+    "field:this:0x000039B4",
+    "field:this:0x000039EE",
+    "field:this:0x00003A30",
+    "field:this:0x00003A44",
+    "field:this:0x00003A6C",
+    "field:this:0x00003A70",
+    "field:this:0x00003BF4",
+    "field:this:0x00003BF8",
+    "field:this:0x00003BFC",
+    "field:this:0x00003C3C",
+    "field:this:0x00003C40",
+    "field:this:0x00003C7C",
+    "field:this:0x00003C80",
+    "field:this:0x00003CBC",
+    "field:this:0x00003CC0",
+    "field:this:0x00003CFC",
+    "field:this:0x00003D3C",
+    "field:this:0x00003D40",
+    "field:this:0x00003D44",
+    "field:this:0x00003D48",
+    "field:this:0x00003D4C",
+    "field:this:0x00003D50",
+    "field:this:0x00003D60",
+    "field:this:0x00004024",
+    "field:this:0x0000403C",
+    "field:this:0x00004060",
+    "field:this:0x00004098",
+    "field:this:0x0000409C",
+    "field:this:0x000048BC",
+    "field:this:0x0000B14C",
+    "field:this:0x0000B150",
+    "global:0x004C1644",
+    "global:0x004EE134",
+    "global:0x005007EC",
+    "global:0x0059E420",
+    "global:0x0059E438",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E448",
+    "global:0x0059E450",
+    "global:0x0059E460",
+    "global:0x0059E4E8",
+    "global:0x0059E670",
+    "global:0x0059E6F8",
+    "global:0x0059E7E8",
+    "global:0x0059E7F8",
+    "global:0x0059E7FC",
+    "global:0x0059E800",
+    "global:0x0059E824",
+    "global:0x0059E828",
+    "global:0x0059E84C",
+    "global:0x0059E874",
+    "global:0x0059E8B4",
+    "global:0x0059E8C8",
+    "global:0x0059E8CC",
+    "global:0x0059E8F8",
+    "global:0x0059E918",
+    "global:0x0059E93C",
+    "global:0x0059E99C",
+    "global:0x0059E9B8",
+    "global:0x0059E9BC",
+    "global:0x0059E9C0",
+    "global:0x0059EA60",
+    "global:0x0059ED18",
+    "global:0x0059F118",
+    "global:0x0059F128",
+    "global:0x005ACB44",
+    "global:0x005ACD3C",
+    "global:0x005ACDC4",
+    "global:0x005ACEB8",
+    "global:0x005ACEE8",
+    "global:0x005AD1B0",
+    "global:0x005AD1B4",
+    "global:0x005AD1B8",
+    "global:0x005AD1BC",
+    "global:0x005AD1C0",
+    "global:0x005AD1F8",
+    "global:0x005AD200",
+    "global:0x005AD22C",
+    "global:0x005ADB80",
+    "global:0x005C329C",
+    "global:0x005D76C8",
+    "global:0x005D7748",
+    "global:0x005EB978",
+    "global:0x007C54F0",
+    "global:0x007C569C",
+    "global:0x007C56A4",
+    "global:0x007C56AC",
+    "global:0x007CEA5C",
+    "global:0x007D020C",
+    "global:0x007D0230",
+    "global:0x007D0254",
+    "global:0x007D0278",
+    "global:0x007D029C",
+    "global:0x007D0C60",
+    "global:0x007D2E50",
+    "global:0x007D2E54",
+    "global:0x0083EE54",
+    "global:0x0083EE58",
+    "global:0x0083EE5C",
+    "global:0x0083EE60",
+    "global:0x0083EE64",
+    "global:0x008AAE64",
+    "global:0x008AAE68",
+    "global:0x008AAE6C",
+    "global:0x008AAE70",
+    "global:0x008AAE74",
+    "global:0x008AB274",
+    "global:0x008AB6E4",
+    "global:0x008ACED0",
+    "global:0x008ACED4",
+    "global:0x008ACEE0",
+    "global:0x008ACF90",
+    "global:0x008ACFA0",
+    "global:0x008AFE98",
+    "global:0x008AFEA0",
+    "global:0x008AFEE8",
+    "global:0x008B78A0"
+  ],
+  "allowed_evidence_refs": [
+    "abi:lead",
+    "callee:0x0041AC50",
+    "callee:0x0042AEB0",
+    "callee:0x0042D140",
+    "callee:0x004BC2D0",
+    "callee:0x004BC2F0",
+    "callee:0x004BC9B0",
+    "callee:0x004BF390",
+    "callee:0x004C1660",
+    "callee:0x004C1670",
+    "callee:0x004C2990",
+    "callee:0x004C29B0",
+    "callee:0x004D21D0",
+    "callee:0x004D7FE0",
+    "callee:0x004D7FF0",
+    "callee:0x004E0C90",
+    "callee:0x004E8010",
+    "callee:0x005008C2",
+    "callee:0x00551390",
+    "callee:0x00553AA0",
+    "callee:0x005563E0",
+    "callee:0x00556440",
+    "callee:0x0055C860",
+    "callee:0x00564860",
+    "callee:0x005676C0",
+    "callee:0x00587BDC",
+    "callee:0x005884ED",
+    "callee:0x005895A2",
+    "callee:0x0058AA6F",
+    "caller:0x0042C690",
+    "caller:0x00460DD0",
+    "caller:0x00494C20",
+    "caller:0x0049B370",
+    "caller:0x0049F1C0",
+    "caller:0x004A0590",
+    "caller:0x004A0760",
+    "caller:0x004BEC55",
+    "caller:0x004D24D0",
+    "caller:0x004FBD70",
+    "caller:0x0054BA00",
+    "caller:0x00562C50",
+    "caller:0x00563E00",
+    "caller:0x005640F0",
+    "caller:0x00567700",
+    "field:*(*(this+0x60)+0x34):0x00000034",
+    "field:obj:0x00000004",
+    "field:obj:0x00000018",
+    "field:obj:0x00001058",
+    "field:obj:0x00004068",
+    "field:this:0x00000000",
+    "field:this:0x00000004",
+    "field:this:0x00000008",
+    "field:this:0x0000000C",
+    "field:this:0x00000010",
+    "field:this:0x00000014",
+    "field:this:0x00000018",
+    "field:this:0x0000001C",
+    "field:this:0x00000020",
+    "field:this:0x00000024",
+    "field:this:0x00000028",
+    "field:this:0x0000002C",
+    "field:this:0x00000034",
+    "field:this:0x00000038",
+    "field:this:0x0000003C",
+    "field:this:0x00000060",
+    "field:this:0x000000B0",
+    "field:this:0x000000B4",
+    "field:this:0x000000B8",
+    "field:this:0x000000C1",
+    "field:this:0x000000C2",
+    "field:this:0x000000D8",
+    "field:this:0x00000204",
+    "field:this:0x00000224",
+    "field:this:0x0000032C",
+    "field:this:0x00000330",
+    "field:this:0x00000338",
+    "field:this:0x0000033C",
+    "field:this:0x00000340",
+    "field:this:0x00000341",
+    "field:this:0x00000344",
+    "field:this:0x00000354",
+    "field:this:0x0000035C",
+    "field:this:0x00000368",
+    "field:this:0x00001000",
+    "field:this:0x00001002",
+    "field:this:0x00001030",
+    "field:this:0x00001034",
+    "field:this:0x00001038",
+    "field:this:0x0000103C",
+    "field:this:0x00001040",
+    "field:this:0x00001044",
+    "field:this:0x00001048",
+    "field:this:0x0000104C",
+    "field:this:0x00001050",
+    "field:this:0x00001054",
+    "field:this:0x00001058",
+    "field:this:0x0000105C",
+    "field:this:0x00001060",
+    "field:this:0x00001064",
+    "field:this:0x00001068",
+    "field:this:0x000034EC",
+    "field:this:0x000034F0",
+    "field:this:0x000034F4",
+    "field:this:0x00003510",
+    "field:this:0x00003514",
+    "field:this:0x00003518",
+    "field:this:0x00003540",
+    "field:this:0x00003570",
+    "field:this:0x00003578",
+    "field:this:0x0000358C",
+    "field:this:0x00003594",
+    "field:this:0x000035D0",
+    "field:this:0x00003610",
+    "field:this:0x00003624",
+    "field:this:0x0000362C",
+    "field:this:0x00003630",
+    "field:this:0x00003634",
+    "field:this:0x00003638",
+    "field:this:0x00003674",
+    "field:this:0x00003684",
+    "field:this:0x0000368C",
+    "field:this:0x00003708",
+    "field:this:0x0000377C",
+    "field:this:0x00003784",
+    "field:this:0x00003800",
+    "field:this:0x00003874",
+    "field:this:0x0000387C",
+    "field:this:0x000038F8",
+    "field:this:0x00003978",
+    "field:this:0x00003984",
+    "field:this:0x00003994",
+    "field:this:0x00003998",
+    "field:this:0x000039A4",
+    "field:this:0x000039B0",
+    "field:this:0x000039B4",
+    "field:this:0x000039EE",
+    "field:this:0x00003A30",
+    "field:this:0x00003A44",
+    "field:this:0x00003A6C",
+    "field:this:0x00003A70",
+    "field:this:0x00003BF4",
+    "field:this:0x00003BF8",
+    "field:this:0x00003BFC",
+    "field:this:0x00003C3C",
+    "field:this:0x00003C40",
+    "field:this:0x00003C7C",
+    "field:this:0x00003C80",
+    "field:this:0x00003CBC",
+    "field:this:0x00003CC0",
+    "field:this:0x00003CFC",
+    "field:this:0x00003D3C",
+    "field:this:0x00003D40",
+    "field:this:0x00003D44",
+    "field:this:0x00003D48",
+    "field:this:0x00003D4C",
+    "field:this:0x00003D50",
+    "field:this:0x00003D60",
+    "field:this:0x00004024",
+    "field:this:0x0000403C",
+    "field:this:0x00004060",
+    "field:this:0x00004098",
+    "field:this:0x0000409C",
+    "field:this:0x000048BC",
+    "field:this:0x0000B14C",
+    "field:this:0x0000B150",
+    "function:0x004BEF60",
+    "function:0x004BF390",
+    "function:0x004BF4F0",
+    "function:0x004C15A0",
+    "function:0x004C29D0",
+    "function:0x004C7A70",
+    "function:0x004D2210",
+    "function:0x004D23D0",
+    "function:0x004D7E00",
+    "function:0x004E8010",
+    "function:0x004ED960",
+    "function:0x004F0DD0",
+    "function:0x00507496",
+    "function:0x0054BF60",
+    "function:0x00551440",
+    "function:0x00553A20",
+    "function:0x00560EB0",
+    "function:0x00564740",
+    "function:0x005676C0",
+    "function:0x00567700",
+    "function:0x0057B530",
+    "global:0x004C1644",
+    "global:0x004EE134",
+    "global:0x005007EC",
+    "global:0x0059E420",
+    "global:0x0059E438",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E444",
+    "global:0x0059E448",
+    "global:0x0059E450",
+    "global:0x0059E460",
+    "global:0x0059E4E8",
+    "global:0x0059E670",
+    "global:0x0059E6F8",
+    "global:0x0059E7E8",
+    "global:0x0059E7F8",
+    "global:0x0059E7FC",
+    "global:0x0059E800",
+    "global:0x0059E824",
+    "global:0x0059E828",
+    "global:0x0059E84C",
+    "global:0x0059E874",
+    "global:0x0059E8B4",
+    "global:0x0059E8C8",
+    "global:0x0059E8CC",
+    "global:0x0059E8F8",
+    "global:0x0059E918",
+    "global:0x0059E93C",
+    "global:0x0059E99C",
+    "global:0x0059E9B8",
+    "global:0x0059E9BC",
+    "global:0x0059E9C0",
+    "global:0x0059EA60",
+    "global:0x0059ED18",
+    "global:0x0059F118",
+    "global:0x0059F128",
+    "global:0x005ACB44",
+    "global:0x005ACD3C",
+    "global:0x005ACDC4",
+    "global:0x005ACEB8",
+    "global:0x005ACEE8",
+    "global:0x005AD1B0",
+    "global:0x005AD1B4",
+    "global:0x005AD1B8",
+    "global:0x005AD1BC",
+    "global:0x005AD1C0",
+    "global:0x005AD1F8",
+    "global:0x005AD200",
+    "global:0x005AD22C",
+    "global:0x005ADB80",
+    "global:0x005C329C",
+    "global:0x005D76C8",
+    "global:0x005D7748",
+    "global:0x005EB978",
+    "global:0x007C54F0",
+    "global:0x007C569C",
+    "global:0x007C56A4",
+    "global:0x007C56AC",
+    "global:0x007CEA5C",
+    "global:0x007D020C",
+    "global:0x007D0230",
+    "global:0x007D0254",
+    "global:0x007D0278",
+    "global:0x007D029C",
+    "global:0x007D0C60",
+    "global:0x007D2E50",
+    "global:0x007D2E54",
+    "global:0x0083EE54",
+    "global:0x0083EE58",
+    "global:0x0083EE5C",
+    "global:0x0083EE60",
+    "global:0x0083EE64",
+    "global:0x008AAE64",
+    "global:0x008AAE68",
+    "global:0x008AAE6C",
+    "global:0x008AAE70",
+    "global:0x008AAE74",
+    "global:0x008AB274",
+    "global:0x008AB6E4",
+    "global:0x008ACED0",
+    "global:0x008ACED4",
+    "global:0x008ACEE0",
+    "global:0x008ACF90",
+    "global:0x008ACFA0",
+    "global:0x008AFE98",
+    "global:0x008AFEA0",
+    "global:0x008AFEE8",
+    "global:0x008B78A0",
+    "guard:0",
+    "guard:1",
+    "source:raw"
+  ],
+  "output_contract": {
+    "schema": "analysis/shadow_architecture_schema.json",
+    "output": "shadow_source/ir/architecture/wave_004/wave_004_vehicle_ai_and_pit_02.json"
+  },
+  "policy": "Architecture is a DERIVED proposal. Validated function IR and its evidence references outrank worker synthesis."
+}

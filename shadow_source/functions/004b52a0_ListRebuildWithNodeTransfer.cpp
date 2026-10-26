@@ -1,0 +1,59 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004B52A0
+// Canonical corpus name: ListRebuildWithNodeTransfer
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/ListRebuildWithNodeTransfer_004b52a0.c
+
+void UnknownObject::ListRebuildWithNodeTransfer()
+{
+    // Rebuilds a target list by transferring every node of a source list: for each source node it searches the source list for the node whose data pointer matches the head's, unlinks it, frees the type-1 node buffer and the node, then allocates a fresh 12-byte node carrying the same data pointer and prepends it to the target list. Sets a sentinel at this+0x30 and maintains head/tail/anchor/count fields on both lists. Called during UI widget destroy and buffer pool initialization.
+    // ASSIGNMENT: Write sentinel literal -51331646 to this+0x30 (this[12]) once on entry. [field:this:0x00000030, source:raw]
+    // LOOP: Outer loop iterates while the source head pointer at this+0x20 (this[8]) is non-null. [field:this:0x00000020, source:raw]
+    // ASSIGNMENT: Copy source head this+0x20 into the source cursor/anchor this+0x28 (this[10]). [field:this:0x00000020, field:this:0x00000028, source:raw]
+    // GUARD: If source head this+0x20 is null, return it immediately. [field:this:0x00000020, source:raw]
+    // CALCULATION: Read the data pointer from the head node; if it is null, return the null node pointer. [source:raw]
+    // LOOP: Inner search walks node[1] (next) pointers until a node whose data pointer equals the head's data pointer is found, or the list is exhausted. [source:raw]
+    // ASSIGNMENT: Unlink the found node: if a predecessor exists set predecessor[1] to the node's next, otherwise advance the source head this+0x20 to the node's next. [field:this:0x00000020, source:raw]
+    // ASSIGNMENT: If the found node was the source cursor this+0x28, advance the cursor to the node's next. [field:this:0x00000028, source:raw]
+    // ASSIGNMENT: If the found node was the source tail this+0x24, set the tail to the predecessor node. [field:this:0x00000024, source:raw]
+    // CALCULATION: Decrement the source list count at this+0x2C (this[11]). [field:this:0x0000002C, source:raw]
+    // GUARD: If the node's flag byte at node+8 is non-zero and the node data pointer is non-null, free the node's data buffer. [source:raw]
+    // CALL: Call EmptyStub_0170 before freeing the node's data buffer. [callee:0x004B0170, source:raw]
+    // CALL: FreeWrapper_7bcf frees the node's data buffer. [callee:0x00587BCF, source:raw]
+    // CALL: FreeWrapper_7bcf frees the node struct itself. [callee:0x00587BCF, source:raw]
+    // CALL: OperatorNewNhMallocWrapper(12) allocates a fresh 12-byte node; on failure the node pointer is null. [callee:0x00587C03, source:raw]
+    // ASSIGNMENT: Initialize the new node: data pointer set to the transferred value, next set to null, flag byte at node+8 cleared. [source:raw]
+    // ASSIGNMENT: Prepend the new node to the target list: if target head this+0x10 is non-null link new node's next to it, otherwise set both target tail this+0x14 and target anchor this+0x18 to the new node. [field:this:0x00000010, field:this:0x00000014, field:this:0x00000018, source:raw]
+    // ASSIGNMENT: Set the target list head this+0x10 to the new node. [field:this:0x00000010, source:raw]
+    // CALCULATION: Increment the target list count at this+0x1C (this[7]). [field:this:0x0000001C, source:raw]
+    // RETURN: Return the source head once it becomes null at the start of an iteration. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int __thiscall sub_4B52A0(int this) {
+    //     this[12] = -51331646;
+    //     for (;;) {
+    //       int* node = this[8];
+    //       this[10] = node;
+    //       if (!node || !*node) return node;
+    //       int data = *node;
+    //       int* prev = 0;
+    //       int* cur = node;
+    //       while (*cur != data) { prev = cur; cur = cur[1]; if (!cur) goto alloc; }
+    //       if (cur == this[10]) this[10] = cur[1];
+    //       if (prev) prev[1] = cur[1]; else this[8] = cur[1];
+    //       if (this[9] == cur) this[9] = prev;
+    //       --this[11];
+    //       if (*((char*)cur + 8) && *cur) { EmptyStub_0170(); FreeWrapper_7bcf((void*)*cur); }
+    //       FreeWrapper_7bcf(cur);
+    //     alloc:
+    //       int* fresh = OperatorNewNhMallocWrapper(12);
+    //       if (fresh) { fresh[0] = data; fresh[1] = 0; *((char*)fresh + 8) = 0; }
+    //       if (this[4]) fresh[1] = this[4]; else { this[5] = fresh; this[6] = fresh; }
+    //       this[4] = fresh;
+    //       ++this[7];
+    //     }
+    //   }
+    // UNRESOLVED: The global dword_5ACD24 is listed as a read-only reference but does not appear in the raw source snippet; it may be an aggregated or stale reference.
+    // UNRESOLVED: Purpose of the sentinel value -51331646 written to this+0x30.
+    // UNRESOLVED: Meaning of the per-node flag byte at node+8 that gates the data-buffer free.
+}

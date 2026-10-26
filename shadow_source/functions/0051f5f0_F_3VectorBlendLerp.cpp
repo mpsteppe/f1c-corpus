@@ -1,0 +1,30 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0051F5F0
+// Canonical corpus name: F_3VectorBlendLerp
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/F_3VectorBlendLerp_0051f5f0.c
+
+void UnknownObject::F_3VectorBlendLerp()
+{
+    // Three-component vector blend: starts from the 3-vector loaded at a2 (base), adds (a3 - base) scaled by the low element of a5 and (a4 - base) scaled by the low element of a6, then stores the resulting 3-float vector at the output buffer a1 and returns a1. Each 3-vector is carried as a 64-bit high-load plus one low dword; the low dword of the result is written to a1 + 8 and the high two floats to a1.
+    // CALCULATION: Load the base vector as the high two floats of a2 into v6. [source:raw]
+    // CALCULATION: Compute the blend: v6 + (high-load of a3 - v6) * broadcast(low element of a5) + (high-load of a4 - v6) * broadcast(low element of a6). [source:raw]
+    // ASSIGNMENT: Write the low dword of the blended result to a1 + 8. [field:this:0x00000008]
+    // ASSIGNMENT: Store the high two floats of the blended result as the high part at a1 (storeh into a double-typed pointer). [source:raw]
+    // RETURN: Return the output buffer pointer a1. [function:0x0051F5F0]
+
+    // Conservative worker pseudocode:
+    //   int sub_51F5F0(int a1, const double *a2, const double *a3, const double *a4, unsigned int a5, unsigned int a6) {
+    //     __m128 base = _mm_loadh_ps(a2);
+    //     __m128 t1 = _mm_shuffle_ps((__m128)a5, (__m128)a5, 0);
+    //     __m128 t2 = _mm_shuffle_ps((__m128)a6, (__m128)a6, 0);
+    //     __m128 r = _mm_add_ps(_mm_add_ps(_mm_mul_ps(_mm_sub_ps(_mm_loadh_ps(a3), base), t1), base),
+    //                           _mm_mul_ps(_mm_sub_ps(_mm_loadh_ps(a4), base), t2));
+    //     *(_DWORD *)(a1 + 8) = r.m128_i32[0];
+    //     _mm_storeh_ps((double *)a1, r);
+    //     return a1;
+    //   }
+    // UNRESOLVED: Semantic meaning of the two scale operands a5 and a6 (two interpolation weights vs. weight plus optional extra factor) is caller-dependent.
+    // UNRESOLVED: Whether the third component of each input vector is the low dword (which the low dword of the result inherits only implicitly) is not proven.
+    // UNRESOLVED: Class/object ownership is unknown; only the output buffer at offset +8 is evidenced.
+}

@@ -1,0 +1,85 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004F8440
+// Canonical corpus name: SuspensionForceComputationWithPerCornerVirtualDi
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SuspensionForceComputationWithPerCornerVirtualDi_004f8440.c
+
+void UnknownObject::computeSuspensionForces()
+{
+    // Per-corner suspension force computation with virtual dispatch. The function transforms three body-space position vectors through the 3x3 rotation matrix stored at this+0x14..0x40 and adds the world offset at this+0x8/0xC/0x10 to build the contact-point input v17. When enabled (bit 2 of the vehicle physics flags dword at (*this)[4655], byte offset 0x48BC) it optionally pushes an indexed struct field via PerIndexStructFieldSetter, selects a per-corner data bank (this + 405 or this + 422 depending on the byte at this+176), computes a brake/steering feedback factor v14 from a parametric blend clamped to 0..1 (two formulas chosen by sub_4C7BD0, scaled by the flt_7CF2*/flt_7CF3* globals), feeds ParametricInterpolationBlending, then loops i = 5..44 dispatching each active corner's virtual force handler through the table at v16[16] (+4 slot) with the transformed position, and clears each corner's active flag; a second virtual slot (+8) runs when the handler's sub-type equals 1.
+    // CALCULATION: Transform three body-space vectors through the 3x3 rotation matrix columns at this+0x14..0x40 (float indices 5..16): v2, v3 and v18 are the three dot products of matrix rows by the corner offsets. [field:this:0x00000014, field:this:0x00000018, field:this:0x0000001C, field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, field:this:0x0000002C, field:this:0x00000030, field:this:0x00000034, field:this:0x00000038, field:this:0x0000003C, field:this:0x00000040, source:raw]
+    // CALCULATION: Add the world-space offset stored at this+0x8/0xC/0x10 (float indices 2..4) to the transformed vectors: v17[0] = v2 + this+2, v17[1] = v3 + this+3, v18 += this+4. [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, source:raw]
+    // GUARD: Guard on the float at this+0x9C (float index 39): only when it is non-zero is the indexed field setter invoked. [field:this:0x0000009C, source:raw]
+    // CALL: Call PerIndexStructFieldSetter(26, 1, this+0x9C value, this+0xA0 value, pointer to this + 41) to push an indexed struct field. [callee:0x004F8850, field:this:0x0000009C, field:this:0x000000A0, source:raw]
+    // GUARD: Read the vehicle physics flags dword at (*this)[4655] (byte offset 0x48BC on the object pointed to by this+0x0); test bit 2 to decide whether the suspension force loop runs. [field:obj:0x000048BC, field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Select the per-corner data bank: when the byte at this+176 (offset 0xB0) is non-zero use this + 405, otherwise use this + 422. [field:this:0x000000B0, source:raw]
+    // CALCULATION: Initialize the feedback factor v14 to 0.0 and compute v15 = (this+35 - this+33) * this+34 using the floats at this+0x84, this+0x88 and this+0x8C. [field:this:0x00000084, field:this:0x00000088, field:this:0x0000008C, source:raw]
+    // GUARD: When the float at this+0x8C (this+35) is positive, clamp v15 into the 0.0..1.0 range. [field:this:0x0000008C, source:raw]
+    // CALL: Choose the force formula: if sub_4C7BD0(*this) is true, v14 = (this+36 squared * dword_5D67A8 + dword_5D67AC * v15 + dword_5D67A4) * flt_7CF2F0 * flt_7CF338; otherwise v14 = (dword_5D679C * this+36 + dword_5D67A0 * v15 + dword_5D6798) * flt_7CF35C * flt_7CF2F0. [callee:0x004C7BD0, field:this:0x00000090, global:0x005D6798, global:0x005D679C, global:0x005D67A0, global:0x005D67A4, global:0x005D67A8, global:0x005D67AC, global:0x007CF2F0, global:0x007CF338, global:0x007CF35C, source:raw]
+    // GUARD: Clamp the feedback factor v14 into the 0.0..1.0 range. [source:raw]
+    // CALL: Call ParametricInterpolationBlending(v16, this+0x8C value, v17, this + 17, v14) to prepare the per-corner interpolation state. [callee:0x004F6D90, field:this:0x0000008C, source:raw]
+    // LOOP: Loop the corner index i from 5 to 44 (i < 45); read the per-corner handler pointer v6 = *(v16[16] + 4*i) (v16[16] is the handler table; for the this + 422 bank its element lies at this+0x6D8) and point v7 at &this[8*i]. [field:this:0x000006D8, source:raw]
+    // GUARD: Per-corner guard: when the active flag byte at v7 + 180 is non-zero the corner's force handler is dispatched; otherwise the fallback check runs. [source:raw]
+    // CALCULATION: Special case i == 44: scale this+399 (float index 399, byte offset 0x63C) by flt_7CF314 * v14 and clamp the result into 0.0..1.0 (written back as the 1.0f bit pattern 1065353216 or as 0). [field:this:0x0000063C, global:0x007CF314, source:raw]
+    // CALCULATION: For each active corner read v13 = this[8*i + 48]; when the per-corner flag byte at v7 + 196 is non-zero recompute the corner transform (dot products with the v7 float offsets 50/51/52 added to this+2/3/4) into v19/v20, otherwise reuse the shared v17 buffer. [field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, field:this:0x00000018, field:this:0x0000001C, field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, field:this:0x0000002C, field:this:0x00000030, field:this:0x00000034, field:this:0x00000038, field:this:0x0000003C, field:this:0x00000040, source:raw]
+    // CALCULATION: Compute the damping factor v12 = flt_7CF2CC * (float at v7 + 47). [global:0x007CF2CC, source:raw]
+    // CALL: Dispatch the per-corner suspension force through the handler's first virtual slot: (*(int(__stdcall **)(...))(*v6 + 4))(v7[46], v8, this + 17, LODWORD(v12), v13, 0). [source:raw]
+    // ASSIGNMENT: Clear the per-corner active flag after the dispatch: *(v7 + 180) = 0. [source:raw]
+    // CALL: Fallback dispatch: when the corner is inactive but the handler v6 is non-null and its element v6[5] equals 1, call the handler's second virtual slot (*(int(__thiscall **)(_DWORD *))(*v6 + 8))(v6). [source:raw]
+    // RETURN: Return the byte result carried in v4 (lo byte of the flag/state value). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char computeSuspensionForces(_DWORD **this) {
+    //     double v2 = this10 * this7 + this9 * this6 + this5 * this8;
+    //     double v3 = this13 * this7 + this12 * this6 + this11 * this5;
+    //     float v18 = this16 * this7 + this15 * this6 + this14 * this5;
+    //     v17[0] = v2 + this2;
+    //     v17[1] = v3 + this3;
+    //     v18 += this4;
+    //     if (this39 != 0.0f) PerIndexStructFieldSetter(26, 1, this39, this40, this + 41);
+    //     int flags = (*this)[4655];
+    //     if ((flags & 2) == 0) return v4;
+    //     int* bank = (byteAt(this, 176)) ? (this + 405) : (this + 422);
+    //     float v14 = 0.0f;
+    //     float v15 = (this35 - this33) * this34;
+    //     if (this35 > 0.0f) {
+    //       clamp01(v15);
+    //       if (sub_4C7BD0(*this))
+    //         v14 = (this36 * this36 * dword_5D67A8 + dword_5D67AC * v15 + dword_5D67A4) * flt_7CF2F0 * flt_7CF338;
+    //       else
+    //         v14 = (dword_5D679C * this36 + dword_5D67A0 * v15 + dword_5D6798) * flt_7CF35C * flt_7CF2F0;
+    //       clamp01(v14);
+    //     }
+    //     ParametricInterpolationBlending(bank, this35, v17, this + 17, v14);
+    //     for (int i = 5; i < 45; i++) {
+    //       _DWORD* handler = *(bank[16] + 4 * i);
+    //       _DWORD** corner = &this[8 * i];
+    //       if (byteAt(corner, 180)) {
+    //         if (handler) {
+    //           if (i == 44) {
+    //             this399 = flt_7CF314 * v14 * this399;
+    //             clamp01(this399);
+    //           }
+    //           _DWORD* v13 = this[8 * i + 48];
+    //           if (byteAt(corner, 196)) {
+    //             float x = this10 * corner50 + this9 * corner51 + this8 * corner52;
+    //             float y = this11 * corner52 + this13 * corner50 + this12 * corner51;
+    //             float z = this14 * corner52 + this16 * corner50 + this15 * corner51;
+    //             v19[0] = x + this2; v19[1] = y + this3; z += this4;
+    //             v8 = v19;
+    //           } else v8 = v17;
+    //           float v12 = flt_7CF2CC * corner47;
+    //           handler[0] + 4(v7[46], v8, this + 17, v12, v13, 0);
+    //         }
+    //         byteAt(corner, 180) = 0;
+    //       } else if (handler && handler[5] == 1) {
+    //         handler[0] + 8(handler);
+    //       }
+    //     }
+    //     return v4;
+    //   }
+    // UNRESOLVED: The read-only globals flt_59E43C and flt_59E440 are recorded by the packet but do not appear in the raw Hex-Rays text; their role in this function is unknown (possible extraction artifact or an access the decompiler collapsed).
+    // UNRESOLVED: The per-corner handlers are dispatched indirectly through the table at v16[16] using virtual slots +4 and +8; the concrete implementations live outside this packet.
+    // UNRESOLVED: The buffer this + 17 is passed to ParametricInterpolationBlending and to each corner handler as an output transform, but its full layout is inferred from usage, not stated by the packet.
+    // UNRESOLVED: Owner is unknown; the caller RenderTickUpdate (004C8B70) and the physics flags at 0x48BC suggest a vehicle physics object, but no class is named by this packet.
+}

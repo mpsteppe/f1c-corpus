@@ -1,0 +1,57 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004D9420
+// Canonical corpus name: StartingGridUIDraw
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/StartingGridUIDraw_004d9420.c
+
+void UnknownObject::startingGridUIDraw()
+{
+    // Renders the starting-grid HUD overlay. Reads the participant count at this+0x14; when non-zero it draws grid car slots in two columns (slots 2*v1-1/2*v1 on the left, 2*v1+1/2*v1+2 on the right) via sub_4D95D0 and returns. When zero it lazily initializes the shared text buffer (copying the 'Starting' and 'Grid' string constants through BinarySearchInStringTable), formats them with sub_587DD0 and UITextRenderWithScale as a two-line title, formats a single position character (byte_5D4AEF) via StringFormatWithBufferOverflowCheck, then renders that character four times as position labels at y offsets computed from CRTFtol(v11 * -127.65), and finally draws slot pair 1/2 at the right column position.
+    // GUARD: Branch on the participant count v1 = this+0x14 (read via the __thiscall ABI lead): non-zero selects the grid-slot draw path, zero selects the title/label path. [abi:lead, field:this:0x00000014, source:raw]
+    // CALCULATION: Derive right-column slot indices v9 = 2*v1+1 and v10 = 2*v1+2 from the participant count. [field:this:0x00000014, source:raw]
+    // CALL: Draw the left grid column: sub_4D95D0(2*v1-1, 2*v1, 100.0, 384.0). The 384.0 y constant is associated with flt_5ACF64. [callee:0x004D95D0, global:0x005ACF64, source:raw]
+    // CALL: Draw the right grid column: sub_4D95D0(v9, v10, 740.0, 384.0). [callee:0x004D95D0, global:0x005ACF64, source:raw]
+    // RETURN: Return 0 after drawing both grid columns on the participant-count path. [function:0x004D9420, source:raw]
+    // GUARD: Lazy text-buffer init for the 'Starting' title: when BinarySearchInStringTable(byte_5EC4C0, aStarting, byte_5EC4CC) returns non-zero the string is not yet cached. [callee:0x00423A00, global:0x005EC4C0, global:0x005D4B08, global:0x005EC4CC, source:raw]
+    // LOOP: Copy aStarting into byte_5EC4CC, advancing the destination index until the terminating zero byte is copied. [global:0x005D4B08, global:0x005EC4CC, source:raw]
+    // CALL: Format the cached 'Starting' text: sub_587DD0(v12, byte_5EC4CC, 63) writes into the 63-byte-bound text buffer v12. [callee:0x00587DD0, global:0x005EC4CC, source:raw]
+    // ASSIGNMENT: Write NUL terminator v13 = 0 into the formatted text buffer. [source:raw]
+    // CALL: Render the 'Starting' title line: UITextRenderWithScale(v12, 320, 320, 16776960, 2, 0, 1.5, 5.0). [callee:0x004D7E40, source:raw]
+    // GUARD: Lazy text-buffer init for the 'Grid' title: when BinarySearchInStringTable(byte_5EC4C0, aGrid_0, byte_5EC4CC) returns non-zero the string is not yet cached. [callee:0x00423A00, global:0x005EC4C0, global:0x005D4B00, global:0x005EC4CC, source:raw]
+    // LOOP: Copy aGrid_0 into byte_5EC4CC, advancing the destination index until the terminating zero byte is copied. [global:0x005D4B00, global:0x005EC4CC, source:raw]
+    // CALL: Format the cached 'Grid' text: sub_587DD0(v12, byte_5EC4CC, 63) writes into the 63-byte-bound text buffer v12. [callee:0x00587DD0, global:0x005EC4CC, source:raw]
+    // CALL: Render the 'Grid' title line: UITextRenderWithScale(v12, 320, 500, 16776960, 2, 0, 3.25, 5.0). [callee:0x004D7E40, source:raw]
+    // CALL: Format a single position character: StringFormatWithBufferOverflowCheck(v12, "%c", byte_5D4AEF). The "%c" literal is associated with the aC constant at 0x005CCEF0. [callee:0x0058815F, global:0x005CCEF0, global:0x005D4AEF, source:raw]
+    // LOOP: Four-iteration label loop: v6 from 0 while v6 < 4; each iteration computes v7 = CRTFtol((double)v11 * -127.65) and renders the position character via UITextRenderWithScale(v12, 640, 256 - v7, 0xFFFFFF, 2, 3, 1.5, 3.45), then v11 = ++v6. [callee:0x00587BDC, callee:0x004D7E40, global:0x005D4AEF, source:raw]
+    // CALL: Draw the final grid slot pair 1/2: sub_4D95D0(1, 2, 740.0, 384.0). [callee:0x004D95D0, global:0x005ACF64, source:raw]
+    // RETURN: Return 0 on the zero-participant title/label path. [function:0x004D9420, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int startingGridUIDraw(void *this) {
+    //     int count = *(int*)((char*)this + 0x14);
+    //     if (count) {
+    //       sub_4D95D0(2*count - 1, 2*count, 100.0, 384.0);
+    //       sub_4D95D0(2*count + 1, 2*count + 2, 740.0, 384.0);
+    //       return 0;
+    //     }
+    //     if (BinarySearchInStringTable(byte_5EC4C0, aStarting, byte_5EC4CC))
+    //       strcpy(byte_5EC4CC, aStarting); // lazy one-time copy
+    //     sub_587DD0(v12, byte_5EC4CC, 63); v13 = 0;
+    //     UITextRenderWithScale(v12, 320, 320, 16776960, 2, 0, 1.5, 5.0);
+    //     if (BinarySearchInStringTable(byte_5EC4C0, aGrid_0, byte_5EC4CC))
+    //       strcpy(byte_5EC4CC, aGrid_0); // lazy one-time copy
+    //     sub_587DD0(v12, byte_5EC4CC, 63); v13 = 0;
+    //     UITextRenderWithScale(v12, 320, 500, 16776960, 2, 0, 3.25, 5.0);
+    //     StringFormatWithBufferOverflowCheck(v12, "%c", byte_5D4AEF);
+    //     for (int i = 0; i < 4; i++) {
+    //       int dy = CRTFtol((double)i * -127.65);
+    //       UITextRenderWithScale(v12, 640, 256 - dy, 0xFFFFFF, 2, 3, 1.5, 3.45);
+    //     }
+    //     sub_4D95D0(1, 2, 740.0, 384.0);
+    //     return 0;
+    //   }
+    // UNRESOLVED: The exact role of global flt_5ACF64 (0x005ACF64): the raw source text shows the 384.0 grid-column y coordinate inline; associating flt_5ACF64 with that constant follows existing analysis and is not verifiable from the packet source alone.
+    // UNRESOLVED: The exact role of global aC (0x005CCEF0): the raw source text shows the "%c" literal inline; associating aC with that format string follows existing analysis and is not verifiable from the packet source alone.
+    // UNRESOLVED: Which positions the four rendered labels (byte_5D4AEF) represent and why slot pair 1/2 is drawn at the fixed right-column coordinates on the zero-participant path.
+    // UNRESOLVED: Owning object is unknown: the packet assigns UnknownObject/UNKNOWN and carries no identity evidence; this+0x14 is a count but no object type is established.
+}

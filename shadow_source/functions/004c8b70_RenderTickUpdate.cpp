@@ -1,0 +1,56 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004C8B70
+// Canonical corpus name: RenderTickUpdate
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/RenderTickUpdate_004c8b70.c
+
+void UnknownObject::RenderTickUpdate()
+{
+    // Per-frame render tick. Computes an active/render-enabled flag pair from scoring state (dword_8AB6E4 and VehicleDataAccessor on dword_8AB6EC). When the HUD-disable and render-gate flags plus an init object at dword_8AC4C4 allow it, issues a guarded render call with the player vehicle pointer, inverts a view angle (v7 = pi - v7) and makes an indirect __thiscall at vtable+28. Then, unless short-circuited, iterates dword_5C329C vehicles calling SuspensionForceComputationWithPerCornerVirtualDi on each (dword_7C54F0[i] + 20), makes a second indirect __thiscall at vtable+8 on the init object if set, sets a global flag (GlobalFlagSetClear(32, 1)), and clears the scene camera param buffer via sub_4C7DE0. Finally displays the text overlay timer and dispatches either GlobalVirtualDispatchGuarded or the sound setup sub_4C8920 depending on the active flag.
+    // GUARD: Branch on scoring state: if dword_8AB6E4 != 2 or VehicleDataAccessor(&dword_8AB6EC) == 5 set both render flag v0 and active flag v5 to 0, otherwise set both to 1. [callee:0x004B9E30, global:0x008AB6E4, global:0x008AB6EC, source:raw]
+    // ASSIGNMENT: Cache the init object pointer: v1 = dword_8AC4C4. [global:0x008AC4C4, source:raw]
+    // GUARD: Guard the guarded render path: requires byte_7CE254 set, then reads render gate byte_7CF2B4 into v2, and requires dword_8AC4C4 nonzero. [global:0x007CE254, global:0x007CF2B4, global:0x008AC4C4, source:raw]
+    // CALL: When the render flag v0 is clear, call RenderCallWithGuard(dword_7C54E8, v8, v6) with the player vehicle pointer. [callee:0x004D1140, global:0x007C54E8, source:raw]
+    // CALCULATION: Invert the camera view angle: v7 = 3.1415927 - v7. [source:raw]
+    // CALL: Indirect __thiscall through vtable slot +28 of dword_8AC4C4 with (v8, v6) arguments; the target is not a named callee in the packet. [global:0x008AC4C4, source:raw]
+    // GUARD: Short-circuit check (LABEL_10): if byte_7C56AC is set or render gate v2 is clear, jump to LABEL_18 skipping the vehicle suspension pass. [global:0x007C56AC, source:raw]
+    // LOOP: When the outer guard fails but render flag v0 is clear, fall through the same short-circuit check; otherwise iterate v4 from 0 to dword_5C329C - 1 calling SuspensionForceComputationWithPerCornerVirtualDi(dword_7C54F0[v4] + 20) for each vehicle. [callee:0x004F8440, global:0x005C329C, global:0x007C54F0, source:raw]
+    // GUARD: If the cached init object pointer v1 is nonzero, make an indirect __thiscall at vtable slot +8 of v1. [global:0x008AC4C4, source:raw]
+    // CALL: Call GlobalFlagSetClear(32, 1) to update the global render-state flag. [callee:0x0054A200, source:raw]
+    // CALL: Call sub_4C7DE0((int)&flt_8AC4B0) to clear the scene camera parameter buffer. [callee:0x004C7DE0, global:0x008AC4B0, source:raw]
+    // CALL: At LABEL_18, call TextOverlayDisplayTimer((int)flt_5EA618) to display the text overlay timer. [callee:0x004186F0, global:0x005EA618, source:raw]
+    // STATE_TRANSITION: Dispatch based on active flag: if v5 is set or byte_7CE254 is clear call GlobalVirtualDispatchGuarded(), else call sub_4C8920() (sound scene path). [callee:0x004C8A10, callee:0x004C8920, global:0x007CE254, source:raw]
+
+    // Conservative worker pseudocode:
+    //   void RenderTickUpdate() {
+    //     char v0, v5;
+    //     if (dword_8AB6E4 != 2 || VehicleDataAccessor(&dword_8AB6EC) == 5) { v5 = 0; v0 = 0; }
+    //     else { v0 = 1; v5 = 1; }
+    //     int v1 = dword_8AC4C4;
+    //     char v2 = 1;
+    //     if (byte_7CE254 && (v2 = byte_7CF2B4, dword_8AC4C4)) {
+    //       if (!v0) {
+    //         RenderCallWithGuard(dword_7C54E8, v8, v6);
+    //         v7 = 3.1415927f - v7;
+    //         vtable28(dword_8AC4C4, v8, v6);   // indirect __thiscall
+    //         v1 = dword_8AC4C4;
+    //         if (byte_7C56AC || !v2) goto L18;
+    //       }
+    //     } else if (!v0) {
+    //       if (byte_7C56AC || !v2) goto L18;
+    //     }
+    //     for (int i = 0; i < dword_5C329C; i++)
+    //       SuspensionForceComputationWithPerCornerVirtualDi(dword_7C54F0[i] + 20);
+    //     if (v1) vtable8(v1);              // indirect __thiscall
+    //     GlobalFlagSetClear(32, 1);
+    //     sub_4C7DE0((int)&flt_8AC4B0);
+    //   L18:
+    //     TextOverlayDisplayTimer((int)flt_5EA618);
+    //     if (v5 || !byte_7CE254) GlobalVirtualDispatchGuarded();
+    //     else sub_4C8920();
+    //   }
+    // UNRESOLVED: Two indirect __thiscall dispatches on the dword_8AC4C4 object (vtable slots +28 and +8) have no named targets in the packet.
+    // UNRESOLVED: The purpose of inverting v7 (pi - v7) before the vtable+28 call is not established.
+    // UNRESOLVED: The meaning of the literal arguments in GlobalFlagSetClear(32, 1) and of the comparison VehicleDataAccessor(...) == 5 is not confirmed.
+    // UNRESOLVED: Globals flt_59E660, dword_8ACEE0 and dword_8AFE64 are listed in the packet but do not appear in the raw source text, so their role here is unknown.
+}

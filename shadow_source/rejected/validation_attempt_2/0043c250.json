@@ -1,0 +1,503 @@
+{
+  "schema_version": 1,
+  "address": "0x0043C250",
+  "proposed_name": "TireModelFullInitialize",
+  "owner": {
+    "type": "VehicleTireModel",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "caller:0x0043E050",
+      "abi:lead",
+      "function:0x0043C250",
+      "source:raw"
+    ]
+  },
+  "summary": "Full per-wheel tire physics initialization for a vehicle. Runs a 4-iteration loop building each wheel's compliance matrix and stiffness/damper/thermal state from the setup descriptor (a2 low word) and tire-data block (a2 high word), looks up the tire brand with conditional dev-log, applies the tire compound per wheel, computes front/rear suspension compliance and attach-point geometry, copies the session setup envelope with unit clamping, allocates and pre-fills an interpolated tire-curve lookup table, seeds the wear/thermal session tables (with a wear-mode switch on dword_7CEA5C), pulls session-state values via SessionStateIndexedLookup, propagates traction thresholds, and finishes by zeroing the run state and setting init markers (this+0x30=-2, this+0x34=3).",
+  "local_names": {
+    "v84": "wheel block cursor (this+0x340, stride 0x464)",
+    "v5": "wheel config cursor into HIDWORD(a2) tire-data block",
+    "v4": "wheel geometry cursor into LODWORD(a2) setup descriptor",
+    "v90/v82": "front/rear harmonic-mean compliance factor (1.0 when single-rate)",
+    "v103": "front rotation tensor work buffer (24 bytes)",
+    "v105/v106": "curve sample output pair for ParameterizedCurveInterpolation"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Load floating-point constants from the .rdata constant pool; Hex-Rays inlined their values into the pseudocode (3.14159, 273.16 K offset, 0.5, 0.825, 0.975, 0.0955, 0.03125, 0.75 scale factors).",
+      "evidence_refs": [
+        "global:0x0059E420",
+        "global:0x0059E430",
+        "global:0x0059E7E0",
+        "global:0x0059E880",
+        "global:0x0059E890",
+        "global:0x0059EA60",
+        "global:0x0059EAC8",
+        "global:0x0059EB20",
+        "global:0x0059EC20",
+        "global:0x0059EC28",
+        "global:0x0059EC30",
+        "global:0x0059EC38",
+        "global:0x0059EC40",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: interpolated curve-table entry count at this+0x1D08 must be > 0 for the ParameterizedCurveInterpolation pre-fill loop to execute; when 0 or negative the table fill is skipped entirely.",
+      "evidence_refs": [
+        "guard:0",
+        "field:this:0x00001D08"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-wheel initialization loop, 4 iterations over wheel blocks (base this+0x340, stride 0x464): zero wheel state fields, write session sentinels -1 / ~0xFFEFFFFF at this+0x388/0x38C and this+0x3A8/0x3AC, set compliance scale constants 1.875f at this+0x3D4/0x3DC and this+0x4F8, copy suspension/geometry data into this+0x668..0x6D0, seed thermal/force fields with RandomNoiseValueGenerator noise (this+0x6D0) plus ambient offset flt_8AFEF0+273.16 (this+0x690), clamp the noise response into [1%,99%] of the reference, build the wheel compliance matrix via ConstraintComplianceMatrixBuild, and normalize the response via StructCopyWithReciprocalDivision. Reads the wheel compliance-block pointer at this+0x3E8 for the copy source.",
+      "evidence_refs": [
+        "callee:0x004364A0",
+        "callee:0x005697A0",
+        "callee:0x004B3CE0",
+        "global:0x008AAE70",
+        "field:this:0x00000340",
+        "field:this:0x00000344",
+        "field:this:0x00000348",
+        "field:this:0x0000034C",
+        "field:this:0x00000350",
+        "field:this:0x00000354",
+        "field:this:0x00000358",
+        "field:this:0x0000035C",
+        "field:this:0x00000360",
+        "field:this:0x00000368",
+        "field:this:0x0000036C",
+        "field:this:0x00000388",
+        "field:this:0x0000038C",
+        "field:this:0x000003A8",
+        "field:this:0x000003AC",
+        "field:this:0x000003D0",
+        "field:this:0x000003D4",
+        "field:this:0x000003D8",
+        "field:this:0x000003DC",
+        "field:this:0x000003E8",
+        "field:this:0x00000450",
+        "field:this:0x0000048C",
+        "field:this:0x000004F0",
+        "field:this:0x000004F4",
+        "field:this:0x000004F8",
+        "field:this:0x000004FC",
+        "field:this:0x00000500",
+        "field:this:0x00000608",
+        "field:this:0x00000668",
+        "field:this:0x0000066C",
+        "field:this:0x00000670",
+        "field:this:0x00000674",
+        "field:this:0x00000678",
+        "field:this:0x0000067C",
+        "field:this:0x00000680",
+        "field:this:0x00000688",
+        "field:this:0x00000690",
+        "field:this:0x00000698",
+        "field:this:0x0000069C",
+        "field:this:0x000006A0",
+        "field:this:0x000006A8",
+        "field:this:0x000006B0",
+        "field:this:0x000006B8",
+        "field:this:0x000006C0",
+        "field:this:0x000006C8",
+        "field:this:0x000006D0"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Tire brand lookup: store TireBrandLookup(HIDWORD(a2)+136) into this+0x1458; when the lookup fails, session type is not 5 (dword_7C569C), and StringSplitLoop validates the source path string aDDevF119992002 (line 3301), write a dev-log warning via DebugLogWrite with the aHdvFileReferen message into the dword_8AD25C buffer.",
+      "evidence_refs": [
+        "callee:0x004D7880",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "global:0x007C569C",
+        "global:0x005C421C",
+        "global:0x005C42F4",
+        "global:0x008AD25C",
+        "field:this:0x00001458"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the tire-compound identifier from the setup descriptor (LODWORD(a2)+3012) into this+0x145C.",
+      "evidence_refs": [
+        "field:this:0x0000145C"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Apply the tire compound's physical properties per wheel: loop i = 0..3 calling TireCompoundPerWheelPhysicsApplication(i) for each of the four wheels.",
+      "evidence_refs": [
+        "callee:0x0043DA10"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Front suspension compliance: build the harmonic-mean compliance factor v90 from the front wheel rates (0.5/front + 0.5/other when multi-rate, else 1.0), pre-compute the spring-force offset via RandomOffsetCalculator and the bias via BiasValueComputation, and build the front axle compliance matrix with ConstraintComplianceMatrixBuild; store the scaled results to this+0x1438 and this+0x1440.",
+      "evidence_refs": [
+        "callee:0x004F6850",
+        "callee:0x004F6880",
+        "field:this:0x00001438",
+        "field:this:0x00001440",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the OR of the front/rear compliance-matrix build results as a flag byte at this+0x1460, and set this+0x70 = (byte_7CE254 == 0) from the global HUD-disable flag.",
+      "evidence_refs": [
+        "field:this:0x00001460",
+        "field:this:0x00000070",
+        "global:0x007CE254"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Front suspension attach-point midpoint geometry: read the front attach structs through the pointers at this+0x3E8, this+0x84C, this+0xCB0 and this+0x1114 (components +0x4/+0xC/+0x14), compute the axle midpoints as (front+rear)*0.5 into scratch vectors, write the scaled axle attach data to this+0x1554, this+0x155C, this+0x1564, set this+0xD0 = 1, read back the this+0x156C/0x1574/0x1580 reference rates for the spring/damper model, and zero the this+0x1658/0x165C axle-balance fields.",
+      "evidence_refs": [
+        "field:*(this+0x3E8):0x00000004",
+        "field:*(this+0x3E8):0x0000000C",
+        "field:*(this+0x3E8):0x00000014",
+        "field:*(this+0x84C):0x00000004",
+        "field:*(this+0x84C):0x0000000C",
+        "field:*(this+0x84C):0x00000014",
+        "field:*(this+0xCB0):0x00000004",
+        "field:*(this+0xCB0):0x0000000C",
+        "field:*(this+0xCB0):0x00000014",
+        "field:*(this+0x1114):0x00000004",
+        "field:*(this+0x1114):0x0000000C",
+        "field:*(this+0x1114):0x00000014",
+        "field:this:0x0000084C",
+        "field:this:0x00000CB0",
+        "field:this:0x00001114",
+        "field:this:0x00001554",
+        "field:this:0x0000155C",
+        "field:this:0x00001564",
+        "field:this:0x0000156C",
+        "field:this:0x00001574",
+        "field:this:0x00001580",
+        "field:this:0x00001658",
+        "field:this:0x0000165C",
+        "field:this:0x000000D0"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-wheel axle attach-point loop, 4 iterations: pick the front or rear midpoint vector (this+0x... v102/v100 scratch) by wheel index, add the wheel's setup attach offset from the tire-data block, and store the 24-byte attach vector into the this+5736 axle-geometry table plus the derived spring base into this+5872; wheel index also steps the geometry cursor by 704 bytes.",
+      "evidence_refs": [
+        "function:0x0043C250",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Suspension travel delta: read current suspension travel (this+0x1670) minus the reference (this+0x16A0), store its magnitude via fabs into this+0x1710, and zero the travel bookkeeping bytes at this+0x1718, this+0x171C and this+0x1720.",
+      "evidence_refs": [
+        "field:this:0x00001670",
+        "field:this:0x000016A0",
+        "field:this:0x00001710",
+        "field:this:0x00001718",
+        "field:this:0x0000171C",
+        "field:this:0x00001720"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Copy the session setup envelope: move a run of QWORD doubles from the tire-data block (HIDWORD(a2)+1568..+1644) into this+0x140..0x198 and clamp each entry to the unit interval [0,1]; values above 1 are reset to 1.0 and negatives to 0.0, plus copy the this+0x178 byte and zero this+0x170/0x174.",
+      "evidence_refs": [
+        "field:this:0x00000140",
+        "field:this:0x00000148",
+        "field:this:0x00000150",
+        "field:this:0x00000158",
+        "field:this:0x00000160",
+        "field:this:0x00000164",
+        "field:this:0x00000168",
+        "field:this:0x0000016C",
+        "field:this:0x00000170",
+        "field:this:0x00000174",
+        "field:this:0x00000178",
+        "field:this:0x0000017C",
+        "field:this:0x00000184",
+        "field:this:0x0000018C",
+        "field:this:0x00000190",
+        "field:this:0x00000194",
+        "field:this:0x00000198"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Front spring model + rotation tensor: compute the front spring base from the setup descriptor into this+0x19C, this+0x1A4, this+0x1AC and this+0x1B4 (this+0x1B4 also scaled by dword_7D0B64 * this+0x68), write the spring response into the compliance block behind this+0x1D4 at offsets +0xAC and its reciprocal at +0xB4, build the front rotation tensor through F_3x3RotationTensorMatrixTransform and Copy6DwordsToStructCall on a 24-byte work buffer copied into *(this+0x1D4)+4 and +100, copy the this+0x1D8 and this+0x1E0 QWORDs, zero this+0x1724, then call the sub-initializer sub_43BC20(this, a2, ...).",
+      "evidence_refs": [
+        "field:this:0x00000068",
+        "field:this:0x0000019C",
+        "field:this:0x000001A4",
+        "field:this:0x000001AC",
+        "field:this:0x000001B4",
+        "field:this:0x000001D4",
+        "field:this:0x000001D8",
+        "field:this:0x000001E0",
+        "field:this:0x00001724",
+        "field:*(this+0x1D4):0x000000AC",
+        "field:*(this+0x1D4):0x000000B4",
+        "callee:0x005691D0",
+        "callee:0x00569280",
+        "callee:0x0043BC20",
+        "global:0x007D0B64"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Per-wheel attach-point vectors: for each of six wheel attachment references, add the front/rear midpoint scratch vector to the corresponding setup offset from the tire-data block and qmemcpy the 24-byte result into the wheel attach array (this+0x1884, this+0x18E8, this+0x1948, this+0x1A1C, this+0x1AFC, this+0x1BE8).",
+      "evidence_refs": [
+        "function:0x0043C250",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Suspension travel-rate init and interpolation table allocation: combine setup rates into this+0x1C50 scaled by 0.0955, store the reciprocal rate at this+0x1C6C/0x1C74, the rate window at this+0x1CDC/0x1CE4/0x1CEC, the 0.975-scaled reference at this+0x1CF4, the rate sample at this+0x1D08... wait, compute entry count = 2 - CRTFtol(sampled_rate * -0.03125), zero the this+0x1D10/0x1D14 table-pointer slots, and allocate the float-pair buffer with OperatorNewNhMallocWrapper(8 * count); the zeroed suspension-flag bytes at this+0x1C58/0x1C59 and this+0x1C5C..0x1C68 are reset here.",
+      "evidence_refs": [
+        "field:this:0x00001C50",
+        "field:this:0x00001C58",
+        "field:this:0x00001C59",
+        "field:this:0x00001C5C",
+        "field:this:0x00001C60",
+        "field:this:0x00001C64",
+        "field:this:0x00001C68",
+        "field:this:0x00001C6C",
+        "field:this:0x00001C74",
+        "field:this:0x00001C7C",
+        "field:this:0x00001C84",
+        "field:this:0x00001CDC",
+        "field:this:0x00001CE4",
+        "field:this:0x00001CEC",
+        "field:this:0x00001CF4",
+        "field:this:0x00001D10",
+        "field:this:0x00001D14",
+        "callee:0x00587BDC",
+        "callee:0x00587C03"
+      ]
+    },
+    {
+      "kind": "loop",
+      "description": "Interpolated curve-table pre-fill: when the entry count (this+0x1D08) is positive, loop each entry calling ParameterizedCurveInterpolation at 32.0-sample steps and write each float pair (value + delta) into the buffer pointed to by this+0x1CFC.",
+      "evidence_refs": [
+        "callee:0x004F6720",
+        "field:this:0x00001CFC"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Thermal and limit-session table init: QWORD-copy the session thermal/wear references from the tire-data block into this+0x1D54..0x1D94, compute the half-ambient temperature at this+0x1D4C and the absolute temperature references at this+0x1D8C from flt_8AFEF0 + 273.16, zero this+0x1D74/0x1D78 and this+0x1DA4/0x1DA8, seed this+0x1DB4 with noise-scaled wear from RandomNoiseValueGenerator (floored at the raw setup value), using the global noise counter dword_8AAE70.",
+      "evidence_refs": [
+        "global:0x008AFEF0",
+        "field:this:0x00001D4C",
+        "field:this:0x00001D54",
+        "field:this:0x00001D5C",
+        "field:this:0x00001D64",
+        "field:this:0x00001D6C",
+        "field:this:0x00001D74",
+        "field:this:0x00001D78",
+        "field:this:0x00001D7C",
+        "field:this:0x00001D84",
+        "field:this:0x00001D8C",
+        "field:this:0x00001D94",
+        "field:this:0x00001DA4",
+        "field:this:0x00001DA8",
+        "field:this:0x00001DB4"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Wear-mode switch on the global dword_7CEA5C. Zero: store the NaN-boxed max double (-1 / 0x7FEFFFFF) into this+0x1DB8 and zero the four wheel wear blocks (this+0x6CC region, stride 0x464). Modes 1..3: when session type (dword_7C56A4) is 7 divide this+0x1DB4 by flt_8ACF9C, and scale each wheel wear block by flt_8ACF9C across 4 iterations.",
+      "evidence_refs": [
+        "global:0x007CEA5C",
+        "global:0x007C56A4",
+        "global:0x008ACF9C",
+        "field:this:0x00001DB8",
+        "field:this:0x000006CC"
+      ]
+    },
+    {
+      "kind": "assignment",
+      "description": "Traction and session parameter tables: zero the this+0x1DAC/0x1DB0 counters, QWORD-copy the session traction references into this+0x1DBC/0x1DC4/0x1DCC, store the reciprocal at this+0x1DD4 and the 3.0/v68-coupled term at this+0x1DDC, zero this+0x1DE4..0x1DF8, copy the byte at this+0x1D0C and the QWORDs at this+0x1D18/0x1D20/0x1D28, zero this+0x1D30, and store the rate value at this+0x1D34 clamped to >= 0.75 when the global tire-model flag byte_7CE97C is set, plus this+0x1D3C/0x1D44 QWORD copies.",
+      "evidence_refs": [
+        "global:0x007CE97C",
+        "field:this:0x00001DAC",
+        "field:this:0x00001DB0",
+        "field:this:0x00001DBC",
+        "field:this:0x00001DC4",
+        "field:this:0x00001DCC",
+        "field:this:0x00001DD4",
+        "field:this:0x00001DDC",
+        "field:this:0x00001DE4",
+        "field:this:0x00001DE8",
+        "field:this:0x00001DEC",
+        "field:this:0x00001DF0",
+        "field:this:0x00001DF4",
+        "field:this:0x00001DF8",
+        "field:this:0x00001D0C",
+        "field:this:0x00001D18",
+        "field:this:0x00001D20",
+        "field:this:0x00001D28",
+        "field:this:0x00001D30",
+        "field:this:0x00001D34",
+        "field:this:0x00001D3C",
+        "field:this:0x00001D44"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Tire force scale factors: combine the per-wheel tire/brake setup terms into this+0x1E14..0x1E30 (including the scaled compound term at this+0x1E18), zero this+0x1E38..0x1E44, store the reference and its reciprocal at this+0x1E48/0x1E50, QWORD-copy the thermal references into this+0x1E58..0x1E70, copy the flags into this+0x71 and this+0x1E78, QWORD-copy into this+0x1E84 and this+0x1E94, and store negated setup values into this+0x1E8C and this+0x1E9C.",
+      "evidence_refs": [
+        "field:this:0x00000071",
+        "field:this:0x00001E14",
+        "field:this:0x00001E18",
+        "field:this:0x00001E20",
+        "field:this:0x00001E28",
+        "field:this:0x00001E30",
+        "field:this:0x00001E38",
+        "field:this:0x00001E3C",
+        "field:this:0x00001E40",
+        "field:this:0x00001E44",
+        "field:this:0x00001E48",
+        "field:this:0x00001E50",
+        "field:this:0x00001E58",
+        "field:this:0x00001E60",
+        "field:this:0x00001E68",
+        "field:this:0x00001E70",
+        "field:this:0x00001E78",
+        "field:this:0x00001E84",
+        "field:this:0x00001E8C",
+        "field:this:0x00001E94",
+        "field:this:0x00001E9C"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Session-state lookup table fill: store the slot count (HIDWORD(a2)+5060) into this+0x1EAC, then for each index v73 = 0..count call SessionStateIndexedLookup(a2, v73+43) and write the returned double into the this+0x1EB0 array (slot 8 redirects into the global data struct behind dword_5C7530+64).",
+      "evidence_refs": [
+        "callee:0x0042ED00",
+        "global:0x005C7530",
+        "field:this:0x00001EAC",
+        "field:this:0x00001EB0"
+      ]
+    },
+    {
+      "kind": "call",
+      "description": "Delegate to the AI path-node handler with the setup descriptor: AIPathNodeDelegate(LODWORD(a2)) computes path-node-dependent values consumed by the tire model.",
+      "evidence_refs": [
+        "callee:0x0042ED30"
+      ]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Store the reciprocal of the last looked-up session value: when it is 0.0 zero this+0x1EA4 and this+0x1EA8, otherwise write 1.0/value into this+0x1EA4.",
+      "evidence_refs": [
+        "field:this:0x00001EA4",
+        "field:this:0x00001EA8"
+      ]
+    },
+    {
+      "kind": "calculation",
+      "description": "Traction threshold propagation: copy the base threshold from this+0x1C8C into this+0x1C9C and this+0x1CA4, then for each ratio slot v77 = 2..count compute v = slot[this+0x1EC0] / previous slot (or the global-struct ratio when v77 == 8), scale by this+0x1C94 * 0.825, clamp to the base threshold, and write the result back at this+0x1EC0-based entries.",
+      "evidence_refs": [
+        "field:this:0x00001C8C",
+        "field:this:0x00001C9C",
+        "field:this:0x00001CA4",
+        "field:this:0x00001C94",
+        "field:this:0x00001EC0",
+        "source:raw"
+      ]
+    },
+    {
+      "kind": "return",
+      "description": "Zero the run-state tail: this+0x1EF0..0x1EFC, this+0x1F04..0x1F30, and the per-wheel accumulator banks this+0xB4..0xCC and this+0xEC..0x13C; then set the session init markers this+0x30 = -2 and this+0x34 = 3 with this+0x38/0x3C = 0, and return the session lookup count value.",
+      "evidence_refs": [
+        "field:this:0x00000030",
+        "field:this:0x00000034",
+        "field:this:0x00000038",
+        "field:this:0x0000003C",
+        "field:this:0x000000B4",
+        "field:this:0x000000B8",
+        "field:this:0x000000BC",
+        "field:this:0x000000C0",
+        "field:this:0x000000C4",
+        "field:this:0x000000C8",
+        "field:this:0x000000CC",
+        "field:this:0x000000EC",
+        "field:this:0x000000F0",
+        "field:this:0x000000F4",
+        "field:this:0x000000F8",
+        "field:this:0x000000FC",
+        "field:this:0x00000100",
+        "field:this:0x00000104",
+        "field:this:0x00000108",
+        "field:this:0x0000010C",
+        "field:this:0x00000110",
+        "field:this:0x00000114",
+        "field:this:0x00000118",
+        "field:this:0x0000011C",
+        "field:this:0x00000120",
+        "field:this:0x00000124",
+        "field:this:0x00000128",
+        "field:this:0x0000012C",
+        "field:this:0x00000130",
+        "field:this:0x00000134",
+        "field:this:0x00000138",
+        "field:this:0x0000013C",
+        "field:this:0x00001EF0",
+        "field:this:0x00001EF4",
+        "field:this:0x00001EF8",
+        "field:this:0x00001EFC",
+        "field:this:0x00001F04",
+        "field:this:0x00001F08",
+        "field:this:0x00001F0C",
+        "field:this:0x00001F10",
+        "field:this:0x00001F14",
+        "field:this:0x00001F18",
+        "field:this:0x00001F1C",
+        "field:this:0x00001F20",
+        "field:this:0x00001F24",
+        "field:this:0x00001F28",
+        "field:this:0x00001F2C",
+        "field:this:0x00001F30"
+      ]
+    }
+  ],
+  "clean_pseudocode": [
+    "// 4-wheel init loop: build compliance matrix, stiffness/damper, thermal state per wheel",
+    "for (w = 0; w < 4; w++) { zero wheel block; set sentinels; build compliance; apply noise; }",
+    "brand = TireBrandLookup(tireData+136); this[0x1458] = brand;",
+    "if (!brand && sessionType != 5 && StringSplitLoop(1, SRC_PATH, 3301)) DebugLogWrite(BUF, HDV_REF);",
+    "this[0x145C] = setup[3012];",
+    "for (i = 0; i < 4; i++) TireCompoundPerWheelPhysicsApplication(i);",
+    "// front/rear suspension compliance + attach-point geometry (midpoints of axle structs)",
+    "// copy session setup envelope (this+0x140..0x198) and clamp each double to [0,1]",
+    "// front spring model + rotation tensor via F_3x3 / Copy6Dwords; sub-init sub_43BC20",
+    "// interpolated curve table: count = 2 - ftol(rate*-0.03125); alloc 8*count; guard this+0x1D08 > 0; fill via ParameterizedCurveInterpolation",
+    "// wear-mode switch on dword_7CEA5C scales/zeroes wheel wear blocks; temperature tables seeded",
+    "// session-state fill via SessionStateIndexedLookup(a2, i+43) into this+0x1EB0 (slot 8 -> global struct)",
+    "// traction threshold propagation loop over this+0x1EC0 ratios, scaled by this+0x1C94*0.825",
+    "// trailing: zero accumulator banks; this[0x30] = -2; this[0x34] = 3; return count"
+  ],
+  "unresolved": [
+    "Exact semantic meaning of each session setup-envelope field (this+0x140..0x198) is DERIVED from the existing fill, not confirmed; individual fields not matched to named config tokens.",
+    "The 13 constant-pool doubles (dbl_59E420..dbl_59EC40, flt_59EC20) are read-only data xrefs whose values Hex-Rays inlined; exact mapping of each global to a specific inlined literal (e.g. 273.16, 3.14159, 0.825) was not verified.",
+    "dword_8AD254 (0x008AD254) is read but does not appear as a named reference in the raw pseudocode; producer/consumer unknown.",
+    "The wear-mode enum semantics of dword_7CEA5C (0 / 1..3) are DERIVED; the mode-7 session-type special case (dword_7C56A4) meaning is not confirmed.",
+    "The base threshold value this+0x1C8C (= this+0x7308) is produced elsewhere; only its propagation/use is visible here.",
+    "Slot-8 redirect into the global struct at dword_5C7530+64 and the v77==8 ratio divisor are observed but the target struct layout is outside this function."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x008AD254"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "HIGH",
+    "control_flow": "HIGH"
+  }
+}

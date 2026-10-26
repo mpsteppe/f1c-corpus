@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "address": "0x0056C830",
+  "proposed_name": "BuildSparseMatrixPattern",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Builds a sparse-matrix (CSR-like) symbolic pattern from the dense connectivity matrix in a2, with dimension a4. Normalizes non-zero entries to a fixed value in a2/a3, counts non-zero entries (v44 rows, v46 entries), allocates four arrays into this[0]..this[3], then fills row-start pointers, per-row column indices and packed value offsets. Returns a4.",
+  "local_names": {
+    "v44": "row count (this+0x8 allocation stride)",
+    "v46": "entry count (this+0xC allocation bytes)",
+    "a3": "initialized dense row pattern buffer"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Free previously allocated sparse-matrix storage via QuadPointerFree() before rebuilding.",
+      "evidence_refs": ["callee:0x0056CF10", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For a4 > 0, walk each row pointer in a2; for each of the a4 double entries that is not 0.0, write low dword 0 and high dword 1072693248 (normalizing to a fixed non-zero value).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "For a4 > 0, initialize the dense pattern buffer a3: a3[0] = 0, a3[1] = 1072693248, then memcpy the rest of the (8 * a4 - 5) 4-byte units from a3.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Initialize row/entry accumulators v44, v46, v42 to 0, then count non-zero entries across rows of a2 and fill per-row column slots, writing normalized 2.0 high dword 0x40000000 where a new non-zero pair is found.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Count trailing non-zero entries in remaining rows (v46) across the a4 - 2..0 descending row range.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the row-pointer array: this[0] = OperatorNewNhMallocWrapper(8 * a4 + 8).",
+      "evidence_refs": ["callee:0x00587C03", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the column-index array: this[1] = OperatorNewNhMallocWrapper(8 * a4).",
+      "evidence_refs": ["callee:0x00587C03", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the per-row value-offset array: this[2] = OperatorNewNhMallocWrapper(8 * v44).",
+      "evidence_refs": ["callee:0x00587C03", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate the packed column-index byte storage: this[3] = OperatorNewNhMallocWrapper(v46).",
+      "evidence_refs": ["callee:0x00587C03", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For k in 0..a4, write row starts into this[0] (byte 0 count, byte 1 reset to 0, dword at +4 = this[2] + 8 * row offset), then append column indices for non-zero entries into this[2] and this[3], tracking counts in v45/v28.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "For row v39 in a4-1..0, write this[1] entries (byte 0 = v39, byte 1 count, dword +4 = this[3] + v28) and append non-zero column indices m into this[3].",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return a4 as the function result.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "QuadPointerFree();",
+    "normalize non-zero entries of a2 to value (0, 1072693248);",
+    "if (a4 > 0) { a3[0] = 0; a3[1] = 1072693248; copy remaining pattern; }",
+    "count rows (v44) and entries (v46) of the normalized pattern;",
+    "this[0] = alloc(8 * a4 + 8); this[1] = alloc(8 * a4);",
+    "this[2] = alloc(8 * v44); this[3] = alloc(v46);",
+    "fill row starts in this[0], column indices in this[2], packed value offsets in this[3];",
+    "return a4;"
+  ],
+  "unresolved": [
+    "Global dbl_59E430 (0x0059E430) is listed as read evidence but does not appear as an explicit name in the raw Hex-Rays body; its role in the pattern build is not grounded in this packet.",
+    "The dense-matrix normalization value (1.0 / 2.0 via dwords 1072693248 and 0x40000000) is inferred from the IEEE-754 bit patterns in the source; the semantic meaning of the two distinct constants is not evidenced."
+  ],
+  "unresolved_evidence_refs": ["global:0x0059E430", "caller:0x0056D930"],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

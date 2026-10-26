@@ -1,0 +1,30 @@
+## sub_6D3BD0_006d3bd0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| obj | 0x0 | R | — | [LLM] |
+| obj | 0x14 | RW | 66 | [LLM] |
+| this | 0x0 | R | — | [LLM] |
+
+**Written-by note (persistence):**
+- obj 0x14: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 0063197d | _fseek | [LLM] |
+| 00631e50 | sub_631E50 | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

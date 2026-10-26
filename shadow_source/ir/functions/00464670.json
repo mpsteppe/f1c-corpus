@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "address": "0x00464670",
+  "proposed_name": "ConditionalObjectCleanup",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00464670"]
+  },
+  "summary": "Conditional two-part cleanup of network-object state on game exit. First clears the object pointer at obj+0x3FB8 (vtable call with the stored argument at +0x417C, then pointer validation, then zeroing) when that pointer is nonzero. Second resets a flag block at this+0x1B790 and, when the pointer at obj+0x1B79C is nonzero, runs network cleanup on it and zeroes it. Invoked from GameExit (0042DB20).",
+  "local_names": {
+    "v5": "object base pointer obtained by dereferencing this",
+    "v6": "object pointer at obj+0x3FB8 pending first cleanup",
+    "v1": "flag block base at this+0x1B790",
+    "v3": "secondary object pointer at obj+0x1B79C pending cleanup",
+    "result": "value propagated from the flag-reset side-effect routine (or the network cleanup result)"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Dereferences this to obtain the object base pointer v5 = *this, then reads the first cleanup candidate v6 = *(v5 + 0x3FB8)",
+      "evidence_refs": ["field:this:0x00000000", "field:obj:0x00003FB8", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the pointer at obj+0x3FB8 is nonzero, perform the vtable call, pointer check, and clear; otherwise skip that block entirely",
+      "evidence_refs": ["field:obj:0x00003FB8", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "VTableCallViaOffset0x7c(v6, *(v5 + 0x417C)): calls the virtual method at vtable offset 0x7C on the object at obj+0x3FB8, passing the stored argument from obj+0x417C",
+      "evidence_refs": ["callee:0x0057A8B0", "field:obj:0x00003FB8", "field:obj:0x0000417C"]
+    },
+    {
+      "kind": "call",
+      "description": "PointerCheckWithFallback(this + 0x3FB8): validates the pointer being cleared, with fallback handling",
+      "evidence_refs": ["callee:0x0057AB20", "field:obj:0x00003FB8"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clears the first pointer slot to 0: *(obj + 0x3FB8) = 0",
+      "evidence_refs": ["field:obj:0x00003FB8"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Computes the flag block base v1 = this + 112528 (0x1B790), where the secondary object pointer lives at v1 + 12 (obj + 0x1B79C)",
+      "evidence_refs": ["field:obj:0x0001B79C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BooleanFlagResetWithSideEffects(v1): resets a flag at the start of the block this+0x1B790, returning a value carried as result",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the pointer at obj+0x1B79C is nonzero, run network cleanup and clear it; otherwise leave it untouched",
+      "evidence_refs": ["field:obj:0x0001B79C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "NetworkCleanup(v3): tears down the secondary network object pointed to by obj+0x1B79C",
+      "evidence_refs": ["field:obj:0x0001B79C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clears the secondary pointer slot to 0: *(obj + 0x1B79C) = 0",
+      "evidence_refs": ["field:obj:0x0001B79C"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns result (the flag-reset side-effect value, or the network-cleanup result when the second block ran)",
+      "evidence_refs": ["function:0x00464670", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked from GameExit (0042DB20) to perform network-object cleanup during game shutdown",
+      "evidence_refs": ["caller:0x0042DB20"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v5 = *this;",
+    "v6 = *(v5 + 0x3FB8);",
+    "if (v6) {",
+    "  VTableCallViaOffset0x7c(v6, *(v5 + 0x417C));",
+    "  PointerCheckWithFallback(v5 + 0x3FB8);",
+    "  *(v5 + 0x3FB8) = 0;",
+    "}",
+    "v1 = *this + 0x1B790;",
+    "result = BooleanFlagResetWithSideEffects(v1);",
+    "v3 = *(v1 + 12);",
+    "if (v3) {",
+    "  result = NetworkCleanup(v3);",
+    "  *(v1 + 12) = 0;",
+    "}",
+    "return result;"
+  ],
+  "unresolved": [
+    "The identity of the NetworkCleanup routine is not present in the packet callee list (only VTableCallViaOffset0x7c and PointerCheckWithFallback are listed), so its target address is unknown",
+    "The class of the object behind this and the meaning of the flag reset at this+0x1B790 are not evidenced"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

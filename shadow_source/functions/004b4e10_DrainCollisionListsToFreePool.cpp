@@ -1,0 +1,41 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004B4E10
+// Canonical corpus name: PhysicsObjectListManager
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/PhysicsObjectListManager_004b4e10.c
+
+void UnknownObject::DrainCollisionListsToFreePool()
+{
+    // Drains all 4 collision sub-lists (16-byte {head, tail, anchor, count} metadata records starting at this+0x70): for each sub-list, while the head is non-null, removes a node matched by its +0 value, frees the node's payload when the node+8 flag byte is set, frees the node, then allocates a replacement and pushes it onto the global free pool (head dword_8AB700, tail dword_8AB704, count dword_8AB70C, with dword_8AB708 used when the pool is empty). Stores the global session timestamp dbl_8AFEA0 into this+0x6C, zeroes the per-sub-list metadata arrays (this+0x35/+0x39/+0x3D dwords and this+0x41 byte, together with a parallel per-sub-list metadata array), sets the enable flag this+0x0 to 1, and returns the pointer past the reset arrays.
+    // ASSIGNMENT: Store the global session timestamp dbl_8AFEA0 into this+0x6C. [field:this:0x0000006C, global:0x008AFEA0, function:0x004B4E10, source:raw]
+    // LOOP: For each of the 4 sub-lists (head slot this+0x70, tail slot this+0x74, anchor slot this+0x78, count slot this+0x7C), while the head is non-null (guard:0): locate the node whose +0 value equals the head value, unlink it and fix the head/tail/anchor slots and the count, free the node payload via FreeWrapper_7bcf when the node+8 flag byte is set, then free the node itself. [field:*(this+0x70):0x00000000, field:*(this+0x70):0x00000004, field:*(this+0x70):0x00000008, field:*(this+0x70):0x0000000C, field:this:0x00000070, field:this:0x00000074, field:this:0x00000078, field:this:0x0000007C, callee:0x00587BCF, guard:0, function:0x004B4E10, source:raw]
+    // CALL: Allocate a replacement node: OperatorNewNhMallocWrapper(12); on success ShortComputation_ac20(headValue, 0), otherwise null. [callee:0x00587C03, callee:0x004BAC20, function:0x004B4E10, source:raw]
+    // ASSIGNMENT: Push the new node onto the global free pool: if the pool head dword_8AB700 is non-null, link the new node's +4 to it; otherwise initialize the pool head/tail dword_8AB704/dword_8AB708; then set dword_8AB700 = new node and ++dword_8AB70C. [global:0x008AB700, global:0x008AB704, global:0x008AB708, global:0x008AB70C, function:0x004B4E10, source:raw]
+    // LOOP: Reset loop, 4 iterations: zero the per-sub-list metadata - the dword entries at this+0x35, this+0x39 and this+0x3D and the byte at this+0x41 - together with a parallel per-sub-list metadata array. [field:this:0x00000035, field:this:0x00000039, field:this:0x0000003D, field:this:0x00000041, function:0x004B4E10, source:raw]
+    // ASSIGNMENT: Set the enable flag: *this = 1. [field:this:0x00000000, function:0x004B4E10, source:raw]
+    // RETURN: Return the pointer past the reset metadata arrays. [function:0x004B4E10, source:raw]
+
+    // Conservative worker pseudocode:
+    //   this->sessionTime = dbl_8AFEA0;   // +0x6C
+    //   for (s = 0; s < 4; s++) {
+    //     sub = this + 0x70 + s*16;       // {head, tail, anchor, count}
+    //     while (sub->head != 0) {
+    //       val = sub->head[+0];
+    //       n = find node whose [0] == val;
+    //       unlink n (fix head/tail/anchor slots, --count);
+    //       if (n[+8 byte]) FreeWrapper_7bcf(n[+0]);
+    //       FreeWrapper_7bcf(n);
+    //       m = OperatorNewNhMallocWrapper(12) ? ShortComputation_ac20(val, 0) : 0;
+    //       if (freePoolHead) m[+4] = freePoolHead;
+    //       else { freePoolHead = m; freePoolTail = m; }
+    //       freePoolHead = m; ++freePoolCount;
+    //     }
+    //   }
+    //   for (i = 0; i < 4; i++) {
+    //     zero the parallel per-sub-list metadata array entries;
+    //     zero this+0x35, this+0x39, this+0x3D dwords and the this+0x41 byte;
+    //   }
+    //   this->enabled = 1;
+    // UNRESOLVED: Callers QuadrupleListCleanup (004b46f0) and PitstopActionSet (004b6940) place this in the collision-list lifecycle, but the owning object type is unidentified.
+    // UNRESOLVED: The reset loop also zeroes a parallel per-sub-list metadata array that has no packet field evidence.
+}

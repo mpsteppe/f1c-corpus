@@ -1,0 +1,34 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004DBE60
+// Canonical corpus name: MultiLayerTextRendering
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/MultiLayerTextRendering_004dbe60.c
+
+void UnknownObject::MultiLayerTextRendering()
+{
+    // Renders a multi-layer race information overlay. When dword_8ACF8C equals 0x7FFFFFFF (infinite/unset race distance) it renders primary text with a shadow pass at (a1+50, 10) in white; otherwise it formats and renders a lap-count line in yellow at (a1+215, 46). Always renders two secondary text layers with shadow at (a1+50, 50). Returns the final render result.
+    // GUARD: Branch on dword_8ACF8C: equal to 0x7FFFFFFF selects the shadow+foreground primary text layout at (a1+50, 10); otherwise selects the lap-count layout at (a1+215, 46). [global:0x008ACF8C, source:raw]
+    // CALL: Format primary text into the 64-byte stack buffer via sub_49C8F0 for the shadow render pass. [callee:0x0049C8F0, source:raw]
+    // CALL: Render the primary shadow pass: UITextRenderWithScale(buffer, a1 + 50, 10, 0xFFFFFF, 1, 2, 1.0, 1.0). [callee:0x004D7E40, source:raw]
+    // CALL: Format primary text into the buffer via sub_49C960 for the foreground render pass. [callee:0x0049C960, source:raw]
+    // CALL: Render the primary foreground pass: UITextRenderWithScale(buffer, a1 + 50, 10, 0xFFFFFF, 0, 1, 1.0, 1.0). [callee:0x004D7E40, source:raw]
+    // CALL: Alternative branch: format lap-count text via sub_49C670 and render it in yellow: UITextRenderWithScale(buffer, a1 + 215, 46, 16776960, 2, 0, 0.75, 1.0). [callee:0x0049C670, callee:0x004D7E40, source:raw]
+    // CALL: Format secondary text field 1 via sub_49C700 and render it with shadow: UITextRenderWithScale(buffer, v1 + 50, 50, 0xFFFFFF, 1, 2, 1.0, 1.0). [callee:0x0049C700, callee:0x004D7E40, source:raw]
+    // CALL: Format secondary text field 2 via sub_49C770 and render its foreground: UITextRenderWithScale(buffer, v1 + 50, 50, 0xFFFFFF, 0, 1, 1.0, 1.0). [callee:0x0049C770, callee:0x004D7E40, source:raw]
+    // RETURN: Return the result of the final UITextRenderWithScale call. [callee:0x004D7E40, source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (dword_8ACF8C == 0x7FFFFFFF) {
+    //     sub_49C8F0(buffer, 64); UITextRenderWithScale(buffer, a1 + 50, 10, 0xFFFFFF, 1, 2, 1.0, 1.0);
+    //     sub_49C960(buffer, 64); UITextRenderWithScale(buffer, a1 + 50, 10, 0xFFFFFF, 0, 1, 1.0, 1.0);
+    //   } else {
+    //     sub_49C670(buffer, 64); UITextRenderWithScale(buffer, a1 + 215, 46, 16776960, 2, 0, 0.75, 1.0);
+    //   }
+    //   sub_49C700(buffer, 64); UITextRenderWithScale(buffer, v1 + 50, 50, 0xFFFFFF, 1, 2, 1.0, 1.0);
+    //   sub_49C770(buffer, 64);
+    //   return UITextRenderWithScale(buffer, v1 + 50, 50, 0xFFFFFF, 0, 1, 1.0, 1.0);
+    // UNRESOLVED: Meaning of the UITextRenderWithScale parameters after position/color (alignment, anchor, scale flags) is not established.
+    // UNRESOLVED: Global unk_7CE234 (DriverAppearanceFlag per existing analysis) is absent from the raw source text; the actual access role in this function is unresolved.
+    // UNRESOLVED: The exact text content produced by the sub_49Cxxx format helpers is not established.
+    // UNRESOLVED: No static callers found; the render callback context is unknown.
+}

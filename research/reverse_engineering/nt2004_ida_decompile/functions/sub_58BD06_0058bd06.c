@@ -1,0 +1,443 @@
+void *__stdcall sub_58BD06(void *a1)
+{
+  void *result; // eax
+
+  result = a1;
+  switch ( (unsigned int)a1 )
+  {
+    case 0u:
+      dbl_7E2D60 = 1.0;
+      dbl_7E2E10 = 0.0;
+      dbl_7E2EC0 = 0.0;
+      dbl_7E2F70 = 0.0;
+      dbl_7E3020 = 0.0;
+      dbl_7E30D0 = 0.0;
+      dbl_7E3180 = 0.0;
+      dbl_7E3230 = 0.0;
+      dbl_7E32E0 = 0.0;
+      dbl_7E3390 = 0.0;
+      dbl_7E3738 = 0.0;
+      dbl_7E3848 = 0.0;
+      dbl_7E3958 = 0.0;
+      dbl_7E3BE8 = 0.0;
+      dbl_7E44B0 = 0.0;
+      break;
+    case 1u:
+      dbl_7E2E10 = 0.0;
+      dbl_7E2E18 = 1.0;
+      dbl_7E2EC8 = 0.0;
+      dbl_7E2F78 = 0.0;
+      dbl_7E3028 = 0.0;
+      dbl_7E30D8 = 0.0;
+      dbl_7E3188 = 0.0;
+      dbl_7E3238 = 0.0;
+      dbl_7E32E8 = 0.0;
+      dbl_7E3398 = 0.0;
+      dbl_7E3740 = 0.0;
+      dbl_7E3850 = 0.0;
+      dbl_7E3960 = 0.0;
+      dbl_7E3BF0 = 0.0;
+      dbl_7E44B8 = 0.0;
+      break;
+    case 2u:
+      dbl_7E2EC0 = 0.0;
+      dbl_7E2EC8 = 0.0;
+      dbl_7E2ED0 = 1.0;
+      dbl_7E2F80 = 0.0;
+      dbl_7E3030 = 0.0;
+      dbl_7E30E0 = 0.0;
+      dbl_7E3190 = 0.0;
+      dbl_7E3240 = 0.0;
+      dbl_7E32F0 = 0.0;
+      dbl_7E33A0 = 0.0;
+      dbl_7E3748 = 0.0;
+      dbl_7E3858 = 0.0;
+      dbl_7E3968 = 0.0;
+      dbl_7E3BF8 = 0.0;
+      dbl_7E44C0 = 0.0;
+      break;
+    case 3u:
+      result = memset(&dbl_7E2F70, 0, 0x18u);
+      dbl_7E2F88 = 1.0;
+      dbl_7E3038 = 0.0;
+      dbl_7E30E8 = 0.0;
+      dbl_7E3198 = 0.0;
+      dbl_7E3248 = 0.0;
+      dbl_7E32F8 = 0.0;
+      dbl_7E33A8 = 0.0;
+      dbl_7E3750 = 0.0;
+      dbl_7E3860 = 0.0;
+      dbl_7E3970 = 0.0;
+      dbl_7E3C00 = 0.0;
+      dbl_7E44C8 = 0.0;
+      break;
+    case 4u:
+      result = memset(&dbl_7E3020, 0, 0x20u);
+      dbl_7E3040 = 1.0;
+      dbl_7E30F0 = 0.0;
+      dbl_7E31A0 = 0.0;
+      dbl_7E3250 = 0.0;
+      dbl_7E3300 = 0.0;
+      dbl_7E33B0 = 0.0;
+      dbl_7E3758 = 0.0;
+      dbl_7E3868 = 0.0;
+      dbl_7E3978 = 0.0;
+      dbl_7E3C08 = 0.0;
+      dbl_7E44D0 = 0.0;
+      break;
+    case 5u:
+      result = memset(&dbl_7E30D0, 0, 0x28u);
+      dbl_7E30F8 = 1.0;
+      dbl_7E31A8 = 0.0;
+      dbl_7E3258 = 0.0;
+      dbl_7E3308 = 0.0;
+      dbl_7E33B8 = 0.0;
+      dbl_7E3760 = 0.0;
+      dbl_7E3870 = 0.0;
+      dbl_7E3980 = 0.0;
+      dbl_7E3C10 = 0.0;
+      dbl_7E44D8 = 0.0;
+      break;
+    case 6u:
+      result = memset(&dbl_7E3180, 0, 0x30u);
+      dbl_7E31B0 = 1.0;
+      dbl_7E3260 = 0.0;
+      dbl_7E3310 = 0.0;
+      dbl_7E33C0 = 0.0;
+      dbl_7E3768 = 0.0;
+      dbl_7E3878 = 0.0;
+      dbl_7E3988 = 0.0;
+      dbl_7E3C18 = 0.0;
+      dbl_7E44E0 = 0.0;
+      break;
+    case 7u:
+      result = memset(&dbl_7E3230, 0, 0x38u);
+      dbl_7E3268 = 1.0;
+      dbl_7E3318 = 0.0;
+      dbl_7E33C8 = 0.0;
+      dbl_7E3770 = 0.0;
+      dbl_7E3880 = 0.0;
+      dbl_7E3990 = 0.0;
+      dbl_7E3C20 = 0.0;
+      dbl_7E44E8 = 0.0;
+      break;
+    case 8u:
+      result = memset(&dbl_7E32E0, 0, 0x40u);
+      dbl_7E3320 = 1.0;
+      dbl_7E33D0 = 0.0;
+      dbl_7E3778 = 0.0;
+      dbl_7E3888 = 0.0;
+      dbl_7E3998 = 0.0;
+      dbl_7E3C28 = 0.0;
+      dbl_7E44F0 = 0.0;
+      break;
+    case 9u:
+      result = memset(&dbl_7E3390, 0, 0x48u);
+      dbl_7E33D8 = 1.0;
+      dbl_7E3780 = 0.0;
+      dbl_7E3890 = 0.0;
+      dbl_7E39A0 = 0.0;
+      dbl_7E3C30 = 0.0;
+      dbl_7E44F8 = 0.0;
+      break;
+    case 0xAu:
+      dbl_7E3440 = 1.0;
+      dbl_7E34D8 = 0.0;
+      dbl_7E3570 = 0.0;
+      dbl_7E3608 = 0.0;
+      dbl_7E36A0 = 0.0;
+      dbl_7E3DF8 = 0.0;
+      dbl_7E3EB8 = 0.0;
+      dbl_7E3F78 = 0.0;
+      dbl_7E4038 = 0.0;
+      dbl_7E40F8 = 0.0;
+      dbl_7E4500 = 0.0;
+      break;
+    case 0xBu:
+      dbl_7E34D8 = 0.0;
+      dbl_7E34E0 = 1.0;
+      dbl_7E3578 = 0.0;
+      dbl_7E3610 = 0.0;
+      dbl_7E36A8 = 0.0;
+      dbl_7E3E00 = 0.0;
+      dbl_7E3EC0 = 0.0;
+      dbl_7E3F80 = 0.0;
+      dbl_7E4040 = 0.0;
+      dbl_7E4100 = 0.0;
+      dbl_7E4508 = 0.0;
+      break;
+    case 0xCu:
+      dbl_7E3570 = 0.0;
+      dbl_7E3578 = 0.0;
+      dbl_7E3580 = 1.0;
+      dbl_7E3618 = 0.0;
+      dbl_7E36B0 = 0.0;
+      dbl_7E3E08 = 0.0;
+      dbl_7E3EC8 = 0.0;
+      dbl_7E3F88 = 0.0;
+      dbl_7E4048 = 0.0;
+      dbl_7E4108 = 0.0;
+      dbl_7E4510 = 0.0;
+      break;
+    case 0xDu:
+      result = memset(&dbl_7E3608, 0, 0x18u);
+      dbl_7E3620 = 1.0;
+      dbl_7E36B8 = 0.0;
+      dbl_7E3E10 = 0.0;
+      dbl_7E3ED0 = 0.0;
+      dbl_7E3F90 = 0.0;
+      dbl_7E4050 = 0.0;
+      dbl_7E4110 = 0.0;
+      dbl_7E4518 = 0.0;
+      break;
+    case 0xEu:
+      result = memset(&dbl_7E36A0, 0, 0x20u);
+      dbl_7E36C0 = 1.0;
+      dbl_7E3E18 = 0.0;
+      dbl_7E3ED8 = 0.0;
+      dbl_7E3F98 = 0.0;
+      dbl_7E4058 = 0.0;
+      dbl_7E4118 = 0.0;
+      dbl_7E4520 = 0.0;
+      break;
+    case 0xFu:
+      result = memset(&dbl_7E3738, 0, 0x50u);
+      dbl_7E37B0 = 1.0;
+      dbl_7E38C0 = 0.0;
+      dbl_7E39D0 = 0.0;
+      dbl_7E3C60 = 0.0;
+      dbl_7E3E20 = 0.0;
+      dbl_7E3EE0 = 0.0;
+      dbl_7E3FA0 = 0.0;
+      dbl_7E4060 = 0.0;
+      dbl_7E4120 = 0.0;
+      dbl_7E41B8 = 0.0;
+      dbl_7E4250 = 0.0;
+      dbl_7E42E8 = 0.0;
+      dbl_7E4380 = 0.0;
+      dbl_7E4418 = 0.0;
+      dbl_7E4528 = 0.0;
+      break;
+    case 0x10u:
+      result = memset(&dbl_7E3848, 0, 0x50u);
+      dbl_7E38C0 = 0.0;
+      dbl_7E38C8 = 1.0;
+      dbl_7E39D8 = 0.0;
+      dbl_7E3C68 = 0.0;
+      dbl_7E3E28 = 0.0;
+      dbl_7E3EE8 = 0.0;
+      dbl_7E3FA8 = 0.0;
+      dbl_7E4068 = 0.0;
+      dbl_7E4128 = 0.0;
+      dbl_7E41C0 = 0.0;
+      dbl_7E4258 = 0.0;
+      dbl_7E42F0 = 0.0;
+      dbl_7E4388 = 0.0;
+      dbl_7E4420 = 0.0;
+      dbl_7E4530 = 0.0;
+      break;
+    case 0x11u:
+      result = memset(&dbl_7E3958, 0, 0x50u);
+      dbl_7E39D0 = 0.0;
+      dbl_7E39D8 = 0.0;
+      dbl_7E39E0 = 1.0;
+      dbl_7E3C70 = 0.0;
+      dbl_7E3E30 = 0.0;
+      dbl_7E3EF0 = 0.0;
+      dbl_7E3FB0 = 0.0;
+      dbl_7E4070 = 0.0;
+      dbl_7E4130 = 0.0;
+      dbl_7E41C8 = 0.0;
+      dbl_7E4260 = 0.0;
+      dbl_7E42F8 = 0.0;
+      dbl_7E4390 = 0.0;
+      dbl_7E4428 = 0.0;
+      dbl_7E4538 = 0.0;
+      break;
+    case 0x12u:
+      dbl_7E3A68 = 1.0;
+      dbl_7E3AE8 = 0.0;
+      dbl_7E3B68 = 0.0;
+      dbl_7E3CF8 = 0.0;
+      dbl_7E3D78 = 0.0;
+      dbl_7E41D0 = 0.0;
+      dbl_7E4268 = 0.0;
+      dbl_7E4300 = 0.0;
+      dbl_7E4398 = 0.0;
+      dbl_7E4430 = 0.0;
+      dbl_7E4540 = 0.0;
+      break;
+    case 0x13u:
+      dbl_7E3AE8 = 0.0;
+      dbl_7E3AF0 = 1.0;
+      dbl_7E3B70 = 0.0;
+      dbl_7E3D00 = 0.0;
+      dbl_7E3D80 = 0.0;
+      dbl_7E41D8 = 0.0;
+      dbl_7E4270 = 0.0;
+      dbl_7E4308 = 0.0;
+      dbl_7E43A0 = 0.0;
+      dbl_7E4438 = 0.0;
+      dbl_7E4548 = 0.0;
+      break;
+    case 0x14u:
+      dbl_7E3B68 = 0.0;
+      dbl_7E3B70 = 0.0;
+      dbl_7E3B78 = 1.0;
+      dbl_7E3D08 = 0.0;
+      dbl_7E3D88 = 0.0;
+      dbl_7E41E0 = 0.0;
+      dbl_7E4278 = 0.0;
+      dbl_7E4310 = 0.0;
+      dbl_7E43A8 = 0.0;
+      dbl_7E4440 = 0.0;
+      dbl_7E4550 = 0.0;
+      break;
+    case 0x15u:
+      memset(&dbl_7E3BE8, 0, 0x50u);
+      result = memset(&dbl_7E3C60, 0, 0x18u);
+      dbl_7E3C90 = 1.0;
+      dbl_7E3E50 = 0.0;
+      dbl_7E3F10 = 0.0;
+      dbl_7E3FD0 = 0.0;
+      dbl_7E4090 = 0.0;
+      dbl_7E4150 = 0.0;
+      dbl_7E41E8 = 0.0;
+      dbl_7E4280 = 0.0;
+      dbl_7E4318 = 0.0;
+      dbl_7E43B0 = 0.0;
+      dbl_7E4448 = 0.0;
+      dbl_7E4558 = 0.0;
+      break;
+    case 0x16u:
+      result = memset(&dbl_7E3CF8, 0, 0x18u);
+      dbl_7E3D18 = 1.0;
+      dbl_7E3D98 = 0.0;
+      dbl_7E41F0 = 0.0;
+      dbl_7E4288 = 0.0;
+      dbl_7E4320 = 0.0;
+      dbl_7E43B8 = 0.0;
+      dbl_7E4450 = 0.0;
+      dbl_7E4560 = 0.0;
+      break;
+    case 0x17u:
+      result = memset(&dbl_7E3D78, 0, 0x18u);
+      dbl_7E3D98 = 0.0;
+      dbl_7E3DA0 = 1.0;
+      dbl_7E41F8 = 0.0;
+      dbl_7E4290 = 0.0;
+      dbl_7E4328 = 0.0;
+      dbl_7E43C0 = 0.0;
+      dbl_7E4458 = 0.0;
+      dbl_7E4568 = 0.0;
+      break;
+    case 0x18u:
+      result = memset(&dbl_7E3DF8, 0, 0x40u);
+      dbl_7E3E50 = 0.0;
+      dbl_7E3E68 = 1.0;
+      dbl_7E3F28 = 0.0;
+      dbl_7E3FE8 = 0.0;
+      dbl_7E40A8 = 0.0;
+      dbl_7E4168 = 0.0;
+      dbl_7E4200 = 0.0;
+      dbl_7E4298 = 0.0;
+      dbl_7E4330 = 0.0;
+      dbl_7E43C8 = 0.0;
+      dbl_7E4460 = 0.0;
+      dbl_7E4570 = 0.0;
+      break;
+    case 0x19u:
+      result = memset(&dbl_7E3EB8, 0, 0x40u);
+      dbl_7E3F10 = 0.0;
+      dbl_7E3F28 = 0.0;
+      dbl_7E3F30 = 1.0;
+      dbl_7E3FF0 = 0.0;
+      dbl_7E40B0 = 0.0;
+      dbl_7E4170 = 0.0;
+      dbl_7E4208 = 0.0;
+      dbl_7E42A0 = 0.0;
+      dbl_7E4338 = 0.0;
+      dbl_7E43D0 = 0.0;
+      dbl_7E4468 = 0.0;
+      dbl_7E4578 = 0.0;
+      break;
+    case 0x1Au:
+      result = memset(&dbl_7E3F78, 0, 0x40u);
+      dbl_7E3FD0 = 0.0;
+      dbl_7E3FE8 = 0.0;
+      dbl_7E3FF0 = 0.0;
+      dbl_7E3FF8 = 1.0;
+      dbl_7E40B8 = 0.0;
+      dbl_7E4178 = 0.0;
+      dbl_7E4210 = 0.0;
+      dbl_7E42A8 = 0.0;
+      dbl_7E4340 = 0.0;
+      dbl_7E43D8 = 0.0;
+      dbl_7E4470 = 0.0;
+      dbl_7E4580 = 0.0;
+      break;
+    case 0x1Bu:
+      memset(&dbl_7E4038, 0, 0x40u);
+      dbl_7E4090 = 0.0;
+      result = memset(&dbl_7E40A8, 0, 0x18u);
+      dbl_7E40C0 = 1.0;
+      dbl_7E4180 = 0.0;
+      dbl_7E4218 = 0.0;
+      dbl_7E42B0 = 0.0;
+      dbl_7E4348 = 0.0;
+      dbl_7E43E0 = 0.0;
+      dbl_7E4478 = 0.0;
+      dbl_7E4588 = 0.0;
+      break;
+    case 0x1Cu:
+      memset(&dbl_7E40F8, 0, 0x40u);
+      dbl_7E4150 = 0.0;
+      result = memset(&dbl_7E4168, 0, 0x20u);
+      dbl_7E4188 = 1.0;
+      dbl_7E4220 = 0.0;
+      dbl_7E42B8 = 0.0;
+      dbl_7E4350 = 0.0;
+      dbl_7E43E8 = 0.0;
+      dbl_7E4480 = 0.0;
+      dbl_7E4590 = 0.0;
+      break;
+    case 0x1Du:
+      result = memset(&dbl_7E41B8, 0, 0x70u);
+      dbl_7E4228 = 1.0;
+      dbl_7E42C0 = 0.0;
+      dbl_7E4358 = 0.0;
+      dbl_7E43F0 = 0.0;
+      dbl_7E4488 = 0.0;
+      dbl_7E4598 = 0.0;
+      break;
+    case 0x1Eu:
+      result = memset(&dbl_7E4250, 0, 0x78u);
+      dbl_7E42C8 = 1.0;
+      dbl_7E4360 = 0.0;
+      dbl_7E43F8 = 0.0;
+      dbl_7E4490 = 0.0;
+      dbl_7E45A0 = 0.0;
+      break;
+    case 0x1Fu:
+      result = memset(&dbl_7E42E8, 0, 0x80u);
+      dbl_7E4368 = 1.0;
+      dbl_7E4400 = 0.0;
+      dbl_7E4498 = 0.0;
+      dbl_7E45A8 = 0.0;
+      break;
+    case 0x20u:
+      result = memset(&dbl_7E4380, 0, 0x88u);
+      dbl_7E4408 = 1.0;
+      dbl_7E44A0 = 0.0;
+      dbl_7E45B0 = 0.0;
+      break;
+    case 0x21u:
+      result = memset(&dbl_7E4418, 0, 0x90u);
+      dbl_7E44A8 = 1.0;
+      dbl_7E45B8 = 0.0;
+      break;
+    default:
+      return result;
+  }
+  return result;
+}

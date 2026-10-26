@@ -1,0 +1,34 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0058C411
+// Canonical corpus name: sub_58C411
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_58C411_0058c411.c
+
+void UnknownObject::FileStreamBufferDeallocate()
+{
+    // CRT-style FILE stream buffer teardown (MSVC __freebuf). Loads the stream flags word from this+0xC; when the flags have active I/O bits ((flags & 0x83) != 0) AND the buffer-ownership bit ((flags & 8) != 0), it frees the owned buffer pointer at this+0x8 via sub_58AA6F, clears the buffer-ownership flag bits by ANDing the flags word with 0xFBF7, zeroes the buffer base/count/allocation fields at this+0x0, this+0x4 and this+0x8, and returns 0. When the ownership guard fails, the original flags word is returned unchanged.
+    // GUARD: Load the stream flags word from this+0xC. The deallocation branch runs only when the flags have I/O bits set ((flags & 0x83) != 0) and the buffer-ownership bit set ((flags & 8) != 0); otherwise the function returns the flags unchanged. [field:this:0x0000000C, function:0x0058C411, source:raw]
+    // CALL: Free the owned buffer pointer at this+0x8 by calling sub_58AA6F, the OS-version-dispatched memory deallocation. [callee:0x0058AA6F, field:this:0x00000008, source:raw]
+    // STATE_TRANSITION: Clear the buffer-ownership flag bits: store (flags & 0xFBF7) back into the flags word at this+0xC as a 16-bit store. [field:this:0x0000000C, source:raw]
+    // ASSIGNMENT: result = 0 so the success path returns zero. [function:0x0058C411, source:raw]
+    // ASSIGNMENT: Zero the buffer start pointer at this+0x0 after freeing. [field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Zero the buffer count/position field at this+0x4 after freeing. [field:this:0x00000004, source:raw]
+    // ASSIGNMENT: Zero the allocation pointer at this+0x8 after freeing. [field:this:0x00000008, source:raw]
+    // RETURN: Return the loaded flags word when the ownership guard fails, or 0 after a successful deallocation. Invoked by MSVCCRTFileClose (0x00587D33) and sub_59BB00 (0x0059BB00) as stream close/teardown; the ABI lead identifies this as MSVC_CRT___freebuf. [abi:lead, caller:0x00587D33, caller:0x0059BB00, function:0x0058C411, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int FileStreamBufferDeallocate(int a1) {
+    //     result = *(_DWORD *)(a1 + 12);
+    //     if ((result & 0x83) != 0 && (result & 8) != 0) {
+    //       sub_58AA6F(*(LPVOID *)(a1 + 8));
+    //       *(_WORD *)(a1 + 12) &= 0xFBF7;
+    //       *(_DWORD *)a1 = 0;
+    //       *(_DWORD *)(a1 + 4) = 0;
+    //       *(_DWORD *)(a1 + 8) = 0;
+    //       result = 0;
+    //     }
+    //     return result;
+    //   }
+    // UNRESOLVED: The exact owning object (CRT FILE vs a custom stream object) is not evidenced in this packet; the struct layout matches the descriptor layout seen in neighboring stream functions.
+    // UNRESOLVED: Whether sub_58AA6F is the true CRT free or a shim is not evidenced here.
+}

@@ -1,0 +1,82 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0045D890
+// Canonical corpus name: NetCommSessionMessageDispatcher
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/NetCommSessionMessageDispatcher_0045d890.c
+
+void UnknownObject::NetCommSessionMessageDispatcher()
+{
+    // Central network session message dispatcher (netcomm session message handling). Reads the incoming message word a2[0], requires the high header bits (v3 & 0xE0000000) == 0x80000000, then switches on (v3 >> 18) & 0x3F. Each case handles a distinct session event: session start (2), player grid/line-up broadcast (3), server data copy into vehicle slots (4), next-track transition (5), driver-data boot / boot-notification (6 and 0x20), color/effect trigger (0x23), terrain validation with per-player path building and mismatch reporting (0x24), a terrain queue drain/re-fill (0x27), session-state-code writes (0x28/0x29), and a per-player terrain-height check that adjusts a terrain-threshold float (0x2A). Unmatched types fall to a tail that forwards the raw message into a staging buffer via ArithmeticComparison_3a90 when the player byte matches the session type. Returns 1 on handled messages; 0 when the header check fails.
+    // CALCULATION: Decode message header a2[0]: test (v3 & 0xE0000000) == 0x80000000; when false the switch is skipped and control falls to the tail (LABEL_160). [source:raw]
+    // CALCULATION: Dispatch on (v3 >> 18) & 0x3F via the jump tables jpt_45D8D8 and jpt_45DEEF. [global:0x0045E4F0, global:0x0045E554, source:raw]
+    // RETURN: Cases 0 and 1 return v81 unchanged (v81 initialized to 1 before the dispatch). [source:raw]
+    // GUARD: Case 2: guard on *(this+0x3FC4) != 3; when true the session-start path is skipped and v81 is returned. [field:this:0x00003FC4, guard:1, source:raw]
+    // ASSIGNMENT: Case 2: qmemcpy session data from a2+2 into this+16344 (0x1A2 bytes), then set this+0x10 = 1069547520 (1.0f) and this[0x14] = 1. [field:this:0x00000010, field:this:0x00000014, source:raw]
+    // CALL: Case 2: ConditionalRenderStateUpdate(this) using the postProcessInput pointer stored at this+0x0. [callee:0x00460710, field:this:0x00000000, source:raw]
+    // CALL: Case 2: BinarySearchInStringTable(byte_5EC4C0, aNextSession, byte_5EC4CC); on hit, copy the aNextSession string into byte_5EC4CC. [callee:0x00423A00, global:0x005EC4C0, global:0x005C5DAC, global:0x005EC4CC, source:raw]
+    // CALL: Case 2: SessionTypeGuard(&unk_7CE24D, v9, byte_5EC4CC); on true Sleep(0x3E8) via the Sleep import, otherwise TextLineWrappingAndRendering(&dword_7CD204, byte_5EC4CC, 3, 16909060). [callee:0x004A0E70, global:0x007CE24D, global:0x005EC4CC, global:0x0059E0DC, callee:0x0045BD10, global:0x007CD204, source:raw]
+    // ASSIGNMENT: Case 2: write *(this+0x380) = 1084227584 (5.0f) and return 1. [field:this:0x00000380, source:raw]
+    // CALL: Case 3: ProgressBarEventEncode(a2, 4, 4, 420, 255, v76, 1) with the progress time fed from dbl_8AFEA0. [callee:0x004B33B0, global:0x008AFEA0, source:raw]
+    // GUARD: Case 3: ArrayScanForMatch(this, v13); on match set a2[2] = -1 and memset32(a2+3, -1082130432, 0x68); otherwise rebuild the grid message. [callee:0x0045E5F0, source:raw]
+    // CALL: Case 3 (no match): ArraySearchFor1Sentinel(this) to obtain v14, then ShortComputation_e5d0(this, v14, v13) to encode the grid. [callee:0x0045E5B0, callee:0x0045E5D0, source:raw]
+    // LOOP: Case 3: loop i over dword_5C329C vehicles reading dword_7C54F0[i]; when the slot is non-null write a2[*(slot+18580)+3] = *(slot+16540). [global:0x005C329C, global:0x007C54F0, source:raw]
+    // CALL: Case 3: TextureCreationWrapper(*(void**)this, a2, 2, v13, -1) is invoked twice around the grid fill. [callee:0x00462250, field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Case 3: copy this[112468] and this[112469] (0x1B754/0x1B755) into a2 bytes 8 and 9, set byte_8AFF00 = 1, and return 1. [field:this:0x0001B754, field:this:0x0001B755, global:0x008AFF00, source:raw]
+    // CALL: Case 4: when dword_7C569C != 5, StringSplitLoop(dword_8AD25C, 1, aDDevF119992002_1, 2461); if that returns true, DebugLogWrite(dword_8AD25C, aReceivedServer). [callee:0x004D7A50, callee:0x004D7AA0, global:0x008AD25C, global:0x005C5CE4, global:0x005C5D78, global:0x007C569C, source:raw]
+    // LOOP: Case 4: copy floats from a2+3 into the vehicle array: iterate from flt_5F0774 by stride 4656 until the running pointer reaches flt_7C9574. [global:0x005F0774, global:0x007C9574, source:raw]
+    // CALL: Case 4: NetComm_SetSelfAsReady(this, a2[2]) and return 1. [callee:0x00460520, source:raw]
+    // GUARD: Case 5: when this[0x20] is zero, set this+0x1C = 1089470464 (7.5f) and this[0x20] = 1. [field:this:0x00000020, field:this:0x0000001C, source:raw]
+    // CALL: Case 5: BinarySearchInStringTable(byte_5EC4C0, aNextTrack, byte_5EC4CC) with copy loop; then SessionTypeGuard(&unk_7CE24D, v19, byte_5EC4CC) driving Sleep(0x3E8) or TextLineWrappingAndRendering(&dword_7CD204, byte_5EC4CC, 3, 16909060). [callee:0x00423A00, global:0x005EC4C0, global:0x005C5D6C, global:0x005EC4CC, callee:0x004A0E70, global:0x007CE24D, global:0x0059E0DC, callee:0x0045BD10, global:0x007CD204, source:raw]
+    // CALCULATION: Case 6: v6 = (v3 >> 8) & 0x3FF; guard !v6 returns v81; otherwise null-terminate a2 byte (v6 + 8). [source:raw]
+    // CALL: Case 6: ThunkToFUN00461480(v86) then DriverDataCopyByID(*(int**)this, (unsigned __int8)*a2, v86, &v82) using the postProcessInput pointer. [callee:0x00461470, callee:0x00462460, field:this:0x00000000, source:raw]
+    // GUARD: Case 6: when *(this+0x3FC4) != 1, build the boot text via StringCopyWithFormatQuery(v87, a2+8, v88, 256) and, when byte_7CE254 is clear and byte_7D1044 set, TextLineWrappingAndRendering(&dword_7CD204, v88, 3, 16909060). [field:this:0x00003FC4, guard:2, callee:0x0045BC50, global:0x007CE254, global:0x007D1044, callee:0x0045BD10, global:0x007CD204, source:raw]
+    // CALL: Case 6: allocate an 8-byte node (OperatorNewNhMallocWrapper(8)), copy the text with StringCopyWithBufferRealloc, append it to the linked list at this+0x1B770 with DoublyLinkedListAppend, then LinkedListPurgeByThreshold(this) using the list node/next-pointer fields. [callee:0x00587C03, callee:0x00566650, callee:0x00434030, field:this:0x0001B770, field:*(this+0x1B774):0x00000004, callee:0x0045EBD0, source:raw]
+    // ASSIGNMENT: Case 6: set v81 = 0 and v5 = 1, call EmptyStub_0170(), then fall through to the tail (LABEL_161). [callee:0x004B0170, source:raw]
+    // GUARD: Case 0x20: read *(this+0x3FC4); when it is 2 or 1 the boot-notification path is skipped and v81 is returned. [field:this:0x00003FC4, source:raw]
+    // CALL: Case 0x20 (booted, Self==v23): SingleFunctionDispatch(*(void**)this) must equal a2[2]; then BinarySearchInStringTable(byte_5EC4C0, aYouHaveBeenBoo, byte_5EC4CC) with copy, allocate node, StringCopyWithBufferRealloc, DoublyLinkedListAppend at this+0x1B770, TextLineWrappingAndRendering(&dword_7CD204, byte_5EC4CC, 3, 16909060), DualVirtualDispatchWrapper(*(this+0x3FB8)), and SessionTypeGuard(&unk_7CE24D, v28, byte_5EC4CC) driving Sleep(0x3E8). [callee:0x00462300, field:this:0x00000000, callee:0x00423A00, global:0x005EC4C0, global:0x005C5D54, global:0x005EC4CC, callee:0x00587C03, callee:0x00566650, callee:0x00434030, field:this:0x0001B770, callee:0x0045BD10, global:0x007CD204, callee:0x0057A660, field:this:0x00003FB8, callee:0x004A0E70, global:0x007CE24D, global:0x0059E0DC, source:raw]
+    // CALL: Case 0x20 (not booted): NodeIDToPlayerNameLookup(this, v23); bail when the name is empty; then BinarySearchInStringTable(byte_5EC4C0, aWasRemovedFrom, byte_5EC4CC) with copy, StringFormatWithBufferOverflowCheck(v84, "%s %s", v29, byte_5EC4CC), and TextLineWrappingAndRendering(&dword_7CD204, v84, 3, 16909060). [callee:0x0045EB50, callee:0x00423A00, global:0x005EC4C0, global:0x005C5D38, global:0x005EC4CC, callee:0x0058815F, callee:0x0045BD10, global:0x007CD204, source:raw]
+    // ASSIGNMENT: Case 0x23: store a2 bytes 8 and 9 into this[112488] and this[112489] (0x1B768/0x1B769), then ParticleSoundEffectSpawner(this). [field:this:0x0001B768, field:this:0x0001B769, callee:0x004607A0, source:raw]
+    // CALCULATION: Case 0x24: index the vehicle array at unk_5EC6D8 by v32 = 18624 * *a2, resolve a path string via ConditionalDispatch_40b0(v35+18196), falling back to byte_5EA438 when absent, and scan backwards to the last backslash. [global:0x005EC6D8, callee:0x004C40B0, global:0x005EA438, source:raw]
+    // CALL: Case 0x24: TerrainIniParser(this, a2, v33); a true result returns v81 early. [callee:0x00460A10, source:raw]
+    // LOOP: Case 0x24: for j in 0..4 build terrain path strings driven by flags this[112490..112494] (0x1B76A..0x1B76E), copying byte_5C5D2C, aTerrainIni, paths from dword_7CE5D0, dword_7D0434 and dword_5EC3D8 (with byte_5EA438 fallbacks), appending the suffix dword_5C5D24/byte_5C5D28, using StringFormatProcessingWithNullTerm(v84, 80, "%s%s", v54, v53) and sub_587DD0 for path copies. [field:this:0x0001B76A, field:this:0x0001B76B, field:this:0x0001B76C, field:this:0x0001B76D, field:this:0x0001B76E, global:0x005C5D2C, global:0x005C5B88, global:0x007CE5D0, global:0x007D0434, global:0x005EC3D8, global:0x005EA438, global:0x005C5D24, global:0x005C5D28, callee:0x0058969D, callee:0x00587DD0, source:raw]
+    // CALL: Case 0x24 (terrain mismatch): NodeIDToPlayerNameLookup(this, a2[107]); BinarySearchInStringTable(byte_5EC4C0, aMismatch, byte_5EC4CC) with copy; StringFormatWithBufferOverflowCheck(v86, "%s \"%s\" %s", v55, v84, byte_5EC4CC); allocate string and 12-byte node, insert into the linked list at this+0x1B770/0x1B774/0x1B778/0x1B77C; TextLineWrappingAndRendering(&dword_7CD204, v86, 3, 16909060); ProgressBarEventEncode(v88, 4, 6, v62, 0, v78, 1) timestamped with dbl_8AFEA0; sub_587DD0(&v88[8], v86, v62); TextureCreationWrapper(dword_7CD25C, v88, 0, -1, -1). [callee:0x0045EB50, callee:0x00423A00, global:0x005EC4C0, global:0x005C5D18, global:0x005EC4CC, callee:0x0058815F, callee:0x00587C03, callee:0x00566650, field:this:0x0001B770, field:this:0x0001B774, field:this:0x0001B778, field:this:0x0001B77C, callee:0x0045BD10, global:0x007CD204, callee:0x004B33B0, global:0x008AFEA0, callee:0x00587DD0, callee:0x00462250, global:0x007CD25C, source:raw]
+    // GUARD: Case 0x27: when byte_7D10D4 is clear, skip the queue drain and jump to LABEL_133. [global:0x007D10D4, source:raw]
+    // LOOP: Case 0x27: drain the message queue at this+0x3FC8/0x3FCC/0x3FD0/0x3FD4 (including the linked-list head/tail fields at *(this+0x3FC8), *(this+0x3FCC), *(this+0x3FD0)); for each entry test with sub_588410(v64, a2+8) and on failure emit ProgressBarEventEncode(v88, 4, 41, 0, 255, v80, 1) timestamped with dbl_8AFEA0. [field:this:0x00003FC8, field:this:0x00003FCC, field:this:0x00003FD0, field:this:0x00003FD4, field:*(this+0x3FC8):0x00000000, field:*(this+0x3FCC):0x00000004, field:*(this+0x3FD0):0x00000000, field:*(this+0x3FD0):0x00000004, callee:0x00588410, callee:0x004B33B0, global:0x008AFEA0, source:raw]
+    // CALL: Case 0x27 LABEL_133: allocate a 128-byte buffer (OperatorNewNhMallocWrapper(128)), copy the payload with sub_587DD0(v67, a2+8, 0x7F) and null-terminate; allocate a 12-byte node, link it into the queue at this+0x3FC8/0x3FCC/0x3FD0/0x3FD4; emit ProgressBarEventEncode(v88, 4, 40, 0, 255, v79, 1) timestamped with dbl_8AFEA0; TextureCreationWrapper(*(void**)this, v88, 2, a2[107], -1). [callee:0x00587C03, callee:0x00587DD0, field:this:0x00003FC8, field:this:0x00003FCC, field:this:0x00003FD0, field:this:0x00003FD4, callee:0x004B33B0, global:0x008AFEA0, callee:0x00462250, field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Cases 0x28 and 0x29: write *(this+0x378) = 2 (case 0x28) or 3 (case 0x29) and return 1. [field:this:0x00000378, source:raw]
+    // GUARD: Case 0x2A: when *(this+0x3E14) <= 0 the per-player terrain loop is skipped and v81 is returned. [field:this:0x00003E14, guard:0, source:raw]
+    // LOOP: Case 0x2A: iterate player entries at this+0x410 with 140-byte stride up to count *(this+0x3E14); per entry FlagBitTest(entry-124, 1) and TerrainSurfaceRoughnessHeightSampling(this+107456, *entry, &v82, 1); when the height delta exceeds *(this+0x380) (or is negative) bump this[0x14]=1, this+0x10=1065353216 (1.0f) and *(this+0x390 float) by 0.025, otherwise decay it by 0.05 (clamped 0.0005..0.01, floor 1008981770 i.e. 0.01f). [field:this:0x00000410, field:this:0x00003E14, callee:0x00461530, callee:0x0045CA20, field:this:0x00000014, field:this:0x00000010, field:this:0x00000390, field:this:0x00000380, source:raw]
+    // GUARD: Tail (LABEL_160/161): when this[0x20] is clear, set v5 if (*v2 & 0x8000000); if ((v2 byte 3 & 7) == dword_7C56A4 || v5): v75 = dword_83EE54; if dword_7D2E50 < 1023 then ++dword_7D2E50 and dword_83EE54 += 432; then ArithmeticComparison_3a90(v75, v2) and return 1. [field:this:0x00000020, global:0x007C56A4, global:0x0083EE54, global:0x007D2E50, callee:0x004B3A90, source:raw]
+    // RETURN: Return v81 (0 when the header check failed, otherwise 1 or the per-case result). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char NetCommSessionMessageDispatcher(char* this, unsigned int* msg) {
+    //     unsigned int type = *msg; char handled = 1; bool flag = false;
+    //     if ((type & 0xE0000000) == 0x80000000) {
+    //       switch ((type >> 18) & 0x3F) {
+    //         case 0: case 1: return handled;
+    //         case 2:  // session start
+    //         case 3:  // grid broadcast
+    //         case 4:  // server data into vehicle slots
+    //         case 5:  // next track
+    //         case 6: case 0x20:  // boot / boot notification
+    //         case 0x23: // color/effect trigger
+    //         case 0x24: // terrain validation + mismatch reporting
+    //         case 0x27: // terrain queue drain/refill
+    //         case 0x28: case 0x29: // session state code write
+    //         case 0x2A: // per-player terrain height check
+    //         default: return handled = 0;
+    //       }
+    //     }
+    //     handled = 0;
+    //     if (!this[0x20] && (((msg byte3) & 7) == dword_7C56A4 || flag)) {
+    //       // stage raw message into dword_83EE54 buffer (ArithmeticComparison_3a90)
+    //     }
+    //     return handled;
+    //   }
+    // UNRESOLVED: Exact wire-protocol layout: header bits 0xE0000000, (v3 >> 18) & 0x3F, (v3 >> 8) & 0x3FF and (byte3 & 7) are raw decode masks, meaning per-case semantics inferred only.
+    // UNRESOLVED: String globals aSS (0x005BE860), aSSS_2 (0x005C5D0C), aSS_2 (0x005C5D30), byte_45E528 and unk_8AC388 are flagged by the IDB but do not appear in the decompiled body; likely jump-table-adjacent or pointer-pool data.
+    // UNRESOLVED: Float globals flt_59E440, flt_59E444, flt_59E448, flt_59E87C, flt_59F094, flt_59F0AC, flt_59F0B0, flt_59F0B8, flt_59F108 are read but not visible as named references in the decompiled body.
+    // UNRESOLVED: Contents and capacities of the local text buffers (v84[79], v86[4], v87[136], v88[253]) and the exact meaning of 0x1B754/0x1B755, 0x1B768/0x1B769 and 0x1B76A..0x1B76E per-case flags are not established.
+    // UNRESOLVED: qmemcpy target this+16344 and the stride-4656 vehicle-slot write target layout are not named in the fact tables.
+}

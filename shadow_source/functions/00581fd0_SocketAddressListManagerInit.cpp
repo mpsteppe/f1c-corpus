@@ -1,0 +1,52 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00581FD0
+// Canonical corpus name: sub_581FD0
+// Owner: SocketAddressListManager [DERIVED]
+// Raw source: functions/sub_581FD0_00581fd0.c
+
+void SocketAddressListManager::SocketAddressListManagerInit()
+{
+    // Constructor for a dual linked-list manager object that owns socket-address storage and a mutex. Zero-initializes the eight list-manager dwords (this+0x0..0x1C), allocates a 4-byte node and an 8316-byte block, initializes two 4156-byte SocketAddress slots inside the block via NTimeCallbackLoopWithSEH_a6eb with the SocketAddressInit callback and EmptyStub_aa60, stores the block base into the node, appends the node through LinkedListNodeAppend_6000, pre-allocates two empty list nodes via LinkedListNodeAllocPrepend across the slots, sets this+0x20/0x24/0x28 to 0/-1/0, creates an unnamed mutex with CreateMutexA into this+0x20, and sets the byte flag at this+0x28 to 1 only when the mutex handle is non-zero.
+    // ASSIGNMENT: Zero-initialize the eight list-manager dwords this+0x0 through this+0x1C (both list heads/tails/cursors/counts). [field:this:0x00000000, field:this:0x00000004, field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, field:this:0x00000018, field:this:0x0000001C, source:raw]
+    // CALL: OperatorNewNhMallocWrapper(4) allocates the 4-byte node object into v2. [callee:0x00587C03, source:raw]
+    // CALL: SEH-guarded allocation: OperatorNewNhMallocWrapper(8316) allocates the 8316-byte SocketAddress block into v3; the exception landing pad SEH_581FD0 covers this allocation region. [callee:0x00587C03, global:0x0059CC29, source:raw]
+    // ASSIGNMENT: Set the block header *v3 = 2 and compute v9 = v3+1, the start of the two SocketAddress slots. [source:raw]
+    // CALL: NTimeCallbackLoopWithSEH_a6eb(v3+1, 4156, 2, SocketAddressInit, EmptyStub_aa60) initializes two SocketAddress elements of 4156 bytes each inside the block, using SocketAddressInit as the per-element callback and EmptyStub_aa60 as the empty-stub callback. [callee:0x0058A6EB, global:0x00582110, global:0x0047AA60, source:raw]
+    // ASSIGNMENT: Store the SocketAddress block base into the node: *v2 = v9. [source:raw]
+    // CALL: LinkedListNodeAppend_6000(v10, 1) appends the node to the first linked list. [callee:0x00586000, source:raw]
+    // LOOP: Pre-allocation loop: for i stepping 4156 from 0 while i < 8312, LinkedListNodeAllocPrepend(i + *v10, 0) pre-allocates two empty list nodes across the two SocketAddress slots. [callee:0x00583210, source:raw]
+    // ASSIGNMENT: Initialize the mutex/state fields: this+0x20 = 0, this+0x24 = -1, byte this+0x28 = 0. [field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, source:raw]
+    // CALL: CreateMutexA(&MutexAttributes, 0, 0) creates an unnamed mutex (default SECURITY_ATTRIBUTES, inherit handle) and its handle is stored to this+0x20. [global:0x0059E1AC, field:this:0x00000020, source:raw]
+    // GUARD: Only when the CreateMutexA result is non-zero is the byte flag at this+0x28 set to 1, marking the mutex as valid. [field:this:0x00000028, source:raw]
+    // RETURN: Return this: the constructor returns the fully initialized object. [function:0x00581FD0, source:raw]
+    // CALL: Constructed from sub_57BA10 (the single static caller of this constructor). [caller:0x0057BA10]
+
+    // Conservative worker pseudocode:
+    //   void* SocketAddressListManagerInit(void* this) {
+    //     for (int i = 0; i < 8; i++) this[i] = 0;
+    //     v2 = OperatorNewNhMallocWrapper(4);
+    //     if (v2) {
+    //       v3 = OperatorNewNhMallocWrapper(8316);
+    //       if (v3) {
+    //         *v3 = 2;
+    //         NTimeCallbackLoopWithSEH_a6eb(v3 + 1, 4156, 2, SocketAddressInit, EmptyStub_aa60);
+    //         *v2 = v3 + 1;
+    //         LinkedListNodeAppend_6000(v2, 1);
+    //         for (int i = 0; i < 8312; i += 4156)
+    //           LinkedListNodeAllocPrepend(i + *v2, 0);
+    //       }
+    //     }
+    //     this[8] = 0;
+    //     ((byte*)this)[0x28] = 0;
+    //     this[9] = -1;
+    //     HANDLE m = CreateMutexA(&sa, 0, 0);
+    //     this[8] = m;
+    //     if (m)
+    //       ((byte*)this)[0x28] = 1;
+    //     return this;
+    //   }
+    // UNRESOLVED: Write-access globals byte_FF00000000005450/51/52 are listed in the packet but absent from the raw decompiled text; they are likely compiler-emitted SEH/stack bookkeeping bytes whose exact purpose is unknown.
+    // UNRESOLVED: NTimeCallbackLoopWithSEH_a6eb semantics (a callback-driven initialization loop) are inferred from its argument pattern and the existing analysis, not directly proven by the raw decompilation.
+    // UNRESOLVED: The split of this+0x0..0x1C into two distinct linked lists (list1/list2) and the exact role of this+0x24 (-1 state identifier) are DERIVED from the existing analysis text.
+    // UNRESOLVED: Field init_literal 0x24 is recorded as 0xFFFFFFFF (-1) in the packet; the assignment this[9] = -1 in the raw source confirms the value.
+}

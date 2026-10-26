@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00431DB0
+// Canonical corpus name: DirectoryFileEnumerator
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/DirectoryFileEnumerator_00431db0.c
+
+void UnknownObject::EnumerateDirectory()
+{
+    // Directory file enumerator. Builds a search path by copying either the caller-supplied path (a2) or the stored base-dir/path strings from this+0x0 and this+0x8 (both falling back to the empty string byte_5EA438), normalizes the trailing separator, and appends the pattern string. Clears the two stored linked lists (this+0x20 file/dir entry list and this+0x30 second list), then calls FindFirstFileA/FindNextFileA. Directory entries (FILE_ATTRIBUTE_DIRECTORY) are wrapped and appended to the this+0x20 list, skipping '.' (word_5BEB48) and '..'; regular files are appended via DoublyLinkedListAppend into the other list. Both lists are merge-sorted (LinkedListMergeSort_4290 on this+0x20, LinkedListMergeSort on the second), the enumeration counter this+0x1C is incremented, and the temporary path buffer is freed. Returns 1 on success or 0 when FindFirstFileA fails.
+    // CALCULATION: Allocate a 128-byte path buffer via OperatorNewNhMallocWrapper(128), store it in lpFileName[0], zero its first byte, record capacity 128 in lpFileName[1]. [callee:0x00587C03, source:raw]
+    // GUARD: If a2 is non-null, StringCopyWithBufferRealloc(a2) copies the caller path; otherwise read the base dir from this+0x0 (fallback byte_5EA438) and the search pattern/extension from this+0x8 (fallback byte_5EA438), copying both via StringCopyWithBufferRealloc and sub_5665B0. [callee:0x00566650, callee:0x005665B0, field:this:0x00000000, field:this:0x00000008, global:0x005EA438, source:raw]
+    // CALCULATION: v6 = strlen(path) + 1; if length > 1 and the last character (read via NullSafePointerDereference) != 92 (backslash), append the separator string word_5C2AAC via sub_5665B0; then append the pattern string dword_5C2AB8. [callee:0x00415C30, callee:0x005665B0, global:0x005C2AAC, global:0x005C2AB8, source:raw]
+    // LOOP: Free existing this+0x20 list nodes: walk via node linkage (next field), calling DoublePointerFree and FreeWrapper_7bcf per node. [callee:0x00434420, callee:0x00587BCF, field:this:0x00000020, field:*(this+0x20):0x00000008, source:raw]
+    // ASSIGNMENT: Reset the this+0x20 list header to empty: this+0x20 (head), +0x24 (tail), +0x28 (dup), +0x2C (count) = 0. [field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, field:this:0x0000002C, source:raw]
+    // LOOP: Free existing this+0x30 list nodes: walk via node linkage, calling DoublePointerFree and FreeWrapper_7bcf per node. [callee:0x00434420, callee:0x00587BCF, field:this:0x00000030, field:*(this+0x30):0x00000008, source:raw]
+    // ASSIGNMENT: Reset the this+0x30 list header to empty: this+0x30, +0x34, +0x38, +0x3C = 0. [field:this:0x00000030, field:this:0x00000034, field:this:0x00000038, field:this:0x0000003C, source:raw]
+    // CALL: hFindFile = FindFirstFileA(path, &FindFileData); if hFindFile == (HANDLE)-1 (INVALID_HANDLE_VALUE), set success flag v25 = 0. [global:0x0059E0E0, source:raw]
+    // LOOP: While FindNextFileA(hFindFile, &FindFileData): for directory entries (dwFileAttributes & 0x10), skip '.' (word_5BEB48) and '..' via strcmp, otherwise prepare the name buffer via sub_568910(256), allocate an 8-byte node, copy the name, wrap it via ShortComputation_ac20(node, 1) and append to the this+0x20 list (head/tail/dup/count). For regular files, prepare the buffer, allocate an 8-byte node {name, -1}, and DoublyLinkedListAppend(node, 1) into the second list. [callee:0x00568910, callee:0x00587C03, callee:0x004BAC20, callee:0x00434030, global:0x005BEB48, global:0x0059E0E4, field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, field:this:0x0000002C, source:raw]
+    // CALL: FindClose(hFindFile): close the enumeration handle. [global:0x0059E0E8, source:raw]
+    // CALL: v16 = LinkedListMergeSort_4290(head of this+0x20); write back sorted head into this+0x20, tail into this+0x24 and duplicate head into this+0x28. [callee:0x00434290, field:this:0x00000020, field:this:0x00000024, field:this:0x00000028, source:raw]
+    // CALL: LinkedListMergeSort(1): sort the second list (this+0x30), receiver passed via the implicit this context. [callee:0x00434090, field:this:0x00000030, source:raw]
+    // ASSIGNMENT: ++v13[7]: increment the enumeration counter at this+0x1C. [field:this:0x0000001C, source:raw]
+    // GUARD: If the temporary path buffer lpFileName[0] is non-null, FreeWrapper_7bcf(lpFileName[0]). [callee:0x00587BCF, source:raw]
+    // RETURN: Return the success flag v25 (1, or 0 when FindFirstFileA failed). [function:0x00431DB0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   lpFileName = malloc(128); *lpFileName = 0;
+    //   if (a2) StringCopyWithBufferRealloc(a2);
+    //   else { StringCopyWithBufferRealloc(this->baseDir ? this->baseDir : byte_5EA438);
+    //          sub_5665B0(this->pattern ? this->pattern : byte_5EA438); }
+    //   if (strlen(path) > 1 && path[len-2] != '\\') sub_5665B0(word_5C2AAC);
+    //   sub_5665B0(dword_5C2AB8);
+    //   freeList(this->fileList); freeList(this->dirList);
+    //   hFind = FindFirstFileA(path, &FindFileData);
+    //   if (hFind == INVALID_HANDLE_VALUE) return 0;
+    //   do {
+    //       if (FindFileData.dwFileAttributes & 0x10) {
+    //           if (strcmp(cFileName, word_5BEB48) && strcmp(cFileName, "..")) appendDirEntry(cFileName);
+    //       } else {
+    //           DoublyLinkedListAppend(makeFileNode(cFileName), 1);
+    //       }
+    //   } while (FindNextFileA(hFind, &FindFileData));
+    //   FindClose(hFind);
+    //   LinkedListMergeSort_4290(this->fileList);
+    //   LinkedListMergeSort(1);
+    //   ++this->enumCount;
+    //   FreeWrapper_7bcf(lpFileName);
+    //   return 1;
+    // UNRESOLVED: Raw source appends directory entries (FILE_ATTRIBUTE_DIRECTORY) to the this+0x20 list, whereas the packet's existing-analysis prose labels this+0x20 the 'file list'; the two disagree. DoublyLinkedListAppend's target list (this+0x30) is not visible in this packet.
+    // UNRESOLVED: The node +8 linkage field role (list flag/prev pointer) is only observable through merge/append helpers, not directly in this function's source text.
+    // UNRESOLVED: Globals asc_5C2AB4, byte_FF00000000005396 and byte_FF0000000000539E are flagged as read by the extractor but do not appear in the decompiled source text; the FF-prefixed addresses look like sign-extension artifacts of 32-bit constants.
+    // UNRESOLVED: The three callers (SettingsSetupFileRead, Wrapper, PathNormalizerFileEnumeration) confirm an enumeration utility role but no owning class is identified.
+}

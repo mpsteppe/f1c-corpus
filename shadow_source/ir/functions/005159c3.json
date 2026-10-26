@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "address": "0x005159C3",
+  "proposed_name": "CheckCPUIDAndMMXSupport",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x005159C3"]
+  },
+  "summary": "Detects CPUID support by toggling the EFLAGS ID bit (0x200000) and reading EFLAGS back. If the write sticks (v0 != v1), CPUID is supported: runs CPUID with EAX=1 and returns bit 23 of EDX (mask 0x800000), the MMX feature flag. Otherwise returns the XOR of the two EFLAGS snapshots (0 when unchanged).",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Read current EFLAGS into v0 via __readeflags().",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Write EFLAGS with the ID bit toggled: __writeeflags(v0 ^ 0x200000).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read EFLAGS again into v1 and compute v2 = v0 ^ v1.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v0 != v1 the ID bit is writable, so CPUID is supported; otherwise return v2 (0).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Set EAX = 1 and execute the CPUID instruction.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return (EDX & 0x800000) >> 23: bit 23 of CPUID.1:EDX, the MMX feature flag.",
+      "evidence_refs": ["global:0x00800000", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v2 (= 0) when the EFLAGS ID bit is not writable.",
+      "evidence_refs": ["caller:0x0050F632", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "unsigned int CheckCPUIDAndMMXSupport() {",
+    "  unsigned int v0 = __readeflags();",
+    "  __writeeflags(v0 ^ 0x200000);",
+    "  unsigned int v1 = __readeflags();",
+    "  unsigned int v2 = v0 ^ v1;",
+    "  if (v0 != v1) {",
+    "    _EAX = 1;",
+    "    __asm { cpuid }",
+    "    return ((unsigned int)&unk_800000 & _EDX) >> 23;",
+    "  }",
+    "  return v2;",
+    "}"
+  ],
+  "unresolved": [
+    "The literal 0x800000 is rendered by the decompiler as the address unk_800000 (0x00800000); semantically it is a bitmask on EDX bit 23 (MMX), not a real memory dereference.",
+    "The MMX labeling of bit 23 is standard CPUID interpretation and DERIVED, not confirmed by the packet alone.",
+    "The owner and the CPU feature consumer at caller sub_50F632 are unknown."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

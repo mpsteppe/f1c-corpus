@@ -1,0 +1,21 @@
+// f1c  0x004a0ba0  size=191
+int __thiscall sub_4A0BA0(void *this, int *a2)
+{
+  char *v3; // eax
+
+  sub_419C50(a2);
+  if ( !a2[3250] && !dword_7CE814 )
+  {
+    sub_40CDE0(&dword_5EA510, 5, 1);
+    sub_4EF5A0(1, 0);
+    if ( a2[4120] != 1 )
+    {
+      v3 = (char *)&unk_5EC6D8 + 18624 * sub_4D1B50(0);
+      if ( *((_DWORD *)v3 + 4121) == 1 && *((float *)v3 + 4142) + flt_8ACF90 - dbl_8AFEA0 > 60.0 && dword_8AD298 != 19 )
+        sub_4A0C60(this);
+    }
+  }
+  if ( a2[4120] == 1 )
+    sub_4D8760(19, 0);
+  return 0;
+}

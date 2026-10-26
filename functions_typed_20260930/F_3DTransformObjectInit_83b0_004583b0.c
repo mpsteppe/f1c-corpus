@@ -1,0 +1,49 @@
+int __thiscall sub_4583B0(int this)
+{
+  F_3DTransformObjectInit((_DWORD *)this);
+  StructFieldZeroInit((_DWORD *)(this + 176));
+  *(_DWORD *)this = &off_59F00C;
+  StringCopyWithBufferRealloc(byte_5EA438);
+  *(_DWORD *)(this + 12) = 0;
+  *(_DWORD *)(this + 16) = 0;
+  *(_DWORD *)(this + 20) = 0;
+  *(_DWORD *)(this + 24) = 0;
+  *(_DWORD *)(this + 28) = 0;
+  *(_DWORD *)(this + 32) = 0;
+  *(_DWORD *)(this + 36) = 0;
+  *(_DWORD *)(this + 40) = 0;
+  *(_DWORD *)(this + 44) = 0;
+  *(_DWORD *)(this + 56) = 1114636288;
+  *(_DWORD *)(this + 48) = 1114636288;
+  *(_DWORD *)(this + 60) = 1110704128;
+  *(_DWORD *)(this + 52) = 1110704128;
+  *(_DWORD *)(this + 92) = 0;
+  *(_DWORD *)(this + 108) = 0;
+  *(_DWORD *)(this + 104) = 0;
+  *(_DWORD *)(this + 100) = 0;
+  *(_DWORD *)(this + 120) = 0;
+  *(_DWORD *)(this + 116) = 0;
+  *(_BYTE *)(this + 96) = 0;
+  *(_DWORD *)(this + 68) = 1140457472;
+  *(_DWORD *)(this + 72) = 1065353216;
+  *(_DWORD *)(this + 80) = 1065353216;
+  *(_DWORD *)(this + 76) = 1065353216;
+  *(_DWORD *)(this + 64) = 1056964608;
+  *(_DWORD *)(this + 88) = 1056964608;
+  *(_DWORD *)(this + 84) = 1056964608;
+  *(_DWORD *)(this + 124) = 0;
+  *(_DWORD *)(this + 128) = 0;
+  *(_DWORD *)(this + 132) = 0;
+  *(_DWORD *)(this + 136) = 1103626240;
+  *(_DWORD *)(this + 144) = 0;
+  *(_DWORD *)(this + 148) = 0;
+  *(_DWORD *)(this + 152) = 0;
+  *(_BYTE *)(this + 156) = 0;
+  *(_BYTE *)(this + 160) = 0;
+  *(_DWORD *)(this + 164) = 0;
+  *(_DWORD *)(this + 168) = 0;
+  *(_DWORD *)(this + 172) = 1065353216;
+  *(_DWORD *)(this + 112) = 2;
+  return this;
+}
+

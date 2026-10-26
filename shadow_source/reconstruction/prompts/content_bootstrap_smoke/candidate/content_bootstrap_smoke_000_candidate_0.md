@@ -1,0 +1,7 @@
+# Reconstruction candidate task content_bootstrap_smoke_000_candidate_0
+
+Read and obey `tools\agents\F1C_RECONSTRUCTION_CANDIDATE_WORKER.md` completely.
+
+Packet: `shadow_source\reconstruction\packets\content_bootstrap_smoke\content_bootstrap_smoke_000.json`
+Schema: `shadow_source\reconstruction\schemas\contract.schema.json`
+Write your one JSON result to exactly this path: `shadow_source\reconstruction\candidates\content_bootstrap_smoke\candidate\content_bootstrap_smoke_000_candidate_0.json`

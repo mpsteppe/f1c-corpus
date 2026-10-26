@@ -1,0 +1,62 @@
+## sub_4ECA90_004eca90 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_4ED7B0 (004ed7b0)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(*(*(*(this+0xC)+0x8)+0x4)+0x0) | 0x0 | R | — | [LLM] |
+| *(*(*(this+0xC)+0x18)+0x0) | 0x0 | R | — | [LLM] |
+| *(*(*(this+0xC)+0x18)+0x4) | 0x4 | R | — | [LLM] |
+| *(*(*(this+0xC)+0x8)+0x4) | 0x0 | R | — | [LLM] |
+| *(*(*(this+0xC)+0x8)+0x4) | 0x4 | R | — | [LLM] |
+| *(*(this+0xC)+0x18) | 0x0 | R | — | [LLM] |
+| *(obj+0x0) | 0x0 | R | — | [LLM] |
+| *(this+0xC) | 0x8 | R | — | [LLM] |
+| *(this+0xC) | 0x14 | R | — | [LLM] |
+| *(this+0xC) | 0x18 | R | — | [LLM] |
+| *(this+0xC) | 0x24 | R | — | [LLM] |
+| obj | 0x0 | R | — | [LLM] |
+| this | 0x0 | R | — | [LLM] |
+| this | 0x8 | RW | — | [LLM] |
+| this | 0xC | R | — | [LLM] |
+| this | 0x60 | RW | — | [LLM] |
+| this | 0x6C | R | — | [LLM] |
+| this | 0x74 | R | — | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x8: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x60: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 00629120 | byte_629120 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 0040d5b0 | sub_40D5B0 | [LLM] |
+| 004667a0 | LinkedListDestructorWithData [structural] | [LLM] |
+| 004e9ce0 | sub_4E9CE0 | [LLM] |
+| 004eace0 | sub_4EACE0 | [LLM] |
+| 004eb6c0 | sub_4EB6C0 | [LLM] |
+| 004edad0 | sub_4EDAD0 | [LLM] |
+| 004edbe0 | sub_4EDBE0 | [LLM] |
+| 00578600 | StringCopyWithBufferRealloc [structural] | [LLM] |
+| 005be8ae | sub_5BE8AE | [LLM] |
+| 005bf290 | __strcmpi | [LLM] |
+
+**Guard conditions (deterministic — field vs literal):**
+
+| Base | Offset | Test | Value | Field / meaning |
+|------|--------|------|-------|-----------------|
+| *(this+0xC) | 0x14 | <= | 0 | [LLM] |
+| this | 0x0 | == | 0 | [LLM] |
+
+**Guard interpretation:** [LLM: from the table — what PASSES vs what is BLOCKED]

@@ -1,0 +1,6 @@
+// f1c  0x00421910  size=28
+int __stdcall sub_421910(const char *a1)
+{
+  sub_421890(a1);
+  return sub_566650(a1);
+}

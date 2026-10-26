@@ -1,0 +1,41 @@
+## sub_6A2AAC_006a2aac — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_6AD36C (006ad36c)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| *(*(this+0x100)+0x8) | 0x0 | R | — | [LLM] |
+| *(this+0x100) | 0x0 | R | — | [LLM] |
+| *(this+0x100) | 0x8 | R | — | [LLM] |
+| *(this+0x100) | 0x10 | R | — | [LLM] |
+| this | 0x10 | R | — | [LLM] |
+| this | 0x14 | R | — | [LLM] |
+| this | 0x18 | R | — | [LLM] |
+| this | 0x6E | R | — | [LLM] |
+| this | 0xFC | R | — | [LLM] |
+| this | 0x100 | R | — | [LLM] |
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 006f16a8 | dbl_6F16A8 | R | [LLM] |
+| 006fd194 | aC_8 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 0066238f | sub_66238F | [LLM] |
+| 00680cec | ZeroInit16ElementArray [structural] | [LLM] |
+| 00680d22 | sub_680D22 | [LLM] |
+| 00681186 | sub_681186 | [LLM] |
+| 006811d1 | sub_6811D1 | [LLM] |
+| 00681a51 | sub_681A51 | [LLM] |
+| 00681aaa | sub_681AAA | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

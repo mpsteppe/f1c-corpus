@@ -1,0 +1,79 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005429B0
+// Canonical corpus name: sub_5429B0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_5429B0_005429b0.c
+
+void UnknownObject::TextureCreationWithAudioEmitterBinding()
+{
+    // Creates a texture surface set on `this` from an audio-emitter-backed source, using the SoundManager singleton dword_8B78A0. Guards on (a6 & 0xF): with no channel bits set the body is skipped and 0 is returned. A primary 60-byte audio-emitter object v8 is allocated (OperatorNewNhMallocWrapper + AudioEmitterCreate) and flag-configured from a6 (0x800, 0x800000). When (a6 & 0x4000) is set, a2 is treated as a bitmap path: it is copied into SrcStr, normalized via sub_589901, a secondary emitter v10 is allocated, the file existence is checked with sub_542EC0, the secondary emitter data is bound into v8, the emitters are registered/connected with sub_53F720 / sub_53FC30, the path is split into basename and extension, and MIP-level filenames are generated with StringFormatWithBufferOverflowCheck using the "%s_MIP%.2d%s" format (aSMip2dS) for each level v18 < this[11]. Finally this[6]/this[7]/this[8] are committed and one DirectX surface per set channel mode (1, 2, 4, 8) is created via DirectXDeviceSurfaceCreationWithFormatCapability. Success returns 0; every allocation, file, registration or surface-creation failure returns -1 after cleanup (sub_542E50 / EmptyStub_7470 / FreeWrapper_7bcf). Called by MemoryAllocation_cb20 (0x0053CB20) and D3DTextureCreation (0x00550080).
+    // GUARD: Top-level gate: when (a6 & 0xF) == 0 the whole body is skipped and the function returns 0; it only proceeds when a6 carries at least one of the low channel bits. [source:raw, function:0x005429B0]
+    // CALL: Allocate the primary 60-byte audio-emitter object: v7 = OperatorNewNhMallocWrapper(60); v8 = AudioEmitterCreate(v7) when v7 is non-null, else v8 = 0. [callee:0x00587C03, callee:0x005426A0]
+    // ASSIGNMENT: Flag-configure the primary emitter dword v8[6]: if (a6 & 0x800) { v8[6] |= 0x800; sub_5435C0(this[13]); } and if (a6 & 0x800000) v8[6] |= 0x800000 (the 0x800000 bit originates from the unk_800000 constant). [callee:0x005435C0, field:this:0x00000034, global:0x00800000]
+    // GUARD: 2D-bitmap path guard: when (a6 & 0x4000) is set, a2 is treated as a texture file path: it is copied into SrcStr and normalized with sub_589901(SrcStr). [callee:0x00589901]
+    // CALL: Allocate the secondary 60-byte emitter v10 (OperatorNewNhMallocWrapper + AudioEmitterCreate), apply the same 0x800 / 0x800000 flag setup (including sub_5435C0(this[13]) for the 0x800 bit) and set v10[6] |= 1. [callee:0x00587C03, callee:0x005426A0, callee:0x005435C0, field:this:0x00000034, global:0x00800000]
+    // GUARD: File-availability check: if sub_542EC0(SrcStr) returns non-zero the secondary emitter is discarded at LABEL_18 (EmptyStub_7470(v10); FreeWrapper_7bcf(v10)) and the function returns -1. [callee:0x00542EC0, callee:0x00557470, callee:0x00587BCF]
+    // ASSIGNMENT: Bind the secondary emitter's data into the primary: v8[6] |= 4; v8[7] = v10[7]; v8[8] = v10[8]; v8[12] = v10[12]; v25 = this[11]; v8[11] = v25. [field:this:0x0000002C]
+    // CALL: Register and connect the emitters with the SoundManager: if sub_53F720(dword_8B78A0, v8, v25) or sub_53FC30(dword_8B78A0, v10, v8, 0) fails, return -1; otherwise release the secondary emitter with sub_542E50(v10). [callee:0x0053F720, callee:0x0053FC30, callee:0x00542E50, global:0x008B78A0]
+    // CALCULATION: Split SrcStr into basename and extension for MIP naming: v12 = strlen(SrcStr) + 1, then scan backwards from the last character (v13 = v26[v12 + 14], v14 = v12 - 2, and later v15 = v26[v14 + 15]) until a '.' (ASCII 46) is found or the scan start is reached; v16 = &SrcStr[v14]; strcpy(v26, v16) saves the extension and *v16 = 0 truncates the basename. The v26[] indexing is a Hex-Rays artifact of the backward scan over SrcStr. [source:raw]
+    // LOOP: MIP-level generation loop: for v18 = 1 while v18 < this[11]: re-apply the 0x800 flag (v10[6] |= 0x800; sub_5435C0(this[13])) and the 0x800000 flag to v10, set v10[6] |= 1, format the MIP filename into v28 with StringFormatWithBufferOverflowCheck(v28, "%s_MIP%.2d%s", SrcStr, v18, v26) using the aSMip2dS format string; if sub_542EC0(v28) reports the file missing, go to LABEL_18 cleanup; if sub_53FC30(dword_8B78A0, v10, v8, v18) fails, return -1; then release the secondary emitter with sub_542E50(v10). [field:this:0x0000002C, callee:0x0058815F, global:0x005DBDB4, callee:0x00542EC0, callee:0x0053FC30, callee:0x00542E50, global:0x00800000, callee:0x005435C0, callee:0x00557470, callee:0x00587BCF]
+    // CALL: End of the 2D path: EmptyStub_7470(v10); FreeWrapper_7bcf(v10); v20 = a3; v19 = a4. The non-2D else branch prepares the same merge differently: v8[7] = a3; v8[8] = a4; v8[6] |= 1; and when (a6 & 0x1000000) == 0 while sub_542EC0(a2) reports the file missing, jump to LABEL_61 cleanup. [callee:0x00557470, callee:0x00587BCF, callee:0x00542EC0]
+    // ASSIGNMENT: Commit texture dimensions and flags onto this: this[7] = v20 ? v20 : v8[7]; this[8] = v19 ? v19 : v8[8]; this[6] = a6. [field:this:0x0000001C, field:this:0x00000020, field:this:0x00000018]
+    // CALL: Final emitter/stream-mode setup: if (a6 & 0x800) sub_5435C0(0); v22 = 8 when v8[12] == 8 (and then this[6] |= 0x800000), else v22 = a5; then if sub_5426E0(this, v22, a6) fails, jump to LABEL_56 cleanup. [callee:0x005435C0, callee:0x005426E0, global:0x00800000, field:this:0x00000018]
+    // CALCULATION: Compute the surface channel mask v24 = v8[6] & 0xF and, when (a6 & 1), create the mono surface: DirectXDeviceSurfaceCreationWithFormatCapability(dword_8B78A0, v8, v24, this, 1, a6 & 0x1000000); failure jumps to LABEL_56 cleanup. [callee:0x0053FD40, global:0x008B78A0]
+    // CALL: Create the remaining channels: for each of the bits 2, 4 and 8 set in this[6], call DirectXDeviceSurfaceCreationWithFormatCapability(dword_8B78A0, v8, v24, this, mode, v23 & 0x1000000); any failure jumps to LABEL_56 / LABEL_61 cleanup. [callee:0x0053FD40, global:0x008B78A0, field:this:0x00000018]
+    // CALL: Primary-emitter cleanup on every exit path: sub_542E50(v8); EmptyStub_7470(v8); FreeWrapper_7bcf(v8); this runs before returning -1 from LABEL_56 / LABEL_61 and before returning 0 on the success path. [callee:0x00542E50, callee:0x00557470, callee:0x00587BCF]
+    // RETURN: Return 0 when every requested channel surface was created; return -1 on any allocation, file-existence, registration or surface-creation failure. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   if ((a6 & 0xF) == 0) return 0;
+    //   v8 = (v7 = OperatorNewNhMallocWrapper(60)) ? AudioEmitterCreate(v7) : 0;
+    //   if (a6 & 0x800) { v8[6] |= 0x800; sub_5435C0(this[13]); }
+    //   if (a6 & 0x800000) v8[6] |= 0x800000;
+    //   if (a6 & 0x4000) {
+    //     strcpy(SrcStr, a2); sub_589901(SrcStr);
+    //     v10 = (v9 = OperatorNewNhMallocWrapper(60)) ? AudioEmitterCreate(v9) : 0;
+    //     if (a6 & 0x800) { v10[6] |= 0x800; sub_5435C0(this[13]); }
+    //     if (a6 & 0x800000) v10[6] |= 0x800000;
+    //     v10[6] |= 1;
+    //     if (sub_542EC0(SrcStr)) { EmptyStub_7470(v10); FreeWrapper_7bcf(v10); return -1; }
+    //     v8[6] |= 4; v8[7] = v10[7]; v8[8] = v10[8]; v8[12] = v10[12];
+    //     v25 = this[11]; v8[11] = v25;
+    //     if (sub_53F720(dword_8B78A0, v8, v25) || sub_53FC30(dword_8B78A0, v10, v8, 0)) return -1;
+    //     sub_542E50(v10);
+    //     // split SrcStr into basename + extension at the last '.'; extension -> v26
+    //     for (v18 = 1; v18 < this[11]; ++v18) {
+    //       if (a6 & 0x800) { v10[6] |= 0x800; sub_5435C0(this[13]); }
+    //       if (a6 & 0x800000) v10[6] |= 0x800000;
+    //       v10[6] |= 1;
+    //       StringFormatWithBufferOverflowCheck(v28, "%s_MIP%.2d%s", SrcStr, v18, v26);
+    //       if (sub_542EC0(v28)) { EmptyStub_7470(v10); FreeWrapper_7bcf(v10); return -1; }
+    //       if (sub_53FC30(dword_8B78A0, v10, v8, v18)) return -1;
+    //       sub_542E50(v10);
+    //     }
+    //     EmptyStub_7470(v10); FreeWrapper_7bcf(v10);
+    //     v20 = a3; v19 = a4;
+    //   } else {
+    //     v20 = a3; v19 = a4;
+    //     v8[7] = a3; v8[8] = a4; v8[6] |= 1;
+    //     if ((a6 & 0x1000000) == 0 && sub_542EC0(a2)) { EmptyStub_7470(v8); FreeWrapper_7bcf(v8); return -1; }
+    //   }
+    //   if (a6 & 0x800) sub_5435C0(0);
+    //   if (v8[12] == 8) { this[6] |= 0x800000; v22 = 8; } else v22 = a5;
+    //   if (sub_5426E0(this, v22, a6)) { sub_542E50(v8); EmptyStub_7470(v8); FreeWrapper_7bcf(v8); return -1; }
+    //   this[7] = v20 ? v20 : v8[7];
+    //   this[8] = v19 ? v19 : v8[8];
+    //   this[6] = a6;
+    //   v24 = v8[6] & 0xF;
+    //   if ((a6 & 1) && DirectXDeviceSurfaceCreationWithFormatCapability(dword_8B78A0, v8, v24, this, 1, a6 & 0x1000000)) { sub_542E50(v8); EmptyStub_7470(v8); FreeWrapper_7bcf(v8); return -1; }
+    //   if ((this[6] & 2) && DirectXDeviceSurfaceCreationWithFormatCapability(dword_8B78A0, v8, v24, this, 2, a6 & 0x1000000)) { sub_542E50(v8); EmptyStub_7470(v8); FreeWrapper_7bcf(v8); return -1; }
+    //   if ((this[6] & 4) && DirectXDeviceSurfaceCreationWithFormatCapability(dword_8B78A0, v8, v24, this, 4, a6 & 0x1000000)) { sub_542E50(v8); EmptyStub_7470(v8); FreeWrapper_7bcf(v8); return -1; }
+    //   if ((this[6] & 8) && DirectXDeviceSurfaceCreationWithFormatCapability(dword_8B78A0, v8, v24, this, 8, a6 & 0x1000000)) { sub_542E50(v8); EmptyStub_7470(v8); FreeWrapper_7bcf(v8); return -1; }
+    //   sub_542E50(v8); EmptyStub_7470(v8); FreeWrapper_7bcf(v8);
+    //   return 0;
+    // UNRESOLVED: The v8/v10 emitter object layout (flag dword at index 6, stream/connect fields at indices 7, 8, 11 and 12) is not a packet field; the per-bit meanings of the a6 flags (0x800, 0x800000, 0x4000, 0x1000000) are inferred from usage rather than evidenced.
+    // UNRESOLVED: The v26[] reads in the extension-split scan (v13 = v26[v12 + 14], v15 = v26[v14 + 15]) are Hex-Rays artifacts of a backward scan over SrcStr for the last '.'; the exact index arithmetic is not grounded in a distinct packet object.
+    // UNRESOLVED: sub_5426E0(this, v22, a6) and the v22 default selection (8 when v8[12] == 8, else a5) are not evidenced beyond this call; sub_5435C0 is invoked both with this[13] and with 0 without a documented reason in this packet.
+    // UNRESOLVED: this[11] is used as the MIP-level count (loop bound and emitter-registration argument) and this[6] stores the a6 flags, but the owning class and these field roles are DERIVED only, not confirmed.
+    // UNRESOLVED: The success/failure convention (0 on success, -1 on every error path) is only observed locally in this packet and is not corroborated by caller context here.
+}

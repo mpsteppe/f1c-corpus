@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "address": "0x004B7C80",
+  "proposed_name": "NetworkBufferRead",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004B7C80"]
+  },
+  "summary": "Walks a linked list of data entries owned by the network buffer object (list head this+0x714, current walk pointer this+0x71C). Each node carries a float key and a payload pointer. Entries whose float key lands in [a4, a5] are selected: the code seeks the resource via sub_566DB0 to the node payload offset, then dispatches the byte delta in 1024-byte chunks through FileWriteWithBackendDispatch followed by ConditionalDispatch_6bd0, accumulating the total bytes dispatched. When the list ends and FileSizeQueryWithFallback(a2) is true, the delta is recomputed from ResourceLookupDispatcher(a2) and dispatched the same way. Returns the total bytes dispatched, or 0 when the list head or its first entry is empty.",
+  "local_names": {
+    "this": "network/replay buffer object carrying the entry list",
+    "a2": "resource handle used by the fallback size query",
+    "a3": "unused-in-logic argument (not referenced by the raw body)",
+    "a4": "lower float bound of the entry key window",
+    "a5": "upper float bound of the entry key window",
+    "v5": "list head pointer loaded from this+0x714",
+    "v7": "current entry data pointer during the walk",
+    "v8": "float key of the current entry, compared against a4/a5",
+    "v10": "selected entry data pointer retained for its payload offset at +4",
+    "v12": "remaining byte delta to dispatch",
+    "v13": "chunk size for one dispatch step (min(1024, remaining))",
+    "v15": "running total of bytes dispatched"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Loads the list head this+0x714 into the current walk pointer this+0x71C and initializes the dispatched-total to 0",
+      "evidence_refs": ["field:this:0x00000714", "field:this:0x0000071C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the list head this+0x714 is null, or the first entry data pointer *(this+0x714)+0x0 is null, returns 0 immediately",
+      "evidence_refs": ["field:this:0x00000714", "field:*(this+0x714):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walks the entry list: reads the float key at the current entry data pointer; if it exceeds a5 the walk stops and returns the accumulated total; advances via the next-node pointer stored at node+4 into this+0x71C; stops when the next pointer is null",
+      "evidence_refs": ["field:this:0x0000071C", "field:*(this+0x714):0x00000000", "field:*(this+0x714):0x00000004", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Selects an entry when its float key is greater than or equal to a4 and below a5; the selected entry is retained in v10",
+      "evidence_refs": ["field:*(this+0x714):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Seeks the resource to the selected entry's payload offset: sub_566DB0(*(v10+4))",
+      "evidence_refs": ["callee:0x00566DB0", "field:*(this+0x714):0x00000004", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Dispatch loop over the byte delta computed from the entry payload offsets: chunks of min(1024, remaining) call FileWriteWithBackendDispatch(v17, v13) then ConditionalDispatch_6bd0(v17, v13); when the conditional dispatch returns exactly v13 the chunk is consumed and the total accumulates",
+      "evidence_refs": ["callee:0x00566C00", "callee:0x00566BD0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Fallback path when the walk ends: if FileSizeQueryWithFallback(a2) is true, the delta is recomputed as ResourceLookupDispatcher(a2) minus the entry payload offset, the resource is seeked again with sub_566DB0, and the same chunked dispatch runs",
+      "evidence_refs": ["callee:0x00566D70", "callee:0x00566E20", "callee:0x00566DB0", "field:*(this+0x714):0x00000004", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the running total of bytes dispatched (v15), or 0 for the early-empty guards",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by sub_4B7DE0",
+      "evidence_refs": ["caller:0x004B7DE0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "head = this+0x714; total = 0;",
+    "this+0x71C = head;",
+    "if (!head) return 0;",
+    "node = *head;",
+    "if (!node) return 0;",
+    "while (1) {",
+    "  key = *(float*)node;",
+    "  if (key > a5) return total;",
+    "  cur = node;",
+    "  if (this+0x71C) this+0x71C = *(this+0x71C + 4);",
+    "  node = this+0x71C ? *this+0x71C : 0;",
+    "  if (key >= a4) break;",
+    "  if (!node) return total;",
+    "}",
+    "sub_566DB0(*(cur + 4));",
+    "if (node) {",
+    "  remain = *(node + 4) - *(cur + 4);",
+    "  while (remain > 0) {",
+    "    chunk = min(1024, remain);",
+    "    FileWriteWithBackendDispatch(buf, chunk);",
+    "    if (ConditionalDispatch_6bd0(buf, chunk) == chunk) { remain -= chunk; total += chunk; }",
+    "  }",
+    "}",
+    "else if (FileSizeQueryWithFallback(a2)) {",
+    "  remain = ResourceLookupDispatcher(a2) - *(cur + 4);",
+    "  sub_566DB0(*(cur + 4));",
+    "  ... same chunked dispatch ...",
+    "}",
+    "return total;"
+  ],
+  "unresolved": [
+    "Field this+0x720 is flagged as a read-only list count by the packet facts but is never referenced in the raw decompiled body",
+    "The node layout is only seen as a float key at +0, a next-node pointer at +4 and a payload offset at +4 of the data pointer; the element type and stride of the linked list are not established",
+    "The link between the float-key range [a4, a5] and the semantics of the dispatched delta (replay time window vs. data offsets) is not determinable from this packet alone"
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000720"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

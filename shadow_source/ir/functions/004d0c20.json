@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "address": "0x004D0C20",
+  "proposed_name": "DriverStandingComparator",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004D0C20"]
+  },
+  "summary": "qsort-style comparator for two drivers addressed by the index bytes at this+0x0 into the 18624-byte-per-driver array base unk_5F070C. A driver whose status dword at +12 equals 3 (retired) sorts after an active driver; otherwise the integer rank dword at +11 is compared, then the float time/gap at +26 against the zero threshold flt_59E440, then the slot pointer addresses as a stable tiebreaker. Invoked by PitStopOrderRank (004D1BC0).",
+  "local_names": {
+    "a1": "driver index byte for the first driver",
+    "a2": "driver index byte for the second driver",
+    "v2": "slot base pointer for the first driver",
+    "v3": "slot base pointer for the second driver",
+    "v4": "status dword of the second driver (dword +12)",
+    "v5": "rank dword of the second driver (dword +11)",
+    "v6": "rank dword of the first driver (dword +11)",
+    "v12": "rank dword of the second driver re-read (dword +11)",
+    "v13": "rank dword of the first driver re-read (dword +11)",
+    "v7": "equality flag set by the last rank comparison (a1 rank <= a2 rank)"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Slot base pointers: v2 = unk_5F070C + 18624 * a1_driver_index and v3 = unk_5F070C + 18624 * a2_driver_index, where each driver index is the byte read from field this+0x0 and the array stride is 18624 bytes per driver",
+      "evidence_refs": ["field:this:0x00000000", "global:0x005F070C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Retired-first branch: when the status dword at v2 + 12 equals 3 (retired) and the status dword at v3 + 12 (v4) is not 3, return 1 so the retired driver sorts after the active one",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Retired-vs-retired rank compare: when both status dwords equal 3, compare the rank dwords at +11 and return -1 when the first driver's rank (v6) is below the second driver's (v5)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Active-first branch: when the driver at v2 is not retired (status dword at +12 != 3) but the driver at v3 is retired (v4 == 3), return -1 so the active driver sorts first",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Active-vs-active float compare at dword +26 (byte offset 104): return -1 when the float at v2 + 26 is not below the zero threshold flt_59E440, return 1 when it is strictly below zero, and otherwise compare the second driver's +26 float against the first's, returning -1 when greater and 1 when less",
+      "evidence_refs": ["global:0x0059E440", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Rank tiebreak: v12 = the dword at v3 + 11 and v13 = the dword at v2 + 11; return -1 when the first driver's rank (v13) is below the second driver's (v12)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Common tail: if the equality flag v7 (a1 rank <= a2 rank, set by the last rank comparison) is false return 1; otherwise return -1 when the v3 pointer exceeds v2, else return the boolean v3 < v2 as the final stable tiebreaker",
+      "evidence_refs": ["function:0x004D0C20", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked by PitStopOrderRank (004D1BC0) as a sorting comparator over driver indexes",
+      "evidence_refs": ["caller:0x004D1BC0"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v2 = unk_5F070C + 18624 * a1_driver_index;",
+    "v3 = unk_5F070C + 18624 * a2_driver_index;",
+    "if (status_dword(v2 + 12) == 3) {",
+    "  if (status_dword(v3 + 12) != 3) return 1;",
+    "  if (rank_dword(v2 + 11) < rank_dword(v3 + 11)) return -1;",
+    "} else {",
+    "  if (status_dword(v3 + 12) == 3) return -1;",
+    "  if (time_gap_float(v2 + 26) >= 0.0) return -1;",
+    "  if (time_gap_float(v2 + 26) < 0.0) return 1;",
+    "  if (time_gap_float(v3 + 26) > time_gap_float(v2 + 26)) return -1;",
+    "  if (time_gap_float(v3 + 26) < time_gap_float(v2 + 26)) return 1;",
+    "  if (rank_dword(v2 + 11) < rank_dword(v3 + 11)) return -1;",
+    "}",
+    "if (!(a1_rank <= a2_rank)) return 1;",
+    "if (v3 > v2) return -1;",
+    "return v3 < v2;"
+  ],
+  "unresolved": [
+    "The gating registers v10/v11 in the active-vs-active branch are Hex-Rays artifacts of a float comparison (condition-code bytes); the effective test is the sign of the float at dword +26, but the original expression shape is ambiguous",
+    "Status value 3 is interpreted as retired and the +11 dword as rank and +26 float as time/gap from existing_analysis; those semantics are DERIVED, not confirmed by this packet alone"
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

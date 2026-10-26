@@ -1,0 +1,39 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0043EAE0
+// Canonical corpus name: PhysicsAccumulatorIntegrate
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/PhysicsAccumulatorIntegrate_0043eae0.c
+
+void UnknownObject::PhysicsAccumulatorIntegrate()
+{
+    // Accumulates scaled input a2 into two damping accumulators (this[0x17D8] at rate 0.23, this[0x17F0] at rate 0.18), clamps each accumulator between its reference base (this[0x1C40], this[0x1C48]) and base-plus-offset upper bound (+0.25, +0.2), then evaluates quadratic force/torque via QuadraticForceTorqueCalculator(this, this[0x1C38]). Per-frame vehicle damping integration.
+    // ASSIGNMENT: Scale and accumulate input into accumulator 1: this[0x17D8] += a2 * 0.23. The 0.23 rate is a compiler-folded global damping/input coefficient. [field:this:0x000017D8, global:0x0059EB50, global:0x0059EC78, source:raw]
+    // ASSIGNMENT: Scale and accumulate input into accumulator 2: this[0x17F0] += a2 * 0.18. The 0.18 rate is a compiler-folded global damping coefficient. [field:this:0x000017F0, global:0x0059EB58, source:raw]
+    // CALCULATION: Compute upper bound for accumulator 1: v4 = this[0x1C40] + 0.25. The 0.25 addend is a compiler-folded global max-add constant. [field:this:0x00001C40, global:0x0059EB28, source:raw]
+    // GUARD: Clamp accumulator 1 against reference this[0x1C40]: if this[0x17D8] < this[0x1C40], set to this[0x1C40]; else if this[0x17D8] > this[0x1C40] + 0.25, cap at this[0x1C40] + 0.25. [field:this:0x000017D8, field:this:0x00001C40, source:raw]
+    // CALCULATION: Compute upper bound for accumulator 2: v5 = this[0x1C48] + 0.2. [field:this:0x00001C48, source:raw]
+    // GUARD: Clamp accumulator 2 against reference this[0x1C48]: if this[0x17F0] < this[0x1C48], set to this[0x1C48]; else if this[0x17F0] > this[0x1C48] + 0.2, cap at this[0x1C48] + 0.2. [field:this:0x000017F0, field:this:0x00001C48, source:raw]
+    // CALL: Evaluate quadratic force/torque: QuadraticForceTorqueCalculator(this, this[0x1C38]); the second argument this[0x1C38] is a read-only reference value selecting the calculation. [field:this:0x00001C38, callee:0x0043BB80, source:raw]
+    // RETURN: Void return after accumulation, clamping and force/torque evaluation. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   void sub_43EAE0(double *self, double a2) {
+    //     self[763] += a2 * 0.23;
+    //     self[766] += a2 * 0.18;
+    //     {
+    //       double lo = self[904];
+    //       double hi = self[904] + 0.25;
+    //       if (self[763] < lo) self[763] = lo;
+    //       else if (self[763] > hi) self[763] = hi;
+    //     }
+    //     {
+    //       double lo = self[905];
+    //       double hi = self[905] + 0.2;
+    //       if (self[766] < lo) self[766] = lo;
+    //       else if (self[766] > hi) self[766] = hi;
+    //     }
+    //     QuadraticForceTorqueCalculator(self, self[903]);
+    //   }
+    // UNRESOLVED: Exact binding of the four folded globals (dbl_59EB28, dbl_59EB50, dbl_59EB58, dbl_59EC78) to the literals 0.23/0.18/0.25/0.2 is not established by the packet; the raw source shows only the folded literals.
+    // UNRESOLVED: The packet existing_analysis prose labels 0x1C38 as an index/selector and 0x1C48 as a clamp reference base, but the raw source passes this[903] = 0x1C38 to QuadraticForceTorqueCalculator and uses this[905] = 0x1C48 as the second clamp base. Raw source governs.
+}

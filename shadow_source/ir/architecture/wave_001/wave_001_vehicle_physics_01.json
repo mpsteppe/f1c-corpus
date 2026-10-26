@@ -1,0 +1,3538 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_001_vehicle_physics_01",
+  "scope": "vehicle_physics",
+  "subsystem": {
+    "name": "VehiclePhysics",
+    "responsibility": "Per-frame vehicle physics and its support data: wheel surface contact resolution, suspension setup parsing, vehicle/name list construction from the global vehicle array, vehicle configuration validation, physics integration stepping, suspension snapshotting, wheel dynamics initialization, and 3D matrix transforms.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x00404250",
+      "function:0x00415780",
+      "function:0x004159B0",
+      "function:0x00423B10",
+      "function:0x00426330",
+      "function:0x00433ED0",
+      "function:0x00435410",
+      "function:0x004361D0",
+      "function:0x00439210",
+      "function:0x0043BC20",
+      "function:0x0043E230",
+      "function:0x00441450",
+      "function:0x00441650",
+      "source:raw"
+    ]
+  },
+  "summary": "DERIVED architecture for the vehicle_physics scope from 13 validated functions. One main VehiclePhysicsBody object (DERIVED) carries the per-frame physics: 0x00439210 initializer, 0x0043E230 wheel-dynamics init, 0x00441450 suspension-dataset copy, and 0x00441650 RK2 integration driver. A separate SuspensionPhysicsSnapshot (DERIVED) snapshots per-frame suspension state, RelativeSpeedCalculator (DERIVED) computes AI target relative speed, and Matrix3x3 (GUESS) provides the row-major double-matrix vector transform. The remaining functions sit on unproven objects (GUESS): WheelSurfaceResolver, GearShiftController, VehicleConfigValidator, SuspensionSetup, and VehicleListContainer. Two shared global data services (GlobalVehicleArray, PhysicsParseBuffer) and a spatial query structure (dword_5EA2C0) are consumed across classes. All owners, field names and enums are worker proposals; none are packet-confirmed.",
+  "function_roles": [
+    {
+      "address": "0x00404250",
+      "role": "Resolves per-wheel surface contact hits against a spatial nearest-neighbor structure (dword_5EA2C0) and computes a grip scale for the wheel array; runs two query passes per wheel (primary plane test, secondary signed-plane bound test).",
+      "owner": "WheelSurfaceResolver",
+      "evidence_refs": [
+        "function:0x00404250",
+        "source:raw",
+        "callee:0x004038E0",
+        "callee:0x004046B0",
+        "callee:0x00404790",
+        "callee:0x004047D0",
+        "callee:0x004FAF60",
+        "callee:0x004FB260",
+        "global:0x005EA2C0",
+        "global:0x008AFEE8",
+        "global:0x008AFEEC",
+        "guard:0",
+        "guard:1",
+        "guard:0 - if the wheel count at this+0x130 is <= 0, skip the spatial-resolution loop entirely.",
+        "guard:1 - if the wheel count at this+0x130 is > 0, enter the first per-wheel loop.",
+        "guard:1 - if the wheel count at this+0x130 is > 0, enter the second per-wheel loop.",
+        "caller:0x0042D7A0"
+      ]
+    },
+    {
+      "address": "0x00415780",
+      "role": "Rebuilds the vehicle list container from the global vehicle array (dword_8AC390 count, dword_8AC394 base, stride 1060), destroying existing nodes and appending one 176-byte entry per vehicle.",
+      "owner": "VehicleListContainer",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00415780",
+        "source:raw",
+        "callee:0x00401000",
+        "callee:0x00414600",
+        "callee:0x004149A0",
+        "callee:0x00415520",
+        "callee:0x00415900",
+        "callee:0x00566650",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "global:0x00415520",
+        "global:0x008AC390",
+        "global:0x008AC394",
+        "global:0x005EA438"
+      ]
+    },
+    {
+      "address": "0x004159B0",
+      "role": "Builds a deduplicated vehicle-name commentary list from the global vehicle array (dword_8AC390/dword_8AC394, stride 1060), clearing and rebuilding the commentary sub-list at this+0x10..0x1C.",
+      "owner": "VehicleListContainer",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x004159B0",
+        "source:raw",
+        "callee:0x00401000",
+        "callee:0x00414A90",
+        "callee:0x00414D70",
+        "callee:0x00415520",
+        "callee:0x00415C30",
+        "callee:0x00418C10",
+        "callee:0x00418D60",
+        "callee:0x00434030",
+        "callee:0x00566650",
+        "callee:0x00587C03",
+        "callee:0x00588410",
+        "global:0x00415520",
+        "global:0x008AC390",
+        "global:0x008AC394",
+        "global:0x005EA438"
+      ]
+    },
+    {
+      "address": "0x00423B10",
+      "role": "Computes signed longitudinal (dot-product) or lateral (2D cross-product) relative speed against a target vehicle for AI steering; stores magnitudes in this+0x24 and a normalized relative speed in this+0x30.",
+      "owner": "RelativeSpeedCalculator",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00423B10",
+        "source:raw",
+        "caller:0x004270A0",
+        "global:0x0059E440",
+        "field:obj:0x000034E0",
+        "field:obj:0x000034E8",
+        "field:obj:0x000034F8",
+        "field:obj:0x00003500",
+        "field:this:0x00000000 is a pointer to the target object whose obj+0x34E0..0x3500 fields are read; the object type is not named."
+      ]
+    },
+    {
+      "address": "0x00426330",
+      "role": "Per-frame AI gear-shift control: blocks shifts while the shift timer is positive, forces reverse gear in driverStatus==6 state and neutral in carConditions==2 pit mode, and upshifts on RPM threshold with a 0.8 traction guard, capped at max gear.",
+      "owner": "GearShiftController",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00426330",
+        "source:raw",
+        "callee:0x004EF930",
+        "global:0x0059E440",
+        "global:0x0059E8CC",
+        "caller:0x00424E70"
+      ]
+    },
+    {
+      "address": "0x00433ED0",
+      "role": "Validates a vehicle configuration by parsing the default and override SVM/HDV files into byte_7C56C0; returns 0 only when both parses succeed and commits the override path into this+0/this+8 string slots when the commit flag is set.",
+      "owner": "VehicleConfigValidator",
+      "evidence_refs": [
+        "function:0x00433ED0",
+        "source:raw",
+        "callee:0x0042BC10",
+        "callee:0x0042EBC0",
+        "callee:0x0042ED70",
+        "callee:0x00430F00",
+        "callee:0x004F4270",
+        "callee:0x00566650",
+        "callee:0x00568B00",
+        "global:0x005EA438",
+        "global:0x007C54E8",
+        "global:0x007C56C0",
+        "global:0x007C56C4",
+        "global:0x007D0450",
+        "global:0x008AC394",
+        "caller:0x004336F0",
+        "caller:0x0046E5C0"
+      ]
+    },
+    {
+      "address": "0x00435410",
+      "role": "Parses a suspension setup configuration section: reads head mass/inertia, min/max position and orientation (deg-to-rad), grows the spring array (this+0x94 capacity, this+0x98 count, this+0x9C pointer) and classifies each spring sliding/normal/free-damping (0/1/2).",
+      "owner": "SuspensionSetup",
+      "evidence_refs": [
+        "function:0x00435410",
+        "source:raw",
+        "callee:0x00435390",
+        "callee:0x004358F0",
+        "callee:0x005651B0",
+        "callee:0x00565520",
+        "callee:0x00565AA0",
+        "callee:0x005668B0",
+        "callee:0x005668D0",
+        "callee:0x00566B20",
+        "callee:0x00566CC0",
+        "callee:0x005697A0",
+        "callee:0x0056BD40",
+        "callee:0x00587BCF",
+        "callee:0x00587C03",
+        "callee:0x00588410",
+        "global:0x005C4098",
+        "global:0x005C40A8",
+        "global:0x005C40B8",
+        "global:0x005C40C4",
+        "global:0x005C40D0",
+        "global:0x005C40DC",
+        "global:0x005C40E8",
+        "global:0x005C40F0",
+        "global:0x005C40F8",
+        "global:0x005C4100",
+        "global:0x005C4108",
+        "global:0x005C4110",
+        "global:0x005C4118",
+        "global:0x005C4120",
+        "global:0x005C412C",
+        "guard:0",
+        "caller:0x00438F00"
+      ]
+    },
+    {
+      "address": "0x004361D0",
+      "role": "Pure 3D vector transform by a row-major 3x3 double matrix: computes the difference vector (a3 - a2), applies rows this[0..8], writes the result into a4 and returns a4.",
+      "owner": "Matrix3x3",
+      "evidence_refs": [
+        "function:0x004361D0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00439210",
+      "role": "Per-frame physics initializer on the vehicle body: loads per-corner suspension setup, computes ride-height/weight-distribution/center-of-mass, builds body-coupling transforms and corner force structures, selects tire compound, runs steering geometry and per-element update passes; called each frame from TireModelInit.",
+      "owner": "VehiclePhysicsBody",
+      "evidence_refs": [
+        "function:0x00439210",
+        "source:raw",
+        "caller:0x0043E050",
+        "callee:0x00435E00",
+        "callee:0x004361D0",
+        "callee:0x004388D0",
+        "callee:0x004390A0",
+        "callee:0x0043AEE0",
+        "callee:0x0043B040",
+        "callee:0x0043B590",
+        "callee:0x0043BB00",
+        "callee:0x004D6AE0",
+        "callee:0x004D7570",
+        "callee:0x004D7880",
+        "callee:0x004D7A50",
+        "callee:0x004D7AA0",
+        "callee:0x0054B3B0",
+        "callee:0x005691D0",
+        "callee:0x005697A0",
+        "callee:0x0056BD40",
+        "callee:0x0056BDE0",
+        "callee:0x0056CF70",
+        "callee:0x0056D020",
+        "callee:0x0056D1C0",
+        "callee:0x0056D2D0",
+        "callee:0x00588570",
+        "global:0x005C41DC",
+        "global:0x005C421C",
+        "global:0x007C569C",
+        "global:0x007CE958",
+        "global:0x008AD25C",
+        "guard:0",
+        "guard:1",
+        "guard:2",
+        "guard:3",
+        "guard:4",
+        "guard:5"
+      ]
+    },
+    {
+      "address": "0x0043BC20",
+      "role": "Per-frame suspension physics snapshot copy: copies two collision-geometry blocks from a3, evaluates quadratic-spring/force/torque terms from the descriptor a2, then copies force/torque parameters, wheel/damper blocks and quad/spring-damper results into the snapshot struct.",
+      "owner": "SuspensionPhysicsSnapshot",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0043BC20",
+        "source:raw",
+        "caller:0x0043C250",
+        "callee:0x004363F0",
+        "callee:0x00436470",
+        "callee:0x0043BB30",
+        "callee:0x0043BB80",
+        "callee:0x0043BBD0"
+      ]
+    },
+    {
+      "address": "0x0043E230",
+      "role": "Wheel dynamics initialization: pushes contact constraints, parameters and a 3-slot physics grid for 4 wheels into the global setter buffer, tears down resources, zeroes the whole object (0x1F38 bytes) and fills 4 strided wheel-struct blocks (1124-byte stride, wheel 0 at this+0x5D8) with a default pattern.",
+      "owner": "VehiclePhysicsBody",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x0043E230",
+        "source:raw",
+        "callee:0x00431A50",
+        "callee:0x00431930",
+        "callee:0x004319C0",
+        "callee:0x00431A70",
+        "callee:0x004358F0",
+        "callee:0x004D5840",
+        "callee:0x0056E970",
+        "callee:0x00587BCF",
+        "global:0x007C56C0",
+        "global:0x008AD238",
+        "caller:0x0042C9F0",
+        "caller:0x00438C10",
+        "caller:0x00438CA0",
+        "caller:0x004E4790"
+      ]
+    },
+    {
+      "address": "0x00441450",
+      "role": "Copies four suspension datasets into the physics engine via SuspensionDataCopyToPhysicsEngine; wheels 0/1 use their own suspension pointers, the remaining two branch on a shared suspension-ID selector at this[1287].",
+      "owner": "VehiclePhysicsBody",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00441450",
+        "source:raw",
+        "callee:0x004389B0"
+      ]
+    },
+    {
+      "address": "0x00441650",
+      "role": "Per-frame physics integration driver: saves/restores the FPU control word, runs the main physics update, executes a sub-stepped (RK2 midpoint) integration loop over the accumulated timestep, accumulates wheel forces, detects collision damage/DNF, and transforms inertia tensors for four wheel-link sub-objects.",
+      "owner": "VehiclePhysicsBody",
+      "evidence_refs": [
+        "abi:lead",
+        "function:0x00441650",
+        "source:raw",
+        "callee:0x00438130",
+        "callee:0x00438690",
+        "callee:0x0043EF20",
+        "callee:0x00441360",
+        "callee:0x00441450",
+        "callee:0x004414D0",
+        "callee:0x00441600",
+        "callee:0x00441D60",
+        "callee:0x004441F0",
+        "callee:0x00567740",
+        "callee:0x00567780",
+        "callee:0x005692A0",
+        "callee:0x00569410",
+        "callee:0x0056BDE0",
+        "callee:0x0058957A",
+        "global:0x005D6D70",
+        "global:0x007CE254",
+        "global:0x007CE958",
+        "caller:0x004E4930"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "VehiclePhysicsBody",
+      "responsibility": "Per-frame vehicle physics object: initializes mass/center-of-mass/suspension, integrates motion with RK2 sub-steps, accumulates wheel forces, transforms inertia tensors into world space, initializes wheel dynamics and copies suspension datasets into the physics engine.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00439210",
+        "0x0043E230",
+        "0x00441450",
+        "0x00441650"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000060",
+          "name": "time_accumulator",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000060",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000068",
+          "name": "timestep",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000068",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000D4",
+          "name": "center_of_mass_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000D4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000DC",
+          "name": "center_of_mass_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000DC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000000E4",
+          "name": "center_of_mass_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000000E4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001D4",
+          "name": "body_sub_object",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000001D4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000001E8",
+          "name": "self_pointer",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000001E8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000310",
+          "name": "wheel_link_block_base",
+          "type_guess": "array",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000310",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000318",
+          "name": "wheel_link_vector",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000318",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000338",
+          "name": "wheel_force_block_base",
+          "type_guess": "array",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000338",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003E0",
+          "name": "wheel_delta_source",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003E8",
+          "name": "corner_body_array",
+          "type_guess": "array",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003E8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000003EC",
+          "name": "corner_body_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000003EC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000400",
+          "name": "corner_rotation_dot_a",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000400",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000420",
+          "name": "corner_rotation_dot_b",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000420",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000428",
+          "name": "corner_rotation_dot_c",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000428",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000430",
+          "name": "corner_rotation_dot_d",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000430",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000450",
+          "name": "subobj_active_flag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000450",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000451",
+          "name": "corner_activity_flag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000451",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000454",
+          "name": "corner_index",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000454",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000458",
+          "name": "corner_damper_rate",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000458",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000045C",
+          "name": "corner_anti_roll",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000045C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000464",
+          "name": "corner_field_0x464",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000464",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000046C",
+          "name": "corner_field_0x46C",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000046C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000470",
+          "name": "corner_field_0x470",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000470",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005D8",
+          "name": "wheel_struct_base",
+          "type_guess": "struct",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000005D8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005DC",
+          "name": "wheel_pattern_b",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000005DC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005E0",
+          "name": "wheel_pattern_c",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000005E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005E4",
+          "name": "wheel_pattern_d",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000005E4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005E8",
+          "name": "wheel_pattern_e",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000005E8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000005EC",
+          "name": "wheel_pattern_f",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000005EC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000006B8",
+          "name": "wheel_setter_anchor",
+          "type_guess": "array",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000006B8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000844",
+          "name": "wheel_delta_mid",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000844",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000850",
+          "name": "suspension_ptr_front",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000850",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000CB0",
+          "name": "corner_geometry_ptr_a",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000CB0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000CB4",
+          "name": "suspension_ptr_3",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000CB4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001114",
+          "name": "corner_geometry_ptr_b",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001114",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001118",
+          "name": "suspension_ptr_4",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001118",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000141C",
+          "name": "coupled_body_ptr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000141C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001420",
+          "name": "coupling_rotation_intermediate",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001420",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001428",
+          "name": "angular_state_a",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001428",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000142C",
+          "name": "angular_state_b",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000142C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001430",
+          "name": "angular_rate_term",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001430",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001448",
+          "name": "collision_energy_scaled_a",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001448",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001450",
+          "name": "collision_energy_scaled_b",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001450",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015AC",
+          "name": "attached_body_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015B0",
+          "name": "attached_body_array",
+          "type_guess": "array",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015B4",
+          "name": "contact_pair_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015B4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015B8",
+          "name": "contact_pair_base",
+          "type_guess": "array",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015B8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015BC",
+          "name": "secondary_contact_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015BC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015C0",
+          "name": "secondary_contact_base",
+          "type_guess": "array",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015C4",
+          "name": "coupling_element_count",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015C4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015C8",
+          "name": "coupling_element_base",
+          "type_guess": "array",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015C8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015F0",
+          "name": "corner_rotation_object_ptr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000015F0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015F4",
+          "name": "total_body_mass",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000015F4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000015F8",
+          "name": "anchor_pos_delta",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x000015F8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001614",
+          "name": "cg_anchor_delta_x",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001614",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000161C",
+          "name": "cg_anchor_delta_y",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x0000161C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001624",
+          "name": "cg_anchor_delta_z",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001624",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000162C",
+          "name": "heap_ptr_optional_a",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000162C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001658",
+          "name": "post_loop_commit",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001658",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001CFC",
+          "name": "heap_ptr_optional_b",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001CFC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001D4C",
+          "name": "setter_double_source",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001D4C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001F00",
+          "name": "vehicle_config",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001F00",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001F34",
+          "name": "corner_setup_weighted_sum",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001F34",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1D4)",
+          "offset": "0x000000AC",
+          "name": "body_mass",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1D4):0x000000AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1D4)",
+          "offset": "0x000000B0",
+          "name": "body_inverse_mass",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1D4):0x000000B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1D4)",
+          "offset": "0x000000B4",
+          "name": "body_mass_2",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1D4):0x000000B4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1D4)",
+          "offset": "0x000000B8",
+          "name": "body_mass_3",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:*(this+0x1D4):0x000000B8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1F00)",
+          "offset": "0x00000738",
+          "name": "corner_force_result_a",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x1F00):0x00000738",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1F00)",
+          "offset": "0x0000073C",
+          "name": "corner_force_result_b",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x1F00):0x0000073C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1F00)",
+          "offset": "0x00000740",
+          "name": "corner_force_result_c",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:*(this+0x1F00):0x00000740",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1F00)",
+          "offset": "0x0000076C",
+          "name": "track_width",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1F00):0x0000076C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1F00)",
+          "offset": "0x000008C8",
+          "name": "corner_setup_array_a",
+          "type_guess": "array",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1F00):0x000008C8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1F00)",
+          "offset": "0x000008CC",
+          "name": "corner_setup_array_b",
+          "type_guess": "array",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1F00):0x000008CC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x3EC)",
+          "offset": "0x0000001C",
+          "name": "subobj_velocity_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x3EC):0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x3EC)",
+          "offset": "0x00000034",
+          "name": "subobj_velocity_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x3EC):0x00000034",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x3EC)",
+          "offset": "0x0000004C",
+          "name": "subobj_velocity_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x3EC):0x0000004C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x3EC)",
+          "offset": "0x000000AC",
+          "name": "corner_suspension_travel",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x3EC):0x000000AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x141C)",
+          "offset": "0x000000AC",
+          "name": "coupled_suspension_travel",
+          "type_guess": "float",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x141C):0x000000AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1114)",
+          "offset": "0x00000004",
+          "name": "corner_offset_a_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1114):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1114)",
+          "offset": "0x0000000C",
+          "name": "corner_offset_a_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1114):0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0x1114)",
+          "offset": "0x00000014",
+          "name": "corner_offset_a_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0x1114):0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0xCB0)",
+          "offset": "0x00000004",
+          "name": "corner_offset_b_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xCB0):0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0xCB0)",
+          "offset": "0x0000000C",
+          "name": "corner_offset_b_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xCB0):0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "*(this+0xCB0)",
+          "offset": "0x00000014",
+          "name": "corner_offset_b_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:*(this+0xCB0):0x00000014",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00439210",
+        "function:0x0043E230",
+        "function:0x00441450",
+        "function:0x00441650",
+        "caller:0x0043E050",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "WheelSurfaceResolver",
+      "responsibility": "Per-wheel surface collision pass: queries the spatial nearest-neighbor structure for the wheel array and computes a grip scale and per-element contact pointers/heights.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00404250"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "resolution_threshold",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000130",
+          "name": "wheel_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000130",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000134",
+          "name": "wheel_array_base",
+          "type_guess": "array",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000134",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000170",
+          "name": "grip_scale",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000170",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000174",
+          "name": "phase_flag",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000174",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00404250",
+        "global:0x005EA2C0",
+        "callee:0x004038E0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleListContainer",
+      "responsibility": "Holds two linked lists rebuilt from the global vehicle array: the vehicle list (this+0x0..0xC, 12-byte nodes wrapping 176-byte entries) and the deduplicated commentary name list (this+0x10..0x1C, nodes wrapping 172-byte entries).",
+      "trust": "GUESS",
+      "methods": [
+        "0x00415780",
+        "0x004159B0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "vehicle_list_head",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "vehicle_list_tail",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "vehicle_list_secondary",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "vehicle_list_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "commentary_list_head",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "commentary_list_next",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "commentary_list_secondary",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000001C",
+          "name": "commentary_list_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000001C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000000",
+          "name": "node_data",
+          "type_guess": "pointer",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00000008",
+          "name": "node_flag",
+          "type_guess": "byte",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00000008",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00415780",
+        "function:0x004159B0",
+        "field:*(obj+0x4):0x00000004",
+        "field:*(this+0x14):0x00000004",
+        "global:0x008AC390",
+        "global:0x008AC394",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "RelativeSpeedCalculator",
+      "responsibility": "Computes signed relative speed between the owning AI object and a target vehicle: longitudinal closing speed via dot product or lateral speed via 2D cross product, with a normalized longitudinal speed.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00423B10"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "target_object_ptr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000024",
+          "name": "signed_speed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000024",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "normalized_speed",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000034E0",
+          "name": "target_position_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x000034E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000034E8",
+          "name": "target_position_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x000034E8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000034F8",
+          "name": "target_velocity_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x000034F8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x00003500",
+          "name": "target_velocity_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:obj:0x00003500",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00423B10",
+        "caller:0x004270A0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "GearShiftController",
+      "responsibility": "Per-frame AI gear-shift control over vehicle state fields: shift-timer block, reverse/pit-mode force requests, RPM-threshold upshift with traction guard and max-gear cap.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00426330"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x000037CC",
+          "name": "traction_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000037CC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000038C4",
+          "name": "traction_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000038C4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000039A0",
+          "name": "engine_rpm",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000039A0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000039FC",
+          "name": "current_gear",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x000039FC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003A04",
+          "name": "max_gear",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003A04",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003A10",
+          "name": "shift_timer",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003A10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003A18",
+          "name": "shift_rpm_threshold",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003A18",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00003D6C",
+          "name": "car_conditions",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00003D6C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00004510",
+          "name": "driver_status",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00004510",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00426330",
+        "callee:0x004EF930",
+        "global:0x0059E440",
+        "global:0x0059E8CC",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleConfigValidator",
+      "responsibility": "Validates a vehicle configuration file by parsing the default and override SVM/HDV files and optionally committing the override path into the object's string slots.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00433ED0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "path_string_src",
+          "type_guess": "char*",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "path_string_dst",
+          "type_guess": "char*",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00433ED0",
+        "callee:0x004F4270",
+        "callee:0x00568B00",
+        "global:0x007C56C0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SuspensionSetup",
+      "responsibility": "Parsed suspension setup: setup index, body anchor and rotation reference, min/max position and orientation, and a growing spring array (capacity/count/pointer) of 100-byte classified spring entries.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00435410"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "setup_index",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000004",
+          "name": "body_anchor_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000004",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000000C",
+          "name": "body_anchor_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x0000000C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000014",
+          "name": "body_anchor_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000014",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000064",
+          "name": "min_orientation_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000064",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000006C",
+          "name": "min_orientation_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000006C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000074",
+          "name": "min_orientation_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000074",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000007C",
+          "name": "max_orientation_x",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000007C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000084",
+          "name": "max_orientation_y",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000084",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000008C",
+          "name": "max_orientation_z",
+          "type_guess": "float",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000008C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000094",
+          "name": "spring_capacity",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000094",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000098",
+          "name": "spring_count",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00000098",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000009C",
+          "name": "spring_array_ptr",
+          "type_guess": "pointer",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000009C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000000AC",
+          "name": "head_mass",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:obj:0x000000AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "obj",
+          "offset": "0x000000B4",
+          "name": "head_mass_reciprocal",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "write",
+          "evidence_refs": [
+            "field:obj:0x000000B4",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x00435410",
+        "callee:0x00565520",
+        "callee:0x00587C03",
+        "callee:0x00565AA0",
+        "global:0x005C4098",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "Matrix3x3",
+      "responsibility": "Row-major 3x3 double matrix used as a linear-algebra transform; F_3DVectorTransformBy33Matrix multiplies a difference vector by this matrix and writes the result to the output vector.",
+      "trust": "GUESS",
+      "methods": [
+        "0x004361D0"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00000000",
+          "name": "m00",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000000",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000008",
+          "name": "m01",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000008",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000010",
+          "name": "m02",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000010",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000018",
+          "name": "m10",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000018",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000020",
+          "name": "m11",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000020",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000028",
+          "name": "m12",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000028",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000030",
+          "name": "m20",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000030",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000038",
+          "name": "m21",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000038",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00000040",
+          "name": "m22",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00000040",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x004361D0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SuspensionPhysicsSnapshot",
+      "responsibility": "Per-frame snapshot of suspension physics state: copies collision-geometry blocks, wheel/damper and force/torque blocks from the source physics object, evaluates quadratic-spring/force/torque terms from a parameter descriptor, and mirrors selected results.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0043BC20"
+      ],
+      "fields": [
+        {
+          "base": "this",
+          "offset": "0x00001900",
+          "name": "state_flag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001900",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001904",
+          "name": "reserved_zero",
+          "type_guess": "int",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001904",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001910",
+          "name": "force_param_a",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001910",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001914",
+          "name": "force_param_b",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001914",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001938",
+          "name": "torque_param_a",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001938",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000193C",
+          "name": "torque_param_b",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000193C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001940",
+          "name": "torque_param_c",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001940",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001944",
+          "name": "torque_param_d",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001944",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017A8",
+          "name": "force_rate_0",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017A8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017AC",
+          "name": "force_rate_1",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017AC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017B0",
+          "name": "force_rate_2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017B0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017B4",
+          "name": "force_rate_3",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017B4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017B8",
+          "name": "force_rate_4",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017B8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017BC",
+          "name": "force_rate_5",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017BC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017C0",
+          "name": "force_torque_vec_0",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017C0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017C4",
+          "name": "force_torque_vec_1",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017C4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017C8",
+          "name": "force_torque_vec_2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017C8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017CC",
+          "name": "force_torque_vec_3",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017CC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017D0",
+          "name": "force_torque_vec_4",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017D0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017D4",
+          "name": "force_torque_vec_5",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017D4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017D8",
+          "name": "quad_force_param_0",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017D8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017DC",
+          "name": "quad_force_param_1",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017DC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017E0",
+          "name": "quad_force_param_2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017E0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017E4",
+          "name": "quad_force_param_3",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017E4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017E8",
+          "name": "quad_force_param_4",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017E8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017EC",
+          "name": "quad_force_param_5",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017EC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017F0",
+          "name": "quad_force_torque_vec_0",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017F0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017F4",
+          "name": "quad_force_torque_vec_1",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017F4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017F8",
+          "name": "quad_force_torque_vec_2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017F8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x000017FC",
+          "name": "quad_force_torque_vec_3",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x000017FC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001800",
+          "name": "quad_force_torque_vec_4",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001800",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001804",
+          "name": "quad_force_torque_vec_5",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001804",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001808",
+          "name": "spring_offset_src",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001808",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000180C",
+          "name": "spring_scalar_0",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000180C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001810",
+          "name": "spring_geometry_0",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001810",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001814",
+          "name": "spring_geometry_1",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001814",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001818",
+          "name": "spring_scalar_1",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001818",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000181C",
+          "name": "spring_scalar_2",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000181C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001820",
+          "name": "spring_geometry_2",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001820",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001824",
+          "name": "spring_geometry_3",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001824",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001828",
+          "name": "ft_result_a",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001828",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x0000182C",
+          "name": "ft_result_b",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x0000182C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001830",
+          "name": "ft_result_c",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001830",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001834",
+          "name": "ft_result_d",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001834",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001A08",
+          "name": "quad_result_flag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001A08",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001A14",
+          "name": "quad_result_a",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001A14",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001A18",
+          "name": "quad_result_b",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001A18",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001AE4",
+          "name": "ft_vec_0",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001AE4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001AE8",
+          "name": "ft_vec_1",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001AE8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001AEC",
+          "name": "ft_vec_2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001AEC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001AF0",
+          "name": "ft_vec_3",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001AF0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001AF4",
+          "name": "ft_vec_4",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001AF4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001AF8",
+          "name": "ft_vec_5",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001AF8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001B94",
+          "name": "spring_offset_rhs",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "read",
+          "evidence_refs": [
+            "field:this:0x00001B94",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BBC",
+          "name": "sd_result_flag",
+          "type_guess": "byte",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BBC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BC0",
+          "name": "sd_result_scalar",
+          "type_guess": "double",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BC0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BC8",
+          "name": "sd_result_dword_0",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BC8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BCC",
+          "name": "sd_result_dword_1",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BCC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BD0",
+          "name": "sd_result_dword_2",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BD0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BD4",
+          "name": "sd_result_dword_3",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BD4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BD8",
+          "name": "sd_result_dword_4",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BD8",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BDC",
+          "name": "sd_result_dword_5",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BDC",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BE0",
+          "name": "sd_result_dword_6",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BE0",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001BE4",
+          "name": "sd_result_dword_7",
+          "type_guess": "int",
+          "trust": "DERIVED",
+          "access": "read_write",
+          "evidence_refs": [
+            "field:this:0x00001BE4",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C08",
+          "name": "mirror_force_rate_a",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C08",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C0C",
+          "name": "mirror_force_rate_b",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C0C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C10",
+          "name": "mirror_force_torque_a",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C10",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C14",
+          "name": "mirror_force_torque_b",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C14",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C20",
+          "name": "mirror_spring_scalar_0",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C20",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C24",
+          "name": "mirror_spring_scalar_1",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C24",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C28",
+          "name": "mirror_spring_scalar_2",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C28",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C2C",
+          "name": "mirror_spring_scalar_3",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C2C",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C30",
+          "name": "mirror_sd_result",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C30",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C40",
+          "name": "mirror_quad_a",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C40",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C44",
+          "name": "mirror_quad_b",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C44",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C48",
+          "name": "mirror_quad_c",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C48",
+            "source:raw"
+          ]
+        },
+        {
+          "base": "this",
+          "offset": "0x00001C4C",
+          "name": "mirror_quad_d",
+          "type_guess": "double",
+          "trust": "GUESS",
+          "access": "write",
+          "evidence_refs": [
+            "field:this:0x00001C4C",
+            "source:raw"
+          ]
+        }
+      ],
+      "evidence_refs": [
+        "function:0x0043BC20",
+        "caller:0x0043C250",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "GearShiftControl",
+      "owner": "GearShiftController",
+      "states": [
+        "BlockedByTimer",
+        "ReverseRequest",
+        "PitModeNeutral",
+        "UpshiftReady",
+        "DownshiftTail"
+      ],
+      "transitions": [
+        "Default -> BlockedByTimer when shift_timer(this+0x3A10) > 0 (flt_59E440 zero threshold)",
+        "Default -> ReverseRequest when driverStatus(this+0x4510) == 6",
+        "Default -> PitModeNeutral when carConditions(this+0x3D6C) == 2",
+        "Default -> UpshiftReady when engine_rpm(this+0x39A0) > shift_rpm_threshold(this+0x3A18) and traction(this+0x37CC, this+0x38C4) > 0.8 and current_gear(this+0x39FC) < max_gear(this+0x3A04)",
+        "Default -> DownshiftTail via JUMPOUT(0x4F62E6) when current_gear(this+0x39FC) > 1"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00426330",
+        "field:this:0x00003A10",
+        "field:this:0x00004510",
+        "field:this:0x00003D6C",
+        "field:this:0x000039A0",
+        "field:this:0x00003A18",
+        "field:this:0x000037CC",
+        "field:this:0x000038C4",
+        "field:this:0x000039FC",
+        "field:this:0x00003A04",
+        "global:0x0059E440",
+        "global:0x0059E8CC",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SurfaceContactResolution",
+      "owner": "WheelSurfaceResolver",
+      "states": [
+        "PrimaryQuery",
+        "SecondaryPlaneTest",
+        "ContactAccepted",
+        "ContactCleared"
+      ],
+      "transitions": [
+        "PrimaryQuery -> ContactAccepted when element+300 >= this+0x10 and nearest-neighbor hit (flag 1) found, storing hit pointer at element+276 and contact height at element+24",
+        "PrimaryQuery -> SecondaryPlaneTest when element+300 == 1 and element+276 still null",
+        "SecondaryPlaneTest -> ContactCleared when |signed plane distance| outside hit+0x84/+0x80 bounds (element+276 = 0, element+296 = -1)",
+        "SecondaryPlaneTest -> ContactAccepted when within bounds, copying element+296 from the hit chain"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00404250",
+        "global:0x005EA2C0",
+        "callee:0x004038E0",
+        "source:raw"
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "GlobalVehicleArray",
+      "purpose": "Shared global vehicle array (dword_8AC390 count, dword_8AC394 base, stride 1060) consumed by the vehicle-list and name-list builders and by configuration validation to index vehicle entries.",
+      "functions": [
+        "0x00415780",
+        "0x004159B0",
+        "0x00433ED0"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x008AC390",
+        "global:0x008AC394",
+        "function:0x00415780",
+        "function:0x004159B0",
+        "function:0x00433ED0",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PhysicsParseBuffer",
+      "purpose": "Global session parse buffer byte_7C56C0 used both as the target of SVM/HDV vehicle-file parsing and as the global setter buffer for wheel-dynamics parameter pushes.",
+      "functions": [
+        "0x00433ED0",
+        "0x0043E230"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x007C56C0",
+        "function:0x00433ED0",
+        "function:0x0043E230",
+        "callee:0x004F4270",
+        "callee:0x00431A50",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SpatialNearestNeighborQuery",
+      "purpose": "Spatial structure (dword_5EA2C0) backing wheel-surface contact resolution via SpatialNearestNeighborQueryWithPlaneTest.",
+      "functions": [
+        "0x00404250"
+      ],
+      "trust": "GUESS",
+      "evidence_refs": [
+        "global:0x005EA2C0",
+        "function:0x00404250",
+        "callee:0x004038E0",
+        "source:raw"
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "0x00441650",
+      "to": "0x00441450",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00441650",
+        "callee:0x00441450",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00441650",
+      "to": "0x004441F0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00441650",
+        "callee:0x004441F0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00439210",
+      "to": "0x004361D0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00439210",
+        "callee:0x004361D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00441650",
+      "to": "0x004361D0",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00441650",
+        "callee:0x004361D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00426330",
+      "to": "0x004EF930",
+      "kind": "calls",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00426330",
+        "callee:0x004EF930",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "VehiclePhysicsBody",
+      "to": "Matrix3x3",
+      "kind": "uses",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00439210",
+        "callee:0x004361D0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00415780",
+      "to": "GlobalVehicleArray",
+      "kind": "reads_data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00415780",
+        "global:0x008AC390",
+        "global:0x008AC394",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x004159B0",
+      "to": "GlobalVehicleArray",
+      "kind": "reads_data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x004159B0",
+        "global:0x008AC390",
+        "global:0x008AC394",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00433ED0",
+      "to": "GlobalVehicleArray",
+      "kind": "reads_data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00433ED0",
+        "global:0x008AC394",
+        "global:0x007C54E8",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00404250",
+      "to": "SpatialNearestNeighborQuery",
+      "kind": "uses",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00404250",
+        "global:0x005EA2C0",
+        "callee:0x004038E0",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x0043E230",
+      "to": "PhysicsParseBuffer",
+      "kind": "writes_data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x0043E230",
+        "global:0x007C56C0",
+        "callee:0x00431A50",
+        "source:raw"
+      ]
+    },
+    {
+      "from": "0x00433ED0",
+      "to": "PhysicsParseBuffer",
+      "kind": "writes_data",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00433ED0",
+        "global:0x007C56C0",
+        "callee:0x004F4270",
+        "source:raw"
+      ]
+    }
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "WheelSurfaceContactResolution",
+      "category": "physics-behavior",
+      "description": "Per-frame wheel contact pass must preserve the grip-scale formula 1.0 - (flt_8AFEE8 + flt_8AFEEC)*0.5 stored at this+0x170, the wheel array stride of 316 bytes with count at this+0x130 and base this+0x134, the two nearest-neighbor queries (flag 1 primary, flag 0 secondary signed-plane bound test) on dword_5EA2C0, and the phase-flag reset this+0x174 = -1 at exit.",
+      "trust": "DERIVED",
+      "evidence_refs": [
+        "function:0x00404250",
+        "global:0x008AFEE8",
+        "global:0x008AFEEC",
+        "global:0x005EA2C0",
+        "callee:0x004038E0",
+        "field:this:0x00000170",
+        "field:this:0x00000174",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "PhysicsIntegrationGates",
+      "category": "runtime-behavior",
+      "description": "Per-frame physics integration must early-out when the physics-override double at 0x005D6D70 equals 1.0 or the enable byte at 0x007CE254 is zero, must save and restore the FPU control word, and must preserve the RK2 midpoint sub-stepping (half-step wheel-data copies, accumulator this+0x60) over the timestep field this+0x68.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00441650",
+        "global:0x005D6D70",
+        "global:0x007CE254",
+        "callee:0x00567740",
+        "callee:0x00567780",
+        "field:this:0x00000060",
+        "field:this:0x00000068",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleFileValidation",
+      "category": "interface",
+      "description": "ValidateVehicleConfigurationFile returns 0 only when both the default and override SVM/HDV parses succeed; on success the parse buffer byte_7C56C0 is cleared, the cost-display mode backup dword_7C56C4 = dword_7D0450 is taken before parsing, and when the commit flag is set the override path is copied into the caller's this+0 / this+8 string slots via StringCopyWithBufferRealloc and sub_568B00.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00433ED0",
+        "global:0x007C56C0",
+        "global:0x007C56C4",
+        "global:0x007D0450",
+        "callee:0x004F4270",
+        "callee:0x00566650",
+        "callee:0x00568B00",
+        "field:this:0x00000000",
+        "field:this:0x00000008",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "VehicleArrayLayout",
+      "category": "data-format",
+      "description": "Consumers of the global vehicle array (dword_8AC390 count, dword_8AC394 base, stride 1060) rely on the driver-name byte at entry+124 and the driver-file path at entry+188; a replacement must preserve those field offsets and the array stride.",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x004159B0",
+        "function:0x00415780",
+        "global:0x008AC390",
+        "global:0x008AC394",
+        "callee:0x00566650",
+        "source:raw"
+      ]
+    },
+    {
+      "name": "SuspensionSetupSection",
+      "category": "data-format",
+      "description": "SuspensionSetupSectionReader must keep the degree-to-radian conversion factor 0.0174532925199433 for orientation fields, the spring-array growth rule (capacity +3 slots of 100 bytes via OperatorNewNhMallocWrapper with per-slot category init), and the spring classification enums sliding/normal/free-damping (0/1/2).",
+      "trust": "GUESS",
+      "evidence_refs": [
+        "function:0x00435410",
+        "callee:0x00565520",
+        "callee:0x00587C03",
+        "field:this:0x00000098",
+        "field:this:0x0000009C",
+        "field:this:0x00000094",
+        "source:raw"
+      ]
+    }
+  ],
+  "unresolved": [
+    "VehiclePhysicsBody grouping is a worker proposal: the packet lists the owners of 0x00439210/0x0043E230/0x00441450/0x00441650 as UnknownObject/UNKNOWN; a single shared physics object is inferred from overlapping fields (this+0x3EC, this+0x15F0, 1124-byte wheel strides) and caller relationships.",
+    "0x00404250 and 0x00426330 operate on 'this' objects with no packet-identified owner; WheelSurfaceResolver and GearShiftController are GUESS proposals, not packet-confirmed.",
+    "18 physics-constant globals (0x0059E420..0x0059EC08, 0x0059ED28..0x0059ED38) are listed as read but folded into FPU literals by the decompiler; their exact use sites are unproven.",
+    "Corner-geometry field evidence at *(this+0x141C)+0x4..0x5C, *(this+0x15F0)+0x4..0x5C and *(this+0x15B0)+0xAC could not be localized to specific statements in the decompiled text.",
+    "Globals unk_5EC6D0 and dword_8ADB00 (0x00433ED0), dword_8AD254 (0x00439210), and flt_59E43C/flt_59E450 (0x00404250) are listed as read but do not appear in the raw source text.",
+    "The 1124-byte wheel stride and the sub-offsets consumed by the wheel setters in 0x0043E230 are evidenced only via source:raw, not enumerated fields.",
+    "Destination offsets this+6200/this+6300, the six 24-byte loop copies (this+6496/6708/6932) and their 24-byte tails (this+6640/6852/7076) in 0x0043BC20 have no packet field entries; internal layout is inferred from copy sizes only.",
+    "The duplicate re-copies in 0x0043BC20 (source lines 74-93) are treated as redundant double-writes; their semantic significance is unknown.",
+    "The JUMPOUT(0x4F62E6) downshift tail of 0x00426330 lies outside this packet; literal gear requests -1 (reverse) / 0 (neutral) are inferred from surrounding state guards.",
+    "Exact float values behind flt_59E440 (assumed 0.0 zero threshold) and flt_59E8CC (assumed 0.8 traction threshold) are not proven.",
+    "The caller 0x00415090 (ShortComputation_5090) of 0x00415780/0x004159B0 is outside this packet; the this+0x10..0x1C commentary-list bookkeeping role is inferred.",
+    "The guard set (this+0x3EC, 0x15AC, 0x15B4, 0x15BC, 0x15C4) in 0x00439210 is taken from the IDB guard table; the exact branch mapping is not fully verified, and 0x15BC/0x15C4 are described both as loop counts and as roll-stiffness/spring-rate thresholds.",
+    "Vehicle body sub-object init literal 0x3FF00000 is emitted as 1072693248 in the packet; rendered as 1.875f only in the prose tier (DERIVED).",
+    "The 0x00415900 StructDestructor / 0x00418D60 DestructorWithDoubleFreePattern / 0x00418C10 MemoryAllocation_8c10 constant argument 1 significance is unknown.",
+    "VehicleListContainer / VehicleConfigValidator / SuspensionSetup / Matrix3x3 class boundaries are GUESS; the packet provides no named owner for any of them."
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  },
+  "unresolved_evidence_refs": [
+    "field:*(this+0x141C):0x00000004",
+    "field:*(this+0x141C):0x0000000C",
+    "field:*(this+0x141C):0x00000014",
+    "field:*(this+0x141C):0x0000001C",
+    "field:*(this+0x141C):0x00000024",
+    "field:*(this+0x141C):0x0000002C",
+    "field:*(this+0x141C):0x00000034",
+    "field:*(this+0x141C):0x0000003C",
+    "field:*(this+0x141C):0x00000044",
+    "field:*(this+0x141C):0x0000004C",
+    "field:*(this+0x141C):0x00000054",
+    "field:*(this+0x141C):0x0000005C",
+    "field:*(this+0x15B0):0x000000AC",
+    "field:*(this+0x15F0):0x00000004",
+    "field:*(this+0x15F0):0x0000000C",
+    "field:*(this+0x15F0):0x00000014",
+    "field:*(this+0x15F0):0x0000001C",
+    "field:*(this+0x15F0):0x00000024",
+    "field:*(this+0x15F0):0x0000002C",
+    "field:*(this+0x15F0):0x00000034",
+    "field:*(this+0x15F0):0x0000003C",
+    "field:*(this+0x15F0):0x00000044",
+    "field:*(this+0x15F0):0x0000004C",
+    "field:*(this+0x15F0):0x00000054",
+    "field:*(this+0x15F0):0x0000005C",
+    "field:*(this+0x15F0):0x000000AC",
+    "field:*(this+0x15F0):0x000000B4",
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E450",
+    "global:0x0059E830",
+    "global:0x0059E880",
+    "global:0x0059EA58",
+    "global:0x0059EA60",
+    "global:0x0059EAE8",
+    "global:0x0059EBA8",
+    "global:0x0059EBB0",
+    "global:0x0059EBB8",
+    "global:0x0059EBC0",
+    "global:0x0059EBC8",
+    "global:0x0059EBD0",
+    "global:0x0059EBD8",
+    "global:0x0059EBE0",
+    "global:0x0059EBE8",
+    "global:0x0059EBF0",
+    "global:0x0059EBF8",
+    "global:0x0059EC00",
+    "global:0x0059EC08",
+    "global:0x0059ED28",
+    "global:0x0059ED30",
+    "global:0x0059ED38",
+    "global:0x005EC6D0",
+    "global:0x008AD254",
+    "global:0x008ADB00",
+    "caller:0x00415090"
+  ]
+}

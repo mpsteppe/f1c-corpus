@@ -1,0 +1,46 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004493A0
+// Canonical corpus name: TriangleMeshAdjacencyBuilder
+// Owner: TriangleMeshAdjacencyBuilder [DERIVED]
+// Raw source: functions/TriangleMeshAdjacencyBuilder_004493a0.c
+
+void TriangleMeshAdjacencyBuilder::BuildTriangleAdjacency()
+{
+    // Appends one triangle to a collision mesh adjacency builder. Grows the 32-byte AABB body buffer by 0x2000 entries when the count (this+0x0) reaches the capacity pointer (this+0x4), re-initializing new bodies, migrating existing ones, freeing the old buffer and both lazy BVH trees. Copies the new triangle data into the next slot, computes the three edge midpoints, lazily allocates two BVH trees, inserts the triangle vertices, links shared edges to existing neighbors or inserts edge midpoints into the second tree, and optionally copies per-edge flags from a6.
+    // GUARD: Guard: when the stored triangle count (this+0x0) has reached the capacity/end pointer (this+0x4), reallocate the body buffer with room for 0x2000 more entries by calling OperatorNewNhMallocWrapper with 32 * (old capacity + 0x2000) + 4 bytes. [guard:0, field:this:0x00000000, field:this:0x00000004, callee:0x00587C03]
+    // CALL: For each newly allocated body slot, call AABBCollisionBodyInitializer to zero-initialize the 32-byte AABB collision body. [callee:0x00448E90]
+    // LOOP: Migrate existing entries: copy each existing 32-byte (0x20) body from the old buffer (this+0x8) into the new one and re-link the data pointer at byte offset +28 of each entry to its new address; the loop is bounded by the count at this+0x0. [field:this:0x00000000, field:this:0x00000008]
+    // CALL: Recursively traverse and free both lazy BVH trees at this+0xC and this+0x10 via DynamicsBVHNodeRecursiveTraversal, free the old body buffer with FreeWrapper_7bcf, and store the new buffer pointer at this+0x8. [field:this:0x0000000C, field:this:0x00000010, callee:0x00448E50, callee:0x00587BCF, field:this:0x00000008]
+    // ASSIGNMENT: Append the new triangle: copy the caller's 32-byte triangle data (a5) into the next free body slot via SmallStructCopy and increment the stored count at this+0x0. [field:this:0x00000000, callee:0x00448EC0]
+    // CALL: Compute the three edge midpoints of the new triangle by calling WeightedAverageInterpolation on the three vertex pairs (a2-a3, a3-a4, a4-a2). [callee:0x00448480]
+    // CALL: Lazily allocate and initialize the first BVH tree at this+0xC with QuaternionRotationStructureInitialize if null; likewise allocate and initialize the second tree at this+0x10 seeded with the first edge midpoint. [field:this:0x0000000C, field:this:0x00000010, callee:0x00587C03, callee:0x00448510]
+    // CALL: Insert the three triangle vertices into the first BVH tree via SpatialTreeInsertion and store the returned node pointers into adjacency slots 0, 2 and 4 of the new triangle entry. [callee:0x004485D0, field:this:0x0000000C]
+    // LOOP: For each of the three edges, scan the neighbor bodies' edge lists (data pointer at byte offset +28, neighbor count capped at 0xB at byte offset +24) for the shared edge; if a shared edge exists reuse the neighbor's adjacency node pointer, otherwise insert the edge midpoint into the second BVH tree (this+0x10) via SpatialTreeInsertion and store the new node in adjacency slots 1, 3 and 5. [callee:0x004485D0, field:this:0x00000010]
+    // LOOP: For each of the six adjacency slot bodies, append this triangle entry to the node's linked neighbor list: write the entry pointer at byte offset +28 + 4*n and increment the neighbor count at byte offset +24. [source:raw]
+    // CALL: If a6 is non-zero, copy three edge-flag pairs from a6 into the two new midpoint-adjacency body nodes at byte offsets +16 and +20. [source:raw]
+    // RETURN: Return the trailing loop counter result. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (this->count >= this->capacity) {
+    //     char* nb = OperatorNewNhMallocWrapper(32 * (this->capacity + 0x2000) + 4);
+    //     for each new slot: AABBCollisionBodyInitializer(nb + i*32);
+    //     copy existing bodies from this->bodies to nb, relink entry+28 pointers;
+    //     if (this->tree0) DynamicsBVHNodeRecursiveTraversal(this->tree0);
+    //     if (this->tree1) DynamicsBVHNodeRecursiveTraversal(this->tree1);
+    //     if (this->bodies) FreeWrapper_7bcf(this->bodies - 4);
+    //     this->bodies = nb;
+    //   }
+    //   entry = &this->bodies[32 * this->count++];
+    //   SmallStructCopy(entry, a5);
+    //   WeightedAverageInterpolation(&m0, a2, a3); m1 = mid(a3, a4); m2 = mid(a4, a2);
+    //   if (!this->tree0) this->tree0 = new_and_init(QuaternionRotationStructureInitialize, a2);
+    //   if (!this->tree1) this->tree1 = new_and_init(QuaternionRotationStructureInitialize, m0);
+    //   entry[0] = SpatialTreeInsertion(this->tree0, a2);
+    //   entry[2] = SpatialTreeInsertion(this->tree0, a3);
+    //   entry[4] = SpatialTreeInsertion(this->tree0, a4);
+    //   for each edge: entry[n] = find_shared_edge(node) ? neighbor_node : SpatialTreeInsertion(this->tree1, midpoint);
+    //   for j in 0..5: node[24] < 0xB => node[28 + 4*node[24]++] = entry;
+    //   if (a6) for i in 0..2: entry[2*i+1]->[16] = a6[2i]; entry[2*i+1]->[20] = a6[2i+1];
+    // UNRESOLVED: Exact layout of the BVH node/body structures beyond byte offsets +24 (neighbor count) and +28 (neighbor pointer list) is not confirmed; body fields are inherited from AABBCollisionBodyInitializer and unverified here.
+    // UNRESOLVED: The semantic difference between the two BVH trees (vertex tree vs. edge-midpoint tree) and the meaning of a6 edge flags depend on the collision consumers, not established in this body.
+}

@@ -1,0 +1,49 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00500FCA
+// Canonical corpus name: DDSTextureFormatValidationDecoding
+// Owner: DDSImageDecoder [DERIVED]
+// Raw source: functions/DDSTextureFormatValidationDecoding_00500fca.c
+
+void DDSImageDecoder::decodeDdsTexture()
+{
+    // Validates a DDS header and buffer bounds, classifies the pixel format into an internal format ID, then either returns the format query result or allocates output structures and decodes pixel rows (palette expansion for 8-bit indexed, RLE decompression, bit/nibble unpacking, or byte copy) into a 32-bit BGRA row buffer.
+    // GUARD: Reject input when the DDS data buffer size a3 is below 0x28 (40) bytes with error -2147467259 (E_FAIL). [source:raw]
+    // GUARD: Reject input when the header size field at a2 (first DWORD) is below 0x28 (40) bytes with error -2147467259 (E_FAIL). [source:raw]
+    // CALCULATION: Read width from a2+4, height from a2+8 (negated when <= 0 to obtain the absolute row count), and bits-per-pixel from the WORD at a2+14. [source:raw]
+    // CALCULATION: Read linear size v9 from a2+32; when bits-per-pixel <= 8 and v9 is 0, substitute v9 = 1 << bitsPerPixel. Compute the pixel-data start offset v48 = headerSize + 4 * v9. [source:raw]
+    // GUARD: Reject input with error -2147467259 when the computed pixel-data offset v48 exceeds the buffer size a3 (truncated data). [source:raw]
+    // GUARD: Reject input with error -2147467259 when the WORD at a2+12 (pixel-format marker) is not 1. [source:raw]
+    // GUARD: When the height field at a2+8 is negative, the fourCC at a2+16 must be 0 or 3; any other non-zero value is rejected with error -2147467259. [source:raw]
+    // STATE_TRANSITION: Uncompressed path (fourCC at a2+16 <= 2): map bits-per-pixel to the internal format ID - 1/4/8 to 41 (indexed/palette), 16 to 24, 24 to 20, 32 to 22 - and reject any other value with error -2147467259. [source:raw, field:this:0x00000000]
+    // CALCULATION: FourCC==3 path: read the RGBA bitmasks from a2+40/44/48/52 (or from a2+headerSize+0/4/8 when the header is shorter than 0x6C) and classify the combination into an internal format ID (e.g. RGB565 0x1F/0x7E0/0xF800 to 23, ARGB1555 to 25, XRGB1555 to 24, A8/L8 0xFF/0xFF/0xFF/0xFF00 to 51, 4-bit ARGB4 to 26/30, RGB4 to 29, A8R8G8B8 masks to 31/34, R8G8B8A8 to 21). [source:raw]
+    // GUARD: Reject input with error -2147467259 when the bitmask combination is not recognized, or -2147467263 when the fourCC is neither <= 2 nor 3. [source:raw]
+    // STATE_TRANSITION: Write the decoded internal format ID to this+0x0. [field:this:0x00000000]
+    // ASSIGNMENT: Populate the output struct: width to this+0xC, absolute height to this+0x10, constant 1 to this+0x14, aligned row stride to this+0x30, and constant 0 to this+0x34. [field:this:0x0000000C, field:this:0x00000010, field:this:0x00000014, field:this:0x00000030, field:this:0x00000034]
+    // GUARD: When this+0x40 (palette request flag) is 0, return 0 immediately: the call acts as a format query only and no pixel decoding is performed. [field:this:0x00000040, guard:0]
+    // STATE_TRANSITION: Palette path when this+0x40 is non-zero and the format ID is 41: set this+0x3C to 1 (palette expanded) and allocate a 1024-byte palette buffer. [field:this:0x00000040, field:this:0x0000003C, field:this:0x00000008, callee:0x00587C03]
+    // CALL: Call OperatorNewNhMallocWrapper(1024) for the palette buffer and store the pointer at this+0x8; on null allocation return -2147024882 (E_OUTOFMEMORY). [callee:0x00587C03, field:this:0x00000008]
+    // LOOP: Expand the palette: copy color-count entries (from a2+32, or 1<<bitsPerPixel when zero) from the DDS palette data as BGRA bytes with an opaque alpha channel, advancing 4 bytes per entry, then fill the remaining entries up to 256 with opaque white. [field:this:0x00000008, field:this:0x0000003C, source:raw]
+    // STATE_TRANSITION: Zero-copy path when the source height is negative and bits-per-pixel >= 8: set this+0x38 to 0 (external buffer) and this+0x4 to a pointer inside the DDS data at offset v48; otherwise mark ownership by setting this+0x38 to 1. [field:this:0x00000038, field:this:0x00000004]
+    // CALL: Owned-buffer path: call OperatorNewNhMallocWrapper(height * stride) for the pixel output buffer, store it at this+0x4, and return -2147024882 (E_OUTOFMEMORY) on null allocation. [callee:0x00587C03, field:this:0x00000004, field:this:0x00000038]
+    // LOOP: Decode pixel rows from the source into the output buffer: RLE decompression for fourCC values 1 and 2 (op-codes 0/1/2, padding-aware), bit unpacking for 1-bit pixels, nibble unpacking for 4-bit pixels, and row-by-row byte copy for 8+ bit pixels; row advance uses this+0x30 stride and the source advances by the packed row byte count. [field:this:0x00000004, field:this:0x00000030, source:raw]
+    // RETURN: Return 0 on success. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   // Validate DDS header and buffer bounds.
+    //   if (a3 < 0x28 || *(uint32*)a2 < 0x28) return E_FAIL;
+    //   if (*(uint16*)(a2+12) != 1) return E_FAIL;
+    //   v48 = *(uint32*)a2 + 4 * linearSize;          // pixel-data start offset
+    //   if (v48 > a3) return E_FAIL;                  // truncated pixel data
+    //   // Classify RGBA bitmasks / bits-per-pixel into internal format ID v60.
+    //   this->formatId = v60; this->width = w; this->height = h;
+    //   this->stride = alignedRowBytes; this->flag14 = 1; this->flag34 = 0;
+    //   if (this->paletteRequest == 0) return 0;      // format query only
+    //   if (v60 == 41) { alloc palette; expand BGRA entries; fill remainder to 256 with opaque white; }
+    //   if (negativeHeight && bpp >= 8) { this->owns = 0; this->pixels = ddsData + v48; }
+    //   else { alloc(height*stride); decode rows (RLE / bit unpack / copy); }
+    //   return 0;
+    // UNRESOLVED: Internal format ID enum semantics (20, 21, 22, 23, 24, 25, 26, 29, 30, 31, 34, 41, 51) are inferred from existing analysis; no independent runtime evidence ties each ID to a specific surface format.
+    // UNRESOLVED: Full byte-exact behavior of the RLE op-code decode paths (marker 0x00 with op-codes 0/1/2) is traced but not validated against real compressed data.
+    // UNRESOLVED: Purpose of this+0x34 (always written 0) and this+0x14 (always written 1) is guessed from existing analysis as a zero flag and a top-down orientation flag respectively.
+    // UNRESOLVED: The decode-only-when-this+0x40-nonzero behavior suggests callers use this entry both as a format query and as a decode request; the exact caller-side contract is unknown.
+}

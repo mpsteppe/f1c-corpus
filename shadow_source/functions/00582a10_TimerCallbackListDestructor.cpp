@@ -1,0 +1,49 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00582A10
+// Canonical corpus name: sub_582A10
+// Owner: TimerCallbackList [DERIVED]
+// Raw source: functions/sub_582A10_00582a10.c
+
+void TimerCallbackList::TimerCallbackListDestructor()
+{
+    // Destructor/cleanup for a two-list timer-callback structure. Walks the second list (head at this+0x10): for each node with a non-zero +8 flag it invokes the SEH-guarded callback on the node's data block and frees the data, then frees the node. Clears the second-list struct fields at this+0x4..0x10. Then walks the first list (head at this+0x0): for flagged nodes it resolves the data block, and when the block's first dword is non-zero runs NTimeCallbackLoopWithSEH(block, 84, block-4, SEH handler), frees the allocation base block-4 and the data pointer, then frees each node. Clears the first-list struct fields at this+0x0..0xC and returns 0.
+    // ASSIGNMENT: Initialize result to 0. [source:raw]
+    // LOOP: Walk the second list starting from its head at this+0x10 (a1[4]). For each node: if the flag byte at node+8 is non-zero, invoke SEHGuardedFunctionWithExceptionHandling on the node data pointer (obj+0x0) and free the data block via FreeWrapper_7bcf; always free the node. [field:this:0x00000010, field:obj:0x00000000, field:obj:0x00000008, field:*(obj+0x0):0x00000000, callee:0x005867B0, global:0x005867B0, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Clear the second-list struct fields to 0: this+0x4, this+0x8, this+0xC, this+0x10. [field:this:0x00000004, field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, source:raw]
+    // LOOP: Walk the first list starting from its head at this+0x0 (a1[0]). For each node: if the flag byte at node+8 is non-zero, resolve the data pointer (obj+0x0), and when the data block's first dword (*(obj+0x0)) is non-zero run NTimeCallbackLoopWithSEH(block, 84, block-4, SEH handler), then free the allocation base block-4 and the data pointer via FreeWrapper_7bcf; always free the node. [field:this:0x00000000, field:obj:0x00000000, field:obj:0x00000008, field:*(obj+0x0):0x00000000, callee:0x0058A5F7, callee:0x005867B0, global:0x005867B0, callee:0x00587BCF, source:raw]
+    // ASSIGNMENT: Clear the first-list struct fields to 0: this+0x0, this+0x4, this+0x8, this+0xC. [field:this:0x00000000, field:this:0x00000004, field:this:0x00000008, field:this:0x0000000C, source:raw]
+    // RETURN: Return 0. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   // Clear the second linked list (nodes chained from a1[4]).
+    //   for (node = a1[4]; node; node = node[1]) {
+    //       if (node[8]) {
+    //           if (node[0]) {
+    //               SEHGuardedFunctionWithExceptionHandling(node[0]);
+    //               FreeWrapper_7bcf(node[0]);
+    //           }
+    //       }
+    //       FreeWrapper_7bcf(node);
+    //   }
+    //   a1[1] = 0; a1[2] = 0; a1[3] = 0; a1[4] = 0;
+    //   // Clear the first linked list (nodes chained from a1[0]).
+    //   for (node = a1[0]; node; node = node[1]) {
+    //       if (node[8]) {
+    //           data = node[0];
+    //           if (data) {
+    //               block = *data;
+    //               if (block) {
+    //                   NTimeCallbackLoopWithSEH(block, 84, *(block - 4), SEHGuardedFunctionWithExceptionHandling);
+    //                   FreeWrapper_7bcf(block - 4);
+    //               }
+    //               FreeWrapper_7bcf(data);
+    //           }
+    //       }
+    //       FreeWrapper_7bcf(node);
+    //   }
+    //   a1[0] = 0; a1[1] = 0; a1[2] = 0; a1[3] = 0;
+    //   return 0;
+    // UNRESOLVED: this+0x14, this+0x18 and this+0x1C (second-list tail, iterator and count fields) are not touched by the visible decompiled body.
+    // UNRESOLVED: Global 0x0059CD50 (SEH_582A10) is the compiler-generated SEH scope table backing the exception-handled calls, not visible logic.
+    // UNRESOLVED: The timer callback structure stored per node and the role of the 84-size block are unknown.
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "address": "0x004F8250",
+  "proposed_name": "ObjectDestructor",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004F8250"]
+  },
+  "summary": "COM-like object destruction: guards on the object pointer at a1, runs the vtable destruction chain (slot 2 at vtable+8 release, slot 6 at vtable+24 cleanup, then slot 0 delete with argument 1), and nulls the caller's pointer. Returned value is the last call result. Called by DoubleBufferFree (0x004F83B0).",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard: proceed only when the object pointer stored at a1 (field obj+0x0) is non-null; otherwise return immediately.",
+      "evidence_refs": ["field:obj:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call vtable slot 2 (function pointer at vtable+8) on the object; this is the first destruction-phase callback.",
+      "evidence_refs": ["field:*(obj+0x0):0x00000008", "field:*(obj+0x0):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call vtable slot 6 (function pointer at vtable+24) on the object; this is the second destruction-phase callback, whose return value becomes the function result.",
+      "evidence_refs": ["field:*(obj+0x0):0x00000018", "field:*(obj+0x0):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard: re-check the object pointer at a1 (field obj+0x0) before the delete call.",
+      "evidence_refs": ["field:obj:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call vtable slot 0 (function pointer at vtable+0) on the object with argument 1; this is the final delete/free call.",
+      "evidence_refs": ["field:*(obj+0x0):0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Null the caller's output pointer at a1 (field this+0x0) after destruction.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result of the last executed destruction callback (or the unmodified pointer value when the initial guard fails).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int ObjectDestructor(DWORD *a1) {",
+    "  if (*a1) {",
+    "    (*a1)->vtbl[2](*a1);            // release at vtable+8",
+    "    int r = (*a1)->vtbl[6](*a1);    // cleanup at vtable+24",
+    "    if (*a1) (*a1)->vtbl[0](*a1, 1); // delete at vtable+0, arg 1",
+    "    *a1 = 0;",
+    "    return r;",
+    "  }",
+    "  return (int)a1;",
+    "}"
+  ],
+  "unresolved": [
+    "The object type is unknown; vtable slot call targets are indirect so their addresses are not evidenced in this packet.",
+    "The meaning of the argument 1 passed to the delete slot is not evidenced.",
+    "Callee identities for the three vtable calls are not statically resolved."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

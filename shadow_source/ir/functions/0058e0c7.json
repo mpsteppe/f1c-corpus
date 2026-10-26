@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "address": "0x0058E0C7",
+  "proposed_name": "GetPerThreadDataWithInit",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "CRT-style per-thread data retrieval. Saves the current GetLastError value, reads the per-thread data block pointer via TlsGetValue(dwTlsIndex). On first access for a thread (null pointer), lazily allocates a 116-byte block with sub_58AB58(1, 116), registers it with TlsSetValue(dwTlsIndex, block), initializes it via TwoFieldInitializer_e0b4 and stamps it with the current thread id and a -1 sentinel; on allocation/registration failure it terminates with CRTAmsgExit(0x10). Finally restores the saved LastError value and returns the per-thread data pointer.",
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Capture GetLastError() into LastError so the TLS setup path can restore it afterward.",
+      "evidence_refs": ["global:0x0059E188", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Retrieve the per-thread data block via TlsGetValue(dwTlsIndex).",
+      "evidence_refs": ["global:0x0059E14C", "global:0x005E6D40", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on the TlsGetValue result: a null value means the per-thread block has not been allocated yet on this thread.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Allocate a new per-thread data block with sub_58AB58(1, 116) (116-byte block).",
+      "evidence_refs": ["callee:0x0058AB58", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Register the newly allocated block with TlsSetValue(dwTlsIndex, block); if the allocation or registration fails, terminate with CRTAmsgExit(0x10).",
+      "evidence_refs": ["callee:0x0058A2A6", "global:0x0059E158", "global:0x005E6D40", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Initialize fields of the new block via TwoFieldInitializer_e0b4.",
+      "evidence_refs": ["callee:0x0058E0B4", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Capture GetCurrentThreadId() to stamp the block with the owning thread id.",
+      "evidence_refs": ["global:0x0059E15C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Stamp the block: Value[1] = -1 and Value[0] = current thread id.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Restore the saved LastError value via SetLastError so the TLS machinery does not disturb the caller's error state.",
+      "evidence_refs": ["global:0x0059E150", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the per-thread data pointer (newly created on first access, previously stored otherwise).",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "_DWORD* GetPerThreadDataWithInit() {",
+    "  DWORD lastError = GetLastError();",
+    "  _DWORD* block = TlsGetValue(dwTlsIndex);",
+    "  if (block == NULL) {",
+    "    block = sub_58AB58(1, 116);",
+    "    if (block && TlsSetValue(dwTlsIndex, block)) {",
+    "      TwoFieldInitializer_e0b4((int)block);",
+    "      DWORD tid = GetCurrentThreadId();",
+    "      block[1] = -1;",
+    "      block[0] = tid;",
+    "    } else {",
+    "      CRTAmsgExit(0x10);",
+    "    }",
+    "  }",
+    "  SetLastError(lastError);",
+    "  return block;",
+    "}"
+  ],
+  "unresolved": [
+    "The per-thread block layout (beyond Value[0] thread id and Value[1] = -1 sentinel) is unknown; the fields initialized by TwoFieldInitializer_e0b4 are not enumerated here.",
+    "The identity of the per-thread structure's owner is unknown; treated as an unverified CRT-owned block.",
+    "The allocation size semantics of sub_58AB58(1, 116) (element count / element size vs byte count) are unverified."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

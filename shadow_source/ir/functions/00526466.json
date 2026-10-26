@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "address": "0x00526466",
+  "proposed_name": "QuadrilinearInterp3DNow",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x00526466", "source:raw"]
+  },
+  "summary": "3DNow! SIMD interpolation between four packed float control points (a2..a5) parameterized by scalar factor a6, storing two result lanes into output a1. Broadcasts a6, derives a set of higher-order weight coefficients with packed multiply/add/sign-flip operations, blends the first packed element of all four inputs, blends the low 32-bit lanes of each input's second element, scales both results by 0.5f (packed 0x3F0000003F000000), emits EMMS, and returns a1.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Broadcast scalar factor a6 into packed 32-bit lanes via cvtsi32_si64 and punpckldq, constructing the t and 1.0f operands (v6, v7, v8).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Derive weight coefficients from t: powers (t^2, t^3), packed differences, a sign flip via xor with 0x8000000000000000, and a scale by packed [2.0f, 3.0f], producing the four coefficient lanes held in v15/v16 and duplicated across v17/v18/v19/v21.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Blend the first packed element of the four control points: v22 = w0*a2[0] + w1*a3[0] + w2*a4[0] + w3*a5[0] using packed pfmul/pfadd.",
+      "evidence_refs": ["source:raw", "field:this:0x00000000"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Blend the second element using the low 32-bit lanes of a2[1], a3[1], a4[1], a5[1]: v23 = w0*a2[1].lo + w1*a3[1].lo + w2*a4[1].lo + w3*a5[1].lo.",
+      "evidence_refs": ["source:raw", "field:this:0x00000008"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Scale the first blend by 0.5f (packed 0x3F0000003F000000) and store the full 64-bit pair at a1[0].",
+      "evidence_refs": ["source:raw", "field:this:0x00000000"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Scale the second blend by 0.5f and store its low 32-bit lane at a1[1].m64_i32[0] via cvtsi64_si32.",
+      "evidence_refs": ["source:raw", "field:this:0x00000008"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Reads four SIMD constant globals qword_5AF900, qword_5AF910, qword_5AF920, qword_5AF968; in the decompiled source these appear folded into inline __m64 literals, so the per-global constant identity is not recoverable from the packet.",
+      "evidence_refs": ["source:raw", "global:0x005AF900", "global:0x005AF910", "global:0x005AF920", "global:0x005AF968"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Emit 3DNow! EMMS (_m_femms) to clear the MMX/3DNow state before returning.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the output pointer a1.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "__m64 *sub_526466(__m64 *out, __m64 *p0, __m64 *p1, __m64 *p2, __m64 *p3, unsigned int t) {",
+    "  // t broadcast into packed lanes; higher-order weight coefficients w0..w3",
+    "  // derived with 3DNow! packed mul/add/diff/sign-flip ops.",
+    "  __m64 w0, w1, w2, w3; // exact per-lane mapping unverified",
+    "  __m64 first  = w0*p0->m64_u64 + w1*p1->m64_u64 + w2*p2->m64_u64 + w3*p3->m64_u64;",
+    "  __m64 second = w0*p0[1].lo   + w1*p1[1].lo   + w2*p2[1].lo   + w3*p3[1].lo;",
+    "  out->m64_u64 = first  * 0.5f;",
+    "  out[1].lo    = second * 0.5f;",
+    "  _m_femms();",
+    "  return out;",
+    "}"
+  ],
+  "unresolved": [
+    "Per-global mapping of qword_5AF900, qword_5AF910, qword_5AF920 and qword_5AF968 to the folded __m64 literals is unknown; the packet does not link each constant to its global.",
+    "Field base this at +0x8 records reads from the second packed element (low 32-bit lanes) of all four input control points; the underlying input array layout is caller-defined.",
+    "Interpolation intent (quartic vs quadrilinear) is inferred from instruction structure only and is not proven by the packet.",
+    "The exact per-lane weight coefficient formula was not fully derived from the packed shuffle/sign-flip sequence."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,69 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00492A40
+// Canonical corpus name: sub_492A40
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_492A40_00492a40.c
+
+void UnknownObject::ParseGizmoDefinition()
+{
+    // __thiscall parser that consumes a gizmo/widget definition string and builds or extends the gizmo object tree: validates the name, normalizes it, creates/looks up the gizmo object via sub_493FC0, copies context pointers from the parser into it, then tokenizes the definition and dispatches each token (name, position, size, offsets, captions, tooltip, child gizmos, actions, attribute sets, friend gizmos, variables) to the matching handler. On an unknown type it formats an error into byte_7CDCF0 and reports it. Recurses for child gizmos and restores a parse-depth counter on exit.
+    // ASSIGNMENT: Seed both local 125-char buffers v34 and SrcStr from byte_5EA438[0] and zero-fill the remainder (memset 0x7C bytes); zero the four float scratch slots v30..v33 and the v28/v29 flag bytes. [global:0x005EA438, source:raw]
+    // GUARD: Guard on the definition string a2: if null, call sub_493C80(2, aNullGizmonameP) to report the 'null gizmo name' error. [callee:0x00493C80, global:0x005CC75C, source:raw]
+    // CALL: Copy a2 into SrcStr (strcpy) and preprocess it with sub_589901(SrcStr) before object lookup. [callee:0x00589901, source:raw]
+    // ASSIGNMENT: Increment the recursive parse-depth counter at this+0x194. [field:this:0x00000194, source:raw]
+    // CALL: Create/look up the gizmo object v3 = sub_493FC0(SrcStr); a null result routes to the undefined-gizmo error path. [callee:0x00493FC0, source:raw]
+    // ASSIGNMENT: Copy parser context into the object: v3[16] = this+0x1A4, v3[38] = this+0x1A8, v3[39] = this+0x1AC. [field:this:0x000001A4, field:this:0x000001A8, field:this:0x000001AC, source:raw]
+    // LOOP: Token iteration driven by sub_491FB0(this); the loop breaks when sub_587C20(&unk_7CDB70, asc_5CC4F4) signals end of the definition string. [callee:0x00491FB0, callee:0x00587C20, global:0x007CDB70, global:0x005CC4F4, source:raw]
+    // GUARD: For token aName_2: when the flag at this+0x19A is set and the depth at this+0x19C is below 4, run ResourcePathBuilder(v34); always register the name field with sub_49AD50(v34). [callee:0x005654A0, global:0x005CC650, field:this:0x0000019A, field:this:0x0000019C, guard:0, callee:0x00493E20, callee:0x0049AD50, source:raw]
+    // CALL: For tokens aSourceVariable / aVariable / aVariableValue: copy the captured token text through StringCopyWithBufferRealloc(v34). [callee:0x005654A0, global:0x005CC734, global:0x005CC728, global:0x005CC718, callee:0x00566650, source:raw]
+    // CALL: For token aPosWH: parse four floats into v30..v33 with sub_565870, convert each with CRTFtol, then apply ShortComputation_a9c0; set the v28 flag that later gates attribute-set dispatch. [callee:0x00565870, global:0x005CC68C, callee:0x00587BDC, callee:0x0049A9C0, source:raw]
+    // CALL: For token aPosition: parse two floats into v31/v30, convert with CRTFtol and apply via OffsetAccumulator. [callee:0x00565870, global:0x005C59D4, callee:0x00587BDC, callee:0x0049AA30, source:raw]
+    // CALL: For token aWidthHeight: parse two floats into v30/v31, convert with CRTFtol and apply via PositionUpdate; set the v28 flag. [callee:0x00565870, global:0x005CC708, callee:0x00587BDC, callee:0x0049AA70, source:raw]
+    // CALL: For token aPos2Offset: parse four floats into v30/v32/v31/v33, convert with CRTFtol and apply ObjectConstructor_adc0 twice; set the v29 flag. [callee:0x00565870, global:0x005CC6FC, callee:0x00587BDC, callee:0x0049ADC0, source:raw]
+    // CALL: For token aOffset: parse two floats into v30/v31, convert with CRTFtol and apply ObjectConstructor_adc0 once. [callee:0x00565870, global:0x005CC6F4, callee:0x00587BDC, callee:0x0049ADC0, source:raw]
+    // CALL: For tokens aCaption1 / aTooltip / aCaption2: copy the token text into the global scratch buffer byte_7CDCF0 via StringCopyWithBufferRealloc. [callee:0x005654A0, global:0x005CC6E8, global:0x005CC6E0, global:0x005CC6D4, global:0x007CDCF0, callee:0x00566650, source:raw]
+    // CALL: For token aChild: recursively parse the child gizmo with sub_492A40(v34) and, when non-null, insert it into the parent's child list via sub_486340(v3, v11, 0). [callee:0x005654A0, global:0x005CC6CC, callee:0x00492A40, callee:0x00486340, source:raw]
+    // CALL: For token aActions: hand the object and token to sub_493480(v3, v34) to parse the action list. [callee:0x005654A0, global:0x005CC6C4, callee:0x00493480, source:raw]
+    // CALL: For token aAttributeset: resolve the attribute set with StringMatchedLinkedListSearch(v34), store the result at v3[50], and when found call ConditionalMultiParamDispatch with the two flags computed from v29/v28. [callee:0x005654A0, global:0x005CC5BC, callee:0x0049A210, callee:0x004861A0, source:raw]
+    // CALL: For token aFriendgizmo: append the gizmo at byte_7CDCF0 as a friend link with LinkedListNodeInsert_6580(v3, byte_7CDCF0). [callee:0x005654A0, global:0x005CC6B8, global:0x007CDCF0, callee:0x00486580, source:raw]
+    // CALL: Post-loop normalization of the name fields v3[44] and v3[48]: fall back to byte_5EA438 when null, and when non-empty, if BinarySearchInStringTable(byte_5EC4C0, name, byte_7CDCF0) fails, copy the name into byte_7CDCF0 via StringCopyWithBufferRealloc. [callee:0x00423A00, global:0x005EC4C0, global:0x005EA438, global:0x007CDCF0, callee:0x00566650, source:raw]
+    // ASSIGNMENT: Decrement the parse-depth counter at this+0x194 and return the constructed object v3. [field:this:0x00000194, source:raw]
+    // CALL: Error path when the type lookup fails: StringFormatWithBufferOverflowCheck formats 'undefined gizmo type %s' (aUndefinedGizmo) into byte_7CDCF0, sub_493C80(1, byte_7CDCF0) reports it, TokenMatchingLoop(this) drains remaining tokens, and 0 is returned. [callee:0x0058815F, global:0x005CC744, global:0x007CDCF0, callee:0x00493C80, callee:0x00492030, source:raw]
+    // CALL: Invoked by gizmo parser entries sub_492160, sub_492460 and sub_492710 to parse gizmo definition strings. [caller:0x00492160, caller:0x00492460, caller:0x00492710, source:raw]
+
+    // Conservative worker pseudocode:
+    //   DWORD* ParseGizmoDefinition(int parser, const char* definition) {
+    //     char name[125], src[125];
+    //     seed_buffers_from(byte_5EA438, name, src);
+    //     if (!definition) sub_493C80(2, aNullGizmonameP);
+    //     strcpy(src, definition); sub_589901(src);
+    //     ++*(parser + 0x194);
+    //     DWORD* gizmo = sub_493FC0(src);
+    //     if (!gizmo) {
+    //       StringFormatWithBufferOverflowCheck(byte_7CDCF0, "undefined gizmo type %s", src);
+    //       sub_493C80(1, byte_7CDCF0); TokenMatchingLoop(parser); return 0;
+    //     }
+    //     gizmo[16] = *(parser+0x1A4); gizmo[38] = *(parser+0x1A8); gizmo[39] = *(parser+0x1AC);
+    //     while (sub_491FB0(parser)) {
+    //       if (sub_587C20(&unk_7CDB70, asc_5CC4F4)) break;
+    //       if (tok(aName_2)) { if (*(parser+0x19A) && *(parser+0x19C) < 4) ResourcePathBuilder(name); sub_49AD50(name); }
+    //       else if (tok(aSourceVariable)||tok(aVariable)||tok(aVariableValue)) StringCopyWithBufferRealloc(name);
+    //       else if (tok_num(aPosWH,&v30,&v32,&v31,&v33)) { ShortComputation_a9c0(ftol(v32),ftol(v33+v32),ftol(v30),ftol(v31+v30)); flag1=1; }
+    //       else if (tok_num(aPosition,&v31,&v30)) OffsetAccumulator(ftol(v31),ftol(v30));
+    //       else if (tok_num(aWidthHeight,&v30,&v31)) { PositionUpdate(ftol(v30),ftol(v31)); flag1=1; }
+    //       else if (tok_num(aPos2Offset,&v30,&v32,&v31,&v33)) { ObjectConstructor_adc0(ftol(v30),ftol(v32)); ObjectConstructor_adc0(ftol(v31),ftol(v33)); flag2=1; }
+    //       else if (tok_num(aOffset,&v30,&v31)) ObjectConstructor_adc0(ftol(v30),ftol(v31));
+    //       else if (tok(aCaption1)||tok(aTooltip)||tok(aCaption2)) StringCopyWithBufferRealloc(byte_7CDCF0);
+    //       else if (tok(aChild)) { DWORD* c = sub_492A40(name); if (c) sub_486340(gizmo,c,0); }
+    //       else if (tok(aActions)) sub_493480(gizmo,name);
+    //       else if (tok(aAttributeset)) { int s=StringMatchedLinkedListSearch(name); gizmo[50]=s; if (s) ConditionalMultiParamDispatch(s, flag2==0, flag1==0); }
+    //       else if (tok(aFriendgizmo)) LinkedListNodeInsert_6580(gizmo, byte_7CDCF0);
+    //     }
+    //     normalize_name(gizmo+44); normalize_name(gizmo+48);
+    //     --*(parser + 0x194);
+    //     return gizmo;
+    //   }
+    // UNRESOLVED: Meaning of the v3[50] attribute-set pointer and the two boolean flags passed to ConditionalMultiParamDispatch depends on the sub_486340/sub_493480 consumers.
+    // UNRESOLVED: Semantics of sub_49AD50, ObjectConstructor_adc0, OffsetAccumulator and PositionUpdate on the gizmo tree are not resolved here.
+    // UNRESOLVED: ResourcePathBuilder (0x00493E20) behavior and the this+0x19A/this+0x19C path-builder gating semantics need their own reconstruction.
+}

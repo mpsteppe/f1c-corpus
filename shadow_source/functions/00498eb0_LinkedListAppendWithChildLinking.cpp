@@ -1,0 +1,38 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00498EB0
+// Canonical corpus name: LinkedListAppend_8eb0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LinkedListAppend_8eb0_00498eb0.c
+
+void UnknownObject::LinkedListAppendWithChildLinking()
+{
+    // Appends node a2 to a linked list rooted at this: increments the counter at this+0x5C, iterates a2's child list (first child a2[36], linked via offset 0x8C) setting each child's parent back-link (child+0x98 = this, child+0x9C = 0), calls MultiRegionOffsetAccumulationWithVTableDispatch with (a2, this[3], this[1]), then appends a2 to the tail of the list anchored at this[19] (this+0x4C) via the 0x8C next pointers (or sets this+0x4C = a2 when the list is empty). Returns a2. Called by SetInitCall (004975B0).
+    // CALCULATION: Increment the node counter at this+0x5C (this[23]) [field:this:0x0000005C, source:raw]
+    // LOOP: Walk a2's child list from first child a2[36] following the 0x8C next field, setting each child's back-links: child+0x98 = this and child+0x9C = 0 [field:*(*(this+0xD8)+0x8C):0x0000008C, source:raw]
+    // CALL: Invoke MultiRegionOffsetAccumulationWithVTableDispatch(a2, this[3], this[1]) using this+0xC and this+0x4 as accumulation arguments [callee:0x004869E0, field:this:0x00000004, field:this:0x0000000C, source:raw]
+    // GUARD: Branch on the list head this+0x4C (this[19]) being non-null to decide between tail append and first-insert [field:this:0x0000004C, source:raw]
+    // LOOP: Non-empty branch: walk the 0x8C next chain from this+0x4C to its tail, then set the tail's next (tail+140) = a2 and return a2 [field:this:0x0000004C, field:*(*(this+0xD8)+0x8C):0x0000008C, source:raw]
+    // ASSIGNMENT: Empty-list branch: set head this+0x4C = a2 (as integer) and return a2 [field:this:0x0000004C, source:raw]
+    // RETURN: Return a2 in both the append and first-insert branches [function:0x00498EB0, source:raw]
+    // CALL: Invoked by SetInitCall (004975B0) [caller:0x004975B0, source:raw]
+
+    // Conservative worker pseudocode:
+    //   this[23]++;
+    //   v3 = a2[36];
+    //   a2[38] = this;
+    //   for (a2[39] = 0; v3; v3 = v3[35]) {
+    //     v3[38] = this;
+    //     v3[39] = 0;
+    //   }
+    //   MultiRegionOffsetAccumulationWithVTableDispatch(a2, this[3], this[1]);
+    //   v4 = this[19];
+    //   if (v4) {
+    //     for (i = *(v4 + 140); i; i = *(i + 140)) v4 = i;
+    //     *(v4 + 140) = a2;
+    //     return a2;
+    //   }
+    //   this[19] = a2;
+    //   return a2;
+    // UNRESOLVED: field this+0xD8 is listed as read by packet facts but does not appear literally in the raw source text; its role as an anchor object for the 0x8C traversal is inferred from the packet's field base notation only
+    // UNRESOLVED: The child-list fields a2[36]/a2[38]/a2[39] (offsets 0x90/0x98/0x9C) are named only by their back-link pattern; their semantic meaning is not proven
+}

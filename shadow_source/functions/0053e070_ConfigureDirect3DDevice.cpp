@@ -1,0 +1,78 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0053E070
+// Canonical corpus name: sub_53E070
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_53E070_0053e070.c
+
+void UnknownObject::ConfigureDirect3DDevice()
+{
+    // Direct3D device configuration routine: releases prior renderer resources, (re)initializes device state when missing, creates three audio emitters, negotiates supported display/backbuffer/depth-stencil formats and multisample modes through an adapter object vtable, selects a final device format set, configures windowed/fullscreen present parameters, sets the render target, configures an audio emitter device, and extracts hardware capability flags. Returns -1 on any setup failure; otherwise returns the negated result of a final resource verification call. Called by sub_55BD20.
+    // ASSIGNMENT: Initialize local flags v49 and v50 to 0. [function:0x0053E070, source:raw]
+    // CALL: Call RendererResourceCleanup(a3) to release prior renderer resources before reconfiguration. [callee:0x0053EAD0]
+    // GUARD: If this+0x1100 (device/state pointer) is null, call sub_53D970(this, a7) to rebuild the device state and set v50=1. [field:this:0x00001100, callee:0x0053D970, source:raw]
+    // CALL: Call FieldGetterAt0x118(a2) to read a configuration field from the caller-supplied a2 object. [callee:0x0055BDC0]
+    // CALL: Allocate 60 bytes (OperatorNewNhMallocWrapper) and create an AudioEmitter for each of three emitter slots, storing the results at this+0x1524, this+0x1528 and this+0x152C (0 when allocation fails). [callee:0x00587C03, callee:0x005426A0, field:this:0x00001524, field:this:0x00001528, field:this:0x0000152C]
+    // ASSIGNMENT: Zero the 0x34-byte block starting at this+0x1104. [field:this:0x00001104, source:raw]
+    // CALL: Configure the current format descriptor: sub_55C650(this+0x110C, a6, 0), then sub_55C450(*(this+0x110C), &v51, 0) which returns a format code in v51. [callee:0x0055C650, callee:0x0055C450, field:this:0x0000110C]
+    // CALCULATION: Negotiate display modes through the adapter object vtable at *(*(this+0x10FC)+0x0)+40, probing combinations of format/depth-stencil/backbuffer arguments against the adapter info structure (offsets 0x14, 0x28, 0x2C, 0x3C) and device caps structure (offsets 0x10, 0x1C, 0x38, 0x40, 0x7C, 0xC8) to test which modes are supported. [field:*(*(this+0x10FC)+0x0):0x00000014, field:*(*(this+0x10FC)+0x0):0x00000028, field:*(*(this+0x10FC)+0x0):0x0000002C, field:*(*(this+0x10FC)+0x0):0x0000003C, field:*(*(this+0x1100)+0x0):0x00000010, field:*(*(this+0x1100)+0x0):0x0000001C, field:*(*(this+0x1100)+0x0):0x00000038, field:*(*(this+0x1100)+0x0):0x00000040, field:*(*(this+0x1100)+0x0):0x0000007C, field:*(*(this+0x1100)+0x0):0x000000C8, field:*(this+0x10FC):0x00000000, field:*(this+0x1100):0x00000000, field:this:0x000010FC, field:this:0x00001100]
+    // ASSIGNMENT: Pick the first supported depth/stencil format: prefer 25, then 24, then 23, stored at this+0x13E8. [field:this:0x000013E8, source:raw]
+    // ASSIGNMENT: Pick supporting format codes: this+0x13EC from 21/22/23 by preference, this+0x13F0=22 or 0, this+0x13F4=21 or 0, this+0x1400=23, this+0x1404=25/24 based on which mode probes succeeded. [field:this:0x000013EC, field:this:0x000013F0, field:this:0x000013F4, field:this:0x00001400, field:this:0x00001404, source:raw]
+    // GUARD: If v51==16, inspect *a2 mode flags (0x1000000 -> 23, 0x4000000 -> 24, 0x2000000 -> 25) to override this+0x110C, then sub_55C450(*(this+0x13E8), 0, this+0x1558). [field:this:0x0000110C, callee:0x0055C450, source:raw]
+    // GUARD: If v51==24 or v51==32, inspect *a2 mode flags (0x8000000 -> 20, 0x20000000 -> 22, 0x10000000 -> 21) to override this+0x110C, then sub_55C450(*(this+0x13EC), 0, this+0x1558). [field:this:0x0000110C, callee:0x0055C450, source:raw]
+    // GUARD: When (a7 & 0x100560) is set and (*a2 & 0x802E0) is set, attempt multisample configuration through the adapter vtable +44 slot; per a7 flag bits (0x20->2, 0x100->3, 0x40->4, 0x400->6, 0x100000->16) store the sample count at this+0x1114 and record the matching a7 bit in v49 on success. [field:this:0x00001114, source:raw]
+    // GUARD: If (a7 & 2) (windowed path): set this+0x1120=0; set this+0x1118=1 when a present mode was chosen else clear this+0x1114 and set this+0x1118=2; when (a7 & 0x80) and (*a2 & 0x10) store 1 at this+0x1134 else store 0x80000000; always store a8 at this+0x1130. [field:this:0x00001120, field:this:0x00001118, field:this:0x00001114, field:this:0x00001134, field:this:0x00001130, source:raw]
+    // GUARD: Else (fullscreen path): set this+0x1120=1; set this+0x1118=1 when a present mode was chosen else clear this+0x1114 and set this+0x1118=4 (with a2 bit 0x10 set) or 3; store 0 at this+0x1130. [field:this:0x00001120, field:this:0x00001118, field:this:0x00001114, field:this:0x00001130, source:raw]
+    // ASSIGNMENT: Persist the fixed configuration: this+0x1104=a4, this+0x1108=a5, this+0x111C=a3, this+0x1110=1, this+0x1124=0, this+0x1128=80. [field:this:0x00001104, field:this:0x00001108, field:this:0x0000111C, field:this:0x00001110, field:this:0x00001124, field:this:0x00001128, source:raw]
+    // GUARD: When v50 was set (device state rebuilt): if (*a2 & 4), clear this+0x13D8 and set this+0x1138 and the v27 flag from guard this+0x13D4==0 (2 with v27=64) else (1 with v27=128); skip the reassignment when guard this+0x13E0==2 holds, otherwise force v27=128 and this+0x1138=1. Otherwise set v27=32 and this+0x1138=0. Clear this+0x13D8, then create the device via the adapter vtable +60 slot passing v27, this+0x1104 and this+0x1100. [field:this:0x000013D4, field:this:0x000013D8, field:this:0x000013E0, field:this:0x00001138, guard:0, guard:1, source:raw]
+    // CALL: Else (v50 unset): create the device through the existing device object's vtable *(*(this+0x1100)+0x0)+56 with this+0x1104 as the parameter block. [field:*(this+0x1100):0x00000000, field:this:0x00001100, source:raw]
+    // GUARD: Store the device-creation result in *this; if it is nonzero, format the message "%s - 0x%X" (format string at 0x005DBCE4, subject string aCouldNotSetDis at 0x005DBCF0) via StringFormatWithBufferOverflowCheck, report it with sub_53C590(-1, buf) and return -1. [field:this:0x00000000, callee:0x0058815F, callee:0x0053C590, global:0x005DBCE4, global:0x005DBCF0, caller:0x0055BD20, source:raw]
+    // ASSIGNMENT: Store a2[65] at this+0x4 (the bound format/device index), then call the render-target setup through the device vtable +64 slot. [field:this:0x00000004, source:raw]
+    // CALL: Configure the audio emitter device: read the device object at *(this+0x1528)+0xC and dispatch through its vtable slot 8, then write a4 to *(this+0x1528)+0x1C, a5 to +0x20, the flag literal 262146 to +0x18, and store GetVTableParamBasedOnFlagBits(*(this+0x1528)) at +0x30. [field:*(this+0x1528):0x0000000C, field:*(*(this+0x1528)+0xC):0x00000000, field:*(*(*(this+0x1528)+0xC)+0x0):0x00000008, field:*(this+0x1528):0x00000018, field:*(this+0x1528):0x0000001C, field:*(this+0x1528):0x00000020, field:*(this+0x1528):0x00000030, callee:0x0055C3C0, source:raw]
+    // GUARD: When (*a2 & 8): set the flag argument 161 (1 when v49 else 0) through the device vtable +200 slot, call sub_53F3F0(a2, *(this+0x1528), *(this+0x152C), v49) and return -1 if it reports failure; then dispatch through the device vtable +124 slot with the device object at *(this+0x152C)+0xC and return -1 with message aInvalidParamet (0x005DBCD0) if it returns nonzero. [callee:0x0053F3F0, callee:0x0053C590, global:0x005DBCD0, field:*(this+0x152C):0x0000000C, field:this:0x0000152C, source:raw]
+    // CALCULATION: Extract capability bits: store v57 at this+0x13AC and this+0x13B0, run the adapter vtable +20 slot over v59 and fold the returned feature words into this+0x13A8 via flag ORs (0x2000 when v60==4170, plus this+0x1550=1 and this+0x1554=256; 0x1, 0x2, 0x100, 0x4000, 0x8000, 0x20 when global 0x00800000 is covered by v56, 0x40, 0x4), set this+0x13B8=1, and probe the five pixel formats 827611204/844388420/861165636/877942852/894720068 through the adapter vtable +40 slot ORing 0x1000/0x10000/0x20000/0x40000/0x80000 when each is unsupported. [field:this:0x000013AC, field:this:0x000013B0, field:this:0x000013A8, field:this:0x000013B8, field:this:0x00001550, field:this:0x00001554, global:0x00800000, source:raw]
+    // RETURN: Return -(sub_53EB70(0) != 0): -1 when the final resource verification fails, else 0. [callee:0x0053EB70]
+
+    // Conservative worker pseudocode:
+    //   int ConfigureDirect3DDevice(int this, int *a2, int a3, int a4, int a5, int a6, int a7, int a8) {
+    //     int v49 = 0, v50 = 0;
+    //     RendererResourceCleanup(a3);
+    //     if (*(int*)(this+0x1100) == 0) { sub_53D970(this, a7); v50 = 1; }
+    //     FieldGetterAt0x118(a2);
+    //     *(this+0x1524) = AudioEmitterCreate(OperatorNew(60) or 0);
+    //     *(this+0x1528) = AudioEmitterCreate(OperatorNew(60) or 0);
+    //     *(this+0x152C) = AudioEmitterCreate(OperatorNew(60) or 0);
+    //     memset(this+0x1104, 0, 0x34);
+    //     sub_55C650(this+0x110C, a6, 0);
+    //     sub_55C450(*(this+0x110C), &v51, 0);
+    //     /* probe and select depth/stencil + backbuffer format codes 21..25 into
+    //        this+0x13E8/0x13EC/0x13F0/0x13F4/0x1400/0x1404 via adapter vtable +40 * /
+    //     if (v51==16 || v51==24 || v51==32) { /* *a2 flag-driven override of this+0x110C * / }
+    //     /* multisample selection into this+0x1114 for a7 bits {0x20,0x100,0x40,0x400,0x100000} * /
+    //     /* windowed (a7&2) vs fullscreen present-parameter setup into
+    //        this+0x1118/0x1120/0x1130/0x1134 * /
+    //     *(this+0x1104)=a4; *(this+0x1108)=a5; *(this+0x111C)=a3;
+    //     *(this+0x1110)=1; *(this+0x1124)=0; *(this+0x1128)=80;
+    //     if (v50) { /* *a2&4 and this+0x13D4/this+0x13E0 guards pick v27 and this+0x1138 * /
+    //       result = adapterVTable_60(a2[65], 1, a3, v27, this+0x1104, this+0x1100);
+    //     } else {
+    //       result = deviceVTable_56(*(this+0x1100), this+0x1104);
+    //     }
+    //     *(this+0) = result;
+    //     if (result) { StringFormatWithBufferOverflowCheck(v58, "%s - 0x%X", aCouldNotSetDis, result);
+    //                   sub_53C590(-1, v58); return -1; }
+    //     *(this+4) = a2[65];
+    //     /* render-target setup via device vtable +64 * /
+    //     /* audio emitter device: *(this+0x1528)+0xC object, vtable slot 8, then
+    //        +0x1C=a4, +0x20=a5, +0x18=262146, +0x30=GetVTableParamBasedOnFlagBits * /
+    //     if (*a2 & 8) { /* flag 161 via vtable +200; sub_53F3F0 check; vtable +124 check -> -1 * / }
+    //     a2[69] = /* device vtable +16 * /;
+    //     if (vtable_28_result == 0) { /* fold capability bits into this+0x13A8;
+    //        format probes 827611204..894720068 -> 0x1000..0x80000 * / }
+    //     return -(sub_53EB70(0) != 0);
+    //   }
+    // UNRESOLVED: Exact meaning of the literal format codes 20..25 stored in the this+0x13E8..0x1404 range is not established; they map to display/backbuffer/depth-stencil enumerants only by position.
+    // UNRESOLVED: The five decimal format ids 827611204, 844388420, 861165636, 877942852, 894720068 are used verbatim but their DXGI/D3D enum meanings are not resolved.
+    // UNRESOLVED: The a7 bit set 0x100560 and *a2 bit set 0x802E0 gate the multisample block but the semantics of the individual bits (0x20/0x100/0x40/0x400/0x100000) beyond the stored v49 value are unknown.
+    // UNRESOLVED: The buffer at this+0x1558 is written by sub_55C450 but has no field evidence reference in the packet.
+    // UNRESOLVED: The a2 object layout (a2[65], a2[69]) and the FeatureGetter helper at 0x118 are caller-side contracts not defined here.
+}

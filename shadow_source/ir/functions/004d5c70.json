@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "address": "0x004D5C70",
+  "proposed_name": "ComputeQuaternionTransform",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Builds four 4x4 transform matrices on the stack from parameters a2 (negated when positive), a3 (clamped to [0,1]) and a4 (used as a scalar power/twist base), passes their pointer table to sub_5677B0 to combine them, then writes the combined result as eight dwords into this[0..0x1C]. On failure (non-zero result from sub_5677B0) the output is zeroed except the last dword set to the identity value 1072693248 (1.0f). Stores input parameter a4 into this[4] (field 0x20) as a double.",
+  "local_names": {
+    "a2": "first interpolation scalar (forced to be <= 0.0)",
+    "a3": "clamped scalar in [0,1]",
+    "a4": "twist/power scalar base (stored at this[4] and raised to powers)",
+    "v15..v40": "stack-resident matrix and coefficient storage (mixed int/double)",
+    "v41": "a4*a4",
+    "v42": "pointer table of the four matrix slots passed to sub_5677B0"
+  },
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "If a2 > 0.0, negate it so a2 is always <= 0.0 (comparison against zero sentinel dbl_59E430).",
+      "evidence_refs": ["global:0x0059E430", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Clamp a3 into [0,1]: a3 >= 1.0 becomes 1.0, a3 < 0.0 becomes 0.0, otherwise unchanged (bounds from globals dbl_59E420=1.0 and dbl_59E430=0.0).",
+      "evidence_refs": ["global:0x0059E420", "global:0x0059E430", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store input parameter a4 as a double into this[4] (field this+0x20).",
+      "evidence_refs": ["field:this:0x00000020", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Fill the v42 pointer table with the addresses of four consecutive 40-byte matrix slots in the v15 stack buffer (v7 advances by 10 dwords per iteration, 4 iterations).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute coefficient powers and initialize the four matrix slots: a4*a4, a4*a4*a4, 3*a4*a4, a4+a4, plus identity (1072693248 = 1.0f) and zero entries; constant 3.0 sourced from global dbl_59E7E0.",
+      "evidence_refs": ["global:0x0059E7E0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Call sub_5677B0 with the matrix pointer table v42 and count 4 to combine the four matrices; the non-zero return marks failure.",
+      "evidence_refs": ["callee:0x005677B0", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "On failure (sub_5677B0 returned non-zero): zero all eight output dwords this[0x0..0x18] and set this[0x1C] to identity value 1072693248 (1.0f).",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On success: copy the combined matrix dwords from the stack locals into this[0x0..0x1C] (eight dwords).",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "field:this:0x00000008", "field:this:0x0000000C", "field:this:0x00000010", "field:this:0x00000014", "field:this:0x00000018", "field:this:0x0000001C", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result of sub_5677B0 (0 success, non-zero failure).",
+      "evidence_refs": ["function:0x004D5C70", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (a2 > 0.0) a2 = -a2;",
+    "v5 = clamp(a3, 0.0, 1.0);",
+    "this[4] = a4;",
+    "slots = { &m0, &m1, &m2, &m3 };  // 40-byte matrix slots on stack",
+    "init matrices from a4 powers (a4^2, a4^3, 3*a4^2, 2*a4) and identity entries;",
+    "result = sub_5677B0(slots, 4);",
+    "if (result) { zero this[0..6]; this[7] = 1.0f; }",
+    "else copy combined matrix into this[0..7];",
+    "return result;"
+  ],
+  "unresolved": [
+    "The semantics of sub_5677B0's matrix combination (cubic/quaternion interpolation) are not established by this packet; the existing analysis label suggests cubic interpolation but that is not packet evidence.",
+    "The interpretation of the eight-dword output as quaternion versus 4x4 transform, and which callers (sub_430750, BrakeTemperatureFadeModel, TireCompoundPerWheelPhysicsApplication) consume it, is unconfirmed.",
+    "Global dbl_59E7E0 is referenced where a literal 3.0 appears in the coefficient computation; the equality is inferred, not stated in the packet."
+  ],
+  "unresolved_evidence_refs": [
+    "caller:0x00430750",
+    "caller:0x00430A50",
+    "caller:0x0043DA10"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

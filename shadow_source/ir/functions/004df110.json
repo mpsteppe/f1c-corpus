@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "address": "0x004DF110",
+  "proposed_name": "sub_4DF110",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead"]
+  },
+  "summary": "Updates a wheel-ground contact database after inserting a new contact depth. Maintains a sorted entry list keyed on this[0] (0x0), mutates vertex contact groups (descriptor array at 0xC, count at 0x8), applies soft-sphere deformation, vertex relaxation and secondary sphere-contact resolution, recomputes face normals via linked triangles and sets dirty flags on the groups. Returns whether any contact data changed.",
+  "local_names": {
+    "v112": "changed flag returned by the function",
+    "v18": "resolved sorted-entry insertion index",
+    "v22": "current sorted entry base (9-float stride)",
+    "v128": "current group descriptor"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Group descriptor processing is gated on the count at this+0x8 (iteration skipped when the count is not positive).",
+      "evidence_refs": ["guard:0", "guard:1"]
+    },
+    {
+      "kind": "guard",
+      "description": "Secondary contact entry processing is gated on the count at this+0x10 being positive.",
+      "evidence_refs": ["guard:2"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Read the current depth key at this[0] (0x0) and compare it with the incoming value a2 to select the sorted-entry insertion path.",
+      "evidence_refs": ["field:this:0x00000000"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan the sorted contact-entry array (base this+0x8, 9 floats per entry, count at this+0x18) to find the insertion slot for the incoming depth relative to the current this[0] key.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000018", "field:this:0x00000000"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the incoming depth value a2 into this[0] (0x0) so it becomes the new current contact key.",
+      "evidence_refs": ["field:this:0x00000000"]
+    },
+    {
+      "kind": "return",
+      "description": "When no sorted slot matches, commit this[0] = a2 and return immediately without mutating any contact groups.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate group descriptors (count at this+0x8, descriptor array base at this+0xC); each descriptor carries a sub-entry count and a sub-entry array.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x0000000C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Snapshot pass: for each 64-byte-strided sub-entry, copy 3 float values from the sub-entry into its target pointer (used to restore or mirror contact vertex state).",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Set the change flag (v112) once any mutation path runs; it drives the final dirty-flag and normal recompute pass.",
+      "evidence_refs": ["function:0x004DF110", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Dispatch per sorted entry on an entry type tag (0, 1, 2): soft deformation, vertex relaxation, or a restore copy.",
+      "evidence_refs": ["field:this:0x00000008"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Soft sphere deformation (type 0): pull each sub-entry target vertex toward a sphere center offset by 0.12 using reciprocal-distance scaling when inside the squared radius, then clamp the displaced vertex to the stored maximum distance.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x0000000C"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Vertex relaxation (type 1): move each target vertex toward its anchor position by the factor 0.075/sqrt(distance^2) when the squared distance exceeds the threshold 0.0056250002.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x0000000C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Restore path (type 2): copy 3 float values from each sub-entry back into its target pointer.",
+      "evidence_refs": ["field:this:0x0000000C"]
+    },
+    {
+      "kind": "loop",
+      "description": "Iterate secondary contact entries (count at this+0x10, base at this+0x14); each secondary entry defines a sphere center, a radius and a list of target vertices.",
+      "evidence_refs": ["field:this:0x00000010", "field:this:0x00000014"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Secondary resolution: for each target vertex whose stored position differs from its current value, solve the sphere-line quadratic against the secondary sphere and slide the vertex along the closest-approach direction, keeping the squared distance inside the radius.",
+      "evidence_refs": ["field:this:0x00000014"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Dirty pass: when the change flag is set, mark every group's target by clearing flags with 0xFEFFFFDF and setting 0x400000.",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x0000000C"]
+    },
+    {
+      "kind": "call",
+      "description": "Fetch triangle vertex coordinates via sub_4DE5D0(link, index), reading 3 floats per vertex.",
+      "evidence_refs": ["callee:0x004DE5D0"]
+    },
+    {
+      "kind": "call",
+      "description": "Accumulate a face normal with TriangleNormalComputation over the fetched triangle vertices.",
+      "evidence_refs": ["callee:0x004DD9F0"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Normal recompute: for each sub-entry, if the vertex still equals its anchor copy restore the stored normal fields; otherwise accumulate normals across up to 7 linked triangles, normalize by 1/sqrt(length^2) and write the result to the vertex.",
+      "evidence_refs": ["field:this:0x0000000C", "callee:0x004DD9F0", "callee:0x004DE5D0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the change flag (nonzero when any contact data was mutated in this call).",
+      "evidence_refs": ["function:0x004DF110", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// this[0] is the current contact depth key; a2 is the new candidate depth.",
+    "// find insertion slot in the sorted entry list (this+0x8, 9 floats/entry, count this+0x18).",
+    "// if none: this[0] = a2 and return unchanged.",
+    "// else: commit this[0] = a2; apply per-type vertex mutation; process secondary spheres.",
+    "// if anything changed: set dirty flags on all groups and recompute vertex normals."
+  ],
+  "unresolved": [
+    "The sorted entry layout (offsets of the type tag, sphere center, displacement and limit fields inside each 9-float entry) is not directly represented by the packet top-level fields.",
+    "Globals 0x59E430, 0x59E43C, 0x59E440, 0x59E46C, 0x59E670, 0x59EF78, 0x5AD144, 0x5AD148 are read-only physics constants (thresholds/limits), but the raw text does not show where each is consumed, so none is bound to a specific comparison.",
+    "The purpose of the this+0x20 field could not be pinned to a specific instruction in the raw text; it lies inside the sorted-entry region and is treated as per-entry contact data.",
+    "The exact meaning of the flag bits 0xFEFFFFDF/0x400000 written to the group target is unknown (dirty/active mask).",
+    "The 0.0056250002 and 0.075000003 literals are thresholds/scale factors for the vertex relaxation step."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x00000020",
+    "global:0x0059E430",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E46C",
+    "global:0x0059E670",
+    "global:0x0059EF78",
+    "global:0x005AD144",
+    "global:0x005AD148"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

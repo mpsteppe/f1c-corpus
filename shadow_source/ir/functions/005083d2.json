@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "address": "0x005083D2",
+  "proposed_name": "TextureColorConvert10",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x005083D2"]
+  },
+  "summary": "Packs per-vertex floating-point color channels into packed 32-bit RGB10A2 values (R/G/B scaled by 1023.0, alpha by 3.0). When the format-conversion flag at this+0x1048 is set, first transforms the vertex buffer via DirectXVertexBufferFormatConversion and uses the returned address as the source base. Reads the vertex-data base at this+0x2C and the vertex count at this+0x1058, emits one 32-bit word per vertex through an output pointer carried in a register, then returns the global conversion-state dword at 0x008B009C.",
+  "local_names": {
+    "a2": "grid index whose low 2 bits select a 4-byte color column",
+    "a3": "grid index whose low 2 bits select the color row",
+    "a4": "source vertex-buffer base; replaced by the format-conversion result when the flag is set",
+    "v5": "computed source color-data base = this+0x2C + 4*((a3&3)+8*(a2&3))",
+    "v6": "output 32-bit word pointer (register-carried, never visibly initialized)",
+    "v17": "base color component added to each scaled channel",
+    "v18": "saved original this used for the vertex-count read"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Save original this into v18 and initialize the vertex counter v7 to 0",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Format-conversion flag this[1042] (offset 0x1048) gates whether the vertex buffer is transformed first",
+      "evidence_refs": ["field:this:0x00001048", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "DirectXVertexBufferFormatConversion(this, a4) transforms the vertex buffer; the returned address replaces a4 as the source base",
+      "evidence_refs": ["callee:0x00506CE2", "field:this:0x00001048", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Compute the source color-data base v5 = this[11] (offset 0x2C) + 4*((a3&3)+8*(a2&3)) from the grid indices a2/a3",
+      "evidence_refs": ["field:this:0x0000002C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "UtilityFunction_7473() invoked unconditionally before the packing loop",
+      "evidence_refs": ["callee:0x00507473", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Packing loop executes only while the vertex count v18[1046] (offset 0x1058) is non-zero",
+      "evidence_refs": ["field:this:0x00001058", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "One iteration per vertex, bounded by the vertex count read at this+0x1058",
+      "evidence_refs": ["field:this:0x00001058", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Read the base color component v17 from the source base at v5 + 4*(v7&3)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Scale-and-offset each channel and truncate to int: R/G/B floats at (v8+a4), (v8+a4+4), (v8+a4+8) scaled by 1023.0, alpha float at (v8+a4+12) scaled by 3.0, each plus v17",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Pack one 32-bit word and write through the output pointer v6: v11 | ((v12 | ((v9 | ((int)v16 << 10)) << 10)) << 10) — R in bits 0-9, G in bits 10-19, B in bits 20-29, A in bits 30-31 (RGB10A2)",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Advance the source by 16 bytes per vertex and increment the vertex counter",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the global conversion-state dword_8B009C",
+      "evidence_refs": ["global:0x008B009C", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "v18 = this;",
+    "if (this[0x1048]) a4 = DirectXVertexBufferFormatConversion(this, a4);",
+    "v5 = this[0x2C] + 4 * ((a3 & 3) + 8 * (a2 & 3));",
+    "UtilityFunction_7473();",
+    "for (v7 = 0; v7 < v18[0x1058]; ++v7) {",
+    "    base = *(float*)(v5 + 4 * (v7 & 3));",
+    "    r = (int)(*(float*)(v8 + a4) * 1023.0 + base);",
+    "    g = (int)(*(float*)(v8 + a4 + 4) * 1023.0 + base);",
+    "    b = (int)(*(float*)(v8 + a4 + 8) * 1023.0 + base);",
+    "    a = (int)(*(float*)(v8 + a4 + 12) * 3.0 + base);",
+    "    *out32++ = r | ((g | ((b | (a << 10)) << 10)) << 10);   /* RGB10A2 */",
+    "    v8 += 16;",
+    "}",
+    "return dword_8B009C;"
+  ],
+  "unresolved": [
+    "The output 32-bit word pointer v6 (edx) is never assigned in the decompiled text; the real prototype must deliver the output buffer through a register or a hidden argument",
+    "flt_59E478 and flt_5ADBA0 are reported as referenced globals by the packet but never appear in the decompiled text, so the scale literals 1023.0/3.0 cannot be confirmed to originate from them",
+    "Semantics of the a2/a3 grid indices ((a3&3)+8*(a2&3)) and the layout behind this+0x2C are unconfirmed"
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E478",
+    "global:0x005ADBA0"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "address": "0x004B0220",
+  "proposed_name": "truncatePathAtLastSeparator",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Path string utility that truncates an in-place string buffer at its last backslash directory separator, stripping the trailing file component. It validates both arguments, copies the input into a 512-byte scratch buffer with a bounded copy, force-terminates the buffer at the caller-supplied limit, then walks backward from the end of the string clearing bytes until it reaches a backslash. Callers include settings/profile loaders and profile-icon copy paths, consistent with a path-directory normalization helper.",
+  "local_names": {
+    "v2": "strlen(a1) + 1, the length-plus-NUL terminator used to compute the backward scan start",
+    "v5": "512-byte stack scratch buffer receiving the bounded copy of the input"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Guard on the arguments: when either the path pointer a1 or the length a2 is zero/null, return -1 immediately without touching the buffers.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Calls sub_568620 with the scratch-buffer size 512 before the copy; the callee's body is absent from the packet so its exact role (stack setup / guard) is unverified.",
+      "evidence_refs": ["callee:0x00568620", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Bounded copy of the input path a1 into the 512-byte scratch buffer v5, limited to a2-1 bytes, via sub_587DD0 (a bounded string copy helper).",
+      "evidence_refs": ["callee:0x00587DD0", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Force-terminates the path at the caller-supplied limit by writing a NUL byte at a1[a2-1], guarding against an unterminated buffer.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Computes v2 = strlen(a1) + 1, i.e. the string length including its terminator, which locates the last data byte at a1[v2-2].",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Backward scan: starting at a1[v2-2] and walking down toward a1, each byte is cleared until a byte equal to backslash (ASCII 92) is found, at which point the loop breaks. This truncates the string at the last directory separator, dropping the trailing file/component.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns 0 on the successful truncation path after the backward scan completes.",
+      "evidence_refs": ["function:0x004B0220", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (!a1 || !a2) return -1;",
+    "sub_568620(512);",
+    "sub_587DD0(a1, v5, a2 - 1);",
+    "a1[a2 - 1] = 0;",
+    "for (i = &a1[strlen(a1) - 1]; i >= a1; *i-- = 0)",
+    "  if (*i == 92) break;",
+    "return 0;"
+  ],
+  "unresolved": [
+    "sub_568620 is called with 512 before the copy but its body is not in the packet, so whether it is stack setup, a size guard or something else is unverified.",
+    "The object/subsystem owning this free path utility is unknown; the caller set spans settings reading and profile-icon copy helpers without establishing one owner.",
+    "Exact caller expectations for a2 (hard buffer capacity vs copy bound) are not verified from any single call site."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

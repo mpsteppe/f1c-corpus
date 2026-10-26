@@ -1,0 +1,33 @@
+## ConstructorVTableFUN004668e0_00479e30 — Constructor with [0.0, 1.0] range and zeroed byte at 0x100
+
+**Summary:** Object constructor calling InitVTableSet with range 0.0f and 1.0f, setting vtable to off_5A5E40, and zeroing a byte field at offset 0x100.
+
+**Frame-path:** NOT_FOUND  
+**Call frequency:** UNKNOWN (no static path from tick root)
+
+**Called by:** (none static — top-level or indirect-only)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0x0 | RW | — | vtable pointer; set to address of off_5A5E40 |
+| this | 0x100 | RW | 0 | state/flag byte; initialized to 0 (inactive) |
+
+**Written-by note (persistence):**
+- this 0x0: written once during construction; cannot be determined if external modification persists
+- this 0x100: written once during construction to 0; may be toggled externally
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 005a5e40 | off_5A5E40 | R | vtable for this object type |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 004668e0 | InitVTableSet | initializes range fields with 0.0f and 1.0f |
+
+**Guard conditions:** none — unconditional straight-line init

@@ -1,0 +1,48 @@
+int sub_455290()
+{
+  StringCopyWithBufferRealloc(aSteerRight);
+  StringCopyWithBufferRealloc(aSteerLeft);
+  StringCopyWithBufferRealloc(aAccelerate);
+  StringCopyWithBufferRealloc(aBrake);
+  StringCopyWithBufferRealloc(aShiftUp);
+  StringCopyWithBufferRealloc(aShiftDown);
+  StringCopyWithBufferRealloc(aNeutral);
+  StringCopyWithBufferRealloc(aReverseGear);
+  StringCopyWithBufferRealloc(aFirstGear);
+  StringCopyWithBufferRealloc(aSecondGear);
+  StringCopyWithBufferRealloc(aThirdGear);
+  StringCopyWithBufferRealloc(aFourthGear);
+  StringCopyWithBufferRealloc(aFifthGear);
+  StringCopyWithBufferRealloc(aSixthGear);
+  StringCopyWithBufferRealloc(aSeventhGear);
+  StringCopyWithBufferRealloc(aClutch);
+  StringCopyWithBufferRealloc(aTcOverride);
+  StringCopyWithBufferRealloc(aLaunchControl);
+  StringCopyWithBufferRealloc(aLcdMode);
+  StringCopyWithBufferRealloc(aLcdUp);
+  StringCopyWithBufferRealloc(aLcdDown);
+  StringCopyWithBufferRealloc(aLcdIncrease);
+  StringCopyWithBufferRealloc(aLcdDecrease);
+  StringCopyWithBufferRealloc(aRequestPit);
+  StringCopyWithBufferRealloc(aRpmLimiter);
+  StringCopyWithBufferRealloc(aBrakeBiasF);
+  StringCopyWithBufferRealloc(aBrakeBiasR);
+  StringCopyWithBufferRealloc(aLookLeft);
+  StringCopyWithBufferRealloc(aLookRight);
+  StringCopyWithBufferRealloc(aLookBehind);
+  StringCopyWithBufferRealloc(aInstantReplay);
+  StringCopyWithBufferRealloc(aPause);
+  StringCopyWithBufferRealloc(aRestartRace);
+  StringCopyWithBufferRealloc(aZeroHeadTracke);
+  StringCopyWithBufferRealloc(aVehicleLabels);
+  StringCopyWithBufferRealloc(aIgnition);
+  StringCopyWithBufferRealloc(aStarter);
+  StringCopyWithBufferRealloc(aHorn);
+  StringCopyWithBufferRealloc(aHeadlights);
+  StringCopyWithBufferRealloc(aHandbrake);
+  StringCopyWithBufferRealloc(aLookUp);
+  StringCopyWithBufferRealloc(aLookDown);
+  StringCopyWithBufferRealloc(aLookRollLeft);
+  return StringCopyWithBufferRealloc(aLookRollRight);
+}
+

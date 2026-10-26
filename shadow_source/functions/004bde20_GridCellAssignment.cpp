@@ -1,0 +1,50 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004BDE20
+// Canonical corpus name: sub_4BDE20
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4BDE20_004bde20.c
+
+void UnknownObject::GridCellAssignment()
+{
+    // Computes four clamped 2D grid cell indices from the extents of the float argument a2 using grid origin/scale fields at this+0x924/0x928/0x92C/0x930, then pushes a2 into every overlapping cell's object list via DynamicArrayPush. A sentinel flag v16 is set unconditionally after each coordinate computation; when set, a2 is also pushed into an aggregate list at this+576 and that result is returned.
+    // ASSIGNMENT: Initialize sentinel flag v16 to 0 before any coordinate is computed. [source:raw]
+    // CALCULATION: Compute X-start cell index v4 = CRTFtol((a2[3] - a2[6] - this[0x924]) * this[0x928]) and clamp it into 0..7 producing v5. [field:this:0x00000924, field:this:0x00000928, callee:0x00587BDC, source:raw]
+    // CALCULATION: Compute X-end cell index v6 = CRTFtol((a2[6] + a2[3] - this[0x924]) * this[0x928]) and clamp it into 0..7 producing v7. [field:this:0x00000924, field:this:0x00000928, callee:0x00587BDC, source:raw]
+    // CALCULATION: Compute Y-start cell index v8 = CRTFtol((a2[5] - a2[6] - this[0x92C]) * this[0x930]) and clamp it into 0..7 producing v9. [field:this:0x0000092C, field:this:0x00000930, callee:0x00587BDC, source:raw]
+    // CALCULATION: Compute Y-end cell index v10 = CRTFtol((a2[6] + a2[5] - this[0x92C]) * this[0x930]) and clamp it into 0..7 producing v11. [field:this:0x0000092C, field:this:0x00000930, callee:0x00587BDC, source:raw]
+    // ASSIGNMENT: Set sentinel flag v16 = 1 after each coordinate computation; since it is assigned unconditionally, it reads true once any coordinate has been evaluated. [source:raw]
+    // GUARD: Guard the cell iteration on a non-empty X range (v5 <= v7); when the extents produce an inverted range the loop is skipped. [source:raw]
+    // GUARD: Inner guard v9 <= v11 checks the Y range is non-empty before iterating columns. [source:raw]
+    // LOOP: Outer loop over rows v7 - v5 + 1, stepping the cell pointer by 72 floats per row; inner loop over columns v11 - v9 + 1, stepping the cell pointer by 9 floats per column, pushing a2 into each overlapping cell's object list via DynamicArrayPush. [callee:0x004BD860, source:raw]
+    // CALL: When sentinel v16 is set, push a2 into the aggregate object list at this+576 via DynamicArrayPush and return its result. [callee:0x004BD860, source:raw]
+    // RETURN: Return the sentinel flag v16 when the aggregate-list push did not run. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char GridCellAssignment(float* this, float* a2) {
+    //     int v16 = 0;
+    //     int v5 = clamp((int)ftol((a2[3] - a2[6] - this[0x924]) * this[0x928]), 0, 7);
+    //     int v7 = clamp((int)ftol((a2[6] + a2[3] - this[0x924]) * this[0x928]), 0, 7);
+    //     int v9 = clamp((int)ftol((a2[5] - a2[6] - this[0x92C]) * this[0x930]), 0, 7);
+    //     int v11 = clamp((int)ftol((a2[6] + a2[5] - this[0x92C]) * this[0x930]), 0, 7);
+    //     v16 = 1;
+    //     if (v5 <= v7) {
+    //       float* cell = &this[72 * v5 + 9 * v9];
+    //       int rows = v7 - v5 + 1;
+    //       do {
+    //         if (v9 <= v11) {
+    //           float* p = cell;
+    //           int cols = v11 - v9 + 1;
+    //           do { DynamicArrayPush(p, (int)a2); p += 9; --cols; } while (cols);
+    //         }
+    //         cell += 72; --rows;
+    //       } while (rows);
+    //     }
+    //     if (v16) return DynamicArrayPush(this + 576, (int)a2);
+    //     return v16;
+    //   }
+    // UNRESOLVED: The meaning of a2[3], a2[5], a2[6] is not named by the packet; they appear to be bounding-box extents but that reading is DERIVED.
+    // UNRESOLVED: The roles of this+0x924..0x930 as grid origin and scale-inverse fields are DERIVED from the coordinate arithmetic; the packet does not name them.
+    // UNRESOLVED: this+576 (float units), the target of the aggregate-list push, has no field evidence ref and its identity is unknown.
+    // UNRESOLVED: The sentinel v16 is assigned 1 unconditionally after each coordinate computation, so the this+576 push effectively always runs; the existing analysis claim that v16 flags out-of-range clamping is not supported by the raw source.
+    // UNRESOLVED: DynamicArrayPush semantics for both the per-cell and the this+576 list are taken from the callee name and are not otherwise evidenced.
+}

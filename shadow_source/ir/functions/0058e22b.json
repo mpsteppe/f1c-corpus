@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "address": "0x0058E22B",
+  "proposed_name": "FileWriteWithLock",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x0058E22B"]
+  },
+  "summary": "Locked file-write wrapper (cdecl, takes a file slot, buffer and byte count). When the slot is in range (a1 < uNumber) and the slot's descriptor flag bit 0 is set (descriptor array dword_8D4920, slot selected by a1 >> 5 and 36 * (a1 & 0x1F) + 4), it enters a critical section, delegates the actual write to sub_58E290(a1, lpBuffer, nNumberOfBytesToWrite), leaves the critical section and returns that result. Otherwise it writes error code 9 and error offset 0 through two TLS getters and returns -1.",
+  "local_names": {
+    "a1": "file slot index; selects the descriptor row and guards the write",
+    "lpBuffer": "data source forwarded unchanged to sub_58E290",
+    "nNumberOfBytesToWrite": "byte count forwarded unchanged to sub_58E290",
+    "v3": "return value of sub_58E290, propagated on the success path"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Success path requires a1 < uNumber AND the byte at dword_8D4920[a1 >> 5] + 36 * (a1 & 0x1F) + 4 to have bit 0 set.",
+      "evidence_refs": ["global:0x008D4920", "global:0x008D4A20", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Enter the file critical section via CriticalSectionEnterWithLazyInit(a1).",
+      "evidence_refs": ["callee:0x00595A61", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Delegate the write: v3 = sub_58E290(a1, lpBuffer, nNumberOfBytesToWrite).",
+      "evidence_refs": ["callee:0x0058E290", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Leave the file critical section via FileCriticalSectionLeave(a1).",
+      "evidence_refs": ["callee:0x00595AC0", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return v3, the result of the delegated write, on the success path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Error path: store error code 9 through the TLS getter at 0058afcf.",
+      "evidence_refs": ["callee:0x0058AFCF", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Error path: store error offset 0 through the second TLS getter at 0058afd8.",
+      "evidence_refs": ["callee:0x0058AFD8", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return -1 on the error path (invalid slot or flag cleared).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Called by sub_5886A7 (005886a7), BufferFlushWrite (0058a05a), sub_58CF35 (0058cf35) and sub_59C1E7 (0059c1e7) as the serialized write entry point.",
+      "evidence_refs": ["caller:0x005886A7", "caller:0x0058A05A", "caller:0x0058CF35", "caller:0x0059C1E7", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "if (a1 < uNumber && (dword_8D4920[a1 >> 5][36 * (a1 & 0x1F) + 4] & 1) != 0) {",
+    "  CriticalSectionEnterWithLazyInit(a1);",
+    "  v3 = sub_58E290(a1, lpBuffer, nNumberOfBytesToWrite);",
+    "  FileCriticalSectionLeave(a1);",
+    "  return v3;",
+    "}",
+    "*TLSOffsetGetter() = 9;",
+    "*TLSOffsetGetter_afd8() = 0;",
+    "return -1;"
+  ],
+  "unresolved": [
+    "The layout of the descriptor rows indexed by dword_8D4920 (36 bytes per slot, flag byte at +4) is not documented in this packet; the 36-byte stride and +4 flag position are taken directly from the raw source arithmetic.",
+    "Semantics of TLS error code 9 and of the two TLS getters are caller-visible state, not explained here.",
+    "The prelabel notes this is a structural twin of sub_58C331 (0058c331); that relationship is not independently verified in this packet."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

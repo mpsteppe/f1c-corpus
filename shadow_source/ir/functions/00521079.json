@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "address": "0x00521079",
+  "proposed_name": "BarycentricInterpolationWithNormalization",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x00521079", "source:raw"]
+  },
+  "summary": "3DNow!-based barycentric interpolation. Builds four edge expressions from scalar dwords of the a2 vertex-component table (a2[0], a2[2], a2[5]), classifies the query into one of four triangle regions with a packed float-compare byte mask, and in each region normalizes an interpolation edge via pfrsqrt + Newton-Raphson refinement scaled by the 0.5 constant, blends the three vertex attributes (a2[1], a2[3], a2[4]) into the two-qword output a1 (with a sign-flip XOR 0x8000000000000000 in two of the inner regions), then clears MMX state with _m_femms() and returns a1.",
+  "operations": [
+    {
+      "kind": "calculation",
+      "description": "Load scalar components from the a2 vertex-component table into packed 64-bit operands: high dword of a2[2] into v2 and low dword of a2[5] into v3, then form the four edge expressions v4/v5/v6/v7 from a2[0] via packed-float pfadd/pfsub/pfsubr.",
+      "evidence_refs": ["source:raw", "function:0x00521079"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build a packed comparison byte mask v13: combine edges with pfcmpge, unpack with punpckldq, and pack via packssdw/packsswb to classify which triangle region the query falls in.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on (v13 & 1): set selects the inner-region path, clear selects the outer-region path.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Within the inner path, branch on (v13 & 0xFF00FF00) == 0xFF00FF00 to select the third inner region block.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Within the inner path when the 0xFF00FF00 test fails, branch on (v13 & 0x10000) to select the second inner region block, else the first inner region block.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Per-region normalize: pfadd the selected edge with the [-1.0, 1.0] literal 0xBF8000003F800000, compute the reciprocal square root with pfrsqrt, refine with the Newton-Raphson step (pfrsqit1 on the squared value, pfrcpit2), and scale by the 0.5 literal 0x3F0000003F000000 to produce the normalized weight vector. The read-only globals back the inlined 3DNow! constants.",
+      "evidence_refs": ["source:raw", "global:0x005AF8F0", "global:0x005AF920", "global:0x005AF968"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Blend the three vertex attributes: pack dwords from a2[1], a2[3], a2[4] (and a2[2]) into a pair, and in the two inner regions flip signs with XOR against the literal 0x8000000000000000, then scale by the normalized weight.",
+      "evidence_refs": ["source:raw", "global:0x005AF920"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the normalized interpolated xy result (v25/v30/v35/v20) into the first output qword at a1+0x0.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the blended and scaled vertex-attribute result into the second output qword at a1+0x8.",
+      "evidence_refs": ["field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Clear the MMX/3DNow! register state with _m_femms() before returning so the x87 FPU can be used again.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the destination pointer a1.",
+      "evidence_refs": ["function:0x00521079", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "__m64 *__stdcall BarycentricInterpolationWithNormalization(__m64 *out, __m64 *vtx) {",
+    "  // edge expressions from vertex-component dwords",
+    "  hi = cvtsi32(vtx[2].hi);   // v2",
+    "  lo = cvtsi32(vtx[5].lo);  // v3",
+    "  e0 = pfsubr(vtx[0], lo);           // v4",
+    "  e1 = pfadd(pfadd(vtx[0], hi), lo); // v5",
+    "  e2 = pfsub(pfsub(vtx[0], hi), lo); // v6",
+    "  e3 = pfsub(pfsubr(vtx[0], hi), lo);// v7",
+    "",
+    "  // region classification: packed float compare -> byte mask",
+    "  mask = packsswb(packssdw(pfcmpge(...), pfcmpge(...))); // v13",
+    "",
+    "  if (mask & 1) {",
+    "    if ((mask & 0xFF00FF00) == 0xFF00FF00) {",
+    "      // region 3: normalize e2, blend vtx[1]/vtx[3]/vtx[4] with sign-flip XOR",
+    "    } else if (mask & 0x10000) {",
+    "      // region 2: normalize e3, blend with sign-flip XOR",
+    "    } else {",
+    "      // region 1: normalize e1, blend without XOR",
+    "    }",
+    "  } else {",
+    "    // outer region: normalize edge combination, blend with pfsub (no XOR)",
+    "  }",
+    "  // every region: inv = pfmul(refine(pfrsqrt(pfadd(edge, {-1,1}))), {0.5,0.5});",
+    "  // every region: out[0] = xy, out[1] = scaled blend of vtx[1]/vtx[3]/vtx[4]",
+    "  _m_femms();",
+    "  return out;",
+    "}"
+  ],
+  "unresolved": [
+    "One-to-one mapping of the three read-only globals (0x005AF8F0, 0x005AF920, 0x005AF968) to the inlined literal constants (0xBF8000003F800000, 0x3F0000003F000000, 0x8000000000000000) is not determinable from the packet.",
+    "Meaning of the four region-mask tests (v13 & 1, 0xFF00FF00, 0x10000) as a triangle-region split is inferred; the packet has no static callers to confirm semantics.",
+    "The a2 vertex-component layout (mixed dword reads at a2[0..5]) implies a three-vertex attribute table, but the exact struct layout is not evidenced.",
+    "The sign-flip XOR blend is applied in two inner regions only; the remaining inner region and the outer region use different blend signs (pfsub / no XOR). Reason for the asymmetry is not established."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

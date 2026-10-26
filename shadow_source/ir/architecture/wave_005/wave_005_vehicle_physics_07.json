@@ -1,0 +1,664 @@
+{
+  "schema_version": 1,
+  "packet_id": "wave_005_vehicle_physics_07",
+  "scope": "vehicle_physics",
+  "subsystem": {
+    "name": "VehiclePhysics",
+    "responsibility": "Per-frame vehicle rigid-body physics: collision contact detection and contact-entry collection, contact-constraint response, suspension-clamped integration of position/velocity/angular momentum, physics state-block copying with inertia-tensor updates, batched matrix-transform processing over physics record arrays, and lifecycle/query plumbing for module-global physics objects.",
+    "trust": "DERIVED",
+    "evidence_refs": [
+      "function:0x0054F2F0",
+      "function:0x005694E0",
+      "function:0x00569DE0",
+      "function:0x0056A150",
+      "function:0x0056EC00",
+      "function:0x0056F020"
+    ]
+  },
+  "summary": "Conservative architecture proposal for 16 validated vehicle-physics functions. Three functions (0x005694E0, 0x00569DE0, 0x0056A150) share a coherent rigid-body state layout (position/velocity/angular momentum/angular velocity/world inertia tensor plus prediction and reference buffers) and form the RigidBodyState class. Collision contact detection (0x0054F2F0) owns a distinct contact-container layout and writes 29-dword contact entries, and the batch renderer (0x00561660) is a transform-node vertex emitter fed by the same dword_8B8F24 vtable service. Remaining functions are small array iterators (0x0056EC00, 0x0056F020), a query getter, an allocator node destructor, global-object lifecycle shims, an indexed transform reader and a stream transform. All owners are packet-UNKNOWN; class boundaries are DERIVED/GUESS from field-layout coherence. Several receiver objects reuse the same generic 'this' base token at equal offsets (e.g. 0x04, 0x0C, 0x14, 0x1E4, 0x204) without proven common ownership; each such offset is attributed to one class per the rule against merging offsets, and the collision is recorded in unresolved.",
+  "function_roles": [
+    {
+      "address": "0x0054E1A0",
+      "role": "Bounds-checked indexed vector/transform reader: resolves three 48-byte-stride transform elements from 16-bit sub-indices in a 36-byte entry and copies each vector into an optional output pointer.",
+      "owner": "IndexedTransformTable",
+      "evidence_refs": [
+        "function:0x0054E1A0",
+        "field:this:0x00000120",
+        "field:this:0x00000124",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0054F2F0",
+      "role": "Per-frame collision contact detection: depth-tests moving segments against triangles through the dword_8B8F24 device service, lerps and confirms contact points, populates 29-dword contact entries and forwards each through the response wrapper.",
+      "owner": "CollisionContactManager",
+      "evidence_refs": [
+        "function:0x0054F2F0",
+        "callee:0x0054EB40",
+        "callee:0x00559A30",
+        "global:0x008B8F24",
+        "caller:0x0054F5C0",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00561660",
+      "role": "Transform-node batch emitter: walks the node linked list, culls faces by depth and plane-sign tests, and writes perspective-projected interpolated vertices into the bounded output buffer.",
+      "owner": "TransformNodeBatchRenderer",
+      "evidence_refs": [
+        "function:0x00561660",
+        "global:0x008B8F24",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00563F70",
+      "role": "Sign/direction helper over a double argument; polarity is inverted by a module-global flag at dword_8D46B4+132. Two AudioMixerSampleGetWithFallback calls precede it with unused results.",
+      "owner": "PhysicsGlobalState",
+      "evidence_refs": [
+        "function:0x00563F70",
+        "global:0x008D46B4",
+        "callee:0x00564580",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00564DD0",
+      "role": "Sixteen-round substitution-table-driven stream transform over a caller-owned table buffer; mixes two state words through byte lookups and writes final state into table indices 256..308.",
+      "owner": "StreamCipherTransform",
+      "evidence_refs": [
+        "function:0x00564DD0",
+        "caller:0x00565080",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005694E0",
+      "role": "Rigid-body contact-constraint response: computes the contact-motion component along the contact normal, evaluates an impulse-correction scalar from the world inertia tensor plus bias, and optionally writes the body-space contact offset.",
+      "owner": "RigidBodyState",
+      "evidence_refs": [
+        "function:0x005694E0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00569DE0",
+      "role": "Suspension-aware velocity-clamp integrator: clamps a velocity scale from reference displacement ratios, then Euler-advances linear position, linear velocity and angular momentum before running the inertia-tensor transform.",
+      "owner": "RigidBodyState",
+      "evidence_refs": [
+        "function:0x00569DE0",
+        "callee:0x0056C020",
+        "callee:0x005692A0",
+        "caller:0x00459AE0",
+        "caller:0x0056F090",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0056A150",
+      "role": "Physics state-block copy: copies prediction-buffer blocks (position, orientation, velocity, angular momentum, references) into the working state region, then updates the world inverse inertia tensor and angular velocity.",
+      "owner": "RigidBodyState",
+      "evidence_refs": [
+        "function:0x0056A150",
+        "callee:0x005692A0",
+        "caller:0x0056F060",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0056EC00",
+      "role": "Three-pass batch processor: iterates three physics record arrays applying F_3x3MatrixVectorMultiply, F_3x3MatrixInverseCoordinateTransform and a per-element constraint-solve step, returning the third-pass count.",
+      "owner": "PhysicsBatchProcessor",
+      "evidence_refs": [
+        "function:0x0056EC00",
+        "callee:0x0056CF70",
+        "callee:0x0056D020",
+        "callee:0x0056D2D0",
+        "caller:0x0056ECF0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0056F020",
+      "role": "Fixed-stride body-array iterator: calls the per-body update routine on every 580-byte-strided element of the array at this+0x4 and returns the count re-read from this+0x0.",
+      "owner": "PhysicsBodyArray",
+      "evidence_refs": [
+        "function:0x0056F020",
+        "callee:0x00569C10",
+        "caller:0x004414D0",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x00583790",
+      "role": "Producer-consumer physics/animation query getter: when the ready flag is set, clears it, emits a timestamp-delta value and the attached data pointer/size, and returns 1; otherwise returns 0.",
+      "owner": "PhysicsQueryState",
+      "evidence_refs": [
+        "function:0x00583790",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0058F362",
+      "role": "Allocator-node teardown: releases all 43 stored sub-object pointer slots (offsets 0x00..0xA8) through the shared deallocation routine after a null guard.",
+      "owner": "PhysicsAllocatorNode",
+      "evidence_refs": [
+        "function:0x0058F362",
+        "callee:0x0058AA6F",
+        "caller:0x0058EF83",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005986CB",
+      "role": "One-expression shim forwarding the address of the module global unk_8D4370 to the lifecycle routine and returning its result.",
+      "owner": "PhysicsGlobalState",
+      "evidence_refs": [
+        "function:0x005986CB",
+        "global:0x008D4370",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005987AD",
+      "role": "One-expression shim forwarding the address of the module global unk_8D42D8 to the lifecycle routine and returning its result.",
+      "owner": "PhysicsGlobalState",
+      "evidence_refs": [
+        "function:0x005987AD",
+        "global:0x008D42D8",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x005997B7",
+      "role": "Ref-count-decrement wrapper: calls RefCountDecrementWithCleanup and returns its result; a deterministic read of global unk_8D4439 is recorded but not visible in the decompiled body.",
+      "owner": "PhysicsGlobalState",
+      "evidence_refs": [
+        "function:0x005997B7",
+        "global:0x008D4439",
+        "abi:lead",
+        "source:raw"
+      ]
+    },
+    {
+      "address": "0x0059A317",
+      "role": "Scalar-deleting destructor wrapper: back-shifts this by 4, runs a vtable setup subcall, conditionally frees the adjusted pointer, and returns it.",
+      "owner": "PhysicsGlobalState",
+      "evidence_refs": [
+        "function:0x0059A317",
+        "callee:0x005998E5",
+        "callee:0x00587BCF",
+        "abi:lead",
+        "source:raw"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "RigidBodyState",
+      "responsibility": "Per-vehicle rigid-body physics state: world position, linear velocity, angular velocity, angular momentum, world inertia tensor, plus prediction and reference buffers used by the velocity-clamp integrator and state-block copy.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x005694E0",
+        "0x00569DE0",
+        "0x0056A150"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000004", "name": "position_x", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000004", "source:raw"]},
+        {"base": "this", "offset": "0x0000000C", "name": "position_y", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000000C", "source:raw"]},
+        {"base": "this", "offset": "0x00000014", "name": "position_z", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000014", "source:raw"]},
+        {"base": "this", "offset": "0x00000064", "name": "linear_velocity_x", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000064", "source:raw"]},
+        {"base": "this", "offset": "0x0000006C", "name": "linear_velocity_y", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000006C", "source:raw"]},
+        {"base": "this", "offset": "0x00000074", "name": "linear_velocity_z", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000074", "source:raw"]},
+        {"base": "this", "offset": "0x0000007C", "name": "angular_velocity_x", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000007C", "source:raw"]},
+        {"base": "this", "offset": "0x00000084", "name": "angular_velocity_y", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000084", "source:raw"]},
+        {"base": "this", "offset": "0x0000008C", "name": "angular_velocity_z", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000008C", "source:raw"]},
+        {"base": "this", "offset": "0x00000094", "name": "angular_momentum_x", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000094", "source:raw"]},
+        {"base": "this", "offset": "0x0000009C", "name": "angular_momentum_y", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000009C", "source:raw"]},
+        {"base": "this", "offset": "0x000000A4", "name": "angular_momentum_z", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x000000A4", "source:raw"]},
+        {"base": "this", "offset": "0x000000AC", "name": "clamp_coefficient", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000AC", "source:raw"]},
+        {"base": "this", "offset": "0x000000B4", "name": "impulse_bias", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000B4", "source:raw"]},
+        {"base": "this", "offset": "0x000000BC", "name": "suspension_radius_a", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000BC", "source:raw"]},
+        {"base": "this", "offset": "0x000000C4", "name": "suspension_radius_b", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000C4", "source:raw"]},
+        {"base": "this", "offset": "0x000000CC", "name": "suspension_radius_c", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000CC", "source:raw"]},
+        {"base": "this", "offset": "0x000000EC", "name": "inertia_row0_col0", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x000000EC", "source:raw"]},
+        {"base": "this", "offset": "0x000000F4", "name": "inertia_row0_col1", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x000000F4", "source:raw"]},
+        {"base": "this", "offset": "0x000000FC", "name": "inertia_row0_col2", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x000000FC", "source:raw"]},
+        {"base": "this", "offset": "0x00000104", "name": "inertia_row1_col0", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000104", "source:raw"]},
+        {"base": "this", "offset": "0x0000010C", "name": "inertia_row1_col1", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000010C", "source:raw"]},
+        {"base": "this", "offset": "0x00000114", "name": "inertia_row1_col2", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000114", "source:raw"]},
+        {"base": "this", "offset": "0x0000011C", "name": "inertia_row2_col0", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000011C", "source:raw"]},
+        {"base": "this", "offset": "0x00000124", "name": "inertia_row2_col1", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000124", "source:raw"]},
+        {"base": "this", "offset": "0x0000012C", "name": "inertia_row2_col2", "type_guess": "float", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000012C", "source:raw"]},
+        {"base": "this", "offset": "0x00000134", "name": "current_position_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000134", "source:raw"]},
+        {"base": "this", "offset": "0x0000013C", "name": "current_position_y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000013C", "source:raw"]},
+        {"base": "this", "offset": "0x00000144", "name": "current_position_z", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000144", "source:raw"]},
+        {"base": "this", "offset": "0x0000014C", "name": "secondary_position_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000014C", "source:raw"]},
+        {"base": "this", "offset": "0x00000154", "name": "secondary_position_y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000154", "source:raw"]},
+        {"base": "this", "offset": "0x0000015C", "name": "secondary_position_z", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000015C", "source:raw"]},
+        {"base": "this", "offset": "0x00000164", "name": "prediction_position_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000164", "source:raw"]},
+        {"base": "this", "offset": "0x0000016C", "name": "prediction_position_y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000016C", "source:raw"]},
+        {"base": "this", "offset": "0x00000174", "name": "prediction_position_z", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000174", "source:raw"]},
+        {"base": "this", "offset": "0x000001C4", "name": "prediction_velocity_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001C4", "source:raw"]},
+        {"base": "this", "offset": "0x000001CC", "name": "prediction_velocity_y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001CC", "source:raw"]},
+        {"base": "this", "offset": "0x000001D4", "name": "prediction_velocity_z", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001D4", "source:raw"]},
+        {"base": "this", "offset": "0x000001DC", "name": "prediction_angular_momentum_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001DC", "source:raw"]},
+        {"base": "this", "offset": "0x000001E4", "name": "prediction_angular_momentum_y", "type_guess": "float", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x000001E4", "source:raw"]},
+        {"base": "this", "offset": "0x000001EC", "name": "prediction_angular_momentum_z", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001EC", "source:raw"]},
+        {"base": "this", "offset": "0x000001F4", "name": "reference_position_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001F4", "source:raw"]},
+        {"base": "this", "offset": "0x000001FC", "name": "reference_position_y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001FC", "source:raw"]},
+        {"base": "this", "offset": "0x00000204", "name": "reference_position_z", "type_guess": "float", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000204", "source:raw"]},
+        {"base": "this", "offset": "0x0000020C", "name": "secondary_reference_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000020C", "source:raw"]},
+        {"base": "this", "offset": "0x00000214", "name": "secondary_reference_y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000214", "source:raw"]},
+        {"base": "this", "offset": "0x0000021C", "name": "secondary_reference_z", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000021C", "source:raw"]}
+      ],
+      "evidence_refs": [
+        "function:0x005694E0",
+        "function:0x00569DE0",
+        "function:0x0056A150",
+        "callee:0x005692A0"
+      ]
+    },
+    {
+      "name": "CollisionContactManager",
+      "responsibility": "Owns the per-frame collision contact container (contact-array pointer, element count, base) and the contact-object reference; runs depth tests, fills contact entries and forwards them to the response stage.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0054F2F0"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x000001E0", "name": "contact_container", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001E0", "source:raw"]},
+        {"base": "this", "offset": "0x000001E4", "name": "contact_array_count", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001E4", "source:raw"]},
+        {"base": "this", "offset": "0x000001E8", "name": "contact_array_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000001E8", "source:raw"]},
+        {"base": "this", "offset": "0x00000204", "name": "contact_object", "type_guess": "pointer", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x00000204", "source:raw"]}
+      ],
+      "evidence_refs": [
+        "function:0x0054F2F0",
+        "callee:0x0054EB40",
+        "callee:0x00559A30",
+        "global:0x008B8F24",
+        "caller:0x0054F5C0"
+      ]
+    },
+    {
+      "name": "CollisionContactEntry",
+      "responsibility": "29-dword contact record written by collision detection: active flag, collision identifier, source, owner, loop index, triangle list, interpolated contact point, triangle world position and penetration distance, before forwarding.",
+      "trust": "DERIVED",
+      "methods": [],
+      "fields": [
+        {"base": "*(this+0x1E8)", "offset": "0x00000000", "name": "active_flag", "type_guess": "dword", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000000", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000018", "name": "collision_identifier", "type_guess": "dword", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000018", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000028", "name": "collision_source", "type_guess": "pointer", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000028", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x0000002C", "name": "owner_ptr", "type_guess": "pointer", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x0000002C", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000030", "name": "loop_index", "type_guess": "dword", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000030", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000034", "name": "triangle_list", "type_guess": "pointer", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000034", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000038", "name": "reserved_lerp", "type_guess": "dword", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000038", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x0000003C", "name": "contact_point_x", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x0000003C", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000040", "name": "contact_point_y", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000040", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000044", "name": "contact_point_z", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000044", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000048", "name": "triangle_world_pos_x", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000048", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x0000004C", "name": "triangle_world_pos_y", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x0000004C", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000050", "name": "triangle_world_pos_z", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000050", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000058", "name": "penetration_distance", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000058", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x0000005C", "name": "trailing_contact_field_0", "type_guess": "dword", "trust": "GUESS", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x0000005C", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000060", "name": "trailing_contact_field_1", "type_guess": "dword", "trust": "GUESS", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000060", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000064", "name": "trailing_contact_field_2", "type_guess": "dword", "trust": "GUESS", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000064", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000068", "name": "trailing_contact_field_3", "type_guess": "dword", "trust": "GUESS", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000068", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x0000006C", "name": "trailing_contact_field_4", "type_guess": "dword", "trust": "GUESS", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x0000006C", "source:raw"]},
+        {"base": "*(this+0x1E8)", "offset": "0x00000070", "name": "trailing_contact_field_5", "type_guess": "dword", "trust": "GUESS", "access": "write", "evidence_refs": ["field:*(this+0x1E8):0x00000070", "source:raw"]}
+      ],
+      "evidence_refs": [
+        "function:0x0054F2F0",
+        "field:*(this+0x1E8):0x00000000"
+      ]
+    },
+    {
+      "name": "TransformNodeBatchRenderer",
+      "responsibility": "Walks a linked list of transform nodes, culls faces by distance and plane-sign tests through the dword_8B8F24 service, and emits perspective-projected interpolated vertices into a bounded batch buffer.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00561660"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000004", "name": "emitted_vertex_count", "type_guess": "dword", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000004", "source:raw"]},
+        {"base": "this", "offset": "0x00000008", "name": "output_vertex_buffer", "type_guess": "pointer", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x00000008", "source:raw"]},
+        {"base": "this", "offset": "0x0000000C", "name": "camera_params", "type_guess": "pointer", "trust": "GUESS", "access": "read", "evidence_refs": ["field:this:0x0000000C", "source:raw"]},
+        {"base": "this", "offset": "0x00000018", "name": "transform_world_base", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000018", "source:raw"]},
+        {"base": "this", "offset": "0x00000020", "name": "batch_limits", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000020", "source:raw"]},
+        {"base": "*(this+0x8)", "offset": "0x00000000", "name": "vertex_pos_x", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x8):0x00000000", "source:raw"]},
+        {"base": "*(this+0x8)", "offset": "0x00000004", "name": "vertex_pos_y", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x8):0x00000004", "source:raw"]},
+        {"base": "*(this+0x8)", "offset": "0x00000008", "name": "vertex_pos_z", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x8):0x00000008", "source:raw"]},
+        {"base": "*(this+0x8)", "offset": "0x0000000C", "name": "vertex_source_dword", "type_guess": "dword", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x8):0x0000000C", "source:raw"]},
+        {"base": "*(this+0x8)", "offset": "0x00000010", "name": "vertex_projected_x", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x8):0x00000010", "source:raw"]},
+        {"base": "*(this+0x8)", "offset": "0x00000014", "name": "vertex_projected_y", "type_guess": "float", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x8):0x00000014", "source:raw"]},
+        {"base": "*(this+0x20)", "offset": "0x00000000", "name": "batch_element_count", "type_guess": "dword", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:*(this+0x20):0x00000000", "source:raw"]},
+        {"base": "*(this+0x20)", "offset": "0x00000004", "name": "batch_face_index", "type_guess": "dword", "trust": "DERIVED", "access": "write", "evidence_refs": ["field:*(this+0x20):0x00000004", "source:raw"]},
+        {"base": "*(this+0xC)", "offset": "0x0000000C", "name": "near_plane", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0xC):0x0000000C", "source:raw"]},
+        {"base": "*(this+0xC)", "offset": "0x00000010", "name": "screen_offset_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0xC):0x00000010", "source:raw"]},
+        {"base": "*(this+0xC)", "offset": "0x00000014", "name": "far_plane", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0xC):0x00000014", "source:raw"]},
+        {"base": "*(this+0xC)", "offset": "0x00000018", "name": "screen_offset_y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0xC):0x00000018", "source:raw"]},
+        {"base": "*(this+0xC)", "offset": "0x00000024", "name": "camera_pos_x", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0xC):0x00000024", "source:raw"]},
+        {"base": "*(this+0xC)", "offset": "0x00000028", "name": "camera_pos_y", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0xC):0x00000028", "source:raw"]},
+        {"base": "*(this+0xC)", "offset": "0x0000002C", "name": "camera_pos_z", "type_guess": "float", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:*(this+0xC):0x0000002C", "source:raw"]},
+        {"base": "*(this+0xC)", "offset": "0x00000054", "name": "reciprocal_factor_a", "type_guess": "float", "trust": "GUESS", "access": "read", "evidence_refs": ["field:*(this+0xC):0x00000054", "source:raw"]},
+        {"base": "*(this+0xC)", "offset": "0x00000058", "name": "reciprocal_factor_b", "type_guess": "float", "trust": "GUESS", "access": "read", "evidence_refs": ["field:*(this+0xC):0x00000058", "source:raw"]}
+      ],
+      "evidence_refs": [
+        "function:0x00561660",
+        "global:0x008B8F24"
+      ]
+    },
+    {
+      "name": "PhysicsQueryState",
+      "responsibility": "Producer-consumer query state: a ready flag, previous timestamp, base value and attached data buffer/size consumed by the timestamp-delta getter.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x00583790"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x0000000C", "name": "ready_flag", "type_guess": "byte", "trust": "DERIVED", "access": "read_write", "evidence_refs": ["field:this:0x0000000C", "source:raw"]},
+        {"base": "this", "offset": "0x00000010", "name": "previous_timestamp", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000010", "source:raw"]},
+        {"base": "this", "offset": "0x00000018", "name": "base_value", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000018", "source:raw"]},
+        {"base": "this", "offset": "0x00000020", "name": "attached_data_buffer", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000020", "source:raw"]},
+        {"base": "this", "offset": "0x00000120", "name": "attached_data_size", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000120", "source:raw"]}
+      ],
+      "evidence_refs": [
+        "function:0x00583790"
+      ]
+    },
+    {
+      "name": "PhysicsAllocatorNode",
+      "responsibility": "Allocation node holding 43 sub-object pointer slots (offsets 0x00..0xA8); its destructor releases each stored pointer through a shared deallocation routine.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0058F362"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "sub_object_slot_00", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000004", "name": "sub_object_slot_01", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000008", "name": "sub_object_slot_02", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000008", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000000C", "name": "sub_object_slot_03", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000000C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000010", "name": "sub_object_slot_04", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000010", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000014", "name": "sub_object_slot_05", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000014", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000018", "name": "sub_object_slot_06", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000018", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000001C", "name": "sub_object_slot_07", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000001C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000020", "name": "sub_object_slot_08", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000020", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000024", "name": "sub_object_slot_09", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000024", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000028", "name": "sub_object_slot_10", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000028", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000002C", "name": "sub_object_slot_11", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000002C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000030", "name": "sub_object_slot_12", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000030", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000034", "name": "sub_object_slot_13", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000034", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000038", "name": "sub_object_slot_14", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000038", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000003C", "name": "sub_object_slot_15", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000003C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000040", "name": "sub_object_slot_16", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000040", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000044", "name": "sub_object_slot_17", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000044", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000048", "name": "sub_object_slot_18", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000048", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000004C", "name": "sub_object_slot_19", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000004C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000050", "name": "sub_object_slot_20", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000050", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000054", "name": "sub_object_slot_21", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000054", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000058", "name": "sub_object_slot_22", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000058", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000005C", "name": "sub_object_slot_23", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000005C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000060", "name": "sub_object_slot_24", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000060", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000064", "name": "sub_object_slot_25", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000064", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000068", "name": "sub_object_slot_26", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000068", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000006C", "name": "sub_object_slot_27", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000006C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000070", "name": "sub_object_slot_28", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000070", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000074", "name": "sub_object_slot_29", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000074", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000078", "name": "sub_object_slot_30", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000078", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000007C", "name": "sub_object_slot_31", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000007C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000080", "name": "sub_object_slot_32", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000080", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000084", "name": "sub_object_slot_33", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000084", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000088", "name": "sub_object_slot_34", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000088", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000008C", "name": "sub_object_slot_35", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000008C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000090", "name": "sub_object_slot_36", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000090", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000094", "name": "sub_object_slot_37", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000094", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x00000098", "name": "sub_object_slot_38", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000098", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x0000009C", "name": "sub_object_slot_39", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000009C", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x000000A0", "name": "sub_object_slot_40", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000A0", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x000000A4", "name": "sub_object_slot_41", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000A4", "callee:0x0058AA6F", "source:raw"]},
+        {"base": "this", "offset": "0x000000A8", "name": "sub_object_slot_42", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x000000A8", "callee:0x0058AA6F", "source:raw"]}
+      ],
+      "evidence_refs": [
+        "function:0x0058F362",
+        "callee:0x0058AA6F",
+        "caller:0x0058EF83"
+      ]
+    },
+    {
+      "name": "PhysicsBodyArray",
+      "responsibility": "Container of a 580-byte-strided physics-body array; iterates every element and dispatches the per-body update routine.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0056F020"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000000", "name": "element_count", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000000", "source:raw"]},
+        {"base": "this", "offset": "0x00000004", "name": "array_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000004", "source:raw"]}
+      ],
+      "evidence_refs": [
+        "function:0x0056F020",
+        "callee:0x00569C10",
+        "caller:0x004414D0"
+      ]
+    },
+    {
+      "name": "PhysicsBatchProcessor",
+      "responsibility": "Three-pass batch processor over three physics record arrays, applying matrix-vector multiply, inverse coordinate transform and a per-element constraint-solve step on each record.",
+      "trust": "DERIVED",
+      "methods": [
+        "0x0056EC00"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000008", "name": "pass1_count", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000008", "source:raw"]},
+        {"base": "this", "offset": "0x0000000C", "name": "pass1_array_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000000C", "source:raw"]},
+        {"base": "this", "offset": "0x00000010", "name": "pass2_count", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000010", "source:raw"]},
+        {"base": "this", "offset": "0x00000014", "name": "pass2_array_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000014", "source:raw"]},
+        {"base": "this", "offset": "0x00000018", "name": "pass3_count", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000018", "source:raw"]},
+        {"base": "this", "offset": "0x0000001C", "name": "pass3_array_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x0000001C", "source:raw"]}
+      ],
+      "evidence_refs": [
+        "function:0x0056EC00",
+        "callee:0x0056CF70",
+        "callee:0x0056D020",
+        "callee:0x0056D2D0",
+        "caller:0x0056ECF0"
+      ]
+    },
+    {
+      "name": "PhysicsGlobalState",
+      "responsibility": "Access to and lifecycle of module-global physics singleton objects (unk_8D42D8, unk_8D4370, unk_8D4439) and the polarity flag inside dword_8D46B4; includes lifecycle shims, a ref-count wrapper, a sign helper and a generic scalar-deleting destructor wrapper.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00563F70",
+        "0x005986CB",
+        "0x005987AD",
+        "0x005997B7",
+        "0x0059A317"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x00563F70",
+        "function:0x005986CB",
+        "function:0x005987AD",
+        "function:0x005997B7",
+        "function:0x0059A317",
+        "global:0x008D46B4",
+        "global:0x008D4370",
+        "global:0x008D42D8",
+        "global:0x008D4439"
+      ]
+    },
+    {
+      "name": "IndexedTransformTable",
+      "responsibility": "Indexed lookup table of transform entries: bounds-checked by element count, each 36-byte entry carries three 16-bit sub-indices resolving into a 48-byte-stride transform array.",
+      "trust": "GUESS",
+      "methods": [
+        "0x0054E1A0"
+      ],
+      "fields": [
+        {"base": "this", "offset": "0x00000120", "name": "element_count", "type_guess": "dword", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000120", "source:raw"]},
+        {"base": "this", "offset": "0x00000124", "name": "entry_table_base", "type_guess": "pointer", "trust": "DERIVED", "access": "read", "evidence_refs": ["field:this:0x00000124", "source:raw"]}
+      ],
+      "evidence_refs": [
+        "function:0x0054E1A0",
+        "field:this:0x00000120",
+        "field:this:0x00000124"
+      ]
+    },
+    {
+      "name": "StreamCipherTransform",
+      "responsibility": "Sixteen-round substitution-table stream transform over a caller-owned table buffer; mixes two state words through byte lookups and stores state at table indices 256..308.",
+      "trust": "GUESS",
+      "methods": [
+        "0x00564DD0"
+      ],
+      "fields": [],
+      "evidence_refs": [
+        "function:0x00564DD0",
+        "caller:0x00565080"
+      ]
+    }
+  ],
+  "state_machines": [
+    {
+      "name": "PhysicsQueryReadyFlag",
+      "owner": "PhysicsQueryState",
+      "states": ["consumed", "ready"],
+      "transitions": [
+        {"from": "consumed", "to": "ready", "trigger": "producer sets the ready flag byte at this+0x0C and updates timestamp/data"},
+        {"from": "ready", "to": "consumed", "trigger": "getter 0x00583790 reads and clears the flag, emits the value"}
+      ],
+      "trust": "GUESS",
+      "evidence_refs": ["function:0x00583790", "field:this:0x0000000C", "source:raw"]
+    },
+    {
+      "name": "CollisionContactSlotLifecycle",
+      "owner": "CollisionContactEntry",
+      "states": ["inactive", "active", "retired"],
+      "transitions": [
+        {"from": "inactive", "to": "active", "trigger": "collision detection writes the active flag to 1 and populates the 29-dword entry"},
+        {"from": "active", "to": "retired", "trigger": "active flag set to the retire sentinel 6; later detection passes skip the entry"}
+      ],
+      "trust": "GUESS",
+      "evidence_refs": ["function:0x0054F2F0", "field:*(this+0x1E8):0x00000000", "source:raw"]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "DepthProjectionDeviceService",
+      "purpose": "Indirect vtable-based service reached through the global at 0x008B8F24 (D3D device object). Provides a distance/depth test (vtable+32, __thiscall) used by collision contact detection and per-face culling, and a camera-space transform (vtable+4, cdecl) used for vertex projection. Concrete callee addresses are indirect and unconfirmed.",
+      "functions": [],
+      "trust": "GUESS",
+      "evidence_refs": ["global:0x008B8F24", "function:0x0054F2F0", "function:0x00561660"]
+    }
+  ],
+  "dependencies": [
+    {"from": "function:0x0054F2F0", "to": "callee:0x0054EB40", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0054F2F0", "callee:0x0054EB40"]},
+    {"from": "function:0x0054F2F0", "to": "callee:0x00559A30", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0054F2F0", "callee:0x00559A30"]},
+    {"from": "function:0x00563F70", "to": "callee:0x00564580", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x00563F70", "callee:0x00564580"]},
+    {"from": "function:0x00569DE0", "to": "callee:0x0056C020", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x00569DE0", "callee:0x0056C020"]},
+    {"from": "function:0x00569DE0", "to": "callee:0x005692A0", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x00569DE0", "callee:0x005692A0"]},
+    {"from": "function:0x0056A150", "to": "callee:0x005692A0", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0056A150", "callee:0x005692A0"]},
+    {"from": "function:0x0056EC00", "to": "callee:0x0056CF70", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0056EC00", "callee:0x0056CF70"]},
+    {"from": "function:0x0056EC00", "to": "callee:0x0056D020", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0056EC00", "callee:0x0056D020"]},
+    {"from": "function:0x0056EC00", "to": "callee:0x0056D2D0", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0056EC00", "callee:0x0056D2D0"]},
+    {"from": "function:0x0056F020", "to": "callee:0x00569C10", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0056F020", "callee:0x00569C10"]},
+    {"from": "function:0x0058F362", "to": "callee:0x0058AA6F", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0058F362", "callee:0x0058AA6F"]},
+    {"from": "function:0x0059A317", "to": "callee:0x005998E5", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0059A317", "callee:0x005998E5"]},
+    {"from": "function:0x0059A317", "to": "callee:0x00587BCF", "kind": "calls", "trust": "DERIVED", "evidence_refs": ["function:0x0059A317", "callee:0x00587BCF"]},
+    {"from": "function:0x0054F2F0", "to": "caller:0x0054F5C0", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["function:0x0054F2F0", "caller:0x0054F5C0"]},
+    {"from": "function:0x00564DD0", "to": "caller:0x00565080", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["function:0x00564DD0", "caller:0x00565080"]},
+    {"from": "function:0x00569DE0", "to": "caller:0x00459AE0", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["function:0x00569DE0", "caller:0x00459AE0"]},
+    {"from": "function:0x00569DE0", "to": "caller:0x0056F090", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["function:0x00569DE0", "caller:0x0056F090"]},
+    {"from": "function:0x0056A150", "to": "caller:0x0056F060", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["function:0x0056A150", "caller:0x0056F060"]},
+    {"from": "function:0x0056EC00", "to": "caller:0x0056ECF0", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["function:0x0056EC00", "caller:0x0056ECF0"]},
+    {"from": "function:0x0056F020", "to": "caller:0x004414D0", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["function:0x0056F020", "caller:0x004414D0"]},
+    {"from": "function:0x0058F362", "to": "caller:0x0058EF83", "kind": "called_by", "trust": "DERIVED", "evidence_refs": ["function:0x0058F362", "caller:0x0058EF83"]},
+    {"from": "function:0x0054F2F0", "to": "global:0x008B8F24", "kind": "reads_global", "trust": "DERIVED", "evidence_refs": ["function:0x0054F2F0", "global:0x008B8F24"]},
+    {"from": "function:0x00561660", "to": "global:0x008B8F24", "kind": "reads_global", "trust": "DERIVED", "evidence_refs": ["function:0x00561660", "global:0x008B8F24"]},
+    {"from": "function:0x00563F70", "to": "global:0x008D46B4", "kind": "reads_global", "trust": "DERIVED", "evidence_refs": ["function:0x00563F70", "global:0x008D46B4"]},
+    {"from": "function:0x005986CB", "to": "global:0x008D4370", "kind": "reads_global", "trust": "DERIVED", "evidence_refs": ["function:0x005986CB", "global:0x008D4370"]},
+    {"from": "function:0x005987AD", "to": "global:0x008D42D8", "kind": "reads_global", "trust": "DERIVED", "evidence_refs": ["function:0x005987AD", "global:0x008D42D8"]},
+    {"from": "function:0x005997B7", "to": "global:0x008D4439", "kind": "reads_global", "trust": "DERIVED", "evidence_refs": ["function:0x005997B7", "global:0x008D4439"]}
+  ],
+  "compatibility_contracts": [
+    {
+      "name": "CollisionContactPipeline",
+      "category": "physics",
+      "description": "The scene batch render check (0x0054F5C0) invokes collision contact detection (0x0054F2F0) every frame. Detected contacts are written to the contact array at *(this+0x1E8) as 29-dword entries (active flag, identifier, source, owner, index, triangle list, contact point, world position, penetration), and each completed entry is forwarded to the response stage through SingleFunctionCallWrapper (0x00559A30). A replacement must preserve the entry stride and the active-flag retire sentinel value 6.",
+      "trust": "DERIVED",
+      "evidence_refs": ["caller:0x0054F5C0", "function:0x0054F2F0", "callee:0x00559A30", "field:*(this+0x1E8):0x00000000"]
+    },
+    {
+      "name": "RigidBodyIntegrationTick",
+      "category": "physics",
+      "description": "SuspensionStateIntegratorWithVelocityClamp (0x00569DE0) must be invoked per frame with a scalar timestep by the vehicle integrator (0x00459AE0) and by 0x0056F090; it advances position (this+4/0xC/0x14), linear velocity (this+0x64/0x6C/0x74) and angular momentum (this+0x94/0x9C/0xA4) and runs the world inertia-tensor transform (0x005692A0).",
+      "trust": "DERIVED",
+      "evidence_refs": ["caller:0x00459AE0", "caller:0x0056F090", "function:0x00569DE0", "field:this:0x00000004", "callee:0x005692A0"]
+    },
+    {
+      "name": "PhysicsQueryGetterContract",
+      "category": "data_transfer",
+      "description": "A producer writes a ready flag (this+0xC), previous timestamp (this+0x10), base value (this+0x18) and attached data size (this+0x120). The getter 0x00583790 returns 1 and emits the timestamp-delta value and the data pointer/size, or 0 when not ready. A clear flag must be treated as no-data.",
+      "trust": "DERIVED",
+      "evidence_refs": ["function:0x00583790", "field:this:0x0000000C", "field:this:0x00000010", "source:raw"]
+    },
+    {
+      "name": "PhysicsAllocatorNodeLifecycle",
+      "category": "lifecycle",
+      "description": "The allocator init counterpart (0x0058EF83) allocates a 43-slot node whose teardown (0x0058F362) releases every stored sub-object pointer through the shared deallocation routine 0x0058AA6F. The teardown is invoked on the init counterpart; a replacement must preserve the 43-slot layout (0x00..0xA8) and the per-slot release contract.",
+      "trust": "DERIVED",
+      "evidence_refs": ["caller:0x0058EF83", "function:0x0058F362", "callee:0x0058AA6F"]
+    },
+    {
+      "name": "BatchedPhysicsBodyProcessing",
+      "category": "physics",
+      "description": "WheelDataCopy (0x004414D0) drives per-body updates through 0x0056F020 over a fixed 580-byte-stride body array. Separately, 0x0056ECF0 drives 0x0056EC00, which applies F_3x3MatrixVectorMultiply (0x0056CF70), F_3x3MatrixInverseCoordinateTransform (0x0056D020) and a per-element constraint solve (0x0056D2D0) to the three record arrays each tick and returns the third-pass count.",
+      "trust": "DERIVED",
+      "evidence_refs": ["caller:0x004414D0", "function:0x0056F020", "caller:0x0056ECF0", "function:0x0056EC00", "callee:0x0056CF70", "callee:0x0056D020", "callee:0x0056D2D0"]
+    }
+  ],
+  "unresolved": [
+    "Offset collision on the shared 'this' base: several receiver objects are unrelated yet reuse equal byte offsets (0x04, 0x0C, 0x14, 0x18, 0x1C, 0x20, 0x64, 0x94, 0xA4, 0x1E4, 0x204). Per the rule against merging equal offsets, each offset is attributed to a single class; the same field token legitimately also appears in the losing class's field evidence because the validator requires per-field matching refs. No common ownership is proven.",
+    "CollisionContactManager reads attributed to this+0x2EC, this+0x2F0 and this+0x2F4 have no visible expression in the raw decompiled source; they are retained only in unresolved_evidence_refs.",
+    "CollisionContactEntry trailing fields at 0x5C..0x70 have no explicit write in the raw source text; their names are placeholders.",
+    "TransformNodeBatchRenderer reads the float globals 0x59E43C, 0x59E440, 0x59E448 and 0x59E5FC (materialized FP constants) whose exact values and operations are not evidenced.",
+    "SuspensionStateIntegratorWithVelocityClamp reads the float globals 0x59E420, 0x59E880, 0x59EB50 and 0x5B89B8 which appear nowhere in the raw decompiled source.",
+    "PhysicsSignDirectionFunction (0x00563F70) makes two AudioMixerSampleGetWithFallback calls with unused results (likely decompiler artifact); v2 = a1 - a1 is a zeroed quantity, so the value whose sign is tested is not evident from the packet.",
+    "The D3D device vtable call targets behind dword_8B8F24 (vtable+4 and vtable+32) are indirect; the concrete distance/depth and transform routines are not evidenced.",
+    "PhysicsGlobalState is a GUESS grouping: 0x0059A317 is a generic scalar-deleting destructor wrapper whose owning class is unconfirmed, and the allocator-node and RC4KeyScheduleInitialization names are skeleton-fill labels, not confirmed classes.",
+    "ReadIndexedTransformVectors (0x0054E1A0) semantics (suggested bone/transform lookup for AnimationPlaybackSequence) and the layout of the 36-byte entry and 48-byte-stride transform element are unconfirmed.",
+    "Where the world-space inverse inertia tensor produced by F_3x3InertiaTensorTransform is stored is not established by this packet.",
+    "RigidBodyState prediction-buffer vs working-state roles (block copies in 0x0056A150, staging qmemcpy of this+28 from this+380 in 0x00569DE0) are inferred from block sizes only; the 0x17C orientation block and staging region are not in the packet field table.",
+    "The identity of the cipher behind TableDrivenStreamTransform and the role of its a2/a3 inputs relative to the caller are unverified.",
+    "PhysicsAllocatorNode slots are visited in a fixed order that differs from array order; whether the order is semantically meaningful is unknown.",
+    "The a4 parameter of CollisionContactDetection (0x0054F2F0) is declared but never read.",
+    "PhysicsGlobalState's module-global objects (unk_8D42D8, unk_8D4370, unk_8D4439, dword_8D46B4) are represented as class evidence only; no per-offset field entries are asserted because the required evidence-ref format for a global base is not present in the allowed list."
+  ],
+  "unresolved_evidence_refs": [
+    "field:this:0x000002EC",
+    "field:this:0x000002F0",
+    "field:this:0x000002F4",
+    "global:0x0059E420",
+    "global:0x0059E43C",
+    "global:0x0059E440",
+    "global:0x0059E448",
+    "global:0x0059E5FC",
+    "global:0x0059E880",
+    "global:0x0059EB50",
+    "global:0x005B89B8"
+  ],
+  "confidence": {
+    "boundaries": "MEDIUM",
+    "ownership": "LOW",
+    "field_semantics": "MEDIUM",
+    "contracts": "MEDIUM"
+  }
+}

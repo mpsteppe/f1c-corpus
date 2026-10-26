@@ -1,0 +1,35 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x005991C3
+// Canonical corpus name: LocaleEncodingStateQuery
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/LocaleEncodingStateQuery_005991c3.c
+
+void UnknownObject::LocaleEncodingStateQuery()
+{
+    // Queries a 24-byte encoding-state record from a locale/encoding object and copies it into the caller-supplied output buffer a2. The state object pointer is read from this+0x50 (this[20]); when it is null, the encoding does not match the a3/a4 parameters (sub_587F64), or the masked string-stream read (StringStreamReadWithMaskCheck) fails, a default state built by sub_59942B(-1) is used instead. On the success path the record is assembled on the stack: zero first dword, the two stream-read dwords, and this+0x40 (this[16]). The chosen record (default or assembled) is memcpy'd into a2 and a2 is returned.
+    // ASSIGNMENT: Load the encoding-state object pointer v6 from this[20] (offset +0x50). [field:this:0x00000050, source:raw]
+    // GUARD: Select the fallback branch when this[20] is null, when sub_587F64(v6, a3, a4) returns non-zero (encoding/locale mismatch), or when StringStreamReadWithMaskCheck(this[20], v10) fails. [field:this:0x00000050, callee:0x00587F64, callee:0x0058801D, function:0x005991C3, source:raw]
+    // CALL: Call sub_587F64(v6, a3, a4) to test whether the encoding state matches the requested a3/a4 parameters; a non-zero result selects the fallback path. [callee:0x00587F64, field:this:0x00000050, source:raw]
+    // CALL: Call StringStreamReadWithMaskCheck(this[20], v10) to read the encoding state dwords from the string stream into v10[0]/v10[1]; a non-zero result selects the fallback path. [callee:0x0058801D, field:this:0x00000050, source:raw]
+    // CALL: Fallback path: call sub_59942B(-1) to create the default encoding-state object; v7 points to it and its 24 bytes are what gets copied. [callee:0x0059942B, source:raw]
+    // ASSIGNMENT: Success path: assemble the 24-byte record on the stack (v9): v9[0] = 0, v9[2] = v10[0], v9[3] = v10[1], v9[4] = this[16] (offset +0x40, the encoding state value); v7 = &v9. [field:this:0x00000040, field:this:0x00000050, source:raw]
+    // ASSIGNMENT: Copy 0x18 (24) bytes from v7 (default or assembled record) into the output buffer a2 via qmemcpy. [abi:lead, source:raw]
+    // RETURN: Return the output buffer a2. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   void *LocaleEncodingStateQuery(this, void *out, int a3, int a4, int a5) {
+    //     int *state = this[20];
+    //     int *src;
+    //     if (!state || sub_587F64(state, a3, a4) || StringStreamReadWithMaskCheck(state, &v10))
+    //       src = sub_59942B(-1);
+    //     else {
+    //       v9[0] = 0; v9[2] = v10[0]; v9[3] = v10[1]; v9[4] = this[16];
+    //       src = v9;
+    //     }
+    //     qmemcpy(out, src, 0x18);
+    //     return out;
+    //   }
+    // UNRESOLVED: Owner object identity is unknown; this+0x50 is used both as the stream for the masked read and as the encoding-state object pointer, so its exact class contract is not recoverable from this packet alone.
+    // UNRESOLVED: The exact meaning of parameters a3/a4 passed to sub_587F64 is not stated in the packet.
+    // UNRESOLVED: The role of the last parameter a5 is unused in the visible body and its purpose is unknown.
+}

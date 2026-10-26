@@ -1,0 +1,96 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00578F76
+// Canonical corpus name: InitPhysicsTransformIdentity
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/InitPhysicsTransformIdentity_00578f76.c
+
+void UnknownObject::InitPhysicsTransformIdentity()
+{
+    // Dispatcher over a selector a1 (0..33). Each case initializes one row of a large block-structured, double-precision physics dynamics matrix to an identity row: the diagonal element of the row is set to 1.0 and every other stored element of that row is set to 0.0. Longer rows first zero their contiguous element storage via sub_58BB10(dst, 0, byteCount); shorter rows write the zeros directly. The function returns its own selector argument in every path.
+    // GUARD: Dispatch on rowSelector a1 via the jump table at 0x00579C47; selects one of the 34 row-initialization cases (0..33), default returns immediately. [function:0x00578F76, global:0x00579C47]
+    // ASSIGNMENT: Case 0: set row-0 diagonal dbl_8D2120 = 1.0 and zero the 14 off-diagonal row-0 elements. [global:0x008D2120, global:0x008D21D0, global:0x008D2280, global:0x008D2330, global:0x008D23E0, global:0x008D2490, global:0x008D2540, global:0x008D25F0, global:0x008D26A0, global:0x008D2750, global:0x008D2AF8, global:0x008D2C08, global:0x008D2D18, global:0x008D2FA8, global:0x008D3870]
+    // ASSIGNMENT: Case 1: set row-1 diagonal dbl_8D21D8 = 1.0 and zero the 14 off-diagonal row-1 elements. [global:0x008D21D8, global:0x008D21D0, global:0x008D2288, global:0x008D2338, global:0x008D23E8, global:0x008D2498, global:0x008D2548, global:0x008D25F8, global:0x008D26A8, global:0x008D2758, global:0x008D2B00, global:0x008D2C10, global:0x008D2D20, global:0x008D2FB0, global:0x008D3878]
+    // ASSIGNMENT: Case 2: set row-2 diagonal dbl_8D2290 = 1.0 and zero the 14 off-diagonal row-2 elements. [global:0x008D2290, global:0x008D2280, global:0x008D2288, global:0x008D2340, global:0x008D23F0, global:0x008D24A0, global:0x008D2550, global:0x008D2600, global:0x008D26B0, global:0x008D2760, global:0x008D2B08, global:0x008D2C18, global:0x008D2D28, global:0x008D2FB8, global:0x008D3880]
+    // CALL: Case 3: zero 24 bytes at &dbl_8D2330 via sub_58BB10(dst, 0, 24) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D2330]
+    // ASSIGNMENT: Case 3: set row-3 diagonal dbl_8D2348 = 1.0 and zero the 11 remaining row-3 elements. [global:0x008D2348, global:0x008D23F8, global:0x008D24A8, global:0x008D2558, global:0x008D2608, global:0x008D26B8, global:0x008D2768, global:0x008D2B10, global:0x008D2C20, global:0x008D2D30, global:0x008D2FC0, global:0x008D3888]
+    // CALL: Case 4: zero 32 bytes at &dbl_8D23E0 via sub_58BB10(dst, 0, 32) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D23E0]
+    // ASSIGNMENT: Case 4: set row-4 diagonal dbl_8D2400 = 1.0 and zero the 10 remaining row-4 elements. [global:0x008D2400, global:0x008D24B0, global:0x008D2560, global:0x008D2610, global:0x008D26C0, global:0x008D2770, global:0x008D2B18, global:0x008D2C28, global:0x008D2D38, global:0x008D2FC8, global:0x008D3890]
+    // CALL: Case 5: zero 40 bytes at &dbl_8D2490 via sub_58BB10(dst, 0, 40) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D2490]
+    // ASSIGNMENT: Case 5: set row-5 diagonal dbl_8D24B8 = 1.0 and zero the 9 remaining row-5 elements. [global:0x008D24B8, global:0x008D2568, global:0x008D2618, global:0x008D26C8, global:0x008D2778, global:0x008D2B20, global:0x008D2C30, global:0x008D2D40, global:0x008D2FD0, global:0x008D3898]
+    // CALL: Case 6: zero 48 bytes at &dbl_8D2540 via sub_58BB10(dst, 0, 48) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D2540]
+    // ASSIGNMENT: Case 6: set row-6 diagonal dbl_8D2570 = 1.0 and zero the 8 remaining row-6 elements. [global:0x008D2570, global:0x008D2620, global:0x008D26D0, global:0x008D2780, global:0x008D2B28, global:0x008D2C38, global:0x008D2D48, global:0x008D2FD8, global:0x008D38A0]
+    // CALL: Case 7: zero 56 bytes at &dbl_8D25F0 via sub_58BB10(dst, 0, 56) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D25F0]
+    // ASSIGNMENT: Case 7: set row-7 diagonal dbl_8D2628 = 1.0 and zero the 7 remaining row-7 elements. [global:0x008D2628, global:0x008D26D8, global:0x008D2788, global:0x008D2B30, global:0x008D2C40, global:0x008D2D50, global:0x008D2FE0, global:0x008D38A8]
+    // CALL: Case 8: zero 64 bytes at &dbl_8D26A0 via sub_58BB10(dst, 0, 64) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D26A0]
+    // ASSIGNMENT: Case 8: set row-8 diagonal dbl_8D26E0 = 1.0 and zero the 6 remaining row-8 elements. [global:0x008D26E0, global:0x008D2790, global:0x008D2B38, global:0x008D2C48, global:0x008D2D58, global:0x008D2FE8, global:0x008D38B0]
+    // CALL: Case 9: zero 72 bytes at &dbl_8D2750 via sub_58BB10(dst, 0, 72) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D2750]
+    // ASSIGNMENT: Case 9: set row-9 diagonal dbl_8D2798 = 1.0 and zero the 5 remaining row-9 elements. [global:0x008D2798, global:0x008D2B40, global:0x008D2C50, global:0x008D2D60, global:0x008D2FF0, global:0x008D38B8]
+    // ASSIGNMENT: Case 10: set row-10 diagonal dbl_8D2800 = 1.0 and zero the 10 remaining row-10 elements. [global:0x008D2800, global:0x008D2898, global:0x008D2930, global:0x008D29C8, global:0x008D2A60, global:0x008D31B8, global:0x008D3278, global:0x008D3338, global:0x008D33F8, global:0x008D34B8, global:0x008D38C0]
+    // ASSIGNMENT: Case 11: set row-11 diagonal dbl_8D28A0 = 1.0 and zero the 10 remaining row-11 elements. [global:0x008D28A0, global:0x008D2898, global:0x008D2938, global:0x008D29D0, global:0x008D2A68, global:0x008D31C0, global:0x008D3280, global:0x008D3340, global:0x008D3400, global:0x008D34C0, global:0x008D38C8]
+    // ASSIGNMENT: Case 12: set row-12 diagonal dbl_8D2940 = 1.0 and zero the 10 remaining row-12 elements. [global:0x008D2940, global:0x008D2930, global:0x008D2938, global:0x008D29D8, global:0x008D2A70, global:0x008D31C8, global:0x008D3288, global:0x008D3348, global:0x008D3408, global:0x008D34C8, global:0x008D38D0]
+    // CALL: Case 13: zero 24 bytes at &dbl_8D29C8 via sub_58BB10(dst, 0, 24) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D29C8]
+    // ASSIGNMENT: Case 13: set row-13 diagonal dbl_8D29E0 = 1.0 and zero the 7 remaining row-13 elements. [global:0x008D29E0, global:0x008D2A78, global:0x008D31D0, global:0x008D3290, global:0x008D3350, global:0x008D3410, global:0x008D34D0, global:0x008D38D8]
+    // CALL: Case 14: zero 32 bytes at &dbl_8D2A60 via sub_58BB10(dst, 0, 32) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D2A60]
+    // ASSIGNMENT: Case 14: set row-14 diagonal dbl_8D2A80 = 1.0 and zero the 6 remaining row-14 elements. [global:0x008D2A80, global:0x008D31D8, global:0x008D3298, global:0x008D3358, global:0x008D3418, global:0x008D34D8, global:0x008D38E0]
+    // CALL: Case 15: zero 80 bytes at &dbl_8D2AF8 via sub_58BB10(dst, 0, 80) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D2AF8]
+    // ASSIGNMENT: Case 15: set row-15 diagonal dbl_8D2B70 = 1.0 and zero the 14 remaining row-15 elements. [global:0x008D2B70, global:0x008D2C80, global:0x008D2D90, global:0x008D3020, global:0x008D31E0, global:0x008D32A0, global:0x008D3360, global:0x008D3420, global:0x008D34E0, global:0x008D3578, global:0x008D3610, global:0x008D36A8, global:0x008D3740, global:0x008D37D8, global:0x008D38E8]
+    // CALL: Case 16: zero 80 bytes at &dbl_8D2C08 via sub_58BB10(dst, 0, 80) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D2C08]
+    // ASSIGNMENT: Case 16: set row-16 diagonal dbl_8D2C88 = 1.0 and zero the 14 remaining row-16 elements. [global:0x008D2C88, global:0x008D2C80, global:0x008D2D98, global:0x008D3028, global:0x008D31E8, global:0x008D32A8, global:0x008D3368, global:0x008D3428, global:0x008D34E8, global:0x008D3580, global:0x008D3618, global:0x008D36B0, global:0x008D3748, global:0x008D37E0, global:0x008D38F0]
+    // CALL: Case 17: zero 80 bytes at &dbl_8D2D18 via sub_58BB10(dst, 0, 80) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D2D18]
+    // ASSIGNMENT: Case 17: set row-17 diagonal dbl_8D2DA0 = 1.0 and zero the 14 remaining row-17 elements. [global:0x008D2DA0, global:0x008D2D90, global:0x008D2D98, global:0x008D3030, global:0x008D31F0, global:0x008D32B0, global:0x008D3370, global:0x008D3430, global:0x008D34F0, global:0x008D3588, global:0x008D3620, global:0x008D36B8, global:0x008D3750, global:0x008D37E8, global:0x008D38F8]
+    // ASSIGNMENT: Case 18: set row-18 diagonal dbl_8D2E28 = 1.0 and zero the 10 remaining row-18 elements. [global:0x008D2E28, global:0x008D2EA8, global:0x008D2F28, global:0x008D30B8, global:0x008D3138, global:0x008D3590, global:0x008D3628, global:0x008D36C0, global:0x008D3758, global:0x008D37F0, global:0x008D3900]
+    // ASSIGNMENT: Case 19: set row-19 diagonal dbl_8D2EB0 = 1.0 and zero the 10 remaining row-19 elements. [global:0x008D2EB0, global:0x008D2EA8, global:0x008D2F30, global:0x008D30C0, global:0x008D3140, global:0x008D3598, global:0x008D3630, global:0x008D36C8, global:0x008D3760, global:0x008D37F8, global:0x008D3908]
+    // ASSIGNMENT: Case 20: set row-20 diagonal dbl_8D2F38 = 1.0 and zero the 10 remaining row-20 elements. [global:0x008D2F38, global:0x008D2F28, global:0x008D2F30, global:0x008D30C8, global:0x008D3148, global:0x008D35A0, global:0x008D3638, global:0x008D36D0, global:0x008D3768, global:0x008D3800, global:0x008D3910]
+    // CALL: Case 21: zero 80 bytes at &dbl_8D2FA8 via sub_58BB10(dst, 0, 80) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D2FA8]
+    // CALL: Case 21: zero 24 bytes at &dbl_8D3020 via sub_58BB10(dst, 0, 24) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D3020]
+    // ASSIGNMENT: Case 21: set row-21 diagonal dbl_8D3050 = 1.0 and zero the 11 remaining row-21 elements. [global:0x008D3050, global:0x008D3210, global:0x008D32D0, global:0x008D3390, global:0x008D3450, global:0x008D3510, global:0x008D35A8, global:0x008D3640, global:0x008D36D8, global:0x008D3770, global:0x008D3808, global:0x008D3918]
+    // CALL: Case 22: zero 24 bytes at &dbl_8D30B8 via sub_58BB10(dst, 0, 24) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D30B8]
+    // ASSIGNMENT: Case 22: set row-22 diagonal dbl_8D30D8 = 1.0 and zero the 7 remaining row-22 elements. [global:0x008D30D8, global:0x008D3158, global:0x008D35B0, global:0x008D3648, global:0x008D36E0, global:0x008D3778, global:0x008D3810, global:0x008D3920]
+    // CALL: Case 23: zero 24 bytes at &dbl_8D3138 via sub_58BB10(dst, 0, 24) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D3138]
+    // ASSIGNMENT: Case 23: set row-23 diagonal dbl_8D3160 = 1.0 and zero the 7 remaining row-23 elements. [global:0x008D3160, global:0x008D3158, global:0x008D35B8, global:0x008D3650, global:0x008D36E8, global:0x008D3780, global:0x008D3818, global:0x008D3928]
+    // CALL: Case 24: zero 64 bytes at &dbl_8D31B8 via sub_58BB10(dst, 0, 64) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D31B8]
+    // ASSIGNMENT: Case 24: set row-24 diagonal dbl_8D3228 = 1.0 and zero the 11 remaining row-24 elements. [global:0x008D3228, global:0x008D3210, global:0x008D32E8, global:0x008D33A8, global:0x008D3468, global:0x008D3528, global:0x008D35C0, global:0x008D3658, global:0x008D36F0, global:0x008D3788, global:0x008D3820, global:0x008D3930]
+    // CALL: Case 25: zero 64 bytes at &dbl_8D3278 via sub_58BB10(dst, 0, 64) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D3278]
+    // ASSIGNMENT: Case 25: set row-25 diagonal dbl_8D32F0 = 1.0 and zero the 11 remaining row-25 elements. [global:0x008D32F0, global:0x008D32D0, global:0x008D32E8, global:0x008D33B0, global:0x008D3470, global:0x008D3530, global:0x008D35C8, global:0x008D3660, global:0x008D36F8, global:0x008D3790, global:0x008D3828, global:0x008D3938]
+    // CALL: Case 26: zero 64 bytes at &dbl_8D3338 via sub_58BB10(dst, 0, 64) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D3338]
+    // ASSIGNMENT: Case 26: set row-26 diagonal dbl_8D33B8 = 1.0 and zero the 11 remaining row-26 elements. [global:0x008D33B8, global:0x008D3390, global:0x008D33A8, global:0x008D33B0, global:0x008D3478, global:0x008D3538, global:0x008D35D0, global:0x008D3668, global:0x008D3700, global:0x008D3798, global:0x008D3830, global:0x008D3940]
+    // CALL: Case 27: zero 64 bytes at &dbl_8D33F8 via sub_58BB10(dst, 0, 64) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D33F8]
+    // CALL: Case 27: zero 24 bytes at &dbl_8D3468 via sub_58BB10(dst, 0, 24) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D3468]
+    // ASSIGNMENT: Case 27: set row-27 diagonal dbl_8D3480 = 1.0 and zero the 8 remaining row-27 elements. [global:0x008D3480, global:0x008D3450, global:0x008D3540, global:0x008D35D8, global:0x008D3670, global:0x008D3708, global:0x008D37A0, global:0x008D3838, global:0x008D3948]
+    // CALL: Case 28: zero 64 bytes at &dbl_8D34B8 via sub_58BB10(dst, 0, 64) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D34B8]
+    // CALL: Case 28: zero 32 bytes at &dbl_8D3528 via sub_58BB10(dst, 0, 32) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D3528]
+    // ASSIGNMENT: Case 28: set row-28 diagonal dbl_8D3548 = 1.0 and zero the 7 remaining row-28 elements. [global:0x008D3548, global:0x008D3510, global:0x008D35E0, global:0x008D3678, global:0x008D3710, global:0x008D37A8, global:0x008D3840, global:0x008D3950]
+    // CALL: Case 29: zero 112 bytes at &dbl_8D3578 via sub_58BB10(dst, 0, 112) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D3578]
+    // ASSIGNMENT: Case 29: set row-29 diagonal dbl_8D35E8 = 1.0 and zero the 5 remaining row-29 elements. [global:0x008D35E8, global:0x008D3680, global:0x008D3718, global:0x008D37B0, global:0x008D3848, global:0x008D3958]
+    // CALL: Case 30: zero 120 bytes at &dbl_8D3610 via sub_58BB10(dst, 0, 120) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D3610]
+    // ASSIGNMENT: Case 30: set row-30 diagonal dbl_8D3688 = 1.0 and zero the 4 remaining row-30 elements. [global:0x008D3688, global:0x008D3720, global:0x008D37B8, global:0x008D3850, global:0x008D3960]
+    // CALL: Case 31: zero 128 bytes at &dbl_8D36A8 via sub_58BB10(dst, 0, 128) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D36A8]
+    // ASSIGNMENT: Case 31: set row-31 diagonal dbl_8D3728 = 1.0 and zero the 3 remaining row-31 elements. [global:0x008D3728, global:0x008D37C0, global:0x008D3858, global:0x008D3968]
+    // CALL: Case 32: zero 136 bytes at &dbl_8D3740 via sub_58BB10(dst, 0, 136) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D3740]
+    // ASSIGNMENT: Case 32: set row-32 diagonal dbl_8D37C8 = 1.0 and zero the 2 remaining row-32 elements. [global:0x008D37C8, global:0x008D3860, global:0x008D3970]
+    // CALL: Case 33: zero 144 bytes at &dbl_8D37D8 via sub_58BB10(dst, 0, 144) to clear the row block before its diagonal is set. [callee:0x0058BB10, global:0x008D37D8]
+    // ASSIGNMENT: Case 33: set row-33 diagonal dbl_8D3868 = 1.0 and zero the single remaining row-33 element. [global:0x008D3868, global:0x008D3978]
+    // RETURN: Return the selector argument (result = a1) in every path; the default case returns immediately, all other cases fall through to the shared return. [function:0x00578F76]
+
+    // Conservative worker pseudocode:
+    //   // Dispatch on rowSelector (0..33). Each case makes one row of a
+    //   // block-structured double-precision physics matrix an identity row:
+    //   //   row[diag] = 1.0;  row[rest] = 0.0;
+    //   // Longer rows zero their storage with sub_58BB10(&rowBlock, 0, byteCount).
+    //   int InitPhysicsTransformIdentity(int rowSelector)
+    //   {
+    //       switch (rowSelector)
+    //       {
+    //       case 0:  dbl_8D2120 = 1.0; /* row-0 off-diagonals = 0.0 * / break;
+    //       case 1:  dbl_8D21D8 = 1.0; /* row-1 off-diagonals = 0.0 * / break;
+    //       // ... cases 2..33 follow the same pattern ...
+    //       case 3:  sub_58BB10(&dbl_8D2330, 0, 24); dbl_8D2348 = 1.0; break;
+    //       default: return rowSelector;
+    //       }
+    //       return rowSelector;
+    //   }
+    // UNRESOLVED: Whether sub_58BB10's third argument is a byte count (all values are odd multiples of 8) or an element count is not resolvable from this packet.
+    // UNRESOLVED: Exact matrix/array dimensionality and row ordering of the 0x008D2120..0x008D3978 double-precision block (diagonal offsets and zero-block sizes vary per case) is not derivable from this function alone.
+    // UNRESOLVED: Purpose of the per-row extra element stored in the 0x008D3870..0x008D3978 trailing column is unresolved.
+    // UNRESOLVED: Selector source and call sites are unknown (no static callers); the object owning the matrix block is unknown.
+}

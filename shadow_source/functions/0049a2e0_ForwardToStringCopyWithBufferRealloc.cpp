@@ -1,0 +1,19 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0049A2E0
+// Canonical corpus name: FunctionCallWrapper_a2e0
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/FunctionCallWrapper_a2e0_0049a2e0.c
+
+void UnknownObject::ForwardToStringCopyWithBufferRealloc()
+{
+    // Thin __stdcall forwarder: takes a single int argument a1 and returns the result of StringCopyWithBufferRealloc(a1) unchanged. No additional computation, guards, or state are present; the entire behavior is the single delegated call. Called by ResourceLookupOrCreate (0x0049A3B0) and StringReverseCopyLookup (0x0049A490).
+    // CALL: Delegate the single argument a1 to StringCopyWithBufferRealloc and forward its return value. [source:raw]
+    // RETURN: Return the int produced by StringCopyWithBufferRealloc(a1) unchanged. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_49A2E0(int a1) {
+    //     return StringCopyWithBufferRealloc(a1);
+    //   }
+    // UNRESOLVED: Callee StringCopyWithBufferRealloc is named in the source text but is absent from the packet callees list, so its own behavior and buffer semantics are not evidenced here.
+    // UNRESOLVED: Owner object unknown; the wrapper is shared by two callers, ResourceLookupOrCreate and StringReverseCopyLookup, whose exact use of the forwarded result is not evidenced.
+}

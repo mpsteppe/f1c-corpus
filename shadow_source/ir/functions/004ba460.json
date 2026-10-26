@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "address": "0x004BA460",
+  "proposed_name": "ReplayRecordingController",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["function:0x004BA460"]
+  },
+  "summary": "Controls replay recording state. When the session state allows it, a championship/session flag plus session type 7 starts recording: it creates the replay directory, reads the current track name, builds the replay file path (append the serialization FileName constant), starts the recorder object via ThunkToFUN004b7300(this+2, path, 1), then drives and polls it with SingleFunctionDispatch_9800 / SingleFunctionCallWrapper_9860. State 2 sets a flag byte on the recorder sub-struct. Otherwise it shows a 'recording not available' message via TextLineWrappingAndRendering. Invoked by Game_Restart (0042d7a0).",
+  "local_names": {
+    "v3": "directory path (lpPathName or byte_5EA438 default)",
+    "v16": "128-byte track name buffer for the string-table lookup",
+    "v17": "509-byte replay file path buffer",
+    "v13": "buffer used to strip the ini value delimiter"
+  },
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "SessionStateCheckWrapper(dword_7CD25C) gates whether replay recording logic may run at all.",
+      "evidence_refs": ["callee:0x00461DB0", "global:0x007CD25C", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Start-recording condition: (dword_7D0038 || dword_7D005C) is true AND dword_7C56A4 == 7 (championship/session flag plus session type 7); otherwise *this is set to 0 and the message path is taken.",
+      "evidence_refs": ["global:0x007D0038", "global:0x007D005C", "global:0x007C56A4", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "On the recording path set *this = 1 to mark recording active.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "CreateDirectoryAWrapper(v3) ensures the replay directory exists, where v3 is lpPathName or the byte_5EA438 default path when lpPathName is null.",
+      "evidence_refs": ["callee:0x00589671", "global:0x005EC410", "global:0x005EA438", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "TrackNameReader(v16, 128) reads the current track name into a 128-byte buffer whose first dword was seeded from off_5D2520.",
+      "evidence_refs": ["callee:0x004C5920", "global:0x005D2520", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "BinarySearchInStringTable(byte_5EC4C0, v16, byte_5EC4CC) looks the track name up; on a hit the matched string is copied into byte_5EC4CC, and sub_587DD0 copies it into the path buffer (limit 127).",
+      "evidence_refs": ["callee:0x00423A00", "global:0x005EC4C0", "global:0x005EC4CC", "callee:0x00587DD0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_587C20(v13, asc_5D251C) locates the ini value delimiter in the copied string and truncates the buffer at it (the value part is dropped).",
+      "evidence_refs": ["callee:0x00587C20", "global:0x005D251C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Append the replay file name: the first 4 bytes of FileName plus its byte 4 are written onto the end of the assembled path buffer v17.",
+      "evidence_refs": ["global:0x005BE714", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "ThunkToFUN004b7300(this+2, v17, 1) starts the recorder on the sub-struct; on a zero return *this is cleared to 0.",
+      "evidence_refs": ["callee:0x004B97D0", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "SingleFunctionDispatch_9800(this+2) then SingleFunctionCallWrapper_9860(this+2, dword_7D00A4) drive and poll the recorder; the poll result is the return value.",
+      "evidence_refs": ["callee:0x004B9800", "callee:0x004B9860", "global:0x007D00A4", "function:0x004BA460", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "When the session state check fails, *this == 1 also routes to the recording-start block, so an already-active recording re-enters the path.",
+      "evidence_refs": ["guard:0", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "When the session allows recording but the start condition is not met, *this is forced to 0.",
+      "evidence_refs": ["field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Message path (only when dword_7D0410 is not 5 or 6): BinarySearchInStringTable(byte_5EC4C0, aReplayRecordin_0, byte_5EC4CC) loads the recording-status string, then TextLineWrappingAndRendering(&dword_7CD204, byte_5EC4CC, 2, 16909060) displays it to the player.",
+      "evidence_refs": ["global:0x007D0410", "callee:0x00423A00", "global:0x005EC4C0", "global:0x005D2504", "global:0x005EC4CC", "callee:0x0045BD10", "global:0x007CD204", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "State 2: set the flag byte at (this[2] + 3968) to 1 on the recorder sub-struct.",
+      "evidence_refs": ["field:this:0x00000F88", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Returns the recording state value v2; invoked by Game_Restart (0042d7a0).",
+      "evidence_refs": ["function:0x004BA460", "caller:0x0042D7A0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "char ReplayRecordingController(int *this) {",
+    "  if (SessionStateCheckWrapper(dword_7CD25C)) {",
+    "    if ((dword_7D0038 || dword_7D005C) && dword_7C56A4 == 7) {",
+    "      *this = 1;",
+    "    START:",
+    "      dir = lpPathName ? lpPathName : byte_5EA438;",
+    "      CreateDirectoryAWrapper(dir);",
+    "      TrackNameReader(name, 128);",
+    "      if (BinarySearchInStringTable(byte_5EC4C0, name, byte_5EC4CC)) copy into byte_5EC4CC;",
+    "      sub_587DD0(path, byte_5EC4CC, 127);",
+    "      p = sub_587C20(path, asc_5D251C); if (p && p > path) *p = 0;",
+    "      strcat(file, path); append FileName;",
+    "      if (!ThunkToFUN004b7300(this+2, file, 1)) *this = 0;",
+    "      SingleFunctionDispatch_9800(this+2);",
+    "      return SingleFunctionCallWrapper_9860(this+2, dword_7D00A4);",
+    "    }",
+    "    *this = 0; goto MSG;",
+    "  }",
+    "  if (*this == 1) goto START;",
+    "  if (!*this) {",
+    "  MSG:",
+    "    if (dword_7D0410 < 5 || dword_7D0410 > 6) {",
+    "      BinarySearchInStringTable(byte_5EC4C0, aReplayRecordin_0, byte_5EC4CC);",
+    "      return TextLineWrappingAndRendering(&dword_7CD204, byte_5EC4CC, 2, 16909060);",
+    "    }",
+    "    return dword_7D0410;",
+    "  }",
+    "  if (*this == 2) *(BYTE*)(this[2] + 3968) = 1;",
+    "  return *this;",
+    "}"
+  ],
+  "unresolved": [
+    "byte_5BE718 (hot-lap directory path per prior analysis) is flagged as a read-only global but does not appear in the decompiled body; it may be consumed inside the helper wrappers.",
+    "unk_8AC368 is flagged read-only in the packet but absent from the source; role unknown here.",
+    "The meaning of the dword_7D0410 window (values 5 and 6 suppress the status message) is not established."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x005BE718",
+    "global:0x008AC368"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

@@ -1,0 +1,42 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0045D730
+// Canonical corpus name: sub_45D730
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_45D730_0045d730.c
+
+void UnknownObject::StructTeardownCleanup()
+{
+    // Teardown routine for a large session-side struct. Destroys three linked lists (heads at this+0x1B758, this+0x1B770, this+0x1B780) by walking each node's +4 next pointer and calling DestructorWithDoubleFreePattern, then zeroes each list's four bookkeeping fields (head/next/tail/count). Destroys an array of 104 sub-objects laid out with a 872-byte stride via EmptyStub_0170, then destroys the linked list at this+0x3FC8 with ConditionalDestructor_46f0 and zeroes its four bookkeeping fields, resets the vtable pointer this+0x3FBC to off_59F0CC, and destroys a second array of 104 sub-objects with a 140-byte stride via EmptyStub_0170. Finally frees the two dynamic buffers at this+0xBC and this+0xB4 with FreeWrapper_7bcf when non-null and returns the result of EmptyStub_0170(this+52). Called by sub_45BF70 (0045BF70).
+    // LOOP: Destroy the linked list at this+0x1B758: walk each node via its +4 next pointer and call DestructorWithDoubleFreePattern on it, then zero the four bookkeeping fields this+0x1B758, this+0x1B75C, this+0x1B760, this+0x1B764 [field:*(*(this+0x1B758)+0x4):0x00000004, callee:0x00418D60, field:this:0x0001B758, field:this:0x0001B75C, field:this:0x0001B760, field:this:0x0001B764, source:raw]
+    // LOOP: Destroy the linked list at this+0x1B770: walk each node via its +4 next pointer with DestructorWithDoubleFreePattern, then zero this+0x1B770, this+0x1B774, this+0x1B778, this+0x1B77C [field:*(*(this+0x1B770)+0x4):0x00000004, callee:0x00418D60, field:this:0x0001B770, field:this:0x0001B774, field:this:0x0001B778, field:this:0x0001B77C, source:raw]
+    // LOOP: Destroy the linked list at this+0x1B780: walk each node via its +4 next pointer with DestructorWithDoubleFreePattern, then zero this+0x1B780, this+0x1B784, this+0x1B788, this+0x1B78C [field:*(*(this+0x1B780)+0x4):0x00000004, callee:0x00418D60, field:this:0x0001B780, field:this:0x0001B784, field:this:0x0001B788, field:this:0x0001B78C, source:raw]
+    // LOOP: Destroy the 104 sub-objects of the 872-stride array: iterate the cursor from this+0x1A3C0 stepping down 872 per item and call EmptyStub_0170 on each [callee:0x004B0170, source:raw]
+    // LOOP: Destroy the linked list at this+0x3FC8: advance through each node's +4 next pointer and call ConditionalDestructor_46f0 with argument 1, then zero this+0x3FC8, this+0x3FCC, this+0x3FD0, this+0x3FD4 [field:*(*(this+0x3FC8)+0x4):0x00000004, callee:0x004646F0, field:this:0x00003FC8, field:this:0x00003FCC, field:this:0x00003FD0, field:this:0x00003FD4, source:raw]
+    // ASSIGNMENT: Reset the sub-object vtable pointer this+0x3FBC to off_59F0CC [field:this:0x00003FBC, global:0x0059F0CC, source:raw]
+    // LOOP: Destroy the 104 sub-objects of the 140-stride array: iterate the cursor from this+0x3C74 stepping down 140 per item and call EmptyStub_0170 on each [callee:0x004B0170, source:raw]
+    // GUARD: If the buffer pointer at this+0xBC is non-null, release it with FreeWrapper_7bcf [field:this:0x000000BC, callee:0x00587BCF, source:raw]
+    // GUARD: If the buffer pointer at this+0xB4 is non-null, release it with FreeWrapper_7bcf [field:this:0x000000B4, callee:0x00587BCF, source:raw]
+    // RETURN: Return the result of EmptyStub_0170(this+52) as the teardown result [callee:0x004B0170, function:0x0045D730, source:raw]
+    // CALL: Invoked by sub_45BF70 (0045BF70) as the struct teardown stage [caller:0x0045BF70, source:raw]
+
+    // Conservative worker pseudocode:
+    //   destroyList(this[0x1B758], DestructorWithDoubleFreePattern);
+    //   zero this[0x1B758], this[0x1B75C], this[0x1B760], this[0x1B764];
+    //   destroyList(this[0x1B770], DestructorWithDoubleFreePattern);
+    //   zero this[0x1B770], this[0x1B774], this[0x1B778], this[0x1B77C];
+    //   destroyList(this[0x1B780], DestructorWithDoubleFreePattern);
+    //   zero this[0x1B780], this[0x1B784], this[0x1B788], this[0x1B78C];
+    //   for (cursor = this+0x1A3C0, n = 104; n; --n, cursor -= 872)
+    //     EmptyStub_0170(cursor);
+    //   destroyList(this[0x3FC8], ConditionalDestructor_46f0(1));
+    //   zero this[0x3FC8], this[0x3FCC], this[0x3FD0], this[0x3FD4];
+    //   this[0x3FBC] = off_59F0CC;
+    //   for (cursor = this+0x3C74, n = 104; n; --n, cursor -= 140)
+    //     EmptyStub_0170(cursor);
+    //   if (this[0xBC]) FreeWrapper_7bcf(this[0xBC]);
+    //   if (this[0xB4]) FreeWrapper_7bcf(this[0xB4]);
+    //   return EmptyStub_0170(this + 52);
+    // UNRESOLVED: The two sub-object array geometries (872-byte and 140-byte strides, both 104 items) are derived from pointer arithmetic in the raw source; their true array base addresses are not separate packet fields
+    // UNRESOLVED: EmptyStub_0170 and ConditionalDestructor_46f0 are named from the decompiled call sites only; their actual teardown semantics (and why list 4 uses a constant-argument destructor while lists 1-3 pass the node pointer) are not established
+    // UNRESOLVED: The identity and purpose of the two dynamically allocated buffers at this+0xBC and this+0xB4 are unknown
+}

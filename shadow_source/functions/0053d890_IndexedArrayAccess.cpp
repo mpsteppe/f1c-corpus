@@ -1,0 +1,24 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0053D890
+// Canonical corpus name: IndexedArrayAccess_d890
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/IndexedArrayAccess_d890_0053d890.c
+
+void UnknownObject::IndexedArrayAccess()
+{
+    // Bounds-checked array element getter. Returns a pointer to element a2 of an array rooted at element index 3 (this[3]) with 271 dwords per element, but only when the index a2 is strictly less than the element count stored at this[2] (offset 0x8); otherwise returns 0. No side effects. Matches the DERIVED 'getter' prelabel for field 0x8. Called by video/texture code paths including VidMan_Enter (004FA000) and D3DTextureCreation (00550080).
+    // GUARD: Reject out-of-range index: when a2 is not less than the element count this[2] (offset 0x8), return 0. [field:this:0x00000008, source:raw]
+    // RETURN: Out-of-range early return 0. [source:raw]
+    // CALCULATION: Compute the element address as the address of this[271 * a2 + 3] (array base at element index 3, 271 dwords per element). [source:raw]
+    // RETURN: Return a pointer to the selected element this[3 + 271*a2]. [source:raw]
+    // CALL: Invoked by video/texture callers VidMan_Enter, D3DTextureCreation, sub_552470 and sub_55BE80. [caller:0x004FA000, caller:0x00550080, caller:0x00552470, caller:0x0055BE80]
+
+    // Conservative worker pseudocode:
+    //   int* sub_53D890(int* this, int a2) {
+    //     if (a2 >= this[2]) return 0;
+    //     return &this[3 + 271 * a2];
+    //   }
+    // UNRESOLVED: Element type and structure of the 271-dword slots are unknown; the caller's array usage defines them.
+    // UNRESOLVED: Whether the element at this[3] points into a separate allocation or is embedded is not evidenced here.
+    // UNRESOLVED: Object identity is unknown; the count field at offset 0x8 gives no class signal.
+}

@@ -1,0 +1,51 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0054E270
+// Canonical corpus name: BoundingBoxComputationFromVertexData
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/BoundingBoxComputationFromVertexData_0054e270.c
+
+void UnknownObject::BoundingBoxComputationFromVertexData()
+{
+    // Computes an oriented bounding box and a bounding sphere for mesh vertex data. Accumulates per-vertex statistics (sums of squares, cross-product terms, component sums) across all meshes, normalizes them into means and second moments, runs QRDecomposition to obtain the OBB eigenvector axes, builds a 4x4 D3D transform matrix from those axes, transforms each vertex through the D3D device, tracks the min/max bounds of the transformed corners, then finds the maximum squared distance of vertices from the stored center and writes its square root into this+0x18 as the bounding sphere radius. Returns the mesh count.
+    // GUARD: Entry guard: mesh count at this+0x118 must be greater than 0 before the vertex-statistics accumulation pass runs. [field:this:0x00000118, source:raw]
+    // LOOP: Loop over each mesh element in the array at *(this+0x11C); each element is 64 bytes and carries the vertex count at +0x8, a vertex-data pointer at +0xC, and additional stride/layout fields at +0x10 and +0x14. [field:this:0x0000011C, field:*(this+0x11C):0x00000008, field:*(this+0x11C):0x0000000C, field:*(this+0x11C):0x00000010, field:*(this+0x11C):0x00000014, source:raw]
+    // GUARD: Per-mesh guard: the mesh's vertex count (*(this+0x11C) element +0x8) must be greater than 0 for its vertices to be processed. [guard:0, field:*(this+0x11C):0x00000008, source:raw]
+    // CALCULATION: Select vertex stride: bit 0x800000 of the flags at this+0x14 (tested via global 0x00800000) selects the 64-byte stride; otherwise a 48-byte stride is used. [field:this:0x00000014, global:0x00800000, source:raw]
+    // CALCULATION: Accumulate per-vertex statistics from the mesh vertex data: sums of squared X/Y/Z components, pairwise cross-product sums, and raw component sums. [field:*(this+0x11C):0x0000000C, source:raw]
+    // CALCULATION: Normalize the accumulated sums by the vertex count (1.0 divided by the count, sourced from global 0x0059E420) to form the mean and second-moment terms. [global:0x0059E420, source:raw]
+    // CALCULATION: Assemble the symmetric 3x3 covariance matrix from the accumulated second-moment and cross-product terms. [source:raw]
+    // CALL: Call QRDecomposition on the covariance matrix to obtain the oriented bounding box axes; the eigenvector basis is returned in a 3x3 result array. [callee:0x0053B6F0, source:raw]
+    // CALCULATION: Build a 4x4 D3D row-major transform matrix from the QR eigenvector basis, with zero and one entries supplied by the constants at globals 0x0059E420 and 0x0059E430. [global:0x0059E420, global:0x0059E430, source:raw]
+    // CALL: Transform each vertex position through the D3D device matrix by dispatching through the device-wrapper pointer global dword_8B8F24 (vtable entry +4). [global:0x008B8F24, field:*(this+0x11C):0x0000000C, source:raw]
+    // CALCULATION: Track running min and max across the transformed corner coordinates to derive the axis-aligned bounding box extremes. [source:raw]
+    // LOOP: Final pass over all meshes computing the squared distance of each vertex from the stored center (this+0xDC, +0xE0, +0xE4) and keeping the maximum. [field:this:0x000000DC, field:this:0x000000E0, field:this:0x000000E4, field:this:0x00000118, field:this:0x0000011C, source:raw]
+    // ASSIGNMENT: Store the square root of the maximum squared vertex distance into this+0x18 as the bounding sphere radius. [field:this:0x00000018, source:raw]
+    // RETURN: Return the mesh count (this+0x118) as the result. [field:this:0x00000118, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_54E270(void *self) {
+    //     // Pass 1: accumulate vertex statistics across all meshes.
+    //     if (meshCount(self) > 0)
+    //       for each mesh element (64-byte stride) with vertexCount > 0:
+    //         accumulate sum-of-squares, cross-product sums, and component sums over vertices
+    //         using 64-byte or 48-byte vertex stride per the MMX flag in flags(self);
+    //     // Normalize into means and a 3x3 covariance matrix.
+    //     mean = sums / totalVertexCount;
+    //     covariance = f(secondMoments, means);
+    //     QRDecomposition(covariance, &v70, &eigenvectors3x3);
+    //     // Build 4x4 D3D matrix from the eigenvector basis.
+    //     buildMatrix4x4(v59, eigenvectors3x3);
+    //     // Pass 2: transform every vertex through the D3D device and track AABB extremes.
+    //     for each mesh with vertexCount > 0:
+    //       for each vertex: transform(via device wrapper at 0x008B8F24, vertex, &out);
+    //         track min/max of out.x/out.y/out.z;
+    //     // Pass 3: bounding sphere from max squared distance to stored center.
+    //     maxSq = 0.0;
+    //     for each mesh with vertexCount > 0:
+    //       for each vertex: d2 = (cx-vx)^2 + (cy-vy)^2 + (cz-vz)^2; if (d2 > maxSq) maxSq = d2;
+    //     *(float*)(self+0x18) = sqrt(maxSq);
+    //     return meshCount(self);
+    //   }
+    // UNRESOLVED: Identity and signature of the D3D device transform function dispatched through the dword_8B8F24 vtable entry at +4.
+    // UNRESOLVED: Semantics of the mesh-element stride fields at +0x10 and +0x14 are not directly consumed in the decompiled text.
+}

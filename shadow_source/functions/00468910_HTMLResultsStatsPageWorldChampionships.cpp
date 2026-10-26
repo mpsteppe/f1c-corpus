@@ -1,0 +1,55 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00468910
+// Canonical corpus name: HTMLResultsStatsPageWorldChampionships
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/HTMLResultsStatsPageWorldChampionships_00468910.c
+
+void UnknownObject::HTMLResultsStatsPageWorldChampionships()
+{
+    // Career-mode World Championships results page reset: walks and frees the existing linked list of stat-entry strings held on the page object, clears the list bookkeeping fields (head, tail, count, capacity), then repopulates the list with ten career stat label strings (experience laps, starts, average starting/finish position, average race length, average opponent strength, pole positions, points, wins, world champions), each inserted with key -1, before chaining to a continuation at loc_468640 and returning 0.
+    // LOOP: Walk the stat-entry linked list starting from the head pointer at this+0x44; each node carries a data pointer at +0 and a next pointer at +4. [field:this:0x00000044, field:*(this+0x44):0x00000000, field:*(this+0x48):0x00000004]
+    // GUARD: Per node, test the presence flag byte at node+8; nested buffers are only freed when the flag is set. [source:raw]
+    // CALL: Free each level of a node: the inner data buffer, the node's data pointer block, and the node itself, all through FreeWrapper_7bcf. [callee:0x00587BCF]
+    // ASSIGNMENT: Clear the list bookkeeping fields to 0 after destruction: head this+0x44, tail this+0x48, node count this+0x4C, and capacity this+0x50. [field:this:0x00000044, field:this:0x00000048, field:this:0x0000004C, field:this:0x00000050]
+    // CALL: Insert the aExperienceLaps label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C6900]
+    // CALL: Insert the aStarts label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C68F8]
+    // CALL: Insert the aAvgStartingPos label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C68E0]
+    // CALL: Insert the aAvgFinishPosit label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C68C8]
+    // CALL: Insert the aAvgRaceLength label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C68B4]
+    // CALL: Insert the aAvgOpponentStr label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C6898]
+    // CALL: Insert the aPolePositions label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C6888]
+    // CALL: Insert the aPoints label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C6880]
+    // CALL: Insert the aWins label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C6878]
+    // CALL: Insert the aWorldChampions label into the stat-entry linked list with key -1. [callee:0x00486F30, global:0x005C6860]
+    // CALL: Tail-chained thiscall continuation at loc_468640(this), invoked after the list is rebuilt. [source:raw]
+    // RETURN: Always return 0. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_468910(void *this) {
+    //     for (node = this->head; node; node = node->next) {
+    //       if (node->has_data) {
+    //         if (node->data) {
+    //           if (node->data->inner) FreeWrapper(node->data->inner);
+    //           FreeWrapper(node->data);
+    //         }
+    //       }
+    //       FreeWrapper(node);
+    //     }
+    //     this->head = this->tail = this->count = this->capacity = 0;
+    //     LinkedListInsertWithNodeAllocation("ExperienceLaps", -1);
+    //     LinkedListInsertWithNodeAllocation("Starts", -1);
+    //     LinkedListInsertWithNodeAllocation("AvgStartingPos", -1);
+    //     LinkedListInsertWithNodeAllocation("AvgFinishPosit", -1);
+    //     LinkedListInsertWithNodeAllocation("AvgRaceLength", -1);
+    //     LinkedListInsertWithNodeAllocation("AvgOpponentStr", -1);
+    //     LinkedListInsertWithNodeAllocation("PolePositions", -1);
+    //     LinkedListInsertWithNodeAllocation("Points", -1);
+    //     LinkedListInsertWithNodeAllocation("Wins", -1);
+    //     LinkedListInsertWithNodeAllocation("WorldChampions", -1);
+    //     loc_468640(this);
+    //     return 0;
+    //   }
+    // UNRESOLVED: Identity and behavior of the continuation at loc_468640 are not present in this packet.
+    // UNRESOLVED: The global stat-entry linked list used by LinkedListInsertWithNodeAllocation is not named here; the head/tail/count fields of `this` are cleared but repopulation targets a different list.
+    // UNRESOLVED: Meaning of the insert key -1 is undefined from this packet alone.
+}

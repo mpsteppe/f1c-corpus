@@ -1,0 +1,15 @@
+// f1c  0x005853b0  size=77
+char __thiscall sub_5853B0(_DWORD *dwData, int a2)
+{
+  int v3; // edi
+  int v5; // [esp+8h] [ebp-4h] BYREF
+
+  (*(void (__thiscall **)(_DWORD *))(*dwData + 60))(dwData);
+  sub_585DE0((ULONG_PTR)dwData, 0);
+  if ( !sub_584E30(dwData, &v5) )
+    return 0;
+  v3 = v5;
+  sub_586E50(v5);
+  (*(void (__thiscall **)(_DWORD *, int))(*dwData + 92))(dwData, v3);
+  return 1;
+}

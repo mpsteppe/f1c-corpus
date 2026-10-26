@@ -1,0 +1,39 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0058E41B
+// Canonical corpus name: sub_58E41B
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_58E41B_0058e41b.c
+
+void UnknownObject::BufferedIOContextInit()
+{
+    // Initializes a buffered I/O context. Validates the I/O handle at this+0x10 via sub_596007, selects a bank index 0 or 1 by comparing the context pointer against the identity constants unk_5E6768 and unk_5E6788, increments the open-count global dword_8D3EC8, and returns 0 if the flags this+0xC already carry an initialized bit. Allocates a 4096-byte heap buffer through MallocWrapperForNhMalloc cached in the dword_8D3F50 array, or falls back to a 2-byte inline buffer at this+20, then sets buffer pointers (this+0x0, this+0x8), capacity (this+0x18), remaining count (this+0x4), and ORs 0x1102 into the flags before returning 1.
+    // GUARD: Validate the I/O handle at this+0x10 with sub_596007; when it fails, return 0. [callee:0x00596007, field:this:0x00000010, source:raw]
+    // GUARD: Select the bank index v1 by pointer identity: this == &unk_5E6768 gives 0, this == &unk_5E6788 gives 1, and any other pointer returns 0. [global:0x005E6768, global:0x005E6788, source:raw]
+    // ASSIGNMENT: Increment the global open/buffer counter dword_8D3EC8. [global:0x008D3EC8, source:raw]
+    // GUARD: When the 16-bit flags field this+0xC already has the (flags & 0x10C) bits set (already initialized), return 0. [field:this:0x0000000C, source:raw]
+    // ASSIGNMENT: When the per-bank cache slot dword_8D3F50[v1] already holds a buffer, or MallocWrapperForNhMalloc(4096) succeeds and is stored into that slot, use it: set capacity this+0x18 = 4096, buffer base this+0x8 = this+0x0 = the buffer pointer, and remaining count this+0x4 = 4096. [global:0x008D3F50, callee:0x0058A935, field:this:0x00000018, field:this:0x00000008, field:this:0x00000000, field:this:0x00000004, source:raw]
+    // ASSIGNMENT: On allocation failure, fall back to the 2-byte inline buffer at this+20: buffer base this+0x8 = this+0x0 = this+20, capacity this+0x18 = 2, and remaining count this+0x4 = 2. [field:this:0x00000008, field:this:0x00000000, field:this:0x00000018, field:this:0x00000004, source:raw]
+    // STATE_TRANSITION: Mark the context initialized by OR-ing 0x1102 into the flags this+0xC, then return 1. [field:this:0x0000000C, source:raw]
+    // RETURN: Function 0x0058E41B is the buffered-I/O context initializer invoked by StringFormatWithNestedIO, FileOpWithGlobalBuffer, FileWriteWrapperWithLock, and StringWriteToFile. [caller:0x005887B1, caller:0x00588821, caller:0x0058A163, caller:0x0058BABB, function:0x0058E41B, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int BufferedIOContextInit(ctx) {
+    //     if (!ValidateHandle(ctx[0x10])) return 0;
+    //     if (ctx == &unk_5E6768) bank = 0;
+    //     else if (ctx == &unk_5E6788) bank = 1;
+    //     else return 0;
+    //     ++dword_8D3EC8;
+    //     if ((ctx[0xC] & 0x10C) != 0) return 0;
+    //     slot = &dword_8D3F50[bank];
+    //     if (*slot || (buf = MallocWrapperForNhMalloc(4096), *slot = buf) != 0) {
+    //       ctx[0x18] = 4096; ctx[0x8] = *slot; ctx[0x0] = *slot; ctx[0x4] = 4096;
+    //     } else {
+    //       ctx[0x8] = ctx + 20; ctx[0x0] = ctx + 20; ctx[0x18] = 2; ctx[0x4] = 2;
+    //     }
+    //     ctx[0xC] |= 0x1102;
+    //     return 1;
+    //   }
+    // UNRESOLVED: The identity constants unk_5E6768 and unk_5E6788 are opaque object addresses; the concrete stream or bank each selects is established by callers, not here.
+    // UNRESOLVED: The dword_8D3F50 buffer cache is shared mutable state; its allocation, reuse, and free lifecycle outside this function are not visible in this packet.
+    // UNRESOLVED: The exact flag bit semantics of the 0x10C initialization mask and the 0x1102 initialized value are not recoverable from this function alone.
+}

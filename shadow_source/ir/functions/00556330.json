@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "address": "0x00556330",
+  "proposed_name": "TimerAccumulateViaQueryPerformanceCounter",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "__thiscall timer tick accumulator. When the timer is initialized and a previous timestamp is recorded, samples the current high-resolution timestamp via QueryPerformanceCounter (bit 0 of mode flags at +0x48 set) or RDTSC read, subtracts the previous timestamp to get the elapsed delta, and adds it to the running accumulator at +0x28/+0x2C. Clears the previous-timestamp fields at +0x30/+0x34 afterward. Returns 0 when any guard fails.",
+  "operations": [
+    {
+      "kind": "guard",
+      "description": "Entry guard: skip the entire accumulation when the dword at +0x00 is zero (timer frequency / initialized flag not set).",
+      "evidence_refs": ["field:this:0x00000000", "function:0x00556330"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on previous timestamp high part at +0x34 (this[13]); accumulation proceeds only when nonzero.",
+      "evidence_refs": ["field:this:0x00000034"]
+    },
+    {
+      "kind": "guard",
+      "description": "Guard on previous timestamp low part at +0x30 (this[12]); accumulation proceeds only when nonzero.",
+      "evidence_refs": ["field:this:0x00000030"]
+    },
+    {
+      "kind": "guard",
+      "description": "Mode flag check: bit 0 of the dword at +0x48 (this[18]) selects QueryPerformanceCounter when set, RDTSC otherwise.",
+      "evidence_refs": ["field:this:0x00000048"]
+    },
+    {
+      "kind": "call",
+      "description": "QueryPerformanceCounter(&PerformanceCount) samples the current count when the QPC mode bit is set.",
+      "evidence_refs": ["global:0x0059E23C"]
+    },
+    {
+      "kind": "call",
+      "description": "RDTSCTimestampRead fills the timestamp (v5) when the QPC mode bit is clear; the referenced feature-flag byte is consulted by this read path.",
+      "evidence_refs": ["callee:0x0055687B", "global:0xFF00000000005406"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Elapsed delta = new timestamp - previous timestamp, where previous comes from this[12]/this[13] at +0x30/+0x34.",
+      "evidence_refs": ["field:this:0x00000030", "field:this:0x00000034"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Accumulate delta into the running total: low part added to +0x28 (this[10]), high part plus carry added to +0x2C (this[11]).",
+      "evidence_refs": ["field:this:0x00000028", "field:this:0x0000002C"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Clear the previous-timestamp fields this[12]=0 and this[13]=0 after the delta has been accumulated.",
+      "evidence_refs": ["field:this:0x00000030", "field:this:0x00000034"]
+    },
+    {
+      "kind": "return",
+      "description": "Return 0 when any entry guard fails; otherwise fall through with the accumulation performed.",
+      "evidence_refs": ["source:raw", "abi:lead"]
+    }
+  ],
+  "clean_pseudocode": [
+    "unsigned int TimerAccumulateViaQueryPerformanceCounter(void *this) {",
+    "  if (!*(unsigned int*)this) return 0;",
+    "  if (!*((unsigned int*)this + 13)) return 0;",
+    "  if (!*((unsigned int*)this + 12)) return 0;",
+    "  LARGE_INTEGER prev, now, delta;",
+    "  if (*((unsigned int*)this + 18) & 1) QueryPerformanceCounter(&now);",
+    "  else RDTSCTimestampRead((char*)&now.QuadPart + 4, &now);",
+    "  prev.LowPart = *((unsigned int*)this + 12);",
+    "  prev.HighPart = *((unsigned int*)this + 13);",
+    "  delta.QuadPart = now.QuadPart - prev.QuadPart;",
+    "  *((unsigned int*)this + 10) += delta.LowPart;",
+    "  *((unsigned int*)this + 11) += delta.HighPart;",
+    "  *((unsigned int*)this + 12) = 0;",
+    "  *((unsigned int*)this + 13) = 0;",
+    "  return result;",
+    "}"
+  ],
+  "unresolved": [
+    "Owner class of the timer object is unknown; no static callers were found, so lifecycle and field-role confirmation (+0x00 frequency, +0x48 mode flags) are unproven.",
+    "Purpose of global byte at 0xFF00000000005406 (RW) is unknown; possibly processor feature flags consulted during the RDTSC path.",
+    "Return value of the fall-through path is an unspecified leftover register value."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

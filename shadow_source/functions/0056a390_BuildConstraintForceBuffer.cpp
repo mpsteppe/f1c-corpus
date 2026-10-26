@@ -1,0 +1,50 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0056A390
+// Canonical corpus name: sub_56A390
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_56A390_0056a390.c
+
+void UnknownObject::BuildConstraintForceBuffer()
+{
+    // Iterates over constraint entries of the first array (base this+0x230, count this+0x22C, stride 56) and accumulates computed constraint-space force components into the force buffer at this+0x224, indexed by each entry's +48 index. Each force component combines cross-product terms of the entry row vector with the body angular velocity (this+0x7C/+0x84/+0x8C), position (this+0x4/+0xC/+0x14), linear velocity (this+0x64/+0x6C/+0x74) and the traction constants dbl_5E5238/dbl_5E5240; the entry's +52 byte flag selects subtract vs add into the buffer. Returns the number of entries processed.
+    // ASSIGNMENT: Initialize result to 0 and local counter v20 to 0 before the count check. [source:raw]
+    // GUARD: Guard on the first-array constraint count at this+0x22C being greater than 0; when zero the loop body is skipped entirely. [guard:0, field:this:0x0000022C]
+    // LOOP: do-while loop over constraint entries of the buffer at this+0x230, advancing the byte offset by 56 per entry until the counter reaches the count at this+0x22C. [field:this:0x00000230, field:this:0x0000022C, source:raw]
+    // CALCULATION: Compute the three cross-product terms v8, v9, v26 from the entry row vector (entry+24, entry+32, entry+40) and the body angular velocity (this+0x7C, this+0x84, this+0x8C). [field:this:0x0000007C, field:this:0x00000084, field:this:0x0000008C, source:raw]
+    // CALCULATION: Compute the constraint-space force components v21/v23/v25 from the entry vectors, a2/a3 dot products, the body linear velocity (this+0x64, this+0x6C, this+0x74) and angular velocity, then form v22/v24/v15 by adding traction terms: dbl_5E5238 times position (this+0x4, this+0xC, this+0x14 summed with entry offsets) plus dbl_5E5240 times velocity. [field:this:0x00000064, field:this:0x0000006C, field:this:0x00000074, field:this:0x0000007C, field:this:0x00000084, field:this:0x0000008C, field:this:0x00000004, field:this:0x0000000C, field:this:0x00000014, global:0x005E5238, global:0x005E5240]
+    // ASSIGNMENT: Accumulate the computed force vector into the force buffer at this+0x224, indexed by the entry's +48 dword index: subtract the components when the entry's +52 byte flag is set, add them otherwise, per component. [field:this:0x00000224, field:this:0x00000230, source:raw]
+    // RETURN: Return the final counter value (number of constraint entries processed). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_56A390(this, a2, a3) {
+    //     int result = 0; int i = 0;
+    //     if (this->count[0x22C] > 0) {
+    //       int off = 0;
+    //       do {
+    //         entry = this->entries[0x230] + off;
+    //         v8  = entry[+40]*this[0x84] - entry[+32]*this[0x8C];
+    //         v9  = entry[+24]*this[0x8C] - entry[+40]*this[0x7C];
+    //         v26 = entry[+32]*this[0x7C] - entry[+24]*this[0x84];
+    //         v21 = entry[+40]*a2[1] - entry[+32]*a2[2] + a3[0] + v26*this[0x84] - v9*this[0x8C];
+    //         v23 = entry[+24]*a2[2] - entry[+40]*a2[0] + a3[1] + v8*this[0x8C] - v26*this[0x7C];
+    //         v25 = entry[+32]*a2[0] - entry[+24]*a2[1] + v9*this[0x7C] - v8*this[0x84] + a3[2];
+    //         v22 = dbl_5E5238*(this[0x4]+entry[+24]) + (v8+this[0x64])*dbl_5E5240 + v21;
+    //         v24 = dbl_5E5238*(this[0xC]+entry[+32]) + (v9+this[0x6C])*dbl_5E5240 + v23;
+    //         v15 = dbl_5E5238*(this[0x14]+entry[+40]) + (v26+this[0x74])*dbl_5E5240 + v25;
+    //         buf = this->forceBuffer[0x224];
+    //         idx = entry[+48];
+    //         if (entry[+52]) {
+    //           buf[idx] -= v22; buf[idx+1] -= v24; buf[idx+2] -= v15;
+    //         } else {
+    //           buf[idx] += v22; buf[idx+1] += v24; buf[idx+2] += v15;
+    //         }
+    //         result = ++i; off += 56;
+    //       } while (i < this->count[0x22C]);
+    //     }
+    //     return result;
+    //   }
+    // UNRESOLVED: byte_5E523C (JointStiffnessDouble per prior analysis) is not read in this function's raw source; its role is unresolved here.
+    // UNRESOLVED: The byte flag at constraint-entry +52 and the index at entry +48 depend on the constraint array layout, which this packet does not define.
+    // UNRESOLVED: Exact physical meaning of the a2/a3 input vectors is not confirmed from this packet.
+    // UNRESOLVED: The relationship between this function's first-array constraints and the third-array contact constraints in sub_56A840 is not established here.
+}

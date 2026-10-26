@@ -1,0 +1,18 @@
+int __stdcall sub_423070(int a1)
+{
+  int result; // eax
+  char v2[80]; // [esp+4h] [ebp-50h] BYREF
+
+  result = a1;
+  if ( a1 )
+  {
+    result = sub_587C20(a1, aConfig);
+    if ( result )
+    {
+      result = StrlenFormatCallWrapper(result, "config=%s", v2);
+      if ( result == 1 )
+        return StringCopyWithBufferRealloc(v2);
+    }
+  }
+  return result;
+}

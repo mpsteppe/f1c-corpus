@@ -1,0 +1,29 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004A0A80
+// Canonical corpus name: sub_4A0A80
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/sub_4A0A80_004a0a80.c
+
+void UnknownObject::MenuStateTransitionTo2()
+{
+    // Transitions the global menu state to 2 and dispatches via the global vtable. Conditionally, when ChampionshipMode (dword_7D0410) is 2 or 4 and SessionType (dword_7C56A4) is 7, runs a championship race-completion update via sub_42D210; the remaining operations always execute.
+    // GUARD: Guard on dword_7D0410 being 2 or 4 AND dword_7C56A4 being 7; only then is the championship race-completion update run. [global:0x007D0410, global:0x007C56A4]
+    // CALL: Call sub_42D210 with the address of dword_7C569C and literal 1 when the guard holds. [callee:0x0042D210, global:0x007C569C]
+    // CALL: Call ShortComputation_7250 on the byte view of the pointer stored in dword_7CD8C0 with literal 1. [callee:0x00497250, global:0x007CD8C0]
+    // ASSIGNMENT: Set dword_5CC9E4 to 2, transitioning the global menu state. [global:0x005CC9E4]
+    // CALL: Call GlobalVTableDispatchByParam with argument 0. [callee:0x004C8D90]
+    // RETURN: Return 0 at function end. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_4A0A80() {
+    //     if ((dword_7D0410 == 2 || dword_7D0410 == 4) && dword_7C56A4 == 7)
+    //       sub_42D210(&dword_7C569C, 1);
+    //     ShortComputation_7250((char*)dword_7CD8C0, 1);
+    //     dword_5CC9E4 = 2;
+    //     GlobalVTableDispatchByParam(0);
+    //     return 0;
+    //   }
+    // UNRESOLVED: byte_8AC494 is listed as a referenced global but does not appear in the raw decompiled body; its role is unresolved.
+    // UNRESOLVED: The legacy ABI name Session_Init_Audio_Setup conflicts with the observed menu-state behavior; treated as unresolved.
+    // UNRESOLVED: The specific vtable target of GlobalVTableDispatchByParam(0) is not statically resolvable from this packet.
+}

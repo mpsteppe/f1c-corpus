@@ -1,0 +1,17 @@
+// f1c  0x0049bb40  size=104
+int __stdcall sub_49BB40(int a1, int a2)
+{
+  const char *v2; // esi
+
+  v2 = off_5CCBC4[0];
+  if ( sub_423A00(byte_5EC4C0, off_5CCBC4[0], byte_5EC4CC) )
+  {
+    if ( v2 )
+      strcpy(byte_5EC4CC, v2);
+    else
+      byte_5EC4CC[0] = 0;
+  }
+  sub_587DD0(a1, byte_5EC4CC, a2 - 1);
+  *(_BYTE *)(a2 - 1 + a1) = 0;
+  return 0;
+}

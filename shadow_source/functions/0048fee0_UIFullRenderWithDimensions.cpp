@@ -1,0 +1,52 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0048FEE0
+// Canonical corpus name: UIFullRenderWithDimensions
+// Owner: UIRenderer [GUESS]
+// Raw source: functions/UIFullRenderWithDimensions_0048fee0.c
+
+void UIRenderer::UIFullRenderWithDimensions()
+{
+    // Full UI render helper: resolves the string to draw (this[44] offset 0xB0, falling back to global byte_5EA438), measures it via TextRenderToSurface, reads two dimension/position pairs from sub_487060 and sub_4870E0, clamps the four in-out viewport pointers a2/a3/a4/a5 against those bounds, then selects one of three draw paths by render-mode flag this[57] (offset 0xE4): 0 draws the full region with BitmapDraw_81f0, 1 draws the top region with BitmapDraw, 2 draws the bottom region with BitmapDraw_81f0. Returns 0 on every exit, including early bail when the render string is empty or the mode flag is not 0/1/2.
+    // GUARD: Resolve render string: load this[44] (offset 0xB0); if null substitute global byte_5EA438. [source:raw, field:this:0x000000B0, global:0x005EA438, abi:lead, function:0x0048FEE0]
+    // GUARD: Early exit: if strlen(render string) == 0, return 0 (nothing to draw). [source:raw, field:this:0x000000B0, global:0x005EA438]
+    // ASSIGNMENT: Initialize text-size outputs: v27 (text_w) = 0, v28 (text_h) = 0. [source:raw]
+    // CALL: Read first dimension/position pair: v7 = sub_487060(this, 2), v8 = sub_487060(this, 3). [source:raw, callee:0x00487060]
+    // CALL: Read second dimension pair: v9 = sub_4870E0(this, 2), v29 = sub_4870E0(this, 3). [source:raw, callee:0x004870E0]
+    // CALL: Resolve UI string resource: v10 = UIStringAccessor_62c0(this); if non-null call sub_498560(v10) to process it. [source:raw, callee:0x004862C0, callee:0x00498560]
+    // CALL: Measure text: TextRenderToSurface(render string, &v27, &v28, 1) writes measured width/height into v27/v28. [source:raw, callee:0x004983B0, field:this:0x000000B0, global:0x005EA438]
+    // ASSIGNMENT: Clamp output pointer *a2 to min(*a2, v9). [source:raw]
+    // ASSIGNMENT: Clamp output pointer *a3 to max(*a3, v29). [source:raw]
+    // STATE_TRANSITION: Branch on render-mode flag this[57] (offset 0xE4): 0 -> full draw, 1 -> top draw, 2 -> bottom draw, any other value -> return 0. [source:raw, field:this:0x000000E4]
+    // CALL: Mode 0 (full draw): BitmapDraw_81f0(render string, v9, v9+v28, v7, v7+v27, 1) draws the measured text region with clipping. [source:raw, callee:0x004981F0, field:this:0x000000B0, global:0x005EA438]
+    // ASSIGNMENT: Mode 0: clamp *a4 to min(*a4, v7) and *a5 to max(*a5, v7+v27). [source:raw]
+    // RETURN: Return 0 (mode-0 full-draw path). [source:raw]
+    // CALL: Mode 1 (top draw): BitmapDraw(render string, v9, v9+v28, v7, v8, 1). [source:raw, callee:0x004980D0, field:this:0x000000B0, global:0x005EA438]
+    // ASSIGNMENT: Mode 1: clamp *a4 to min(*a4, v7), then join shared exit at LABEL_25. [source:raw]
+    // CALL: Mode 2 (bottom draw): BitmapDraw_81f0(render string, v9, v9+v28, v8-v27, v8, 1) with clipping. [source:raw, callee:0x004981F0, field:this:0x000000B0, global:0x005EA438]
+    // ASSIGNMENT: Mode 2: clamp *a4 to max(*a4, v8-v27). [source:raw]
+    // ASSIGNMENT: Shared exit LABEL_25 (modes 1 and 2): clamp *a5 to max(*a5, v8). [source:raw]
+    // RETURN: Return 0 (common exit). [source:raw]
+
+    // Conservative worker pseudocode:
+    //   text = this[0xB0] != NULL ? this[0xB0] : byte_5EA438;
+    //   if (strlen(text) == 0) return 0;
+    //   text_w = 0; text_h = 0;
+    //   dim_top = sub_487060(this, 2); dim_bottom = sub_487060(this, 3);
+    //   clip_x = sub_4870E0(this, 2); clip_w = sub_4870E0(this, 3);
+    //   if (s = UIStringAccessor_62c0(this)) sub_498560(s);
+    //   TextRenderToSurface(text, &text_w, &text_h, 1);
+    //   *a2 = min(*a2, clip_x);
+    //   *a3 = max(*a3, clip_w);
+    //   switch (this[0xE4]) {
+    //     case 0: BitmapDraw_81f0(text, clip_x, clip_x+text_h, dim_top, dim_top+text_w, 1); *a4 = min(*a4, dim_top); *a5 = max(*a5, dim_top+text_w); break;
+    //     case 1: BitmapDraw(text, clip_x, clip_x+text_h, dim_top, dim_bottom, 1); *a4 = min(*a4, dim_top); break;
+    //     case 2: BitmapDraw_81f0(text, clip_x, clip_x+text_h, dim_bottom-text_w, dim_bottom, 1); *a4 = max(*a4, dim_bottom-text_w); break;
+    //     default: return 0;
+    //   }
+    //   *a5 = max(*a5, dim_bottom);
+    //   return 0;
+    // UNRESOLVED: Purpose of sub_498560 applied to the UIStringAccessor_62c0 result (pre-processing of the resolved string resource).
+    // UNRESOLVED: Exact semantics of the mode parameter (2 vs 3) passed to sub_487060 and sub_4870E0 (which dimension/position each mode selects).
+    // UNRESOLVED: Whether a2/a3/a4/a5 are in-out viewport or bounds pointers; clamp direction varies per mode (min for a4 in modes 0/1, max in mode 2).
+    // UNRESOLVED: Owner class of 'this' is unknown; field offsets 0xB0 (string) and 0xE4 (render mode) are consistent with a UI text control but equal offsets on unrelated this pointers are not proof of identical classes.
+}

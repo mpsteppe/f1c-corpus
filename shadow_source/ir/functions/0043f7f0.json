@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "address": "0x0043F7F0",
+  "proposed_name": "SolveSuspensionWheelDynamics",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x0043F7F0", "source:raw"]
+  },
+  "summary": "Core per-frame vehicle suspension and wheel dynamics solver. Computes per-wheel constraint projections with ConstraintProjectGramSchmidt, evaluates tire spring/damper force curves from an interpolated lookup table, builds a slip-force target from clamped wheel velocity, then runs a time-stepped LCP (linear complementarity problem) solve over a 6x7 constraint matrix (solved via sub_5677B0) for the four wheels and two brake rows. Applies the resolved impulses to the chassis-body force accumulators reached through this+0x15F0 and this+0x141C and to the four chassis-body pointer objects at this+0x3E8, this+0x84C, this+0xCB0 and this+0x1114. a2 is the time remaining for the sub-stepping loop.",
+  "local_names": {
+    "this": "vehicle physics object (wheel data, bodies, curve tables, mode selector)",
+    "a2": "time remaining for the sub-stepped solver loop",
+    "v243..v246": "per-wheel constraint projection / impulse coefficients (wheels 0-3)",
+    "v247": "slip-force target",
+    "v248": "combined tire spring+damper force",
+    "v252": "per-wheel contact sign table (-1/0/+1)",
+    "v216": "brake-row activation sign (-1/0/+1)",
+    "v211": "per-index velocity threshold",
+    "v225": "brake threshold magnitude",
+    "v235": "brake-force scale",
+    "v266/v253": "6x7 constraint matrix storage (rows referenced by the v253 pointer array)",
+    "v149": "selected minimum integration step",
+    "v232/v233": "wheel-velocity step limits",
+    "v224": "mode-combined wheel-velocity sum",
+    "v210": "resolved contact impulse",
+    "v258/v259": "output force-delta components",
+    "v239": "body torque scale"
+  },
+  "operations": [
+    {
+      "kind": "call",
+      "description": "Per-wheel constraint projection: call ConstraintProjectGramSchmidt on each of the four wheel constraint objects (base this+652, stride 0x464) and store the four projection results in the local accumulator doubles v243..v246.",
+      "evidence_refs": ["callee:0x00438930", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the slip-force target v247 from the wheel slip velocity at this+0x1E38 and the coefficient double at this+0x1E68 (with its high dword at this+0x1E6C): the velocity is clamped to +-2.0; inside the range the target is velocity times coefficient times -0.5, otherwise it is the negated coefficient.",
+      "evidence_refs": ["field:this:0x00001E38", "field:this:0x00001E68", "field:this:0x00001E6C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Select v234 = min(this+0x1C5C, this+0x1CF4); the resulting comparison flags select which of the three tire-curve branches (positive, clamped-negative, clamped-positive) runs next.",
+      "evidence_refs": ["field:this:0x00001C5C", "field:this:0x00001CF4", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Evaluate the suspension force curves: index the two interleaved float curves stored at the table pointer this+0x1CFC by velocity * 0.03125, using sub_5895A2 as the float-to-int truncation helper, linearly interpolate each curve and write the two results to this+0x1D00 and this+0x1D04. Combine them with the timestep at this+0x8 into the total force v248, with sign handling for the three velocity-range branches.",
+      "evidence_refs": ["callee:0x005895A2", "field:this:0x00001CFC", "field:this:0x00001D00", "field:this:0x00001D04", "field:this:0x00000008", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Apply the total longitudinal force (v248+v247) to the chassis body object reached through the pointer at this+0x15F0: scale by the body's three axes (+0x2C/+0x44/+0x5C) and accumulate into the body force accumulator (+0x14C/+0x154/+0x15C).",
+      "evidence_refs": ["field:this:0x000015F0", "field:*(this+0x15F0):0x0000002C", "field:*(this+0x15F0):0x00000044", "field:*(this+0x15F0):0x0000005C", "field:*(this+0x15F0):0x0000014C", "field:*(this+0x15F0):0x00000154", "field:*(this+0x15F0):0x0000015C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute the brake-force scale v235 = (1.0 - this+0x20) * (1.0 - this+0x18) * this+0x1E58 from the two input terms at this+0x20 and this+0x18 scaled by the coefficient at this+0x1E58.",
+      "evidence_refs": ["field:this:0x00000020", "field:this:0x00000018", "field:this:0x00001E58", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Build the per-wheel contact-sign table v252[4] from the wheel velocities stored at this+0x348 (stride 0x464): each entry is -1, 0, or +1 from the velocity sign (high dword of the first double at this+0x34C).",
+      "evidence_refs": ["field:this:0x00000348", "field:this:0x0000034C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute v216, the sign comparison of this+0x1C5C against this+0x1E38 (-1/0/+1), used later to decide whether the second brake constraint row is active.",
+      "evidence_refs": ["field:this:0x00001C5C", "field:this:0x00001E38", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "Mode switch on this+0x1E14 (0/1/2) selecting the brake-impulse strategy. Each path forms a wheel-velocity sum (this+0xC10, this+0x1074, this+0x7AC, and wheel velocity this+0x348), calls FloatEpsilonCompare on the velocity product against this+0x1E38, selects the per-index threshold v211 via the index at this+0x1EF0 (with an external velocity-table fallback) and the threshold v225 at this+0x1E70, then updates wheel constraint coefficients v243..v246 using the spring/damper constants at this+0xC28, this+0x108C, this+0x360, this+0x364 and this+0x7C4 and the damping offsets at this+0x1E18, this+0x1E20, this+0x1E28 and this+0x1E30.",
+      "evidence_refs": ["callee:0x00435290", "field:this:0x00001E14", "field:this:0x00000C10", "field:this:0x00001074", "field:this:0x00007AC", "field:this:0x00000348", "field:this:0x00001EF0", "field:this:0x00001E70", "field:this:0x00000C28", "field:this:0x0000108C", "field:this:0x00000360", "field:this:0x00000364", "field:this:0x000007C4", "field:this:0x00001E18", "field:this:0x00001E20", "field:this:0x00001E28", "field:this:0x00001E30", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "LCP solve loop. Zero the 6x7 constraint matrix region (336 bytes). Build the four wheel Jacobian rows from the v252 signs: wheel velocities at this+0x368 (stride 0x464), spring-constant doubles at this+0x360/0x364 and this+0x7C4, wheel-2/3 coefficient doubles at this+0xC28/0xC2C/0xC30 and this+0x108C, v227 = v211 squared, and the brake Jacobian constants at this+0x1E50/0x1E54. Add the second brake row for v216: either a fixed unit row with the brake scale from this+0x1E58 or a computed row from this+0x1E50 and this+0x1C74 with v247/v248. Solve the system with sub_5677B0(v253, 6), then iterate until every unconstrained wheel row (velocity source this+0x368) and the brake threshold (this+0x1E58) converge.",
+      "evidence_refs": ["callee:0x005677B0", "field:this:0x00000368", "field:this:0x00000360", "field:this:0x00000364", "field:this:0x000007C4", "field:this:0x00000C28", "field:this:0x00000C2C", "field:this:0x00000C30", "field:this:0x0000108C", "field:this:0x00001E50", "field:this:0x00001E54", "field:this:0x00001E58", "field:this:0x00001C74", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Write per-wheel slip results: for each wheel store the solved value v127 and v128 = |v127| minus the friction limit at this+0x668 into the slip slots at this+0x660 (stride 0x464, high dword this+0x664), zeroing negative values, and accumulate v129 per wheel.",
+      "evidence_refs": ["field:this:0x00000660", "field:this:0x00000664", "field:this:0x00000668", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Build the output force deltas: v258 = v264 * this+0x1E50 and v259 = v265 * this+0x1C74; per-wheel contact forces on the body axes from the spring doubles at this+0x360/0x364 (stride 0x464); ratio-limit slots v228..v231 (each -wheelVelocity/delta with a largest-finite-double sentinel when the denominator is zero); step limits v232 and v233 from this+0x1E38 and this+0x1C5C.",
+      "evidence_refs": ["field:this:0x00001E50", "field:this:0x00001C74", "field:this:0x00000360", "field:this:0x00000364", "field:this:0x00001E38", "field:this:0x00001C5C", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Select the minimum integration step v149 = min(a2, v232, v233, v228..v231) and apply it: scale each wheel velocity slot (this+0x348, stride 0x464) and the double slot before it, then update the accumulators this+0x1E38 and this+0x1C5C (copying the high dword via this+0x1E3C into this+0x1C60 when the corresponding row is inactive).",
+      "evidence_refs": ["field:this:0x00000348", "field:this:0x0000034C", "field:this:0x00001E38", "field:this:0x00001C5C", "field:this:0x00001C60", "field:this:0x00001E3C", "source:raw"]
+    },
+    {
+      "kind": "state_transition",
+      "description": "When a partial step was taken (v149 != a2), rescale the output velocities and force terms by v149/a2 and loop again with the remaining time a2 = a2 - v149 (sub-stepping loop).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Apply the resolved impulses to the chassis and wheel bodies through the four chassis pointer fields this+0x3E8, this+0x84C, this+0xCB0 and this+0x1114 (each exposing body rows at +0x1C/+0x34/+0x4C), scaled by the torque factor at this+0x1EA4, and accumulate into the two body-object force accumulators reached via this+0x15F0 and this+0x141C (+0x2C/+0x44/+0x5C read axes, +0x14C/+0x154/+0x15C writes).",
+      "evidence_refs": ["field:this:0x000003E8", "field:this:0x000003EC", "field:this:0x0000084C", "field:this:0x00000CB0", "field:this:0x00001114", "field:this:0x000015F0", "field:this:0x0000141C", "field:this:0x00001EA4", "field:*(this+0x3E8):0x0000001C", "field:*(this+0x3E8):0x00000034", "field:*(this+0x3E8):0x0000004C", "field:*(this+0x84C):0x0000001C", "field:*(this+0x84C):0x00000034", "field:*(this+0x84C):0x0000004C", "field:*(this+0xCB0):0x0000001C", "field:*(this+0xCB0):0x00000034", "field:*(this+0xCB0):0x0000004C", "field:*(this+0x1114):0x0000001C", "field:*(this+0x1114):0x00000034", "field:*(this+0x1114):0x0000004C", "field:*(this+0x141C):0x0000002C", "field:*(this+0x141C):0x00000044", "field:*(this+0x141C):0x0000005C", "field:*(this+0x141C):0x0000014C", "field:*(this+0x141C):0x00000154", "field:*(this+0x141C):0x0000015C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked on the frame path from WheelDataCopy (0x004414D0) and PhysicsStepFrame (0x00441600).",
+      "evidence_refs": ["caller:0x004414D0", "caller:0x00441600", "function:0x0043F7F0"]
+    },
+    {
+      "kind": "return",
+      "description": "Return void after the sub-stepping loop finishes.",
+      "evidence_refs": ["function:0x0043F7F0", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// time-stepping suspension LCP solver; a2 = time remaining",
+    "// 1. per-wheel projection via ConstraintProjectGramSchmidt -> v243..v246",
+    "// 2. slip-force target v247 from clamp(wheelVel, +-2.0) * coefficient",
+    "// 3. tire spring/damper curve lookup at this+0x1CFC -> v248",
+    "// 4. accumulate (v248+v247) onto body reached via this+0x15F0",
+    "// 5. mode switch (this+0x1E14) builds per-wheel brake impulse target",
+    "// 6. build 6x7 constraint matrix, sub_5677B0 solve, iterate to convergence",
+    "// 7. apply min-step v149, update velocities this+0x1E38 / this+0x1C5C",
+    "// 8. apply impulses to chassis bodies this+0x3E8/0x84C/0xCB0/0x1114 and this+0x15F0/0x141C"
+  ],
+  "unresolved": [
+    "The eleven read-only globals listed by the fact table (dbl_59E420, dbl_59E430, flt_59E440, dbl_59E880, dbl_59E900, dbl_59EB50, dbl_59EC10, dbl_59ED08, dbl_59ED10, flt_59ED18, dbl_59ED20) do not appear in the decompiled body; they are likely physics constants folded into the constraint projection, curve and solve helpers.",
+    "The body reads an external per-index velocity table (dword_5C7530) when the index at this+0x1EF0 exceeds 7; that global is not part of this packet's fact table and is not reconstructed here.",
+    "The wheel data blocks referenced through this+0x348, this+0x360, this+0x368 and this+0x660 (stride 0x464) and the chassis-body objects reached via this+0x3E8, this+0x84C, this+0xCB0, this+0x1114, this+0x141C and this+0x15F0 are treated as opaque objects; their internal layout beyond the packet fields is not reconstructed.",
+    "sub_5677B0 (6x6 LCP solve) and ConstraintProjectGramSchmidt are opaque callees whose bodies fall outside this function's evidence."
+  ],
+  "unresolved_evidence_refs": [
+    "global:0x0059E420",
+    "global:0x0059E430",
+    "global:0x0059E440",
+    "global:0x0059E880",
+    "global:0x0059E900",
+    "global:0x0059EB50",
+    "global:0x0059EC10",
+    "global:0x0059ED08",
+    "global:0x0059ED10",
+    "global:0x0059ED18",
+    "global:0x0059ED20"
+  ],
+  "confidence": {
+    "semantics": "MEDIUM",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

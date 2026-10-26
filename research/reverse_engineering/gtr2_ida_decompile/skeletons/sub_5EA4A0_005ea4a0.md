@@ -1,0 +1,67 @@
+## sub_5EA4A0_005ea4a0 — [LLM: short descriptive name]
+
+**Summary:** [LLM: 1-2 sentences — what it does, what system]
+
+**Called by:** sub_5DC7E0 (005dc7e0)
+
+**Struct fields accessed:**
+
+| Base | Offset | R/W | Init (literal → value) | Purpose |
+|------|--------|-----|------------------------|---------|
+| this | 0x0 | RW | 0 | [LLM] |
+| this | 0xC | RW | 0 | [LLM] |
+| this | 0x10 | RW | 0 | [LLM] |
+| this | 0x14 | RW | 0 | [LLM] |
+| this | 0x18 | RW | 0 | [LLM] |
+| this | 0x1C | RW | 0 | [LLM] |
+| this | 0x20 | RW | 0 | [LLM] |
+| this | 0x24 | RW | 0 | [LLM] |
+| this | 0x28 | RW | 0 | [LLM] |
+| this | 0x2C | RW | 0 | [LLM] |
+| this | 0x30 | RW | 0 | [LLM] |
+| this | 0x34 | RW | 0 | [LLM] |
+| this | 0x38 | RW | 0 | [LLM] |
+| this | 0x3C | RW | 0 | [LLM] |
+| this | 0x40 | RW | 0 | [LLM] |
+| this | 0x44 | RW | 0 | [LLM] |
+| this | 0x48 | RW | 0 | [LLM] |
+| this | 0x4C | RW | 0 | [LLM] |
+| this | 0x50 | RW | 0 | [LLM] |
+
+**Written-by note (persistence):**
+- this 0x0: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0xC: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x10: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x14: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x18: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x1C: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x20: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x24: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x28: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x2C: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x30: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x34: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x38: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x3C: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x40: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x44: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x48: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x4C: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+- this 0x50: [LLM: written once/conditional/recalc every frame? would an external poke survive?]
+
+**Globals referenced:**
+
+| Address | Name | R/W | Role |
+|---------|------|-----|------|
+| 006ec979 | SEH_5EA4A0 | R | [LLM] |
+
+**Functions called:**
+
+| Address | Name | Purpose |
+|---------|------|---------|
+| 005d9010 | GlobalZeroInit_c2a0 [exact] | [LLM] |
+| 005d98a0 | sub_5D98A0 | [LLM] |
+| 005d9c90 | sub_5D9C90 | [LLM] |
+| 005d9cf0 | sub_5D9CF0 | [LLM] |
+
+**Guard conditions:** [LLM: from code — field, checked values, what PASSES vs what is BLOCKED]

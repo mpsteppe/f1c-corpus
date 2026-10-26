@@ -1,0 +1,53 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00461900
+// Canonical corpus name: SessionConfigWriteback
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SessionConfigWriteback_00461900.c
+
+void UnknownObject::SessionConfigWriteback()
+{
+    // Deserializes a received multiplayer session-configuration struct (this) into global game-state variables. Parses scene data, AI config and track name, then copies byte/short/float fields and a packed bitfield word into clamped global settings (player count, weather mode, tire model, penalties, pit windows, damage, fuel, etc.). Applies a ClampByRange / ByteClamp / FloatClamp after every write, and ends by calling sub_4B0EF0(5).
+    // CALL: __thiscall entry: parse scene data from this+32 and AI info via AIW(0). [abi:lead, callee:0x004C5690, callee:0x004C54F0]
+    // CALL: Parse and format the track name at this+64. [callee:0x004B1410]
+    // ASSIGNMENT: Copy nine byte config fields (this+0x64, 0x66..0x6D) into global settings dword_7D0A44, dword_7D0FC4, dword_7D0C18, dword_7D0D14, dword_7D0014, dword_7CEB10, dword_7D0EBC, dword_7CF134, dword_7CF038. [field:this:0x00000064, field:this:0x00000066, field:this:0x00000067, field:this:0x00000068, field:this:0x00000069, field:this:0x0000006A, field:this:0x0000006B, field:this:0x0000006C, field:this:0x0000006D, global:0x007D0A44, global:0x007D0FC4, global:0x007D0C18, global:0x007D0D14, global:0x007D0014, global:0x007CEB10, global:0x007D0EBC, global:0x007CF134, global:0x007CF038]
+    // CALL: ClampByRange each byte setting against its per-field range bound (dword_7D0A50, dword_7D0FD0, dword_7D0C24, dword_7D0D20, dword_7D0020, dword_7CEB1C, dword_7D0EC8, dword_7CF140, dword_7CF044). [callee:0x0047F1F0, global:0x007D0A50, global:0x007D0FD0, global:0x007D0C24, global:0x007D0D20, global:0x007D0020, global:0x007CEB1C, global:0x007D0EC8, global:0x007CF140, global:0x007CF044]
+    // ASSIGNMENT: Copy float field this+0x60 into flt_7D084C and clamp it via FloatClamp(flt_7D0854, flt_7D0858). [field:this:0x00000060, global:0x007D084C, callee:0x004646C0, global:0x007D0854, global:0x007D0858]
+    // ASSIGNMENT: Copy short field this+0x74 into dword_7D0F4C and clamp via ClampByRange(dword_7D0F58). [field:this:0x00000074, global:0x007D0F4C, callee:0x0047F1F0, global:0x007D0F58]
+    // GUARD: Bit-packed option word at this+0x76 drives guarded writes: bit0 set -> byte_7CE874 = (word & 0x40) != 0, then ByteClamp(byte_7CE877); bit1 set -> byte_7CE88C = (word & 0x80) != 0, then ByteClamp(byte_7CE88F); bit2 set -> dword_7CE958 = (word & 0x100) >> 8, then ClampByRange(dword_7CE964); bit3 set -> byte_7CE97C = (word & 0x200) != 0, then ByteClamp(byte_7CE97F). [field:this:0x00000076, global:0x007CE874, callee:0x00464720, global:0x007CE877, global:0x007CE88C, global:0x007CE88F, global:0x007CE958, callee:0x0047F1F0, global:0x007CE964, global:0x007CE97C, global:0x007CE97F]
+    // GUARD: When the bit4 of the byte at this+0x76 is set, write flt_7D108C = (double)*(unsigned short*)(this+0x7C) * 0.001 and clamp via FloatClamp(flt_7D1094, flt_7D1098). [field:this:0x00000076, field:this:0x0000007C, global:0x007D108C, callee:0x004646C0, global:0x007D1094, global:0x007D1098]
+    // ASSIGNMENT: Unconditionally extract and write the remaining bitfields of the word at this+0x76: dword_7CED44 = (word & 0x400) >> 10, dword_7CEE40 = (word & 0x800) >> 11, dword_7CEF3C = (word & 0x1000) >> 12. [field:this:0x00000076, global:0x007CED44, global:0x007CEE40, global:0x007CEF3C]
+    // CALL: Clamp the extracted bitfield globals: ClampByRange(dword_7CED50), ClampByRange(dword_7CEE4C), ClampByRange(dword_7CEF48). [callee:0x0047F1F0, global:0x007CED50, global:0x007CEE4C, global:0x007CEF48]
+    // ASSIGNMENT: Copy short fields this+0x78 and this+0x7A into dword_7CEC30 and dword_7CEC54, then clamp via ClampByRange(dword_7CEC3C) and ClampByRange(dword_7CEC60). [field:this:0x00000078, field:this:0x0000007A, global:0x007CEC30, global:0x007CEC54, callee:0x0047F1F0, global:0x007CEC3C, global:0x007CEC60]
+    // ASSIGNMENT: Set dword_7D0134 from BitFlagTestAt0x6E(this, 1) and clamp via ClampByRange(dword_7D0140). [callee:0x004615F0, global:0x007D0134, callee:0x0047F1F0, global:0x007D0140]
+    // RETURN: Return the result of sub_4B0EF0(5). [callee:0x004B0EF0]
+
+    // Conservative worker pseudocode:
+    //   int SessionConfigWriteback(int this) {
+    //     SceneDataParser(this + 32);
+    //     AIW(0);
+    //     NameCompareAndFormat(this + 64);
+    //     dword_7D0A44 = *(char*)(this + 100); ClampByRange(dword_7D0A50);
+    //     dword_7D0FC4 = *(char*)(this + 102); ClampByRange(dword_7D0FD0);
+    //     dword_7D0C18 = *(char*)(this + 103); ClampByRange(dword_7D0C24);
+    //     dword_7D0D14 = *(char*)(this + 104); ClampByRange(dword_7D0D20);
+    //     dword_7D0014 = *(char*)(this + 105); ClampByRange(dword_7D0020);
+    //     dword_7CEB10 = *(char*)(this + 106); ClampByRange(dword_7CEB1C);
+    //     dword_7D0EBC = *(char*)(this + 107); ClampByRange(dword_7D0EC8);
+    //     dword_7CF134 = *(char*)(this + 108); ClampByRange(dword_7CF140);
+    //     dword_7CF038 = *(char*)(this + 109); ClampByRange(dword_7CF044);
+    //     flt_7D084C = *(float*)(this + 96); FloatClamp(flt_7D0854, flt_7D0858);
+    //     dword_7D0F4C = *(__int16*)(this + 116); ClampByRange(dword_7D0F58);
+    //     // guarded writes gated on the bit-packed word at this + 118 (0x76)
+    //     dword_7CED44 = (word & 0x400) >> 10; ClampByRange(dword_7CED50);
+    //     dword_7CEE40 = (word & 0x800) >> 11; ClampByRange(dword_7CEE4C);
+    //     dword_7CEF3C = (word & 0x1000) >> 12; ClampByRange(dword_7CEF48);
+    //     dword_7CEC30 = *(__int16*)(this + 120); ClampByRange(dword_7CEC3C);
+    //     dword_7CEC54 = *(__int16*)(this + 122); ClampByRange(dword_7CEC60);
+    //     dword_7D0134 = BitFlagTestAt0x6E(this, 1); ClampByRange(dword_7D0140);
+    //     return sub_4B0EF0(5);
+    //   }
+    // UNRESOLVED: Exact semantic identity of each clamped setting (weather index, tire model, penalties, etc.) is not provable from this function alone; names in existing analysis are prose, not facts.
+    // UNRESOLVED: The neighbor globals that share the clamp buffers (byte_7CE876, dword_7CE960, dword_7CEC38, dword_7CEC5C, dword_7CED4C, dword_7CEE48, dword_7CEF44, dword_7CF040, dword_7CF13C, dword_7D001C, dword_7D013C, dword_7D0A4C, dword_7D0C20, dword_7D0D1C, dword_7D0EC4, dword_7D0F54, dword_7D0FCC, dword_7CEB18, byte_7CE88E, byte_7CE97E) are absent from the raw source body.
+    // UNRESOLVED: Read-only globals flt_59E600, byte_7CE498 and unk_8AC368 are absent from the raw source body.
+    // UNRESOLVED: The unpacked word at this+0x76 is re-read for every guarded bit; which caller message layout produces it is external.
+}

@@ -1,0 +1,28 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x0049AAD0
+// Canonical corpus name: WidgetRectBounds
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/WidgetRectBounds_0049aad0.c
+
+void UnknownObject::WidgetRectBounds()
+{
+    // Computes a widget's output bounding rectangle into four caller-supplied output pointers a2/a3/a4/a5. When the widget's 16-bit height (this+0x28) is not greater than 0 or its 16-bit width (this+0x2A) is not greater than 0, copies the raw dword rectangle at this+0x4/this+0x8/this+0xC/this+0x10 straight through. Otherwise computes the pixel-accurate bounds from the 16-bit start coordinates and extents: left = this+0x26, right = this+0x26 + this+0x2A - 1, top = this+0x24, bottom = this+0x24 + this+0x28 - 1. Returns the a4 output pointer.
+    // GUARD: Guards on the 16-bit dimensions: when height this+0x28 is less than or equal to 0, or width this+0x2A is less than or equal to 0, the widget has no valid pixel size and the raw dword rectangle is emitted instead [guard:0, guard:1, field:this:0x00000028, field:this:0x0000002A, source:raw]
+    // ASSIGNMENT: Raw fallback path: writes the dword rectangle this+0x4/this+0x8/this+0xC/this+0x10 to the four outputs a2/a3/a4/a5 [field:this:0x00000004, field:this:0x00000008, field:this:0x0000000C, field:this:0x00000010, source:raw]
+    // CALCULATION: Computed path: a2 = this+0x26 (left start), a3 = this+0x26 + this+0x2A - 1 (right end), a4 = this+0x24 (top start), a5 = this+0x24 + this+0x28 - 1 (bottom end), all 16-bit values [field:this:0x00000024, field:this:0x00000026, field:this:0x00000028, field:this:0x0000002A, source:raw]
+    // RETURN: Returns the a4 output pointer from both paths [source:raw]
+
+    // Conservative worker pseudocode:
+    //   if (*(int16*)(this+0x28) <= 0 || *(int16*)(this+0x2A) <= 0) {
+    //     *a2 = *(this+0x4); *a3 = *(this+0x8); *a4 = *(this+0xC); *a5 = *(this+0x10);
+    //   } else {
+    //     *a2 = *(int16*)(this+0x26);
+    //     *a3 = *(int16*)(this+0x26) + *(int16*)(this+0x2A) - 1;
+    //     *a4 = *(int16*)(this+0x24);
+    //     *a5 = *(int16*)(this+0x24) + *(int16*)(this+0x28) - 1;
+    //   }
+    //   return a4;
+    // UNRESOLVED: The exact roles of the 16-bit fields this+0x24 and this+0x26 (start coordinates) versus this+0x28 and this+0x2A (extents) are consistent with the guard and arithmetic but not independently labelled by the packet
+    // UNRESOLVED: The meaning of the raw dword fallback rectangle this+0x4 through this+0x10 is not grounded here
+    // UNRESOLVED: The owner class of the widget is not identified; owner remains UnknownObject
+}

@@ -1,0 +1,126 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x00510D60
+// Canonical corpus name: MP3HuffmanDecoder
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/MP3HuffmanDecoder_00510d60.c
+
+void UnknownObject::BuildHuffmanTable()
+{
+    // MP3 Huffman table builder: reads stream bytes through the stream-state struct at this+0x14 (refilled by the callback stored at index 3 when exhausted), decodes per-entry control bytes (low nibble = table index into a lazily allocated buffer slot at this + 36 + index via VTableAllocNullTerminate, high nibble = value flag), fills the selected WORD table from the position table dword_5AF778..dword_5AF878 using 1- or 2-byte (big-endian) values, and when the batch-count field at obj+0x68 is >= 2 emits eight 8-WORD batches into the obj+0x18..0x34 word-batch fields through the obj vtable dispatch (states 80, 30, 92), persisting the stream pointer/count on exit.
+    // ASSIGNMENT: Resolve obj = *a1 (the state dispatcher object at this+0x00) and the stream-state struct v1 = a1[5] (pointer at this+0x14); from v1 read the current byte pointer v1[0] (field 0x00) and the remaining byte count v1[1]. [field:this:0x00000000, field:this:0x00000014, field:*(this+0x14):0x00000000, source:raw]
+    // GUARD: Guard: if the remaining count v1[1] is zero, invoke the refill callback v1[3](a1); a zero return aborts the decoder with return 0. The callback is an indirect call stored in the stream-state struct. [source:raw]
+    // CALCULATION: Build a 16-bit value from the next stream bytes: the first byte is shifted into the high byte (v25) and the next byte is added, forming the initial big-endian accumulator v26 = *v4 + v25. [source:raw]
+    // LOOP: Main entry loop: each iteration consumes one byte; the low nibble is the table index written to obj+0x18, the high nibble is the value flag written to obj+0x1C; the state word at obj+0x14 is set to 80 and the vtable entry at obj+0x04 is dispatched with (a1, 1). [field:obj:0x00000014, field:obj:0x00000018, field:obj:0x0000001C, field:obj:0x00000004, source:raw]
+    // GUARD: Guard: a table index >= 4 is invalid; the state word at obj+0x14 is set to 30, the index is written to obj+0x18, and the vtable entry at obj+0x00 is dispatched with (a1) before continuing. [field:obj:0x00000014, field:obj:0x00000018, field:obj:0x00000000, source:raw]
+    // ASSIGNMENT: Select the table buffer slot at this + 36 + index (a1[index + 36]); if empty, allocate it with VTableAllocNullTerminate(a1) (0x00516974). [callee:0x00516974, source:raw]
+    // LOOP: Fill loop: iterate the position table from dword_5AF778 to dword_5AF878; for each position read one stream byte, or two bytes (big-endian) when the value flag is set, and store the WORD into the table buffer at buffer + 2 * position. [global:0x005AF778, global:0x005AF878, source:raw]
+    // GUARD: Guard: when the batch-count field at obj+0x68 is >= 2, run the 64-WORD batch output stage. [guard:0, field:obj:0x00000068, source:raw]
+    // LOOP: Batch output loop: copy the eight WORD slots starting at table buffer + 4 into the obj+0x18..0x34 word-batch fields (obj+0x18, 0x1C, 0x20, 0x24, 0x28, 0x2C, 0x30, 0x34), set the state word at obj+0x14 to 92, dispatch vtable+4 with (a1, 2), and advance eight slots; repeated 8 times for a total of 64 WORDs. [field:obj:0x00000018, field:obj:0x0000001C, field:obj:0x00000020, field:obj:0x00000024, field:obj:0x00000028, field:obj:0x0000002C, field:obj:0x00000030, field:obj:0x00000034, field:obj:0x00000014, field:obj:0x00000004, source:raw]
+    // CALCULATION: Decrement the per-entry remaining-work counter v27 by 65, and additionally by 64 when the value flag was set. [source:raw]
+    // ASSIGNMENT: Persist stream state: write the remaining count back to v1[1] and the current byte pointer back to v1[0]; return 1 on success. [field:*(this+0x14):0x00000000, source:raw]
+
+    // Conservative worker pseudocode:
+    //   char sub_510D60(int *a1) {
+    //     uint8_t **v1 = (uint8_t **)a1[5];
+    //     uint8_t *p = *v1;
+    //     int remaining = v1[1];
+    //     if (!remaining) {
+    //       if (!v1[3](a1)) return 0;
+    //       p = *v1;
+    //       remaining = v1[1];
+    //     }
+    //     int word = ((*p) << 8);
+    //     uint8_t *q = p + 1;
+    //     int rem2 = remaining - 1;
+    //     if (!rem2) {
+    //       if (!v1[3](a1)) return 0;
+    //       q = *v1;
+    //       rem2 = v1[1];
+    //     }
+    //     rem2 -= 1;
+    //     int acc = *q + word;
+    //     q += 1;
+    //     int work = acc - 2;
+    //     while (work > 0) {
+    //       if (!rem2) {
+    //         if (!v1[3](a1)) return 0;
+    //         q = *v1;
+    //         rem2 = v1[1];
+    //       }
+    //       int byte = *q;
+    //       rem2 -= 1;
+    //       *(*a1 + 20) = 80;
+    //       int tableIndex = byte & 0xF;
+    //       *(*a1 + 24) = tableIndex;
+    //       int valueFlag = byte >> 4;
+    //       *(*a1 + 28) = valueFlag;
+    //       q += 1;
+    //       (*(**a1 + 4))(a1, 1);
+    //       if (tableIndex >= 4) {
+    //         *(*a1 + 20) = 30;
+    //         *(*a1 + 24) = tableIndex;
+    //         (**a1)(a1);
+    //       }
+    //       int *slot = &a1[tableIndex + 36];
+    //       if (!*slot)
+    //         *slot = VTableAllocNullTerminate(a1);
+    //       int *table = *slot;
+    //       int *pos = &dword_5AF778;
+    //       do {
+    //         int value;
+    //         if (valueFlag) {
+    //           if (!rem2) {
+    //             if (!v1[3](a1)) return 0;
+    //             q = *v1;
+    //             rem2 = v1[1];
+    //           }
+    //           rem2 -= 1;
+    //           int hi = (*q) << 8;
+    //           q += 1;
+    //           if (!rem2) {
+    //             if (!v1[3](a1)) return 0;
+    //             q = *v1;
+    //             rem2 = v1[1];
+    //           }
+    //           value = *q + hi;
+    //         } else {
+    //           if (!rem2) {
+    //             if (!v1[3](a1)) return 0;
+    //             q = *v1;
+    //             rem2 = v1[1];
+    //           }
+    //           value = *q;
+    //         }
+    //         rem2 -= 1;
+    //         q += 1;
+    //         *(WORD *)((char *)table + 2 * *pos) = (WORD)value;
+    //         pos += 1;
+    //       } while (pos < dword_5AF878);
+    //       if (*(int *)(*a1 + 104) >= 2) {
+    //         WORD *src = (WORD *)((char *)table + 4);
+    //         int batch = 8;
+    //         while (1) {
+    //           int *dst = (int *)(*a1 + 24);
+    //           dst[0] = *(src - 2); dst[1] = *(src - 1);
+    //           dst[2] = *src;       dst[3] = src[1];
+    //           dst[4] = src[2];     dst[5] = src[3];
+    //           dst[6] = src[4];     dst[7] = src[5];
+    //           *(*a1 + 20) = 92;
+    //           (*(**a1 + 4))(a1, 2);
+    //           src += 8;
+    //           if (!--batch) break;
+    //         }
+    //       }
+    //       work -= 65;
+    //       if (valueFlag) work -= 64;
+    //     }
+    //     v1[1] = rem2;
+    //     *v1 = q;
+    //     return 1;
+    //   }
+    // UNRESOLVED: Fields this+0x18 and this+0x20 are listed in the packet but not referenced by the raw source text; their purposes (aliases/cache of the stream pointer and table entry count) are not grounded here.
+    // UNRESOLVED: The exact Huffman semantics (bit widths, which decoder table dword_5AF778 indexes) are not recoverable from this function alone.
+    // UNRESOLVED: The refill callback stored at stream-state index 3 (v1[3]) and the dispatcher vtable behind obj are indirect calls; their concrete implementations are unknown.
+    // UNRESOLVED: The LEGACY ABI lead 'MP3_Huffman_Decoder' (abi:lead) ties this function to MP3 decoding, but its owning class is not established.
+    // UNRESOLVED: The caller CommandDispatchStateMachine (0x0051126A) drives this function through a state machine; the surrounding state-transition contract is not visible here.
+}

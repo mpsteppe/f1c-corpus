@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "address": "0x005609DE",
+  "proposed_name": "ImageBlitTransparent24",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Blits a 24-bit RGB image with transparent-color support. A global stores the transparent color (a7 masked to 24 bits) and a global stores the scanline byte width (3 * a5). When the transparent color is 0xFFFFFF the fast path copies whole scanlines with qmemcpy; otherwise each scanline copies pixels individually, skipping any pixel equal to the transparent color. Source and destination rows advance by precomputed stride differences after each scanline.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Store the transparent color from the last argument masked to 24 bits: dword_5DD804 = a7 & 0xFFFFFF.",
+      "evidence_refs": ["global:0x005DD804", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Store the scanline byte width: dword_5DD814 = 3 * a5.",
+      "evidence_refs": ["global:0x005DD814", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Compute per-row advance past the copied region for source (v17 = a2 - 3 * a5) and destination (v18 = a4 - 3 * a5).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Branch on whether the transparent color (a7 & 0xFFFFFF) equals 0xFFFFFF: selects the bulk-copy path vs the per-pixel path.",
+      "evidence_refs": ["global:0x005DD804", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Fast path: for each scanline, qmemcpy dword_5DD814 bytes from source to destination, then advance both pointers by the copied width plus the stored row advance.",
+      "evidence_refs": ["global:0x005DD814", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Slow path: for each scanline, copy a5 pixels one at a time; advance source and destination by their row-advance values at the end of the scanline.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Reconstruct one 24-bit pixel: read the low 16 bits from the word at source offset 0, shift, and read the third byte at source offset 2.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000002", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "If the reconstructed pixel differs from the stored transparent color, write the pixel as a 32-bit value at the destination; advance the destination by 3 bytes per pixel.",
+      "evidence_refs": ["global:0x005DD804", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Both paths iterate per scanline using a countdown on the row-count argument; loop continues while the countdown has not reached 1.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "void ImageBlitTransparent24(char *src, int srcRowStride, char *dst, int dstRowStride, int pixelsPerRow, int rows, int color) {",
+    "  dword_5DD804 = color & 0xFFFFFF;",
+    "  dword_5DD814 = 3 * pixelsPerRow;",
+    "  int srcAdv = srcRowStride - dword_5DD814;",
+    "  int dstAdv = dstRowStride - dword_5DD814;",
+    "  if (dword_5DD804 == 0xFFFFFF) {",
+    "    do { qmemcpy(dst, src, dword_5DD814); src += dword_5DD814 + srcAdv; dst += dword_5DD814 + dstAdv; } while (rows-- > 1);",
+    "  } else {",
+    "    do {",
+    "      int p = pixelsPerRow;",
+    "      do {",
+    "        unsigned v = *(unsigned short *)src | (((unsigned char)src[2]) << 16);",
+    "        src += 3;",
+    "        if (v != dword_5DD804) *(unsigned *)dst = v;",
+    "        dst += 3;",
+    "      } while (--p > 1);",
+    "      src += srcAdv; dst += dstAdv;",
+    "    } while (rows-- > 1);",
+    "  }",
+    "}"
+  ],
+  "unresolved": [
+    "Caller AudioPlaybackDispatcher (005401a0) is the only known caller; the exact source pixel layout and stride units are not evidenced beyond the 3-byte pixel reads.",
+    "The extra high byte written by the 32-bit store in the per-pixel path may write one byte past the logical pixel; not evidenced here."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}

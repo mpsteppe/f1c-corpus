@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "address": "0x00594E1A",
+  "proposed_name": "SlabSubAllocatorCarveBlock",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": []
+  },
+  "summary": "Carves a block of a3 bytes from a slab tracked by a cursor pointer (a1+0) and a remaining-size field (a1+4), using one-byte block-size headers (0 marks a free block). Tries the fast bump path at the cursor first; when insufficient space remains, scans previously allocated blocks for a contiguous free run of at least a3 bytes, bounded by the capacity budget a2. Returns the block address encoded as 16*(block+8) - 15*a1 on success, or 0 when no fit is found or the budget runs out.",
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Load v4 = *(a1+4) (remaining bytes at cursor) and v5 = *a1 (cursor pointer); save the original cursor in v16 and the slab end (a1+248) in v6/v17.",
+      "evidence_refs": ["field:this:0x00000004", "field:this:0x00000000", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "Fast path: if v4 >= a3 there is enough room at the cursor.",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Write the block-size header byte: *v5 = a3.",
+      "evidence_refs": ["field:obj:0x00000000", "field:obj:0x00000001", "source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Bump the cursor: if v5+a3 >= a1+248 wrap to a1+8 (set remaining to 0, cursor to a1+8); otherwise cursor += a3 and remaining -= a3.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the encoded block pointer 16*(v5+8) - 15*a1 for the fast-path bump.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "calculation",
+      "description": "Slow path: v9 = &v5[v4] marks the end of the cursor region; if a block-header byte is nonzero there, continue searching from v9.",
+      "evidence_refs": ["field:obj:0x00000001", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v7+a3 >= a1+248 no block fits starting at v7, jump to the full data-area scan (LABEL_20).",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Scan blocks from the data-area start a1+8: skip occupied blocks by their size-header byte (v12 += *v12).",
+      "evidence_refs": ["field:this:0x00000008", "field:this:0x00000009", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "On a free block, count the contiguous zero-byte run v14 starting at v12+1.",
+      "evidence_refs": ["field:obj:0x00000001", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v14 >= a3 a fit exists; otherwise consume v14 from the budget a2 and return 0 if a2 < a3.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Carve the found free run: update cursor (wrap to a1+8 or advance to v12+a3), set remaining to v14-a3 (or 0), write header byte *v12 = a3.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the encoded block pointer 16*(v12+8) - 15*a1 from the scanned fit.",
+      "evidence_refs": ["source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Walk free blocks from the cursor: while (*v7) advance v7 by its header size byte.",
+      "evidence_refs": ["field:obj:0x00000001", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Count the zero-byte free run v11 starting at v7+1.",
+      "evidence_refs": ["field:obj:0x00000001", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If v11 < a3 the run is too small: if still at the original cursor store remaining = v11, else consume v11 from the budget a2 (return 0 if a2 < a3), then retry the walk.",
+      "evidence_refs": ["field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "assignment",
+      "description": "Carve at v7: update cursor/remaining (wrap to a1+8 or advance to v7+a3), write header byte *v7 = a3.",
+      "evidence_refs": ["field:this:0x00000000", "field:this:0x00000004", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the encoded block pointer 16*(v7+8) - 15*a1.",
+      "evidence_refs": ["source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "int sub_594E1A(int a1, unsigned int budget, unsigned int a3) {",
+    "  // fast bump: write size header at cursor, advance cursor/remaining,",
+    "  //   return encoded pointer 16*(block+8) - 15*a1",
+    "  // scan: skip occupied blocks by their header size byte,",
+    "  //   count zero-byte free runs, carve the first run >= a3",
+    "  // budget a2 limits how much free space may be skipped",
+    "  // return 0 when no fit or budget exhausted",
+    "}"
+  ],
+  "unresolved": [
+    "The return encoding 16*(block+8) - 15*a1 converts a byte address into an opaque handle whose interpretation depends on the caller.",
+    "The capacity budget a2 and the a1+248 slab-end bound are not fully explained by the packet.",
+    "One-byte size headers cap blocks at 255 bytes; the policy for larger allocations is unconfirmed."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "MEDIUM"
+  }
+}

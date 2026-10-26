@@ -1,0 +1,24 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004A0E70
+// Canonical corpus name: SessionTypeGuard
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SessionTypeGuard_004a0e70.c
+
+void UnknownObject::SessionTypeGuard()
+{
+    // Session-type guard around a command dispatch. Returns 0 unless the dispatch interface dword_7CD8C0 is non-NULL and (session type dword_7C569C is 2 or 6, or the HUD-disable flag byte_7CE254 is set). When the guard passes, forwards a2 and a3 to sub_4989E0 on the interface and returns 1.
+    // GUARD: Guard: return 0 when dword_7CD8C0 (dispatch interface) is NULL, or when dword_7C569C (session type) is neither 2 nor 6 and byte_7CE254 (HUD-disable flag) is clear. [source:raw, global:0x007CD8C0, global:0x007C569C, global:0x007CE254]
+    // CALL: Dispatch: call sub_4989E0 with the interface dword_7CD8C0, a2 and a3. [source:raw, callee:0x004989E0, global:0x007CD8C0]
+    // RETURN: Return 1 after a successful dispatch; return 0 when the guard fails. [source:raw]
+
+    // Conservative worker pseudocode:
+    //   char sub_4A0E70(int a1, int a2, const char *a3) {
+    //     if (!dword_7CD8C0 || (dword_7C569C != 2 && dword_7C569C != 6 && !byte_7CE254))
+    //       return 0;
+    //     sub_4989E0((char*)dword_7CD8C0, a2, a3);
+    //     return 1;
+    //   }
+    // UNRESOLVED: Parameter a1 is unused in the body; purpose unknown.
+    // UNRESOLVED: Semantics of session-type values 2 and 6, and the exact role of byte_7CE254, not grounded in the packet.
+    // UNRESOLVED: sub_4989E0 message/command format unknown.
+}

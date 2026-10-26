@@ -1,0 +1,43 @@
+// Generated semantic map; not claimed original or recompilable game source.
+// Binary address: 0x004F0DD0
+// Canonical corpus name: SteeringForceWithRandom
+// Owner: UnknownObject [UNKNOWN]
+// Raw source: functions/SteeringForceWithRandom_004f0dd0.c
+
+void UnknownObject::SteeringForceWithRandom()
+{
+    // Computes a steering / force-feedback force with randomized sign noise: reads a base force from the object (offset 0x1058 via the pointer in *this), builds a speed-squared noise term from the velocity vector this[3387..3389] scaled through a mph conversion (2.2369363 and 0.0049999999), randomizes its sign through the LCG, blends the candidate toward the base force using dbl_8AFE98, clamps the result to [-0.3, 0.3], and feeds it into the UI timer tween. Called from the steering path sub_4F0430 (0x004F0430).
+    // GUARD: Compute the enable condition v2 = !byte_7C56AC || dword_8AB6E4 == 2; selects whether the speed-squared noise term is computed or forced to zero. [global:0x007C56AC, global:0x008AB6E4, source:raw]
+    // ASSIGNMENT: v3 = *this; the first dword of the object is read as a scalar and also dereferenced as the base pointer for the force-base and tween-target fields. [field:this:0x00000000, source:raw]
+    // ASSIGNMENT: Read the force feedback base value v9 = *(float*)(*(_DWORD*)this + 4184), i.e. the object field at offset 0x1058. [field:obj:0x00001058, field:this:0x00000000, source:raw]
+    // CALCULATION: v12 = this[3408] * -0.5; half the steering value negated. [field:this:0x00003540, source:raw]
+    // CALCULATION: If enabled, build the speed-squared noise term from this[3387], this[3388], this[3389]: sqrt of the squared component sum times 2.2369363 times 0.0049999999, then that value squared; otherwise the term is 0.0. [field:this:0x000034EC, field:this:0x000034F0, field:this:0x000034F4, source:raw]
+    // CALL: Draw a random value from RandLCGRandomNumberGenerator seeded with LODWORD(v3); the sign of (value & 0x80000001) selects the noise sign v6 of 1.0 or -1.0. [callee:0x005884ED, field:this:0x00000000, source:raw]
+    // CALCULATION: Blend toward the base force: v7 = (v11 * 0.30000001 * v6 + v12 - v9) * dbl_8AFE98 + v9. [global:0x008AFE98, source:raw]
+    // GUARD: Clamp the result to [-0.3, 0.3]: values below -0.30000001 are replaced by -0.30000001 and values above 0.30000001 are capped at 0.30000001. [callee:0x004E0C90, source:raw]
+    // RETURN: Feed the clamped steering force into the UI timer tween: UITimerTweenUpdate(*(_DWORD*)this + 1776, clampedValue) and return its result. [field:this:0x00000000, callee:0x004E0C90, source:raw]
+
+    // Conservative worker pseudocode:
+    //   int sub_4F0DD0(float* this) {
+    //     int enabled = !byte_7C56AC || dword_8AB6E4 == 2;
+    //     float base = *(float*)(*(int*)this + 4184);
+    //     float half = this[3408] * -0.5f;
+    //     float noise;
+    //     if (enabled) {
+    //       float s = sqrtf(this[3387]*this[3387] + this[3388]*this[3388] + this[3389]*this[3389]);
+    //       float scaled = s * 2.2369363f * 0.0049999999f;
+    //       noise = scaled * scaled;
+    //     } else {
+    //       noise = 0.0f;
+    //     }
+    //     int r = RandLCGRandomNumberGenerator((int)*this) & 0x80000001;
+    //     float sign = (r == 0) ? 1.0f : -1.0f;
+    //     float force = (noise * 0.30000001f * sign + half - base) * dbl_8AFE98 + base;
+    //     if (force < -0.30000001f) return UITimerTweenUpdate(*(int*)this + 1776, -0.30000001f);
+    //     if (force > 0.30000001f) force = 0.30000001f;
+    //     return UITimerTweenUpdate(*(int*)this + 1776, force);
+    //   }
+    // UNRESOLVED: The seven flt_ globals listed by the analysis table (0x0059E43C, 0x0059E670, 0x0059E8B4, 0x0059E99C, 0x0059F128, 0x005ACD3C, 0x005AD22C) are not referenced in the raw decompiled source; their role is unverified.
+    // UNRESOLVED: Random sign computation via the zero-ness of (rand & 0x80000001) is unusual; the exact intended distribution is unclear.
+    // UNRESOLVED: The semantics of this[3387..3389] as a velocity vector and the physical units implied by 2.2369363 / 0.0049999999 are plausible but not independently confirmed.
+}

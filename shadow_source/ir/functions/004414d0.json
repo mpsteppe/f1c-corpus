@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "address": "0x004414D0",
+  "proposed_name": "WheelDataCopy",
+  "owner": {
+    "type": "UnknownObject",
+    "trust": "UNKNOWN",
+    "evidence_refs": ["abi:lead", "function:0x004414D0"]
+  },
+  "summary": "Advances wheel state history: copies the history header fields forward (current slots take the previous-slot values), rotates the per-wheel state history slots, and copies per-wheel delta buffers from the previous-state buffer into the current-state buffer. Then dispatches the suspension wheel dynamics solver, two batch iterators, a per-body update pass, and the physics sub-object free routine.",
+  "local_names": {
+    "this": "wheel/vehicle physics object: history header 0x1C5C/0x1C64 and 0x1E38/0x1E40, per-wheel history slots 0x340..0x354, state count 0x15AC, previous-state buffer pointer 0x15B0, current-state buffer pointer 0x162C",
+    "a2": "time-step parameter forwarded to the dynamics solver and per-body update pass",
+    "v7": "dword iterator over the 4 wheel history blocks (1124-byte stride)",
+    "v16": "byte offset within the previous-state buffer entries (580-byte stride)",
+    "v17": "byte offset within the current-state buffer entries (48-byte stride)"
+  },
+  "operations": [
+    {
+      "kind": "assignment",
+      "description": "Copy wheel-state history header forward: current slots this+0x1C64/0x1C68 take the previous values at this+0x1C5C/0x1C60, and current slots this+0x1E40/0x1E44 take the previous values at this+0x1E38/0x1E3C.",
+      "evidence_refs": ["field:this:0x00001C5C", "field:this:0x00001C60", "field:this:0x00001C64", "field:this:0x00001C68", "field:this:0x00001E38", "field:this:0x00001E3C", "field:this:0x00001E40", "field:this:0x00001E44", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-wheel history slot rotation: 4 iterations over wheel blocks with a 1124-byte stride. Inside each block the dword pair at +0x340/+0x344 is copied from two dwords earlier, the pair at +0x350/+0x354 is copied from +0x348/+0x34C, and a 32-byte block is copied forward within the block.",
+      "evidence_refs": ["field:this:0x00000340", "field:this:0x00000344", "field:this:0x00000348", "field:this:0x0000034C", "field:this:0x00000350", "field:this:0x00000354", "source:raw"]
+    },
+    {
+      "kind": "guard",
+      "description": "If the wheel-state count at this+0x15AC is greater than zero, run the per-wheel delta-state buffer copy loop.",
+      "evidence_refs": ["guard:0", "field:this:0x000015AC", "source:raw"]
+    },
+    {
+      "kind": "loop",
+      "description": "Per-wheel delta copy: for each wheel (count at this+0x15AC), copy 24 bytes from the previous-state buffer entry (this+0x15B0, 580-byte stride) at offsets +308 and +332 into the current-state buffer entry (this+0x162C, 48-byte stride).",
+      "evidence_refs": ["field:this:0x000015AC", "field:this:0x000015B0", "field:this:0x0000162C", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "SuspensionWheelDynamicsSolver(this, a2) runs the suspension wheel dynamics solve for the vehicle object.",
+      "evidence_refs": ["callee:0x0043F7F0", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_56ECF0(&this[0x15AC]) iterates the wheel-state region at this+0x15AC.",
+      "evidence_refs": ["callee:0x0056ECF0", "field:this:0x000015AC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "sub_56EE40(&this[0x15AC]) iterates the wheel-state region at this+0x15AC.",
+      "evidence_refs": ["callee:0x0056EE40", "field:this:0x000015AC", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "IteratePhysicsBodiesCallUpdateFunction(a2) runs the per-body update pass with the same time-step parameter.",
+      "evidence_refs": ["callee:0x0056F020", "source:raw"]
+    },
+    {
+      "kind": "return",
+      "description": "Return the result of PhysicsSubObjectFree(this).",
+      "evidence_refs": ["callee:0x00441450", "source:raw"]
+    },
+    {
+      "kind": "call",
+      "description": "Invoked from the frame-path integration step VehiclePhysicsIntegrationStep (00441650).",
+      "evidence_refs": ["caller:0x00441650", "source:raw"]
+    }
+  ],
+  "clean_pseudocode": [
+    "// header: this[0x1C64]=this[0x1C5C]; this[0x1C68]=this[0x1C60];",
+    "//         this[0x1E40]=this[0x1E38]; this[0x1E44]=this[0x1E3C];",
+    "// for 4 wheel blocks (1124-byte stride): rotate the +0x340/+0x350 history pairs; copy 32 bytes",
+    "// if (this[0x15AC] > 0) for each wheel:",
+    "//   copy 24 bytes from prev buffer (this+0x15B0, stride 580) +308 and +332 into current buffer (this+0x162C, stride 48)",
+    "// SuspensionWheelDynamicsSolver(this, a2);",
+    "// sub_56ECF0(&this[0x15AC]); sub_56EE40(&this[0x15AC]);",
+    "// IteratePhysicsBodiesCallUpdateFunction(a2);",
+    "// return PhysicsSubObjectFree(this);"
+  ],
+  "unresolved": [
+    "The two batch-iterator callees sub_56ECF0 and sub_56EE40 have no packet names or known semantics beyond taking the wheel-state region at this+0x15AC.",
+    "The 580-byte previous-state stride and 48-byte current-state stride are deterministic from the raw source loop increments but the meaning of the copied 24-byte records is not confirmed.",
+    "The history-header offsets this+0x1C5C/0x1C64 and this+0x1E38/0x1E40 pairs are treated as two independent history buffers based on their symmetric copy pattern; their distinct roles are DERIVED."
+  ],
+  "unresolved_evidence_refs": [],
+  "confidence": {
+    "semantics": "HIGH",
+    "owner": "LOW",
+    "control_flow": "HIGH"
+  }
+}
